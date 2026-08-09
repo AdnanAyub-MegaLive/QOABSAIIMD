@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import RecordTable from "../components/record-table";
 
 const tabs = [
   "Agency Home",
@@ -13,80 +14,7 @@ const tabs = [
   "Agency Apply",
   "Join Requests",
 ];
-const agencies = [
-  {
-    rank: 1,
-    id: "AG-1008",
-    name: "Starlight Network",
-    talents: 84,
-    gifts: "8.42M",
-    target: "112%",
-    status: "Achieved",
-  },
-  {
-    rank: 2,
-    id: "AG-1014",
-    name: "Royal Creators",
-    talents: 67,
-    gifts: "7.18M",
-    target: "96%",
-    status: "On track",
-  },
-  {
-    rank: 3,
-    id: "AG-1003",
-    name: "Moon Media",
-    talents: 58,
-    gifts: "6.45M",
-    target: "88%",
-    status: "On track",
-  },
-  {
-    rank: 4,
-    id: "AG-1021",
-    name: "Voice Hub",
-    talents: 49,
-    gifts: "4.92M",
-    target: "71%",
-    status: "At risk",
-  },
-];
-const topTalents = [
-  {
-    rank: 1,
-    id: "TL-2048",
-    name: "Aisha Khan",
-    agency: "Starlight Network",
-    gifts: "1.42M",
-    target: "118%",
-  },
-  {
-    rank: 2,
-    id: "TL-2091",
-    name: "Maya Stone",
-    agency: "Royal Creators",
-    gifts: "1.19M",
-    target: "104%",
-  },
-  {
-    rank: 3,
-    id: "TL-2088",
-    name: "Aiden Brooks",
-    agency: "Moon Media",
-    gifts: "984K",
-    target: "92%",
-  },
-  {
-    rank: 4,
-    id: "TL-2112",
-    name: "Zara Ali",
-    agency: "Voice Hub",
-    gifts: "876K",
-    target: "87%",
-  },
-];
-
-export default function AgencyTabs({ applications = [], joinRequests = [] }) {
+export default function AgencyTabs({ applications = [], joinRequests = [], overview, modules }) {
   const searchParams = useSearchParams();
   const requested = searchParams.get("tab");
   const [active, setActive] = useState(
@@ -116,31 +44,28 @@ export default function AgencyTabs({ applications = [], joinRequests = [] }) {
       </div>
       <section role="tabpanel">
         {active === "Agency Home" ? (
-          <AgencyHome applications={applications} />
+          <AgencyHome overview={overview} />
         ) : (
-          <Module tab={active} applications={applications} joinRequests={joinRequests} />
+          <Module tab={active} applications={applications} joinRequests={joinRequests} modules={modules} />
         )}
       </section>
     </>
   );
 }
 
-function AgencyHome({ applications }) {
-  const pendingCount = applications.filter(
-    (application) => application.status === "PENDING",
-  ).length;
+function AgencyHome({ overview }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
-          ["Total agencies", "42", "38 currently active"],
-          ["Agency hosts", "1,284", "Across all agencies"],
-          ["Total Recharge", "PKR 48.6M", "Recharge by all Agencies / Users"],
-          ["Monthly gifts", "27.8M", "104% of target"],
+          ["Total agencies", overview.totalAgencies, `${overview.activeAgencies} currently active`],
+          ["Agency hosts", overview.totalHosts, "Across all agencies"],
+          ["Total Recharge", overview.totalRecharge, "Recorded host recharge coins"],
+          ["Monthly gifts", overview.monthlyGifts, "Current UTC calendar month"],
           [
             "Pending applications",
-            pendingCount.toLocaleString(),
-            "Awaiting review",
+            overview.pendingApplications + overview.pendingJoinRequests,
+            "Applications and join requests",
           ],
         ].map(([label, value, note]) => (
           <div
@@ -154,14 +79,14 @@ function AgencyHome({ applications }) {
         ))}
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
-        <AgencyTable />
-        <TalentTable />
+        <AgencyTable agencies={overview.rankings} />
+        <TalentTable hosts={overview.topHosts} />
       </div>
     </div>
   );
 }
 
-function AgencyTable() {
+function AgencyTable({ agencies }) {
   return (
     <Card
       title="Agency ranking"
@@ -188,21 +113,22 @@ function AgencyTable() {
                 <strong className="block">{item.name}</strong>
                 <span className="text-[9px] text-[#849691]">{item.id}</span>
               </td>
-              <td>{item.talents}</td>
-              <td className="font-semibold">{item.gifts}</td>
-              <td>{item.target}</td>
+              <td>{item.hosts}</td>
+              <td className="font-semibold">{BigInt(item.gifts).toLocaleString()}</td>
+              <td>{BigInt(item.target).toLocaleString()} · {item.progress.toFixed(1)}%</td>
               <td className="pr-5">
-                <Status value={item.status} />
+                <Status value={item.target === "0" ? "Not set" : item.progress >= 100 ? "Achieved" : "In progress"} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {!agencies.length && <p className="p-10 text-center text-xs text-[#81938e]">No agencies have been created.</p>}
     </Card>
   );
 }
 
-function TalentTable() {
+function TalentTable({ hosts }) {
   return (
     <Card
       title="Top hosts"
@@ -215,11 +141,11 @@ function TalentTable() {
             <th>Host</th>
             <th>Agency</th>
             <th>Gifts</th>
-            <th className="pr-5">Target</th>
+            <th className="pr-5">Type</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#edf2f1]">
-          {topTalents.map((item) => (
+          {hosts.map((item) => (
             <tr key={item.id} className="hover:bg-[#f9fcfb]">
               <td className="px-5 py-4 font-bold text-[#087f74]">
                 #{item.rank}
@@ -229,55 +155,29 @@ function TalentTable() {
                 <span className="text-[9px] text-[#849691]">{item.id}</span>
               </td>
               <td>{item.agency}</td>
-              <td className="font-semibold">{item.gifts}</td>
-              <td className="pr-5">{item.target}</td>
+              <td className="font-semibold">{BigInt(item.gifts).toLocaleString()}</td>
+              <td className="pr-5">{item.kind}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      {!hosts.length && <p className="p-10 text-center text-xs text-[#81938e]">No agency hosts are available.</p>}
     </Card>
   );
 }
 
-function Module({ tab, applications, joinRequests }) {
-  const copy = {
-    "Agency Tasks": [
-      "Agency tasks",
-      "Create and review agency targets, deadlines, and completion status.",
-    ],
-    "Monthly Salary": [
-      "Monthly agency salary",
-      "Review monthly agency commissions and payment status.",
-    ],
-    "Host Salaries": [
-      "Host salaries",
-      "Review salary calculations for hosts working under each agency.",
-    ],
-    "Agency Apply": [
-      "Agency applications",
-      "Review applications to create or register a new agency.",
-    ],
-    "Join Requests": [
-      "Agency join requests",
-      "Review users requesting to become hosts under an existing agency.",
-    ],
-  }[tab];
+function Module({ tab, applications, joinRequests, modules }) {
   if (tab === "Agency Apply")
     return <AgencyApplications applications={applications} />;
   if (tab === "Join Requests")
     return <AgencyJoinRequests initialRequests={joinRequests} />;
-  return (
-    <div className="rounded-2xl border border-[#dce8e5] bg-white p-8">
-      <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#e4f6f3] text-lg font-bold text-[#087f74]">
-        {tab[0]}
-      </span>
-      <h3 className="mt-5 text-lg font-bold">{copy[0]}</h3>
-      <p className="mt-2 max-w-2xl text-sm text-[#71847f]">{copy[1]}</p>
-      <div className="mt-8 rounded-xl border border-dashed border-[#cbded9] bg-[#f8fbfa] px-6 py-12 text-center text-xs text-[#81938e]">
-        This module is ready for its database workflow and management actions.
-      </div>
-    </div>
-  );
+  if (tab === "Agency Tasks")
+    return <RecordTable title="Agency Targets" description="Live progress against owner-configured monthly targets." rows={modules.tasks} columns={[{key:"agencyId",label:"Agency ID",mono:true},{key:"agency",label:"Agency"},{key:"target",label:"Target coins"},{key:"achieved",label:"Gift coins"},{key:"progress",label:"Progress"},{key:"status",label:"Status",badge:true}]}/>;
+  if (tab === "Monthly Salary")
+    return <RecordTable title="Monthly Agency Salary" description="Current-month salary and commission amounts derived from gift settlements." rows={modules.monthlySalaries} columns={[{key:"agencyId",label:"Agency ID",mono:true},{key:"agency",label:"Agency"},{key:"hostSalary",label:"Host salary coins"},{key:"agencyCommission",label:"Agency commission"},{key:"status",label:"Status",badge:true}]}/>;
+  if (tab === "Host Salaries")
+    return <RecordTable title="Host Salaries" description="Current salary balances for every database-linked agency host." rows={modules.hostSalaries} columns={[{key:"hostId",label:"Host ID",mono:true},{key:"host",label:"Host"},{key:"agency",label:"Agency"},{key:"type",label:"Host type"},{key:"salaryBalance",label:"Salary balance"}]}/>;
+  return null;
 }
 
 function AgencyJoinRequests({ initialRequests }) {

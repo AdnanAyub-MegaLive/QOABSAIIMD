@@ -3,11 +3,33 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
 import PortalSidebar from "../components/portal-sidebar";
+import { prisma } from "../../lib/prisma";
 
 export default async function DashboardHome() {
   const session = await auth();
   if (!session?.user) redirect("/");
   const firstName = session.user.name?.split(" ")[0] ?? "Admin";
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(todayStart); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  const [totalUsers, userHosts, activeTalents, liveAudioRooms, liveVideoSessions, giftsToday, recentLogs, recentRooms, recentSessions] = await Promise.all([
+    prisma.user.count({ where: { deletedAt: null } }),
+    prisma.user.count({ where: { deletedAt: null, appRoles: { has: "HOST" }, status: "ACTIVE" } }),
+    prisma.talent.count({ where: { status: "ACTIVE" } }),
+    prisma.audioRoom.findMany({ where: { status: "LIVE" }, select: { participantCount: true } }),
+    prisma.liveSession.findMany({ where: { status: "LIVE" }, select: { peakViewers: true } }),
+    prisma.giftTransaction.aggregate({ where: { createdAt: { gte: todayStart } }, _sum: { coinValue: true }, _count: true }),
+    prisma.auditLog.findMany({ include: { admin: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 4 }),
+    prisma.audioRoom.findMany({ where: { startedAt: { gte: sevenDaysAgo } }, select: { startedAt: true } }),
+    prisma.liveSession.findMany({ where: { startedAt: { gte: sevenDaysAgo } }, select: { startedAt: true } }),
+  ]);
+  const activeHosts = userHosts + activeTalents;
+  const audioLive = liveAudioRooms.length;
+  const videoLive = liveVideoSessions.length;
+  const audience = liveAudioRooms.reduce((sum, room) => sum + room.participantCount, 0) + liveVideoSessions.reduce((sum, stream) => sum + stream.peakViewers, 0);
+  const days = Array.from({ length: 7 }, (_, index) => { const date = new Date(sevenDaysAgo); date.setDate(date.getDate() + index); const next = new Date(date); next.setDate(next.getDate() + 1); const count = recentRooms.filter((item) => item.startedAt >= date && item.startedAt < next).length + recentSessions.filter((item) => item.startedAt >= date && item.startedAt < next).length; return { label: index === 6 ? "Today" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" }), count }; });
+  const maxActivity = Math.max(1, ...days.map((day) => day.count));
+  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
@@ -42,31 +64,31 @@ export default async function DashboardHome() {
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold text-[#16877d]">
-                Wednesday, July 15
+                {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
               </p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
-                Good morning, {firstName}.
+                {greeting}, {firstName}.
               </h2>
               <p className="mt-1.5 text-sm text-[#71847f]">
                 Here is what is happening across your platform today.
               </p>
             </div>
-            <button className="h-10 rounded-lg border border-[#d7e4e1] bg-white px-4 text-xs font-semibold text-[#526b67] hover:bg-[#f1f7f5]">
-              Download report
-            </button>
+            <Link href="/audit-logs" className="grid h-10 place-items-center rounded-lg border border-[#d7e4e1] bg-white px-4 text-xs font-semibold text-[#526b67] hover:bg-[#f1f7f5]">
+              View audit report
+            </Link>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              ["Total users", "12,486", "+12.5%", "Users / Senders", "/users"],
+              ["Total users", totalUsers.toLocaleString(), "Live data", "Users / Senders", "/users"],
               [
                 "Active hosts",
-                "486",
-                "+5.2%",
+                activeHosts.toLocaleString(),
+                "Live data",
                 "Video & Audio Hosts",
                 "/talents",
               ],
-              ["Live now", "156", "+18.4%", "Video & Audio", "#"],
-              ["Gifts today", "2.84M", "+9.7%", "Total gift value", "/talents"],
+              ["Live now", (audioLive + videoLive).toLocaleString(), "Live data", "Video & Audio", "/users?tab=Audio%20Room%20Records"],
+              ["Gifts today", (giftsToday._sum.coinValue ?? 0n).toLocaleString(), `${giftsToday._count} transactions`, "Total gift value", "/users?tab=Gift%20Sending%20History"],
             ].map(([label, value, change, detail, href]) => (
               <Link
                 key={label}
@@ -106,25 +128,17 @@ export default async function DashboardHome() {
                 </select>
               </div>
               <div className="mt-8 flex h-52 items-end justify-between gap-2 border-b border-[#e6eeec] px-2">
-                {[42, 58, 51, 72, 65, 88, 79, 96, 73, 85, 68, 91, 76, 84].map(
-                  (height, index) => (
-                    <div key={index} className="flex h-full flex-1 items-end">
+                {days.map((day) => (
+                    <div key={day.label} className="flex h-full flex-1 items-end" title={`${day.count} sessions`}>
                       <span
                         className="w-full rounded-t-sm bg-linear-to-t from-[#158e82] to-[#55d7c7] opacity-80"
-                        style={{ height: `${height}%` }}
+                        style={{ height: `${Math.max(3, (day.count / maxActivity) * 100)}%` }}
                       />
                     </div>
-                  ),
-                )}
+                  ))}
               </div>
               <div className="mt-3 flex justify-between text-[9px] text-[#93a19e]">
-                <span>Jul 9</span>
-                <span>Jul 10</span>
-                <span>Jul 11</span>
-                <span>Jul 12</span>
-                <span>Jul 13</span>
-                <span>Jul 14</span>
-                <span>Today</span>
+                {days.map((day)=><span key={day.label}>{day.label}</span>)}
               </div>
             </section>
             <section className="rounded-2xl bg-linear-to-br from-[#0a3c38] to-[#0b625a] p-6 text-white shadow-[0_12px_32px_rgba(9,73,68,.15)]">
@@ -133,13 +147,13 @@ export default async function DashboardHome() {
                 <p className="text-xs font-bold">Live network</p>
               </div>
               <p className="mt-2 text-[10px] text-[#88bbb5]">
-                All systems operational
+                Live database activity
               </p>
               <div className="mt-8 space-y-5">
                 {[
-                  ["Video streams", "84", "54%"],
-                  ["Audio rooms", "72", "46%"],
-                  ["Current audience", "2,847", "78%"],
+                  ["Video streams", videoLive.toLocaleString(), `${videoLive + audioLive ? (videoLive / (videoLive + audioLive)) * 100 : 0}%`],
+                  ["Audio rooms", audioLive.toLocaleString(), `${videoLive + audioLive ? (audioLive / (videoLive + audioLive)) * 100 : 0}%`],
+                  ["Current audience", audience.toLocaleString(), "100%"],
                 ].map(([label, value, width]) => (
                   <div key={label}>
                     <div className="mb-2 flex justify-between text-[11px]">
@@ -200,45 +214,29 @@ export default async function DashboardHome() {
                     Latest platform events
                   </p>
                 </div>
-                <button className="text-[10px] font-bold text-[#087f74]">
+                <Link href="/audit-logs" className="text-[10px] font-bold text-[#087f74]">
                   View all
-                </button>
+                </Link>
               </div>
               <div className="divide-y divide-[#edf2f1]">
-                {[
-                  [
-                    "New host application",
-                    "Zara Ali submitted verification",
-                    "4 min",
-                  ],
-                  [
-                    "VIP user upgraded",
-                    "Olivia Martin reached VIP level 6",
-                    "18 min",
-                  ],
-                  ["Device banned", "Admin blocked device USR-1045", "42 min"],
-                  [
-                    "Salary processed",
-                    "July host salary batch completed",
-                    "1 hr",
-                  ],
-                ].map(([title, detail, time]) => (
+                {recentLogs.map((log) => (
                   <div
-                    key={title}
+                    key={log.id}
                     className="flex items-start gap-3 px-5 py-3.5"
                   >
                     <span className="mt-1.5 h-2 w-2 rounded-full bg-[#38ad9f]" />
                     <div>
-                      <p className="text-[11px] font-bold">{title}</p>
+                      <p className="text-[11px] font-bold">{log.action.replaceAll("_", " ")}</p>
                       <p className="mt-0.5 text-[10px] text-[#81928e]">
-                        {detail}
+                        {log.description}
                       </p>
                     </div>
                     <span className="ml-auto shrink-0 text-[9px] text-[#98a7a4]">
-                      {time}
+                      {relativeTime(log.createdAt, now)}
                     </span>
                   </div>
                 ))}
+                {!recentLogs.length && <p className="px-5 py-10 text-center text-xs text-[#81928e]">No platform activity has been recorded.</p>}
               </div>
             </section>
           </div>
@@ -268,4 +266,14 @@ function ManagementLink({ href, title, detail, color }) {
       </span>
     </Link>
   );
+}
+
+function relativeTime(value, now = new Date()) {
+  const seconds = Math.max(0, Math.floor((now - value) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
 }

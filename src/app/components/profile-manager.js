@@ -176,7 +176,7 @@ export default function ProfileManager({ profile, type }) {
         <h2 className="text-base font-bold">Device and login information</h2>
         <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            ["Last login", data.lastLogin || "Jul 16, 2026 · 09:42 AM"],
+            ["Last login", data.lastLogin || "Never"],
             ["Last login IP", data.ip],
             ["MAC address", data.mac],
             ["Location", data.location],

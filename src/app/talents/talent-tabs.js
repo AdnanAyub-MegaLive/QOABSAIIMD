@@ -168,14 +168,23 @@ function TalentList({ talents }) {
       ),
     [talents, query, typeFilter, statusFilter],
   );
+  const videoHosts = talents.filter(
+    ([, type]) => type === "Video Streamer" || type === "Video And Audio Host",
+  ).length;
+  const audioHosts = talents.filter(
+    ([, type]) => type === "Audio Room Host" || type === "Video And Audio Host",
+  ).length;
+  const awaitingVerification = talents.filter(
+    ([, , , status]) => status !== "Verified",
+  ).length;
   return (
     <>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Total hosts", "486", "+24 this month"],
-          ["Video streamers", "274", "56.4% of hosts"],
-          ["Audio room hosts", "212", "43.6% of hosts"],
-          ["Awaiting verification", "18", "Requires review"],
+          ["Total hosts", talents.length, "Stored host accounts"],
+          ["Video streamers", videoHosts, `${talents.length ? Math.round((videoHosts / talents.length) * 100) : 0}% of hosts`],
+          ["Audio room hosts", audioHosts, `${talents.length ? Math.round((audioHosts / talents.length) * 100) : 0}% of hosts`],
+          ["Awaiting verification", awaitingVerification, "Requires review"],
         ].map(([label, value, note]) => (
           <div
             key={label}
@@ -277,7 +286,7 @@ function TalentList({ talents }) {
           )}
         </div>
         <div className="border-t border-[#e8efed] px-5 py-4 text-[10px] text-[#849691]">
-          Showing {filtered.length} of {talents.length} sample hosts
+          Showing {filtered.length} of {talents.length} hosts
         </div>
       </div>
     </>
