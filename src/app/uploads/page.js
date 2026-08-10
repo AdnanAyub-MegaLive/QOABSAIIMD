@@ -23,12 +23,23 @@ export default async function UploadsPage() {
         actionUrl: true,
         isGlobal: true,
         isRoomBackground: true,
+        distribution: true,
+        storeVisible: true,
+        coinPrice: true,
+        giftTier: true,
+        minimumVipLevel: true,
+        minimumRecharge: true,
+        defaultGrantDurationMinutes: true,
+        active: true,
         createdAt: true,
         assignments: {
           select: {
             assignedAt: true,
             durationMinutes: true,
             expiresAt: true,
+            source: true,
+            sourceReference: true,
+            purchasePrice: true,
             user: {
               select: { publicId: true, name: true, profileImage: true },
             },
