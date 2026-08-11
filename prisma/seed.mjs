@@ -547,6 +547,20 @@ async function main() {
     });
   }
 
+  const walletPackages = [
+    ["COIN_1000", 1000n, 0, "50", false, 10],
+    ["COIN_5000", 5000n, 5, "240", false, 20],
+    ["COIN_10000", 10000n, 10, "460", false, 30],
+    ["COIN_25000", 25000n, 20, "1050", true, 40],
+    ["COIN_50000", 50000n, 25, "2000", false, 50],
+  ];
+  for (const [id, coins, bonusPercent, price, bestValue, sortOrder] of walletPackages)
+    await prisma.walletCoinPackage.upsert({
+      where: { id },
+      update: { coins, bonusPercent, price, bestValue, sortOrder, currency: "PKR", active: true },
+      create: { id, coins, bonusPercent, price, bestValue, sortOrder, currency: "PKR" },
+    });
+
   if ((await prisma.auditLog.count()) === 0) {
     await prisma.auditLog.createMany({
       data: [

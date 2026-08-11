@@ -14,6 +14,7 @@ import {
 import { reconcileExpiredAudioRoomRestrictions } from "../lib/audio-room-maintenance";
 import { syncProgressionProps } from "../lib/props-store";
 import { normalizeApplicationRoles, primaryLegacyRole } from "../lib/user-roles";
+import { ledgerData } from "../lib/wallet";
 
 async function requireAdmin() {
   const session = await auth();
@@ -258,6 +259,18 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
         balanceAfter: after,
         reason,
       },
+    }),
+    prisma.walletTransaction.create({
+      data: ledgerData({
+        userId: user.id,
+        type: "ADMIN_ADJUSTMENT",
+        direction: operation === "add" ? "CREDIT" : "DEBIT",
+        title: operation === "add" ? "Coins added by administrator" : "Coins removed by administrator",
+        description: reason,
+        coins: operation === "add" ? value : user.coinBalance - after,
+        referenceId: `COIN-ADJUSTMENT:${user.publicId}:${Date.now()}`,
+        metadata: { adminId: admin.id, operation },
+      }),
     }),
   ]);
   await logActivity(admin, {

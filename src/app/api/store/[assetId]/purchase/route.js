@@ -6,6 +6,7 @@ import {
   requireMobileUser,
 } from "../../../../../lib/mobile-api.js";
 import { entitlementExpiry } from "../../../../../lib/props-store.js";
+import { ledgerData } from "../../../../../lib/wallet.js";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -79,6 +80,18 @@ export async function POST(request, { params }) {
             assetName: asset.name,
             price,
           },
+        });
+        await tx.walletTransaction.create({
+          data: ledgerData({
+            userId: user.id,
+            type: "STORE_PURCHASE",
+            direction: "DEBIT",
+            title: "Store purchase",
+            description: asset.name,
+            coins: price,
+            referenceId: purchaseId,
+            metadata: { assetId: asset.publicId },
+          }),
         });
         const updated = await tx.user.findUniqueOrThrow({
           where: { id: user.id },

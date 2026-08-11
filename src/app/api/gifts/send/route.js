@@ -9,6 +9,7 @@ import { coinsForShare, getProfitSplitRule } from "@/lib/profit-rules";
 import { emitToAudioRoom, emitToUser } from "@/lib/realtime";
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
+import { ledgerData } from "@/lib/wallet";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -130,6 +131,18 @@ export async function POST(request) {
           roomId,
         },
       });
+      await tx.walletTransaction.create({
+        data: ledgerData({
+          userId: sessionUser.id,
+          type: "GIFT_SENT",
+          direction: "DEBIT",
+          title: `Sent ${giftAsset.name}`,
+          description: `To ${recipientId}`,
+          coins: grossCoins,
+          referenceId: gift.id,
+          metadata: { giftId: giftAsset.publicId, quantity, recipientId, roomId },
+        }),
+      });
       if (talent)
         await tx.talent.update({
           where: { id: talent.id },
@@ -144,6 +157,26 @@ export async function POST(request) {
           data: isHost
             ? { hostSalaryCoinBalance: { increment: hostSalaryCoins } }
             : { coinBalance: { increment: reusableCoins } },
+        });
+      if (recipientUser && (isHost ? hostSalaryCoins : reusableCoins) > 0n)
+        await tx.walletTransaction.create({
+          data: ledgerData({
+            userId: recipientUser.id,
+            type: "GIFT_RECEIVED",
+            direction: "CREDIT",
+            title: "Received from Gift",
+            description: `From ${sessionUser.name} (${sessionUser.publicId})`,
+            ...(isHost
+              ? { diamonds: hostSalaryCoins }
+              : { coins: reusableCoins }),
+            referenceId: gift.id,
+            metadata: {
+              giftId: giftAsset.publicId,
+              quantity,
+              grossCoins: grossCoins.toString(),
+              recipientType: isHost ? "HOST" : "NORMAL_USER",
+            },
+          }),
         });
       if (agencyId)
         await tx.agency.update({

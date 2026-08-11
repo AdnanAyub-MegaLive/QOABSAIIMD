@@ -11,7 +11,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:seed": "prisma db seed && node prisma/seed-events.mjs",
-    "events:seed": "node prisma/seed-events.mjs"
+    "events:seed": "node prisma/seed-events.mjs",
+    "wallet:setup": "node scripts/setup-wallet-db.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
