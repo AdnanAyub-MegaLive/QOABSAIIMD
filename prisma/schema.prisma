@@ -188,6 +188,7 @@ model User {
   posts                    Post[]
   conversationParticipants ConversationParticipant[]
   sentMessages             Message[]
+  sentAudioRoomMessages    AudioRoomMessage[]
   notifications            Notification[]
   notificationReads        NotificationRead[]
   friendRequestsSent       FriendRequest[]           @relation("FriendRequestsSent")
@@ -294,6 +295,25 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
+}
+
+model AudioRoomMessage {
+  id             String     @id @default(cuid())
+  publicId       String     @unique
+  audioRoomId    String?
+  roomPublicId   String
+  roomTitle      String
+  senderId       String?
+  senderPublicId String
+  senderName     String
+  body           String
+  createdAt      DateTime   @default(now())
+  audioRoom      AudioRoom? @relation(fields: [audioRoomId], references: [id], onDelete: SetNull)
+  sender         User?      @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([senderId, createdAt])
+  @@index([roomPublicId, createdAt])
+  @@index([createdAt])
 }
 
 model Notification {
@@ -979,6 +999,7 @@ model AudioRoom {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   owner                User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  messages             AudioRoomMessage[]
 
   @@unique([ownerId])
   @@index([ownerId, startedAt])

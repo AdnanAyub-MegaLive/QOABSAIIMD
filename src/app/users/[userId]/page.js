@@ -37,7 +37,7 @@ export default async function UserProfilePage({ params }) {
     },
   });
   if (!user) notFound();
-  const [messages, notifications, receivedGiftTotals] = await Promise.all([
+  const [messages, roomMessages, notifications, receivedGiftTotals] = await Promise.all([
     prisma.message.findMany({
       where: {
         OR: [
@@ -68,6 +68,18 @@ export default async function UserProfilePage({ params }) {
             },
           },
         },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    }),
+    prisma.audioRoomMessage.findMany({
+      where: { senderId: user.id },
+      select: {
+        publicId: true,
+        roomPublicId: true,
+        roomTitle: true,
+        body: true,
+        createdAt: true,
       },
       orderBy: { createdAt: "desc" },
       take: 500,
@@ -147,6 +159,14 @@ export default async function UserProfilePage({ params }) {
       createdAt: message.createdAt.toLocaleString("en-US"),
       timestamp: message.createdAt.getTime(),
     }));
+  const audioRoomMessages = roomMessages.map((message) => ({
+    messageId: message.publicId,
+    roomId: message.roomPublicId,
+    roomTitle: message.roomTitle,
+    body: message.body,
+    createdAt: message.createdAt.toLocaleString("en-US"),
+    timestamp: message.createdAt.getTime(),
+  }));
   const directConversationMap = new Map();
   for (const message of messages.filter(
     (record) => record.conversation.kind === "DIRECT",
@@ -229,6 +249,7 @@ export default async function UserProfilePage({ params }) {
         <MessageHistory
           profile={{ id: user.publicId, name: user.name }}
           worldMessages={worldMessages}
+          roomMessages={audioRoomMessages}
           directConversations={directConversations}
           notifications={notificationHistory}
         />

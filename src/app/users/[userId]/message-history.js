@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 export default function MessageHistory({
   profile,
   worldMessages,
+  roomMessages,
   directConversations,
   notifications,
 }) {
@@ -23,6 +24,16 @@ export default function MessageHistory({
           createdAt: message.createdAt,
           timestamp: message.timestamp,
           searchText: `${message.body} ${message.messageId} ${profile.name} ${profile.id} world chat`,
+        })),
+        ...roomMessages.map((message) => ({
+          key: `room-${message.messageId}`,
+          type: "Room Chat",
+          activity: `${message.roomTitle} (${message.roomId})`,
+          details: message.body,
+          reference: message.messageId,
+          createdAt: message.createdAt,
+          timestamp: message.timestamp,
+          searchText: `${message.body} ${message.messageId} ${message.roomTitle} ${message.roomId} ${profile.name} ${profile.id} room chat`,
         })),
         ...directConversations.map((conversation) => ({
           key: `direct-${conversation.id}`,
@@ -67,7 +78,7 @@ export default function MessageHistory({
           searchText: `${notification.title} ${notification.body} ${notification.scope} ${notification.messageId}`,
         })),
       ].sort((left, right) => right.timestamp - left.timestamp),
-    [directConversations, notifications, profile, worldMessages],
+    [directConversations, notifications, profile, roomMessages, worldMessages],
   );
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -88,8 +99,8 @@ export default function MessageHistory({
             </p>
             <h2 className="mt-1 text-lg font-bold">Messaging history</h2>
             <p className="mt-1 text-xs text-[#748782]">
-              World Chat messages sent by this user, grouped private
-              conversations, and system notifications.
+              World Chat and audio-room messages sent by this user, grouped
+              private conversations, and system notifications.
             </p>
           </div>
           <label className="block w-full md:max-w-sm">

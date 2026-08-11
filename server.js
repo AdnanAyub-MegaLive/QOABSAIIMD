@@ -226,6 +226,49 @@ app.prepare().then(async()=>{
         io.to(`user:${room.owner.publicId}`).emit("audio-room:seat-sync-request",{success:true,data:{roomId:room.roomId,requesterId:userId,requesterName:user.name,requesterProfileImage:user.profileImage??null,requesterGender:user.gender??null,requesterDob:formatDateOnly(user.dob),requesterIsVerified:Boolean(user.isVerified),requesterIsOfficial:Boolean(user.isOfficial),requesterFrameUrl:joiningPerks?.frameUrl??null,requesterBadgeUrl:joiningPerks?.badgeUrl??null,reason:"VIEWER_JOINED"}});
       }
     });
+    socket.on("audio-room:message",async({roomId,body}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??"");
+        const text=typeof body==="string"?body.trim():"";
+        if(!text||text.length>200)return ack({success:false,error:{code:"VALIDATION_ERROR",message:"Messages must be between 1 and 200 characters."}});
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,roomId:true,title:true,status:true,isBlocked:true}});
+        if(!room||room.status!=="LIVE"||room.isBlocked)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST"}});
+        const senderPerks=(await resolveUserPerks([user],connectionOrigin,["BADGES","CHAT_BOXES"])).get(user.publicId);
+        const messageId=`ARM-${randomUUID().replaceAll("-","").slice(0,16).toUpperCase()}`;
+        const storedMessage=await prisma.audioRoomMessage.create({
+          data:{
+            publicId:messageId,
+            audioRoomId:room.id,
+            roomPublicId:room.roomId,
+            roomTitle:room.title,
+            senderId:user.id,
+            senderPublicId:user.publicId,
+            senderName:user.name,
+            body:text,
+          },
+          select:{createdAt:true},
+        });
+        const data={
+          id:messageId,
+          roomId:id,
+          body:text,
+          createdAt:storedMessage.createdAt.toISOString(),
+          sender:{
+            publicId:user.publicId,
+            name:user.name,
+            profileImage:user.profileImage??null,
+            badgeUrl:senderPerks?.badgeUrl??null,
+            chatBoxUrl:senderPerks?.chatBoxUrl??null,
+          },
+        };
+        io.to(`audio-room:${id}`).emit("audio-room:message",{success:true,data});
+        ack({success:true,data});
+      }catch(error){
+        console.error("Audio room message failed",error);
+        ack({success:false,error:{code:"MESSAGE_SEND_FAILED",message:"Unable to send this message."}});
+      }
+    });
     socket.on("audio-room:seat-update",async({roomId,seatRows,notes}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");

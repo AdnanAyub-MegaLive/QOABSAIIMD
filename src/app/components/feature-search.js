@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 const features = [
   ["Events Management", "Host and publish web events for the mobile application", "/events-login"],
   ["Dashboard", "Platform overview and activity", "/home"],
+  ["Rankings", "Review mobile leaderboards and score calculations", "/rankings"],
   ["Audit Logs", "Review all portal and administrator activity", "/audit-logs"],
   ["Users / Senders", "Manage users and gift senders", "/users"],
   ["User List", "Browse and filter user accounts", "/users?tab=User%20List"],

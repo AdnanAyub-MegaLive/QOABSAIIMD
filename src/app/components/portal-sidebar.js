@@ -11,6 +11,7 @@ export const portalNavigation = [
   ["Agency Management", "/agencies"],
   ["Rules & Profit Split", "/platform-rules"],
   ["Uploads", "/uploads"],
+  ["Rankings", "/rankings"],
   ["Audit Logs", "/audit-logs"],
   ["Events Management", "/events-login"],
   // ["Live Streams", "#"],

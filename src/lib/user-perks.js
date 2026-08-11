@@ -5,6 +5,7 @@ import { formatDateOnly } from "./date-only.js";
 const perkFields = {
   FRAMES: "frameUrl",
   BADGES: "badgeUrl",
+  CHAT_BOXES: "chatBoxUrl",
   ENTRANCES: "entranceUrl",
   TAIL_LIGHTS: "rideUrl",
   RIDES: "rideUrl",
@@ -66,6 +67,7 @@ export async function resolveUserPerks(
       {
         frameUrl: null,
         badgeUrl: null,
+        chatBoxUrl: null,
         entranceUrl: null,
         rideUrl: null,
         roomBackgroundUrl: null,
