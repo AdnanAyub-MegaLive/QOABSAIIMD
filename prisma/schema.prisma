@@ -984,6 +984,7 @@ model AudioRoom {
   roomId               String    @unique
   ownerId              String
   title                String
+  country              String?
   status               String    @default("LIVE")
   liveAudioUrl         String?
   recordingUrl         String?

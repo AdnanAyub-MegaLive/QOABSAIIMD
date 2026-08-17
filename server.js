@@ -302,6 +302,21 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:"SEAT_REQUEST_FAILED"}});
       }
     });
+    socket.on("audio-room:seat-leave",async({roomId,seatId}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??"");
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},include:{owner:{select:{publicId:true}}}});
+        if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(room.owner.publicId===userId)return ack({success:false,error:{code:"OWNER_CANNOT_LEAVE_SEAT"}});
+        if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST"}});
+        const data={roomId:id,seatId:String(seatId??""),userId,leftAt:new Date().toISOString()};
+        io.to(`user:${room.owner.publicId}`).emit("audio-room:seat-leave",{success:true,data});
+        ack({success:true,data});
+      }catch(error){
+        console.error("Audio room seat leave failed",error);
+        ack({success:false,error:{code:"SEAT_LEAVE_FAILED"}});
+      }
+    });
     socket.on("audio-room:seat-response",async({roomId,requestId,requesterId,seatId,accepted,reason}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");

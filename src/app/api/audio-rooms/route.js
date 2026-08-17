@@ -167,6 +167,11 @@ export async function POST(request) {
       );
 
     const now = new Date();
+    const countryProvided = Object.prototype.hasOwnProperty.call(
+      body,
+      "country",
+    );
+    const country = typeof body.country === "string" ? body.country : null;
     const data = {
       title,
       status: "LIVE",
@@ -180,8 +185,13 @@ export async function POST(request) {
     const created = !existing;
     existing = await prisma.audioRoom.upsert({
       where: { ownerId: user.id },
-      update: data,
-      create: { roomId: createRoomId(), ownerId: user.id, ...data },
+      update: { ...data, ...(countryProvided ? { country } : {}) },
+      create: {
+        roomId: createRoomId(),
+        ownerId: user.id,
+        ...data,
+        country: countryProvided ? country : null,
+      },
     });
     await writeAudit(
       user,
@@ -281,6 +291,7 @@ function serializeRoom(room, perks) {
   return {
     roomId: room.roomId,
     title: room.title,
+    country: room.country ?? null,
     status: room.status,
     liveAudioUrl: room.liveAudioUrl,
     recordingUrl: room.recordingUrl,

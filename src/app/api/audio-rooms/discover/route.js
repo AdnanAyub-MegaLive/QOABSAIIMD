@@ -70,6 +70,7 @@ export async function GET(request) {
       select: {
         roomId: true,
         title: true,
+        country: true,
         participantCount: true,
         startedAt: true,
         owner: {
@@ -99,6 +100,7 @@ export async function GET(request) {
         rooms: rooms.map((room) => ({
           roomId: room.roomId,
           title: room.title,
+          country: room.country ?? null,
           participantCount: room.participantCount,
           startedAt: room.startedAt,
           roomBackgroundUrl:
