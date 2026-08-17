@@ -334,4 +334,11 @@ app.prepare().then(async()=>{
   });
 
   httpServer.listen(port,hostname,()=>console.log(`> Portal and Socket.IO ready on http://${hostname}:${port}`));
+}).catch((error)=>{
+  if(error?.code==="P1000"){
+    console.error("> Portal startup failed: PostgreSQL rejected DATABASE_URL credentials. Replace the placeholder username/password in .env.local with a valid PostgreSQL account.");
+  }else{
+    console.error("> Portal startup failed",error);
+  }
+  process.exit(1);
 });

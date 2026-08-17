@@ -12,6 +12,7 @@ export const portalNavigation = [
   ["Rules & Profit Split", "/platform-rules"],
   ["Uploads", "/uploads"],
   ["Rankings", "/rankings"],
+  ["Message History", "/messages"],
   ["Audit Logs", "/audit-logs"],
   ["Events Management", "/events-login"],
   // ["Live Streams", "#"],
