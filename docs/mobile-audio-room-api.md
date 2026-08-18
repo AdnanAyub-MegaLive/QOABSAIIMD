@@ -69,6 +69,35 @@ The Socket.IO server also performs this automatically when the final socket leav
 }
 ```
 
+## Room cover image
+
+The room owner can upload a separate Party-card cover image after the room ID
+has been assigned:
+
+```http
+POST /api/audio-rooms/cover
+Authorization: Bearer <sessionToken>
+Content-Type: multipart/form-data
+```
+
+Send the JPEG, PNG, or WebP file in the `image` form field. The maximum size
+is 10 MB. The endpoint validates both the declared MIME type and the file's
+binary signature.
+
+```json
+{
+  "success": true,
+  "data": {
+    "coverImageUrl": "https://portal.example.com/api/audio-rooms/ROOM-7F30A921B8C4/cover"
+  }
+}
+```
+
+The owner's room responses and every Discover room entry include
+`coverImageUrl`. It is `null` until a cover has been uploaded. This image is
+only the Party/Discover card cover and does not replace the owner's profile
+image or room background.
+
 ## Socket.IO
 
 Join only after the START response:
@@ -209,6 +238,7 @@ and rooms owned by unavailable accounts are excluded.
       {
         "roomId": "ROOM-7F30A921B8C4",
         "title": "Late Night Music Lounge",
+        "coverImageUrl": "https://portal.example.com/api/audio-rooms/ROOM-7F30A921B8C4/cover",
         "participantCount": 12,
         "startedAt": "2026-07-22T08:00:00.000Z",
         "owner": {

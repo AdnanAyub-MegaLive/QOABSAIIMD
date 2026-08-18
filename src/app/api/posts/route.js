@@ -5,7 +5,7 @@ import {
   mobileOptions,
   requireMobileUser,
 } from "@/lib/mobile-api";
-import { requestOrigin } from "@/lib/user-perks";
+import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 
 const pageSize = 20;
 const maxImageSize = 10 * 1024 * 1024;
@@ -56,6 +56,7 @@ export async function GET(request) {
         createdAt: true,
         author: {
           select: {
+            id: true,
             publicId: true,
             name: true,
             profileImage: true,
@@ -69,6 +70,11 @@ export async function GET(request) {
     const hasMore = records.length > pageSize;
     const page = records.slice(0, pageSize);
     const origin = requestOrigin(request);
+    const perksByPublicId = await resolveUserPerks(
+      page.map((post) => post.author),
+      origin,
+      ["FRAMES", "BADGES"],
+    );
     return mobileJson({
       success: true,
       data: {
@@ -82,6 +88,10 @@ export async function GET(request) {
             fullName: post.author.name,
             profileImage: post.author.profileImage,
             isOfficial: Boolean(post.author.isOfficial),
+            frameUrl:
+              perksByPublicId.get(post.author.publicId)?.frameUrl ?? null,
+            badgeUrl:
+              perksByPublicId.get(post.author.publicId)?.badgeUrl ?? null,
           },
         })),
         nextCursor: hasMore ? page.at(-1)?.publicId ?? null : null,

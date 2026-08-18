@@ -988,6 +988,9 @@ model AudioRoom {
   status               String    @default("LIVE")
   liveAudioUrl         String?
   recordingUrl         String?
+  coverImageUrl        String?
+  coverImageData       Bytes?
+  coverImageMime       String?
   participantCount     Int       @default(0)
   joiningDisabled      Boolean   @default(false)
   joiningDisabledUntil DateTime?

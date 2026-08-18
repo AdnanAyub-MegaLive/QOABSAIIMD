@@ -336,15 +336,34 @@ app.prepare().then(async()=>{
     });
     socket.on("audio-room:leave",async({roomId}={},ack=()=>{})=>{
       const id=String(roomId??"");
+      const room=await prisma.audioRoom.findUnique({where:{roomId:id},include:{owner:{select:{publicId:true}}}});
+      const isOwner=room?.owner?.publicId===socket.data.userId;
       await socket.leave(`audio-room:${id}`);
       const participantCount=io.sockets.adapter.rooms.get(`audio-room:${id}`)?.size??0;
+      if(isOwner&&participantCount>0){
+        io.to(`audio-room:${id}`).emit("audio-room:owner-left",{success:true,data:{roomId:id,reason:"OWNER_LEFT"}});
+      }
       if(participantCount)await prisma.audioRoom.updateMany({where:{roomId:id,status:"LIVE"},data:{participantCount}});
       else await releaseEmptyAudioRoom(id);
       ack({success:true,data:{roomId:id,participantCount,idRetained:true}});
     });
     socket.on("disconnecting",()=>{
       const roomIds=[...socket.rooms].filter((name)=>name.startsWith("audio-room:")).map((name)=>name.slice(11));
-      for(const roomId of roomIds)setTimeout(()=>releaseEmptyAudioRoom(roomId).catch(console.error),0);
+      for(const roomId of roomIds){
+        setTimeout(async()=>{
+          try{
+            const room=await prisma.audioRoom.findUnique({where:{roomId},include:{owner:{select:{publicId:true}}}});
+            const isOwner=room?.owner?.publicId===socket.data.userId;
+            const remaining=io.sockets.adapter.rooms.get(`audio-room:${roomId}`)?.size??0;
+            if(isOwner&&remaining>0){
+              io.to(`audio-room:${roomId}`).emit("audio-room:owner-left",{success:true,data:{roomId,reason:"OWNER_LEFT"}});
+            }
+            await releaseEmptyAudioRoom(roomId);
+          }catch(error){
+            console.error("Audio room disconnect cleanup failed",error);
+          }
+        },0);
+      }
     });
   });
 

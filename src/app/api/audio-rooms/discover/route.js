@@ -71,6 +71,7 @@ export async function GET(request) {
         roomId: true,
         title: true,
         country: true,
+        coverImageUrl: true,
         participantCount: true,
         startedAt: true,
         owner: {
@@ -89,9 +90,10 @@ export async function GET(request) {
       orderBy: [{ participantCount: "desc" }, { startedAt: "desc" }],
       take: 50,
     });
+    const origin = requestOrigin(request);
     const perks = await resolveUserPerks(
       rooms.map((room) => room.owner),
-      requestOrigin(request),
+      origin,
     );
 
     return json({
@@ -101,6 +103,9 @@ export async function GET(request) {
           roomId: room.roomId,
           title: room.title,
           country: room.country ?? null,
+          coverImageUrl: room.coverImageUrl
+            ? new URL(room.coverImageUrl, origin).toString()
+            : null,
           participantCount: room.participantCount,
           startedAt: room.startedAt,
           roomBackgroundUrl:
