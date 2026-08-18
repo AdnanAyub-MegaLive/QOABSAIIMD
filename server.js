@@ -330,6 +330,34 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:"SEAT_LOCK_FAILED"}});
       }
     });
+    socket.on("audio-room:seat-kick",async({roomId,seatId}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??"");
+        const targetSeatId=String(seatId??"");
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id}});
+        if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(room.ownerId!==user.id)return ack({success:false,error:{code:"OWNER_REQUIRED"}});
+        const targetSeat=await prisma.audioRoomSeat.findUnique({
+          where:{audioRoomId_seatId:{audioRoomId:room.id,seatId:targetSeatId}},
+          include:{occupant:{select:{publicId:true,name:true}}},
+        });
+        if(!targetSeat?.occupant||!targetSeat.occupantUserId)return ack({success:false,error:{code:"SEAT_NOT_OCCUPIED"}});
+        const kickedUserId=targetSeat.occupant.publicId;
+        const kickedLiveKit=await issueLiveKitAccess({publicId:kickedUserId,name:targetSeat.occupant.name},id,false);
+        const result=await leaveAudioRoomSeat(room.id,targetSeat.occupantUserId,targetSeatId);
+        if(!result.count)return ack({success:false,error:{code:"SEAT_NOT_OCCUPIED"}});
+        await setLiveKitPublishPermission(id,kickedUserId,false);
+        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+        io.to(`user:${kickedUserId}`).emit("audio-room:seat-kicked",{
+          success:true,
+          data:{roomId:id,seatId:targetSeatId,liveKit:kickedLiveKit},
+        });
+        ack({success:true,data:{seatId:targetSeatId,kickedUserId,seatState}});
+      }catch(error){
+        console.error("Audio room seat kick failed",error);
+        ack({success:false,error:{code:error?.message==="LIVEKIT_NOT_CONFIGURED"?"LIVEKIT_NOT_CONFIGURED":"SEAT_KICK_FAILED"}});
+      }
+    });
     socket.on("audio-room:seat-request",async({roomId,seatId,note}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");

@@ -203,6 +203,23 @@ socket.emit("audio-room:seat-lock", {
 }, callback);
 ```
 
+When a smaller visual layout removes an occupied real seat, the owner can
+vacate only that seat:
+
+```js
+socket.emit("audio-room:seat-kick", {
+  roomId: "ROOM-7F30A921B8C4",
+  seatId: "row2-seat4"
+}, callback);
+```
+
+The affected user remains connected to the audio room as a spectator. The
+server clears their persisted seat, revokes active microphone publishing,
+broadcasts the complete updated seat state, and emits
+`audio-room:seat-kicked` directly to that user with a subscribe-only
+`data.liveKit` token. Their client should apply that token and disable its
+microphone; it must not navigate out of the room.
+
 The older `seat-request`/`seat-response` approval flow remains supported for
 products that explicitly enable host approval. Normal seat taking and switching
 uses `seat-take`/`seat-move` without owner approval.
