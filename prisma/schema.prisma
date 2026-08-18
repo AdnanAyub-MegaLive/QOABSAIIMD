@@ -180,6 +180,7 @@ model User {
   specialIds               SpecialIdAssignment[]
   gameLogs                 GameLog[]
   audioRooms               AudioRoom[]
+  audioRoomSeats           AudioRoomSeat[]
   uploadAssignments        UploadAssetAssignment[]
   equippedProps            UserEquippedProp[]
   propPurchases            PropPurchase[]
@@ -1004,8 +1005,29 @@ model AudioRoom {
   updatedAt            DateTime  @updatedAt
   owner                User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   messages             AudioRoomMessage[]
+  seats                AudioRoomSeat[]
 
   @@unique([ownerId])
   @@index([ownerId, startedAt])
   @@index([status, startedAt])
+}
+
+model AudioRoomSeat {
+  id             String    @id @default(cuid())
+  audioRoomId    String
+  seatId         String
+  occupantUserId String?
+  isLocked       Boolean   @default(false)
+  note           String?
+  isMuted        Boolean   @default(true)
+  isSpeaking     Boolean   @default(false)
+  occupiedAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+  audioRoom      AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  occupant       User?     @relation(fields: [occupantUserId], references: [id], onDelete: SetNull)
+
+  @@unique([audioRoomId, seatId])
+  @@unique([audioRoomId, occupantUserId])
+  @@index([audioRoomId, updatedAt])
+  @@index([occupantUserId])
 }

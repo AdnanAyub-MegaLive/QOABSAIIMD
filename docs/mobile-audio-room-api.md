@@ -123,78 +123,94 @@ and supplies the current room summary. Do not hardcode owner mode in the app.
 }
 ```
 
-## Live seat-state relay
+## Server-authoritative live seats
 
-Seat state is intentionally ephemeral. The owner remains the source of truth;
-the server validates ownership and relays changes without writing them to the
-database.
+Each room has 12 database-backed seats (`row0-seat1` through `row2-seat4`).
+The server is the only source of seat occupancy, lock, note, mute, and speaking
+state. Every successful change broadcasts the complete `audio-room:seat-update`
+payload. Each occupant contains safe public identity plus resolved `frameUrl`
+and `badgeUrl`; clients must replace their local snapshot with this payload.
 
-Owner broadcasts the complete current state after every seat or note change:
+The room join acknowledgement includes the same state as `data.seatState`.
+Legacy client-emitted `audio-room:seat-update` snapshots are ignored and receive
+the authoritative state in their acknowledgement.
+
+### Take a free seat
 
 ```js
-socket.emit("audio-room:seat-update", {
-  roomId,
-  seatRows,
-  notes
+socket.emit("audio-room:seat-take", {
+  roomId: "ROOM-7F30A921B8C4",
+  seatId: "row0-seat1"
 }, callback);
 ```
 
-Viewers listen for `audio-room:seat-update` and replace their local `seatRows`
-and `notes` with `payload.data`. A non-owner attempting to emit this event gets
-`OWNER_REQUIRED`. The sender must have joined the room first.
+The caller must already be in the live Socket.IO room. The operation atomically
+clears any prior seat belonging to that user and assigns the free, unlocked
+target. Success returns `{ seatId, seatState, liveKit: { token, url,
+canPublish: true } }`. The client should reconnect/update LiveKit with that
+token before enabling its microphone.
 
-When a viewer joins, the owner receives `audio-room:seat-sync-request` with
-`requesterId` and should immediately broadcast its current complete seat state.
-This gives newly joined viewers a snapshot without backend persistence.
-
-To request a seat, a viewer emits:
+### Move between seats
 
 ```js
-socket.emit("audio-room:seat-request", {
-  roomId,
-  seatId,
-  note
+socket.emit("audio-room:seat-move", {
+  roomId: "ROOM-7F30A921B8C4",
+  fromSeatId: "row0-seat1",
+  toSeatId: "row1-seat3"
 }, callback);
 ```
 
-The owner receives `audio-room:seat-request`. Its payload contains the
-server-generated `requestId`, authenticated `requesterId`, trusted
-`requesterName`, optional `requesterProfileImage`, requested `seatId`, and
-optional note:
+The source must belong to the caller and the target must be free and unlocked.
+Both writes happen in one serializable database transaction, so no duplicate or
+temporary seat is exposed.
 
-```json
-{
-  "success": true,
-  "data": {
-    "requestId": "b28ac63d-7b82-48e8-967f-e27f62d197c7",
-    "roomId": "ROOM-7F30A921B8C4",
-    "requesterId": "USR-2048",
-    "requesterName": "Aisha Khan",
-    "requesterProfileImage": null,
-    "seatId": "row0-seat1",
-    "note": null,
-    "requestedAt": "2026-07-23T08:00:00.000Z"
-  }
-}
-```
-
-The owner accepts or rejects it with:
+### Leave a seat
 
 ```js
-socket.emit("audio-room:seat-response", {
-  roomId,
-  requestId,
-  requesterId,
-  seatId,
-  accepted: true,
-  reason: null
+socket.emit("audio-room:seat-leave", {
+  roomId: "ROOM-7F30A921B8C4",
+  seatId: "row1-seat3"
 }, callback);
 ```
 
-The requester receives `audio-room:seat-response`. Only the verified room owner
-can respond, and the requester must still be connected to that audio room. On
-acceptance, the owner should update its own state and then emit the complete
-`audio-room:seat-update` snapshot to all viewers.
+This clears the persisted seat, revokes the active LiveKit participant's
+publish permission, broadcasts the new state, and returns a subscribe-only
+LiveKit token in `data.liveKit` (the owner remains publish-capable).
+
+### Mute and speaking state
+
+```js
+socket.emit("audio-room:seat-status", {
+  roomId: "ROOM-7F30A921B8C4",
+  muted: false,
+  speaking: true
+}, callback);
+```
+
+Only a seated caller can update its status. `speaking` is forced to false while
+muted.
+
+### Owner seat management
+
+The owner can lock/unlock a seat and optionally update its note:
+
+```js
+socket.emit("audio-room:seat-lock", {
+  roomId: "ROOM-7F30A921B8C4",
+  seatId: "row2-seat4",
+  locked: true,
+  note: "Reserved"
+}, callback);
+```
+
+The older `seat-request`/`seat-response` approval flow remains supported for
+products that explicitly enable host approval. Normal seat taking and switching
+uses `seat-take`/`seat-move` without owner approval.
+
+`POST /api/audio-rooms/livekit-token` independently checks the persisted seat:
+the owner or a seated user gets `canPublish: true`; every other authenticated
+participant gets a subscribe-only token. Seat records are also cleared on
+socket leave/disconnect and when a room ends or becomes empty.
 
 Listen for administrator and lifecycle events:
 

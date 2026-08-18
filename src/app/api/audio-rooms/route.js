@@ -1,6 +1,7 @@
 import { prisma } from "../../../lib/prisma";
 import mobileSession from "../../../lib/mobile-session.cjs";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../lib/audio-room-maintenance";
+import { ensureAudioRoomSeats } from "../../../lib/audio-room-seats";
 import {
   requestOrigin,
   resolveUserPerks,
@@ -195,6 +196,7 @@ export async function POST(request) {
         country: countryProvided ? country : null,
       },
     });
+    await ensureAudioRoomSeats(existing.id);
     await writeAudit(
       user,
       created ? "AUDIO_ROOM_ID_ASSIGNED" : "AUDIO_ROOM_RESTARTED",
@@ -252,15 +254,26 @@ export async function POST(request) {
 }
 
 async function makeRoomIdle(room, body = {}) {
-  return prisma.audioRoom.update({
-    where: { id: room.id },
-    data: {
-      status: "IDLE",
-      participantCount: 0,
-      liveAudioUrl: null,
-      recordingUrl: validUrl(body.recordingUrl) ?? room.recordingUrl,
-      endedAt: new Date(),
-    },
+  return prisma.$transaction(async (tx) => {
+    await tx.audioRoomSeat.updateMany({
+      where: { audioRoomId: room.id },
+      data: {
+        occupantUserId: null,
+        occupiedAt: null,
+        isMuted: true,
+        isSpeaking: false,
+      },
+    });
+    return tx.audioRoom.update({
+      where: { id: room.id },
+      data: {
+        status: "IDLE",
+        participantCount: 0,
+        liveAudioUrl: null,
+        recordingUrl: validUrl(body.recordingUrl) ?? room.recordingUrl,
+        endedAt: new Date(),
+      },
+    });
   });
 }
 async function writeAudit(user, action, roomId, description) {

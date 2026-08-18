@@ -1,4 +1,3 @@
-import { AccessToken } from "livekit-server-sdk";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -6,6 +5,7 @@ import {
   mobileOptions,
   requireMobileUser,
 } from "@/lib/mobile-api";
+import { issueLiveKitAccess } from "@/lib/livekit-speaker-authorization";
 
 export const runtime = "nodejs";
 
@@ -31,42 +31,6 @@ export async function POST(request) {
       );
     }
 
-    const livekitUrl = String(process.env.LIVEKIT_URL ?? "").trim();
-    const apiKey = String(process.env.LIVEKIT_API_KEY ?? "").trim();
-    const apiSecret = String(process.env.LIVEKIT_API_SECRET ?? "").trim();
-    if (!livekitUrl || !apiKey || !apiSecret) {
-      return mobileJson(
-        {
-          success: false,
-          error: {
-            code: "LIVEKIT_NOT_CONFIGURED",
-            message: "Live audio is not configured on this server.",
-          },
-        },
-        503,
-      );
-    }
-
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(livekitUrl);
-    } catch {
-      parsedUrl = null;
-    }
-    if (!parsedUrl || !["ws:", "wss:"].includes(parsedUrl.protocol)) {
-      console.error("LiveKit token issuance failed: LIVEKIT_URL must use ws:// or wss://");
-      return mobileJson(
-        {
-          success: false,
-          error: {
-            code: "LIVEKIT_NOT_CONFIGURED",
-            message: "Live audio is not configured on this server.",
-          },
-        },
-        503,
-      );
-    }
-
     const room = await prisma.audioRoom.findUnique({
       where: { roomId },
       select: {
@@ -74,6 +38,11 @@ export async function POST(request) {
         status: true,
         isBlocked: true,
         joiningDisabled: true,
+        seats: {
+          where: { occupantUserId: user.id },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
     if (!room || room.status !== "LIVE" || room.isBlocked) {
@@ -91,30 +60,28 @@ export async function POST(request) {
       );
     }
 
-    // Seat state is not persisted yet. Until it is, only the room owner may
-    // publish audio; viewers receive subscribe-only tokens.
-    const token = new AccessToken(apiKey, apiSecret, {
-      identity: user.publicId,
-      name: user.name,
-      ttl: "10m",
-    });
-    token.addGrant({
-      room: roomId,
-      roomJoin: true,
-      canPublish: isOwner,
-      canSubscribe: true,
-      canPublishData: true,
-    });
+    const canPublish = isOwner || room.seats.length > 0;
+    const liveKit = await issueLiveKitAccess(user, roomId, canPublish);
 
     return mobileJson({
       success: true,
       data: {
-        token: await token.toJwt(),
-        url: livekitUrl,
+        ...liveKit,
       },
     });
   } catch (error) {
     console.error("LiveKit token issuance failed", error);
+    if (error?.message === "LIVEKIT_NOT_CONFIGURED")
+      return mobileJson(
+        {
+          success: false,
+          error: {
+            code: "LIVEKIT_NOT_CONFIGURED",
+            message: "Live audio is not configured on this server.",
+          },
+        },
+        503,
+      );
     return mobileApiError(error, "LIVEKIT_TOKEN_FAILED");
   }
 }
