@@ -15,6 +15,7 @@ import { reconcileExpiredAudioRoomRestrictions } from "../lib/audio-room-mainten
 import { syncProgressionProps } from "../lib/props-store";
 import { normalizeApplicationRoles, primaryLegacyRole } from "../lib/user-roles";
 import { ledgerData } from "../lib/wallet";
+import { generateNumericPublicId } from "../lib/public-id";
 
 async function requireAdmin() {
   const session = await auth();
@@ -402,13 +403,9 @@ export async function manageUserAssetGrant(
 export async function createAccount(type, values) {
   const admin = await requireAdmin();
   if (type === "user") {
-    const latest = await prisma.user.findMany({ select: { publicId: true } });
-    const next =
-      Math.max(
-        1049,
-        ...latest.map((item) => Number(item.publicId.replace(/\D/g, "")) || 0),
-      ) + 1;
-    const publicId = `USR-${next}`;
+    const publicId = await generateNumericPublicId("USR", async (candidate) =>
+      prisma.user.findUnique({ where: { publicId: candidate }, select: { id: true } }),
+    );
     const phone = normalizePhone(values.phone);
     const email = normalizeEmail(values.email);
     if (await prisma.user.findUnique({ where: { phone } }))
@@ -442,13 +439,9 @@ export async function createAccount(type, values) {
       where: { publicId: String(values.agencyId ?? ""), status: "ACTIVE" },
     });
     if (!agency) throw new Error("HOST_AGENCY_REQUIRED");
-    const latest = await prisma.talent.findMany({ select: { publicId: true } });
-    const next =
-      Math.max(
-        2099,
-        ...latest.map((item) => Number(item.publicId.replace(/\D/g, "")) || 0),
-      ) + 1;
-    const publicId = `TLT-${next}`;
+    const publicId = await generateNumericPublicId("TLN", async (candidate) =>
+      prisma.talent.findUnique({ where: { publicId: candidate }, select: { id: true } }),
+    );
     await prisma.talent.create({
       data: {
         publicId,

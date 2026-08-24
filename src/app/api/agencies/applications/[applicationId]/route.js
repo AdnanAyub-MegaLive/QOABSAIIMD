@@ -1,5 +1,6 @@
 import { auth } from "../../../../../../auth";
 import { prisma } from "../../../../../lib/prisma";
+import { generateNumericPublicId } from "../../../../../lib/public-id";
 
 function json(body, status = 200) {
   return Response.json(body, { status });
@@ -114,9 +115,12 @@ export async function PATCH(request, { params }) {
       }
       let agency = null;
       if (decision === "APPROVED") {
+        const agencyPublicId = await generateNumericPublicId("AGN", async (candidate) =>
+          tx.agency.findUnique({ where: { publicId: candidate }, select: { id: true } }),
+        );
         agency = await tx.agency.create({
           data: {
-            publicId: `AGY-${crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`,
+            publicId: agencyPublicId,
             name: current.agencyName,
             ownerUserId: current.user.id,
           },

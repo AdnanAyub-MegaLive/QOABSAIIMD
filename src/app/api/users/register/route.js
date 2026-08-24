@@ -2,6 +2,7 @@ import { prisma } from "../../../../lib/prisma";
 import { hashPassword } from "../../../../lib/password";
 import mobileSession from "../../../../lib/mobile-session.cjs";
 import { formatDateOnly, parseDateOnly } from "../../../../lib/date-only";
+import { generateNumericPublicId } from "../../../../lib/public-id";
 
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
@@ -100,7 +101,6 @@ export async function POST(request) {
     );
   }
 
-  const publicId = `USR-${crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
   const forwardedFor = request.headers.get("x-forwarded-for");
   const ipAddress =
     forwardedFor?.split(",")[0]?.trim() ||
@@ -109,6 +109,9 @@ export async function POST(request) {
 
   try {
     const user = await prisma.$transaction(async (tx) => {
+      const publicId = await generateNumericPublicId("USR", async (candidate) =>
+        tx.user.findUnique({ where: { publicId: candidate }, select: { id: true } }),
+      );
       const passwordHash = await hashPassword(values.password);
       const created = await tx.user.create({
         data: {

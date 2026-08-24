@@ -6,6 +6,7 @@ import {
   requestOrigin,
   resolveUserPerks,
 } from "../../../lib/user-perks";
+import { generateNumericPublicId } from "../../../lib/public-id";
 
 const cors = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -30,8 +31,6 @@ async function authenticatedUser(request) {
   return user;
 }
 
-const createRoomId = () =>
-  `ROOM-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: cors });
 }
@@ -186,11 +185,18 @@ export async function POST(request) {
       endedAt: null,
     };
     const created = !existing;
+    const roomId = existing?.roomId ?? await generateNumericPublicId(
+      "ROOM",
+      async (candidate) => prisma.audioRoom.findUnique({
+        where: { roomId: candidate },
+        select: { id: true },
+      }),
+    );
     existing = await prisma.audioRoom.upsert({
       where: { ownerId: user.id },
       update: { ...data, ...(countryProvided ? { country } : {}) },
       create: {
-        roomId: createRoomId(),
+        roomId,
         ownerId: user.id,
         ...data,
         country: countryProvided ? country : null,
