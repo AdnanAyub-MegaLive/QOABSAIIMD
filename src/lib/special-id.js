@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import { prisma } from "./prisma.js";
 
 export function normalizeSpecialId(value) {
   const code=String(value??"").trim().toUpperCase();

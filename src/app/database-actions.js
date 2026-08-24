@@ -299,6 +299,106 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
   return Number(after);
 }
 
+export async function manageUserAssetGrant(
+  publicId,
+  assetPublicId,
+  options = {},
+) {
+  const admin = await requireSuperAdmin();
+  const [user, asset] = await Promise.all([
+    prisma.user.findFirstOrThrow({
+      where: { publicId, deletedAt: null },
+      select: { id: true, publicId: true },
+    }),
+    prisma.uploadAsset.findFirstOrThrow({
+      where: {
+        publicId: assetPublicId,
+        active: true,
+        category: { notIn: ["BANNERS", "GIFTS"] },
+      },
+      select: { id: true, publicId: true, name: true, category: true },
+    }),
+  ]);
+  const revoke = Boolean(options.revoke);
+  const reason = String(options.reason ?? "").trim();
+  if (!reason) throw new Error("REASON_REQUIRED");
+
+  let result;
+  if (revoke) {
+    result = await prisma.$transaction(async (tx) => {
+      const removed = await tx.uploadAssetAssignment.deleteMany({
+        where: { assetId: asset.id, userId: user.id },
+      });
+      await tx.userEquippedProp.deleteMany({
+        where: { assetId: asset.id, userId: user.id },
+      });
+      return { removed: removed.count };
+    });
+    emitToUser(publicId, "props:revoked", {
+      assetId: asset.publicId,
+      category: asset.category,
+      reason,
+    });
+  } else {
+    const permanent = Boolean(options.permanent);
+    const durationMinutes = permanent
+      ? null
+      : Math.floor(Number(options.durationMinutes));
+    if (!permanent && (!Number.isInteger(durationMinutes) || durationMinutes < 1))
+      throw new Error("INVALID_DURATION");
+    const assignedAt = new Date();
+    const expiresAt = permanent
+      ? null
+      : new Date(assignedAt.getTime() + durationMinutes * 60_000);
+    const entitlement = await prisma.uploadAssetAssignment.upsert({
+      where: { assetId_userId: { assetId: asset.id, userId: user.id } },
+      update: {
+        assignedAt,
+        durationMinutes,
+        expiresAt,
+        source: "ADMIN",
+        sourceReference: null,
+        purchasePrice: null,
+      },
+      create: {
+        assetId: asset.id,
+        userId: user.id,
+        assignedAt,
+        durationMinutes,
+        expiresAt,
+        source: "ADMIN",
+      },
+    });
+    result = {
+      assignedAt: entitlement.assignedAt.toISOString(),
+      expiresAt: entitlement.expiresAt?.toISOString() ?? null,
+      durationMinutes: entitlement.durationMinutes,
+    };
+    emitToUser(publicId, "props:granted", {
+      assetId: asset.publicId,
+      category: asset.category,
+      source: "ADMIN",
+      expiresAt: result.expiresAt,
+    });
+  }
+  await logActivity(admin, {
+    action: revoke ? "USER_PROP_REVOKED" : "USER_PROP_GRANTED",
+    category: "CONTENT_MANAGEMENT",
+    entityType: "User",
+    entityId: publicId,
+    description: `${admin.name} ${revoke ? "revoked" : "granted"} ${asset.name} ${revoke ? "from" : "to"} user ${publicId}`,
+    metadata: {
+      assetId: asset.publicId,
+      category: asset.category,
+      reason,
+      ...result,
+    },
+  });
+  revalidatePath("/uploads");
+  revalidatePath(`/users/${publicId}`);
+  return { assetId: asset.publicId, revoked: revoke, ...result };
+}
+
 export async function createAccount(type, values) {
   const admin = await requireAdmin();
   if (type === "user") {

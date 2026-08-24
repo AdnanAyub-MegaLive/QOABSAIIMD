@@ -135,6 +135,11 @@ The room join acknowledgement includes the same state as `data.seatState`.
 Legacy client-emitted `audio-room:seat-update` snapshots are ignored and receive
 the authoritative state in their acknowledgement.
 
+The join acknowledgement's `data.owner` object contains both the permanent
+`publicId` and resolved `displayId`. `displayId` is the owner's active Special
+ID when one exists and has not expired; otherwise it equals `publicId`. Use
+`publicId` for API identity and `displayId` only for presentation.
+
 ### Take a free seat
 
 ```js

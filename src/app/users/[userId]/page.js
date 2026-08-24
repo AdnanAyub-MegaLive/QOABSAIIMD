@@ -14,11 +14,31 @@ export default async function UserProfilePage({ params }) {
     where: { publicId: decodeURIComponent(userId), deletedAt: null },
     include: {
       devices: { orderBy: { lastLoginAt: "desc" }, take: 1 },
+      bans: {
+        where: {
+          target: "USER",
+          revokedAt: null,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+      specialIds: {
+        where: {
+          status: "ACTIVE",
+          revokedAt: null,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
       uploadAssignments: {
         where: { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
         select: {
           assignedAt: true,
+          durationMinutes: true,
           expiresAt: true,
+          source: true,
           asset: {
             select: {
               publicId: true,
@@ -37,7 +57,7 @@ export default async function UserProfilePage({ params }) {
     },
   });
   if (!user) notFound();
-  const [messages, roomMessages, notifications, receivedGiftTotals] = await Promise.all([
+  const [messages, roomMessages, notifications, receivedGiftTotals, assetCatalog, specialIdCatalog] = await Promise.all([
     prisma.message.findMany({
       where: {
         OR: [
@@ -101,6 +121,42 @@ export default async function UserProfilePage({ params }) {
       _count: true,
       _sum: { grossCoins: true, reusableCoins: true },
     }),
+    prisma.uploadAsset.findMany({
+      where: {
+        active: true,
+        category: { notIn: ["BANNERS", "GIFTS"] },
+      },
+      select: {
+        publicId: true,
+        name: true,
+        category: true,
+        fileName: true,
+        mimeType: true,
+        fileSize: true,
+        isRoomBackground: true,
+        defaultGrantDurationMinutes: true,
+      },
+      orderBy: [{ category: "asc" }, { createdAt: "desc" }],
+    }),
+    prisma.specialIdDefinition.findMany({
+      where: {
+        active: true,
+        assignments: {
+          none: {
+            status: "ACTIVE",
+            revokedAt: null,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+        },
+      },
+      select: {
+        id: true,
+        code: true,
+        category: true,
+        defaultDurationMinutes: true,
+      },
+      orderBy: { code: "asc" },
+    }),
   ]);
   const device = user.devices[0];
   const profile = {
@@ -116,6 +172,17 @@ export default async function UserProfilePage({ params }) {
     status: display(user.status),
     vipLevel: user.vipLevel,
     isOfficial: Boolean(user.isOfficial),
+    isBanned: user.bans.length > 0,
+    banReason: user.bans[0]?.reason ?? null,
+    banExpiresAt: user.bans[0]?.expiresAt?.toISOString() ?? null,
+    activeSpecialId: user.specialIds[0]
+      ? {
+          assignmentId: user.specialIds[0].id,
+          code: user.specialIds[0].specialId,
+          expiresAt: user.specialIds[0].expiresAt?.toISOString() ?? null,
+        }
+      : null,
+    specialIdCatalog,
     joined: user.createdAt.toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
@@ -133,7 +200,7 @@ export default async function UserProfilePage({ params }) {
     mac: device?.macAddress ?? "—",
     location: device?.location ?? "Unknown",
     assignedAssets: user.uploadAssignments.map(
-      ({ asset, assignedAt, expiresAt }) => ({
+      ({ asset, assignedAt, durationMinutes, expiresAt, source }) => ({
         id: asset.publicId,
         name: asset.name,
         category: display(asset.category),
@@ -146,10 +213,26 @@ export default async function UserProfilePage({ params }) {
           day: "2-digit",
           year: "numeric",
         }),
+        assignedAtIso: assignedAt.toISOString(),
         expiresAt: expiresAt?.toLocaleString("en-US") ?? "Never",
+        expiresAtIso: expiresAt?.toISOString() ?? null,
+        durationMinutes,
+        source,
         url: `/api/uploads/${asset.publicId}/file`,
       }),
     ),
+    assetCatalog: assetCatalog.map((asset) => ({
+      id: asset.publicId,
+      name: asset.name,
+      category: display(asset.category),
+      categoryKey: asset.category,
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+      fileSize: asset.fileSize,
+      isRoomBackground: asset.isRoomBackground,
+      defaultGrantDurationMinutes: asset.defaultGrantDurationMinutes,
+      url: `/api/uploads/${asset.publicId}/file`,
+    })),
   };
   const worldMessages = messages
     .filter((message) => message.conversation.kind === "WORLD")
