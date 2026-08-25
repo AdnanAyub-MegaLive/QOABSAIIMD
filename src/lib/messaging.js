@@ -50,6 +50,7 @@ export function serializeMessage(message, senderPerks) {
     senderIsOfficial: Boolean(message.sender?.isOfficial),
     senderFrameUrl: senderPerks?.frameUrl ?? null,
     senderBadgeUrl: senderPerks?.badgeUrl ?? null,
+    senderChatBoxUrl: senderPerks?.chatBoxUrl ?? null,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
   };

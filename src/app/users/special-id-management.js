@@ -284,79 +284,151 @@ function DeleteDefinitionModal({ item, onClose, onDeleted }) {
 }
 
 function CreateModal({ onClose, onCreated }) {
-  const [error, setError] = useState("");
+  const [errorDialog, setErrorDialog] = useState(null);
+  const [pending, setPending] = useState(false);
   return (
-    <Modal
-      title="Create Special ID"
-      subtitle="Reusable after a timed assignment expires"
-      onClose={onClose}
-    >
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setError("");
-          const f = new FormData(e.currentTarget);
-          try {
-            const item = await createSpecialIdDefinition(Object.fromEntries(f));
-            onCreated(item);
-          } catch (err) {
-            setError(err.message);
-          }
-        }}
-        className="grid gap-4"
+    <>
+      <Modal
+        title="Create Special ID"
+        subtitle="Reusable after a timed assignment expires"
+        onClose={onClose}
       >
-        <Field label="Special ID (4–7 letters or numbers)">
-          <input
-            name="code"
-            required
-            minLength="4"
-            maxLength="7"
-            pattern="[A-Za-z0-9]{4,7}"
-            className={input}
-            placeholder="VIP777"
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setPending(true);
+            const form = new FormData(event.currentTarget);
+            try {
+              const result = await createSpecialIdDefinition(
+                Object.fromEntries(form),
+              );
+              if (!result?.success) {
+                setErrorDialog({
+                  title: result?.error?.title ?? "Unable to Create Special ID",
+                  message:
+                    result?.error?.message ??
+                    "The Special ID could not be created. Please try again.",
+                });
+                return;
+              }
+              onCreated(result.data);
+            } catch {
+              setErrorDialog({
+                title: "Unable to Create Special ID",
+                message:
+                  "Something went wrong while creating this Special ID. Please try again.",
+              });
+            } finally {
+              setPending(false);
+            }
+          }}
+          className="grid gap-4"
+        >
+          <Field label="Special ID (4–7 letters or numbers)">
+            <input
+              name="code"
+              required
+              minLength="4"
+              maxLength="7"
+              pattern="[A-Za-z0-9]{4,7}"
+              className={input}
+              placeholder="VIP777"
+            />
+          </Field>
+          <Field label="Category">
+            <select name="category" className={input} defaultValue="VIP">
+              <option>STANDARD</option>
+              <option>VIP</option>
+              <option>SVIP</option>
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Minimum VIP level">
+              <input
+                name="minimumVipLevel"
+                type="number"
+                min="1"
+                max="5"
+                className={input}
+                placeholder="Optional"
+              />
+            </Field>
+            <Field label="Minimum top-up">
+              <input
+                name="minimumTopUpAmount"
+                type="number"
+                min="0"
+                className={input}
+                placeholder="Optional coins"
+              />
+            </Field>
+          </div>
+          <DurationPicker
+            name="defaultDurationMinutes"
+            label="Default Special ID time period"
+            defaultMinutes={10080}
           />
-        </Field>
-        <Field label="Category">
-          <select name="category" className={input} defaultValue="VIP">
-            <option>STANDARD</option>
-            <option>VIP</option>
-            <option>SVIP</option>
-          </select>
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Minimum VIP level">
-            <input
-              name="minimumVipLevel"
-              type="number"
-              min="1"
-              max="5"
-              className={input}
-              placeholder="Optional"
-            />
-          </Field>
-          <Field label="Minimum top-up">
-            <input
-              name="minimumTopUpAmount"
-              type="number"
-              min="0"
-              className={input}
-              placeholder="Optional coins"
-            />
-          </Field>
-        </div>
-        <DurationPicker
-          name="defaultDurationMinutes"
-          label="Default Special ID time period"
-          defaultMinutes={10080}
+          <div className="mt-2 flex justify-end gap-2 border-t border-[#e8efed] pt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={pending}
+              className="h-10 rounded-lg border px-4 text-xs font-bold disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={pending}
+              className="h-10 rounded-lg bg-[#087f74] px-5 text-xs font-bold text-white disabled:opacity-50"
+            >
+              {pending ? "Creating…" : "Create ID"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+      {errorDialog && (
+        <ErrorModal
+          title={errorDialog.title}
+          message={errorDialog.message}
+          onClose={() => setErrorDialog(null)}
         />
-        {error && (
-          <p className="rounded-lg bg-red-50 p-3 text-xs font-semibold text-red-700">
-            {error}
-          </p>
-        )}
-        <Actions onClose={onClose} confirm="Create ID" />
-      </form>
-    </Modal>
+      )}
+    </>
+  );
+}
+
+function ErrorModal({ title, message, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] grid place-items-center bg-[#061c1a]/70 p-4"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="special-id-error-title"
+      aria-describedby="special-id-error-message"
+    >
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-red-50 text-2xl font-bold text-red-600">
+          !
+        </div>
+        <h2 id="special-id-error-title" className="mt-4 text-lg font-bold">
+          {title}
+        </h2>
+        <p
+          id="special-id-error-message"
+          className="mt-2 text-sm leading-6 text-[#657772]"
+        >
+          {message}
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          autoFocus
+          className="mt-6 h-10 w-full rounded-lg bg-[#087f74] px-5 text-xs font-bold text-white"
+        >
+          Choose Another ID
+        </button>
+      </div>
+    </div>
   );
 }
 

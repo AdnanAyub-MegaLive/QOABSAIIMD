@@ -887,19 +887,46 @@ export async function createSpecialIdDefinition(values) {
   const duration = Number(values.defaultDurationMinutes);
   if (!Number.isInteger(duration) || duration < 1)
     throw new Error("INVALID_SPECIAL_ID_DURATION");
-  const definition = await prisma.specialIdDefinition.create({
-    data: {
-      code,
-      category,
-      minimumVipLevel: values.minimumVipLevel
-        ? Number(values.minimumVipLevel)
-        : null,
-      minimumTopUpAmount: values.minimumTopUpAmount
-        ? BigInt(values.minimumTopUpAmount)
-        : null,
-      defaultDurationMinutes: duration,
-    },
+  const duplicate = await prisma.specialIdDefinition.findUnique({
+    where: { code },
+    select: { id: true },
   });
+  if (duplicate)
+    return {
+      success: false,
+      error: {
+        code: "SPECIAL_ID_ALREADY_EXISTS",
+        title: "Special ID Already Exists",
+        message: `The Special ID ${code} is already in use. Please choose a different ID.`,
+      },
+    };
+  let definition;
+  try {
+    definition = await prisma.specialIdDefinition.create({
+      data: {
+        code,
+        category,
+        minimumVipLevel: values.minimumVipLevel
+          ? Number(values.minimumVipLevel)
+          : null,
+        minimumTopUpAmount: values.minimumTopUpAmount
+          ? BigInt(values.minimumTopUpAmount)
+          : null,
+        defaultDurationMinutes: duration,
+      },
+    });
+  } catch (error) {
+    if (error?.code === "P2002")
+      return {
+        success: false,
+        error: {
+          code: "SPECIAL_ID_ALREADY_EXISTS",
+          title: "Special ID Already Exists",
+          message: `The Special ID ${code} is already in use. Please choose a different ID.`,
+        },
+      };
+    throw error;
+  }
   await logActivity(admin, {
     action: "CREATE_SPECIAL_ID",
     category: "USER_MANAGEMENT",
@@ -910,8 +937,11 @@ export async function createSpecialIdDefinition(values) {
   });
   revalidatePath("/users");
   return {
-    ...definition,
-    minimumTopUpAmount: Number(definition.minimumTopUpAmount ?? 0),
+    success: true,
+    data: {
+      ...definition,
+      minimumTopUpAmount: Number(definition.minimumTopUpAmount ?? 0),
+    },
   };
 }
 

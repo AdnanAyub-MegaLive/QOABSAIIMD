@@ -62,7 +62,7 @@ export async function GET(request, { params }) {
     const perks = await resolveUserPerks(
       page.map((message) => message.sender).filter(Boolean),
       requestOrigin(request),
-      ["FRAMES", "BADGES"],
+      ["FRAMES", "BADGES", "CHAT_BOXES"],
     );
     return mobileJson({
       success: true,
@@ -97,7 +97,7 @@ export async function POST(request, { params }) {
     const perks = await resolveUserPerks(
       [user],
       requestOrigin(request),
-      ["FRAMES", "BADGES"],
+      ["FRAMES", "BADGES", "CHAT_BOXES"],
     );
     const message = await createMessage(
       membership.conversation,
