@@ -34,7 +34,7 @@ export default function LoginForm() {
           id="email"
           name="email"
           type="email"
-          placeholder="admin@streamline.com"
+          placeholder="admin@megaliveportal.com"
           autoComplete="username"
           required
         />

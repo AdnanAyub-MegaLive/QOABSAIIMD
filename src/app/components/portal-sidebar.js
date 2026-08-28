@@ -30,7 +30,7 @@ export default function PortalSidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-[#092f2d] px-5 py-7 text-white lg:flex">
-      <Link href="/home" className="px-2" aria-label="Streamline dashboard">
+      <Link href="/home" className="px-2" aria-label="Mega Live Portal dashboard">
         <BrandLogo light compact priority />
       </Link>
       <nav className="mt-12 space-y-1" aria-label="Portal navigation">
@@ -53,7 +53,7 @@ export default function PortalSidebar() {
         })}
       </nav>
       <div className="mt-auto border-t border-white/10 pt-5 text-xs text-[#82a6a1]">
-        Streamline Admin
+        Mega Live Portal
         <br />
         Control center
       </div>

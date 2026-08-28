@@ -45,7 +45,7 @@ export default async function EventsManagementLayout({ children }) {
       </aside>
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200 bg-white/90 px-6 backdrop-blur md:px-10">
-          <div><p className="text-xs font-bold uppercase tracking-widest text-[#0c796b]">Events Management</p><p className="text-sm text-slate-500">Web experiences for the Streamline in-app browser</p></div>
+          <div><p className="text-xs font-bold uppercase tracking-widest text-[#0c796b]">Events Management</p><p className="text-sm text-slate-500">Web experiences for the Mega Live Portal in-app browser</p></div>
           <Link href="/events-management/events/upload" className="rounded-xl bg-[#0c796b] px-4 py-2.5 text-sm font-bold text-white">Upload event</Link>
         </header>
         <main className="mx-auto max-w-7xl p-6 md:p-10">{children}</main>

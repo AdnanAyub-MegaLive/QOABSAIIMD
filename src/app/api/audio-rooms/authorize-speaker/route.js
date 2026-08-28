@@ -6,9 +6,8 @@ import {
   requireMobileUser,
 } from "@/lib/mobile-api";
 import {
-  issueLiveKitAccess,
-  setLiveKitPublishPermission,
-} from "@/lib/livekit-speaker-authorization";
+  issueTrtcAccess,
+} from "@/lib/trtc-authorization";
 import { readAudioRoomSeatState } from "@/lib/audio-room-seats";
 import { requestOrigin } from "@/lib/user-perks";
 
@@ -146,11 +145,6 @@ async function changeAuthorization(request, forcedAuthorization) {
       });
     }
 
-    const liveKitPermissionUpdated = await setLiveKitPublishPermission(
-      roomId,
-      speaker.publicId,
-      authorized,
-    );
     await prisma.auditLog.create({
       data: {
         action: authorized
@@ -159,12 +153,12 @@ async function changeAuthorization(request, forcedAuthorization) {
         category: "USER_MANAGEMENT",
         entityType: "AudioRoom",
         entityId: roomId,
-        description: `${owner.name} ${authorized ? "authorized" : "revoked"} LiveKit publishing for ${speaker.publicId} in room ${roomId}.`,
+        description: `${owner.name} ${authorized ? "authorized" : "revoked"} TRTC audio publishing for ${speaker.publicId} in room ${roomId}.`,
         metadata: {
           ownerId: owner.publicId,
           speakerId: speaker.publicId,
           seatId: occupiedSeat?.seatId ?? null,
-          liveKitPermissionUpdated,
+          trtcAccessIssued: true,
         },
       },
     });
@@ -181,11 +175,11 @@ async function changeAuthorization(request, forcedAuthorization) {
         authorized,
         seatId: occupiedSeat?.seatId ?? null,
         seatState,
-        liveKit: await issueLiveKitAccess(speaker, roomId, authorized),
+        trtc: issueTrtcAccess(speaker, roomId, authorized),
       },
     });
   } catch (error) {
-    console.error("LiveKit speaker authorization failed", error);
+    console.error("TRTC speaker authorization failed", error);
     return mobileApiError(error, "SPEAKER_AUTHORIZATION_FAILED");
   }
 }

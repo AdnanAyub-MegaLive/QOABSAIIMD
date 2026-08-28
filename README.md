@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Mega Live Portal
+
+Mega Live Portal is the administration backend and mobile API for Mega Live.
+It manages users, hosts, agencies, events, wallets, messaging, live audio-room
+seats, and real-time Socket.IO activity.
+
+## Stack
+
+- Next.js 16 and React 19
+- PostgreSQL with Prisma
+- Socket.IO for real-time portal and mobile events
+- Tencent TRTC for Android audio rooms
+
+## Configure
+
+Create `.env.local` with the database, authentication, and TRTC values required
+by your deployment. Do not commit this file.
+
+```dotenv
+DATABASE_URL=postgresql://...
+AUTH_SECRET=replace-with-a-long-random-value
+TRTC_SDK_APP_ID=1400000000
+TRTC_SECRET_KEY=your-tencent-trtc-secret
+MOBILE_APP_ORIGIN=https://your-mobile-origin.example
+```
+
+Enable **permission key verification** for the TRTC application in Tencent's
+console. The portal issues short-lived, room-scoped Android credentials at
+`POST /api/audio-rooms/trtc-token`; the Android app must never contain
+`TRTC_SECRET_KEY`.
+
+For the complete JDAX Android integration contract and Kotlin example, see
+[`docs/mobile-audio-room-api.md`](docs/mobile-audio-room-api.md).
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Verify
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+npm run lint
+npm run build
+```
 
-## Learn More
+## Notes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The `trtc-sdk-v5` package is the Web SDK. JDAX Android should integrate the
+  native Tencent TRTC Android SDK and obtain its credentials from this portal.
+- LiveKit has been removed from the audio-room flow.

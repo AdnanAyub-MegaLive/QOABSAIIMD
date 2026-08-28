@@ -1,9 +1,9 @@
 import Image from "next/image";
 
 export const metadata = {
-  title: "Create Your Agency | Streamline",
+  title: "Create Your Agency | Mega Live Portal",
   description:
-    "Build your creator network, grow hosts, and earn with Streamline.",
+    "Build your creator network, grow hosts, and earn with Mega Live Portal.",
 };
 
 export default function AgencyDrivePage() {
@@ -14,7 +14,7 @@ export default function AgencyDrivePage() {
         <header className="flex items-center justify-between">
           <Image
             src="/stream-line-logo.png"
-            alt="Streamline"
+            alt="Mega Live Portal"
             width={174}
             height={54}
             priority
@@ -35,14 +35,14 @@ export default function AgencyDrivePage() {
             </h1>
             <p className="mt-6 max-w-xl text-sm leading-7 text-[#bad0cd] sm:text-base">
               Recruit promising hosts, help them reach monthly targets, and
-              grow together through the Streamline Agency Program.
+              grow together through the Mega Live Portal Agency Program.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a
                 href="streamline://agency/create"
                 className="rounded-xl bg-[#28c9b8] px-6 py-3.5 text-sm font-black text-[#062522] shadow-[0_14px_35px_rgba(40,201,184,.25)]"
               >
-                Apply in Streamline
+                Apply in Mega Live Portal
               </a>
               <a
                 href="#benefits"
@@ -79,7 +79,7 @@ export default function AgencyDrivePage() {
                 ))}
               </div>
               <p className="mt-6 text-xs leading-5 text-[#91aaa6]">
-                Applications are reviewed by the Streamline operations team.
+                Applications are reviewed by the Mega Live Portal operations team.
                 Eligibility and program terms may vary by region.
               </p>
             </div>
@@ -87,7 +87,7 @@ export default function AgencyDrivePage() {
         </div>
 
         <footer className="border-t border-white/10 py-5 text-center text-[10px] text-[#77938f]">
-          © 2026 Streamline. Agency campaign preview page.
+          © 2026 Mega Live Portal. Agency campaign preview page.
         </footer>
       </section>
     </main>

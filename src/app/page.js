@@ -15,7 +15,7 @@ export default async function Home() {
     <main className="grid min-h-screen grid-cols-[minmax(420px,1.05fr)_minmax(540px,.95fr)] max-[900px]:block">
       <section
         className="relative flex min-h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_78%_20%,#176e68_0,transparent_35%),linear-gradient(145deg,#092d2c_0%,#0b4b47_55%,#0b6159_100%)] px-[7vw] py-12 text-white max-[900px]:hidden"
-        aria-label="Streamline platform introduction"
+        aria-label="Mega Live Portal platform introduction"
       >
         <div className="pointer-events-none absolute top-[28%] -right-[280px] h-[450px] w-[450px] rounded-full border border-[#52decd26] shadow-[inset_0_0_90px_rgba(36,205,185,.08)]" />
         <div className="pointer-events-none absolute bottom-[5%] -left-[120px] h-[190px] w-[190px] rounded-full border border-[#52decd1f]" />
@@ -125,7 +125,7 @@ export default async function Home() {
           </div>
         </div>
         <footer className="absolute bottom-[30px] text-[9px] text-[#9aaba8] max-[480px]:bottom-[22px]">
-          © 2026 Streamline &nbsp;·&nbsp; Privacy &nbsp;·&nbsp; Support
+          © 2026 Mega Live Portal &nbsp;·&nbsp; Privacy &nbsp;·&nbsp; Support
         </footer>
       </section>
     </main>

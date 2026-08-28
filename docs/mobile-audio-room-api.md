@@ -8,6 +8,93 @@ When the room becomes empty, its Socket.IO runtime and live audio resource are r
 
 All requests require `Authorization: Bearer <sessionToken>`.
 
+## TRTC connection for JDAX Android
+
+The portal now issues short-lived Tencent TRTC credentials from the server. Add
+these server-only values to the portal deployment; never add the secret key to
+the Android application:
+
+```dotenv
+TRTC_SDK_APP_ID=1400000000
+TRTC_SECRET_KEY=your-trtc-secret-key
+```
+
+In the TRTC console, enable **permission key verification** for the application.
+The portal returns a `privateMapKey` scoped to this room: listeners receive only
+enter/receive-audio permissions and seated speakers receive create/enter/send/
+receive-audio permissions.
+
+After joining the portal Socket.IO room, request the matching TRTC credentials:
+
+```http
+POST /api/audio-rooms/trtc-token
+Authorization: Bearer <sessionToken>
+Content-Type: application/json
+
+{ "roomId": "ROOM-7F30A921B8C4" }
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "sdkAppId": 1400000000,
+    "userId": "USR-1048",
+    "userSig": "...",
+    "privateMapKey": "...",
+    "strRoomId": "ROOM-7F30A921B8C4",
+    "role": "audience",
+    "appScene": "VOICE_CHATROOM",
+    "canPublish": false,
+    "expiresAt": "2026-08-28T12:00:00.000Z"
+  }
+}
+```
+
+For JDAX Android, use the native TRTC Android dependency—not this portal's
+`trtc-sdk-v5` Web package—and pass the response directly into `TRTCParams`:
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    implementation("com.tencent.liteav:LiteAVSDK_TRTC:latest.release")
+}
+```
+
+```xml
+<!-- AndroidManifest.xml -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+```
+
+Request `RECORD_AUDIO` at runtime before a user takes a seat. All clients in an
+audio room must use `TRTC_APP_SCENE_VOICE_CHATROOM`.
+
+```kotlin
+val trtc = response.data
+val params = TRTCCloudDef.TRTCParams().apply {
+    sdkAppId = trtc.sdkAppId
+    userId = trtc.userId
+    userSig = trtc.userSig
+    privateMapKey = trtc.privateMapKey
+    strRoomId = trtc.strRoomId
+    role = if (trtc.canPublish) {
+        TRTCCloudDef.TRTCRoleAnchor
+    } else {
+        TRTCCloudDef.TRTCRoleAudience
+    }
+}
+trtcCloud.enterRoom(params, TRTCCloudDef.TRTC_APP_SCENE_VOICE_CHATROOM)
+```
+
+Call this endpoint again after `audio-room:seat-take`, `audio-room:seat-leave`,
+`audio-room:seat-kicked`, or an accepted `audio-room:seat-response`; each event
+now returns `data.trtc` when the role changes. Exit and re-enter TRTC with the
+new credentials before changing microphone state. Refresh the token before
+`expiresAt` by requesting `/trtc-token` again.
+
 ## Get the assigned room
 
 `GET /api/audio-rooms`
@@ -151,9 +238,9 @@ socket.emit("audio-room:seat-take", {
 
 The caller must already be in the live Socket.IO room. The operation atomically
 clears any prior seat belonging to that user and assigns the free, unlocked
-target. Success returns `{ seatId, seatState, liveKit: { token, url,
-canPublish: true } }`. The client should reconnect/update LiveKit with that
-token before enabling its microphone.
+target. Success returns `{ seatId, seatState, trtc: { sdkAppId, userId,
+userSig, privateMapKey, strRoomId, canPublish: true } }`. The client should
+re-enter TRTC with those credentials before enabling its microphone.
 
 ### Move between seats
 
@@ -178,9 +265,9 @@ socket.emit("audio-room:seat-leave", {
 }, callback);
 ```
 
-This clears the persisted seat, revokes the active LiveKit participant's
-publish permission, broadcasts the new state, and returns a subscribe-only
-LiveKit token in `data.liveKit` (the owner remains publish-capable).
+This clears the persisted seat, revokes TRTC audio-upstream permission,
+broadcasts the new state, and returns subscribe-only credentials in
+`data.trtc` (the owner remains publish-capable).
 
 ### Mute and speaking state
 
@@ -221,18 +308,18 @@ socket.emit("audio-room:seat-kick", {
 The affected user remains connected to the audio room as a spectator. The
 server clears their persisted seat, revokes active microphone publishing,
 broadcasts the complete updated seat state, and emits
-`audio-room:seat-kicked` directly to that user with a subscribe-only
-`data.liveKit` token. Their client should apply that token and disable its
-microphone; it must not navigate out of the room.
+`audio-room:seat-kicked` directly to that user with subscribe-only
+`data.trtc` credentials. Their client should re-enter with these credentials
+and disable its microphone; it must not navigate out of the room.
 
 The older `seat-request`/`seat-response` approval flow remains supported for
 products that explicitly enable host approval. Normal seat taking and switching
 uses `seat-take`/`seat-move` without owner approval.
 
-`POST /api/audio-rooms/livekit-token` independently checks the persisted seat:
+`POST /api/audio-rooms/trtc-token` independently checks the persisted seat:
 the owner or a seated user gets `canPublish: true`; every other authenticated
-participant gets a subscribe-only token. Seat records are also cleared on
-socket leave/disconnect and when a room ends or becomes empty.
+participant gets subscribe-only TRTC credentials. Seat records are also cleared
+on socket leave/disconnect and when a room ends or becomes empty.
 
 Listen for administrator and lifecycle events:
 

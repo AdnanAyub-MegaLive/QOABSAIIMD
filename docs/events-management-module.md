@@ -1,4 +1,4 @@
-# Streamline Events Management Module
+# Mega Live Portal Events Management Module
 
 The Events module is part of the existing Next.js portal and uses its existing
 PostgreSQL database and Prisma client. It has its own users, JWT session,
