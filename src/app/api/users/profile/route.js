@@ -5,6 +5,10 @@ import {
   reconcileExpiredSpecialIds,
 } from "../../../../lib/special-id";
 import { formatDateOnly, parseDateOnly } from "../../../../lib/date-only";
+import {
+  assertMobileSession,
+  mobileSessionError,
+} from "../../../../lib/mobile-session-state";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -57,12 +61,7 @@ export async function PATCH(request) {
     const current = await prisma.user.findUnique({
       where: { publicId: payload.userId },
     });
-    if (
-      !current ||
-      current.deletedAt ||
-      current.sessionVersion !== payload.sessionVersion
-    )
-      throw new Error("INVALID_SESSION");
+    assertMobileSession(current, payload);
 
     const lockedFields = {};
     if (current.gender !== null && Object.hasOwn(body, "gender"))
@@ -198,15 +197,6 @@ export async function PATCH(request) {
         409,
       );
     }
-    return json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_SESSION",
-          message: "The mobile session is invalid or expired.",
-        },
-      },
-      401,
-    );
+    return json(mobileSessionError(error?.message), 401);
   }
 }

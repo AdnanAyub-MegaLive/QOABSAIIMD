@@ -76,9 +76,12 @@ user is approved as an active, verified host, its prefix changes while its
 numeric suffix stays the same: `USR-123123` becomes `TLN-123123`.
 
 Android must never construct this ID itself. On the `host:approved` Socket.IO
-event, or after `401 INVALID_SESSION`, clear the old session, replace persisted
-`USR-*` identity references with the server-provided `TLN-*` ID, and sign in
-again. The new login response is the source of truth. The underlying User,
+event, or after `401 INVALID_SESSION` / `401 SESSION_REVOKED`, clear the old
+session, replace persisted `USR-*` identity references with the server-provided
+`TLN-*` ID, and sign in again. `SESSION_REVOKED` is used for session-version
+changes, forced logout, deleted or inactive accounts, and other server-side
+security invalidations; `INVALID_SESSION` covers expired or unresolvable
+tokens. The new login response is the source of truth. The underlying User,
 wallet, gifts, room ownership, and social relations do not change.
 
 The old application used numeric IDs. During migration, the portal stores each
@@ -141,7 +144,7 @@ and write its own trusted country header; otherwise registration returns
 | Logout | `POST /api/v1/auth/logout` | Invalidates all portal sessions for that user |
 | Update own profile | `PATCH /api/v1/users/me` | Uses the current profile DTO |
 | Read/manage own room | `GET`/`POST /api/v1/audio-rooms` | Existing room DTO and TRTC rules apply |
-| Discover/search rooms | `GET /api/v1/audio-rooms/discover?country=PK` and `/search` | Country is an optional ISO alpha-2 discovery filter |
+| Discover/search rooms | `GET /api/v1/audio-rooms/discover?country=PK` and `/search` | Returns listener-joinable `LIVE` rooms only; country is an optional ISO alpha-2 discovery filter |
 | Request TRTC credentials | `POST /api/v1/audio-rooms/trtc-token` | Requires an active room and portal session |
 | Wallet overview | `GET /api/v1/wallet` | Coin, diamond/salary, coupon, and recharge balances |
 | Coin packages | `GET /api/v1/wallet/coin-packages` | Active provider-neutral packages and prices |
@@ -155,6 +158,19 @@ and write its own trusted country header; otherwise registration returns
 Socket.IO, social, agency, advanced gift economy, and payout-provider operations
 will be added to v1 one domain at a time. Until an operation appears here, it is
 not a stable v1 contract.
+
+## Audio-room activation authorization
+
+An audio room may retain its public room ID while its status is `IDLE`; that ID
+does not represent a live, joinable session. The owner alone may create, start,
+or restart their assigned room through `POST /api/v1/audio-rooms` with
+`action: "START"`. A Socket.IO `audio-room:join` request is a listener join,
+not a start operation: only `LIVE` rooms can be joined. Joining an `IDLE` room
+returns `ROOM_IDLE` and does not alter its status, participant count, or seat
+state. Discovery and search return `LIVE` rooms only.
+
+This is an explicit MegaLive product policy. Any change to these authorization
+rules requires explicit product approval and matching regression-test updates.
 
 ## Wallet and payment contract
 
@@ -211,10 +227,13 @@ authenticated password-change operation is available now.
 
 ## Session lifecycle
 
-Login returns `sessionToken`. Store it only in encrypted Android storage and
-send it to Socket.IO as the handshake token. `POST /auth/refresh` returns a new
-token before expiry. `POST /auth/logout` increments the account session version
-and disconnects all of that account's portal sockets.
+Successful login, registration, and refresh responses return the same session
+fields: `sessionToken`, `tokenType` (`Bearer`), `expiresAt` (an ISO-8601 UTC
+timestamp), and `sessionVersion`. Store the opaque token only in encrypted
+Android storage and send it to Socket.IO as the handshake token. Android must
+not decode the token or assume a fixed lifetime; use the server-supplied
+`expiresAt` to schedule refresh. `POST /auth/logout` increments the account
+session version and disconnects all of that account's portal sockets.
 
 The default token lifetime is 30 days and is configured server-side with
 `MOBILE_SESSION_TTL_SECONDS` (5 minutes to 90 days). Never expose `AUTH_SECRET`

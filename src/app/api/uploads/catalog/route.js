@@ -6,6 +6,7 @@ import {
   validUploadCategories,
 } from "../../../../lib/upload-assets";
 import { syncProgressionProps } from "../../../../lib/props-store";
+import { assertMobileSession, mobileSessionError } from "../../../../lib/mobile-session-state";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -26,14 +27,9 @@ export async function GET(request) {
     const payload = mobileSession.verifyMobileSessionToken(token);
     const user = await prisma.user.findUnique({
       where: { publicId: payload.userId },
-      select: { id: true, deletedAt: true, sessionVersion: true },
+      select: { id: true, deletedAt: true, status: true, sessionVersion: true, forcedLogoutAt: true },
     });
-    if (
-      !user ||
-      user.deletedAt ||
-      user.sessionVersion !== payload.sessionVersion
-    )
-      throw new Error("INVALID_SESSION");
+    assertMobileSession(user, payload);
     await syncProgressionProps(user.id);
     const url = new URL(request.url);
     const category = url.searchParams
@@ -108,16 +104,7 @@ export async function GET(request) {
         ),
       },
     });
-  } catch {
-    return json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_SESSION",
-          message: "The mobile session is invalid or expired.",
-        },
-      },
-      401,
-    );
+  } catch (error) {
+    return json(mobileSessionError(error?.message), 401);
   }
 }

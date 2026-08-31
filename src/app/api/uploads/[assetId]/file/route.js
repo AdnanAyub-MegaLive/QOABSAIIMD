@@ -5,6 +5,7 @@ import {
   verifyPublicDisplayAssetUrl,
   verifySignedAssetUrl,
 } from "../../../../../lib/upload-assets";
+import { sessionInvalidation, mobileSessionError } from "../../../../../lib/mobile-session-state";
 
 const publicDisplayCategories = new Set([
   "FRAMES",
@@ -68,22 +69,24 @@ export async function GET(request, { params }) {
         );
       const user = await prisma.user.findUnique({
         where: { publicId: payload.userId },
-        select: { id: true, deletedAt: true, sessionVersion: true },
+        select: { id: true, deletedAt: true, status: true, sessionVersion: true, forcedLogoutAt: true },
       });
+      const invalidation = sessionInvalidation(user, payload);
       if (
-        !user ||
-        user.deletedAt ||
-        user.sessionVersion !== payload.sessionVersion ||
+        invalidation ||
         (!asset.isGlobal &&
           !asset.storeVisible &&
           !asset.assignments.some(
             (assignment) => assignment.userId === user.id,
           ))
       )
-        throw new Error("FORBIDDEN");
-    } catch {
+        throw new Error(invalidation ?? "FORBIDDEN");
+    } catch (error) {
+      const sessionError = ["INVALID_SESSION", "SESSION_REVOKED"].includes(error?.message)
+        ? mobileSessionError(error.message)
+        : null;
       return Response.json(
-        {
+        sessionError ?? {
           success: false,
           error: {
             code: "UNAUTHORIZED",

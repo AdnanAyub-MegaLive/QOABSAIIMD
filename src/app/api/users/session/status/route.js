@@ -6,6 +6,10 @@ import {
 } from "../../../../../lib/special-id";
 import { reconcileExpiredBans } from "../../../../../lib/ban-maintenance";
 import { formatDateOnly } from "../../../../../lib/date-only";
+import {
+  assertMobileSession,
+  mobileSessionError,
+} from "../../../../../lib/mobile-session-state";
 
 export async function GET(request) {
   const deviceId =
@@ -30,14 +34,7 @@ export async function GET(request) {
     const user = await prisma.user.findUnique({
       where: { publicId: payload.userId },
     });
-    if (!user || user.deletedAt || user.sessionVersion !== payload.sessionVersion)
-      return Response.json(
-        {
-          success: false,
-          error: { code: "USER_NOT_FOUND", message: "User not found." },
-        },
-        { status: 404 },
-      );
+    assertMobileSession(user, payload);
     await reconcileExpiredBans();
     const ban = await prisma.ban.findFirst({
       where: {
@@ -100,15 +97,9 @@ export async function GET(request) {
         roles: user.appRoles,
       },
     });
-  } catch {
+  } catch (error) {
     return Response.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_SESSION",
-          message: "The mobile session is invalid or expired.",
-        },
-      },
+      mobileSessionError(error?.message),
       { status: 401 },
     );
   }

@@ -16,12 +16,39 @@ function sessionTtlSeconds() {
     : DEFAULT_TTL_SECONDS;
 }
 
-function createMobileSessionToken(user, { deviceId } = {}) {
-  const normalizedDeviceId = typeof deviceId === "string" && deviceId.trim()
+function normalizedDeviceId(deviceId) {
+  return typeof deviceId === "string" && deviceId.trim()
     ? deviceId.trim().slice(0, 255)
     : undefined;
-  const body=encode({userId:user.publicId,sessionVersion:user.sessionVersion,deviceId:normalizedDeviceId,exp:Math.floor(Date.now()/1000)+sessionTtlSeconds()});
+}
+
+function issueMobileSessionToken(user, { deviceId, issuedAt, expiresAt }) {
+  const body = encode({
+    userId: user.publicId,
+    sessionVersion: user.sessionVersion,
+    deviceId: normalizedDeviceId(deviceId),
+    issuedAt,
+    exp: Math.floor(expiresAt.getTime() / 1000),
+  });
   return `${body}.${signature(body)}`;
+}
+
+function createMobileSession(user, { deviceId } = {}) {
+  // `exp` is stored in whole seconds, so align the returned ISO timestamp with
+  // that exact boundary rather than advertising a later millisecond value.
+  const issuedAt = Math.floor(Date.now() / 1000) * 1000;
+  const expiresAt = new Date(issuedAt + sessionTtlSeconds() * 1000);
+
+  return {
+    sessionToken: issueMobileSessionToken(user, { deviceId, issuedAt, expiresAt }),
+    tokenType: "Bearer",
+    expiresAt: expiresAt.toISOString(),
+    sessionVersion: user.sessionVersion,
+  };
+}
+
+function createMobileSessionToken(user, options = {}) {
+  return createMobileSession(user, options).sessionToken;
 }
 
 function verifyMobileSessionToken(token) {
@@ -35,4 +62,4 @@ function verifyMobileSessionToken(token) {
   return payload;
 }
 
-module.exports={createMobileSessionToken,verifyMobileSessionToken,sessionTtlSeconds};
+module.exports={createMobileSession,createMobileSessionToken,verifyMobileSessionToken,sessionTtlSeconds};

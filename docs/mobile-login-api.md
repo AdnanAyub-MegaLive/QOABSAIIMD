@@ -50,12 +50,15 @@ Every login requires credentials plus current device information. The backend de
       "deviceName": "Pixel 8",
       "loggedInAt": "2026-07-20T12:00:00.000Z"
     },
-    "sessionToken": "..."
+    "sessionToken": "...",
+    "tokenType": "Bearer",
+    "expiresAt": "2026-08-30T12:00:00.000Z",
+    "sessionVersion": 0
   }
 }
 ```
 
-Each successful credential check upserts the matching `Device` record, updates the user's last-login time, and writes an authentication audit log. A valid banned-user login attempt records the same device/login information but returns HTTP `403` with ban details.
+Each successful credential check upserts the matching `Device` record, updates the user's last-login time, and writes an authentication audit log. The token is opaque: use `expiresAt` supplied by the server and never decode it or assume a fixed lifetime. A valid banned-user login attempt records the same device/login information but returns HTTP `403` with ban details.
 
 Missing device ID or location returns HTTP `422` with `error.fields`.
 

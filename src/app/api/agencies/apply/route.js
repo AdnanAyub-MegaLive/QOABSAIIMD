@@ -1,5 +1,6 @@
 import { prisma } from "../../../../lib/prisma";
 import mobileSession from "../../../../lib/mobile-session.cjs";
+import { assertMobileSession, mobileSessionError } from "../../../../lib/mobile-session-state";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -39,22 +40,23 @@ async function authenticatedUser(request) {
       email: true,
       country: true,
       deletedAt: true,
+      status: true,
       sessionVersion: true,
+      forcedLogoutAt: true,
     },
   });
-  if (!user || user.deletedAt || user.sessionVersion !== payload.sessionVersion)
-    throw new Error("INVALID_SESSION");
-  return user;
+  return assertMobileSession(user, payload);
 }
 
 export async function POST(request) {
   let user;
   try {
     user = await authenticatedUser(request);
-  } catch {
+  } catch (exception) {
+    const sessionError = mobileSessionError(exception?.message).error;
     return error(
-      "INVALID_SESSION",
-      "The mobile session is invalid or expired.",
+      sessionError.code,
+      sessionError.message,
       401,
     );
   }

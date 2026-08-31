@@ -7,6 +7,7 @@ import {
 } from "../../../../lib/special-id";
 import { reconcileExpiredBans } from "../../../../lib/ban-maintenance";
 import { formatDateOnly } from "../../../../lib/date-only";
+import { bannedAccountLoginResponse } from "../../../../lib/mobile-login-response";
 
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
@@ -158,15 +159,6 @@ export async function POST(request) {
     });
     return record;
   });
-  await reconcileExpiredSpecialIds();
-  const identity = await getEffectiveUserId(user.id, user.publicId);
-  const data = {
-    sessionVersion: user.sessionVersion,
-    forcedLogoutAt: user.forcedLogoutAt?.toISOString() ?? null,
-    isBanned: Boolean(ban),
-    banReason: ban?.reason ?? null,
-    banExpiresAt: ban?.expiresAt?.toISOString() ?? null,
-  };
   const login = {
     ipAddress: storedDevice.lastLoginIp,
     deviceId: storedDevice.macAddress,
@@ -177,7 +169,7 @@ export async function POST(request) {
     loggedInAt:
       storedDevice.lastLoginAt?.toISOString() ?? loginAt.toISOString(),
   };
-  if (ban) return json({ success: true, data: { ...data, login } }, 403);
+  if (ban) return json(bannedAccountLoginResponse(ban), 403);
   if (storedDevice.isBanned) {
     const deviceBan = await prisma.ban.findFirst({
       where: {
@@ -204,10 +196,21 @@ export async function POST(request) {
       403,
     );
   }
+  await reconcileExpiredSpecialIds();
+  const identity = await getEffectiveUserId(user.id, user.publicId);
+  const data = {
+    sessionVersion: user.sessionVersion,
+    forcedLogoutAt: user.forcedLogoutAt?.toISOString() ?? null,
+    isBanned: false,
+    banReason: null,
+    banExpiresAt: null,
+  };
+  const session = mobileSession.createMobileSession(user, { deviceId });
   return json({
     success: true,
     data: {
       ...data,
+      ...session,
       user: {
         id: identity.effectiveId,
         normalId: identity.normalId,
@@ -229,7 +232,6 @@ export async function POST(request) {
         createdAt: user.createdAt.toISOString(),
       },
       login,
-      sessionToken: mobileSession.createMobileSessionToken(user, { deviceId }),
     },
   });
 }

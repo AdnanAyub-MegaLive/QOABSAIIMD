@@ -91,8 +91,8 @@ Suggested DTOs:
 
 - `PortalEnvelope<T>`: `success`, `data`, `error`
 - `PortalError`: `code`, `message`, optional `fields` and `details`
-- `PortalSession`: `sessionToken`, `sessionVersion`, user profile, stable
-  device identifier
+- `PortalSession`: `sessionToken`, `tokenType` (`Bearer`), `expiresAt`,
+  `sessionVersion`, user profile, stable device identifier
 - `PortalTrtcAccess`: `sdkAppId`, `userId`, `userSig`, `privateMapKey`,
   `strRoomId`, `role`, `appScene`, `canPublish`, `expiresAt`
 
@@ -124,7 +124,10 @@ Content-Type: application/json
 }
 ```
 
-Persist `data.sessionToken` only after a successful, non-banned response.
+Persist `data.sessionToken` and its server-returned `data.expiresAt` only after
+a successful, non-banned response. Login, registration, and refresh share this
+session payload. Treat the token as opaque: do not decode it or infer its
+lifetime; schedule refresh using `expiresAt`.
 Use the returned portal public user ID for portal APIs and TRTC. Do not map it
 back to the legacy numeric user ID.
 
@@ -191,6 +194,16 @@ To start a host room:
 The response gives `data.roomId`. Retain it as a string. The portal preserves
 that room identity after a room ends; the next start reuses it. Its country is
 derived from the owner’s signup geolocation, not a room request field.
+
+An `IDLE` room is not joinable, even when Android already knows its room ID.
+Only the room owner can restart it with `POST /api/v1/audio-rooms` and
+`action: "START"`. Discovery and search return `LIVE` rooms only. Treat the
+Socket.IO `ROOM_IDLE` result as unavailable and refresh discovery instead of
+attempting to join again.
+
+This owner/listener authorization rule is an approved MegaLive product policy.
+Do not change the client behavior or rely on an idle room ID to start a room
+without explicit product approval.
 
 Do not send a media stream URL for TRTC audio. TRTC carries the live audio;
 existing media assets remain separate room/profile presentation assets.

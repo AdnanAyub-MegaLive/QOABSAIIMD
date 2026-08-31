@@ -21,6 +21,7 @@ app.prepare().then(async()=>{
   const {formatDateOnly}=await import("./src/lib/date-only.js");
   const {getEffectiveUserId}=await import("./src/lib/special-id.js");
   const {issueTrtcAccess}=await import("./src/lib/trtc-authorization.js");
+  const {listenerRoomJoinError}=await import("./src/lib/audio-room-activation-policy.js");
   const {ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>handle(request,response));
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
@@ -190,7 +191,8 @@ app.prepare().then(async()=>{
       if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
       if(room.isBlocked)return ack({success:false,error:{code:"ROOM_BLOCKED",details:{reason:room.blockedReason,expiresAt:room.blockedUntil?.toISOString()??null}}});
       if(room.status==="TERMINATED")return ack({success:false,error:{code:"ROOM_TERMINATED",details:{expiresAt:room.terminatedUntil?.toISOString()??null}}});
-      if(room.status!=="LIVE"&&room.status!=="IDLE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+      const joinError=listenerRoomJoinError(room);
+      if(joinError)return ack({success:false,error:joinError});
       if(room.joiningDisabled&&room.ownerId!==user.id)return ack({success:false,error:{code:"ROOM_OWNER_ONLY",details:{expiresAt:room.joiningDisabledUntil?.toISOString()??null}}});
       const roomChannel=`audio-room:${room.roomId}`;
       const alreadyJoined=socket.rooms.has(roomChannel);

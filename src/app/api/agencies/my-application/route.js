@@ -1,5 +1,6 @@
 import { prisma } from "../../../../lib/prisma";
 import mobileSession from "../../../../lib/mobile-session.cjs";
+import { assertMobileSession, mobileSessionError } from "../../../../lib/mobile-session-state";
 
 export const dynamic="force-dynamic";
 
@@ -21,9 +22,9 @@ export async function GET(request){
     const payload=mobileSession.verifyMobileSessionToken(token);
     const user=await prisma.user.findUnique({
       where:{publicId:payload.userId},
-      select:{id:true,deletedAt:true,sessionVersion:true},
+      select:{id:true,deletedAt:true,status:true,sessionVersion:true,forcedLogoutAt:true},
     });
-    if(!user||user.deletedAt||user.sessionVersion!==payload.sessionVersion)throw new Error("INVALID_SESSION");
+    assertMobileSession(user,payload);
 
     const latest=await prisma.agencyApplication.findFirst({
       where:{userId:user.id},
@@ -39,7 +40,7 @@ export async function GET(request){
         createdAt:latest.createdAt.toISOString(),
       };
     return json({success:true,data:{application}});
-  }catch{
-    return json({success:false,error:{code:"INVALID_SESSION",message:"The mobile session is invalid or expired."}},401);
+  }catch(error){
+    return json(mobileSessionError(error?.message),401);
   }
 }

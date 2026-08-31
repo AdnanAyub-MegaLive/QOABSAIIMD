@@ -55,10 +55,14 @@ Use the computer's LAN address during physical-device development, for example `
 
 ## Responses
 
-- `201`: user created; returns `data.user`.
+- `201`: user created; returns `data.user` plus `sessionToken`, `tokenType`
+  (`Bearer`), `expiresAt`, and `sessionVersion`.
 - `400`: malformed JSON.
 - `409`: phone number or email already registered.
 - `422`: validation failed; inspect `error.fields`.
 - `500`: database or server failure.
 
 Set `MOBILE_APP_ORIGIN` in `.env.local` when a browser-based client needs CORS restricted to a specific origin. Native React Native requests are not subject to browser CORS.
+
+The token is opaque. Use the server-returned `expiresAt` when scheduling a
+refresh; Android must not decode the token or assume the configured server TTL.

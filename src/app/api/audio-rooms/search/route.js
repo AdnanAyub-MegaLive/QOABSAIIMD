@@ -39,7 +39,8 @@ export async function GET(request) {
     const rooms = await prisma.audioRoom.findMany({
       where: {
         ownerId: { not: user.id },
-        status: { not: "TERMINATED" },
+        // Persistent IDLE rooms are owner-only until their owner restarts them.
+        status: "LIVE",
         isBlocked: false,
         owner: {
           deletedAt: null,

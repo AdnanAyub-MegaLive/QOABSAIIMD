@@ -29,7 +29,6 @@ export async function POST(request) {
           }, 401, methods);
         }
 
-        const refreshedAt = new Date();
         await prisma.auditLog.create({
           data: {
             action: "MOBILE_SESSION_REFRESHED",
@@ -42,15 +41,13 @@ export async function POST(request) {
           },
         });
 
+        const session = mobileSession.createMobileSession(user, {
+          deviceId: payload.deviceId,
+        });
         return v1Json(request, requestId, {
           success: true,
           data: {
-            sessionToken: mobileSession.createMobileSessionToken(user, { deviceId: payload.deviceId }),
-            tokenType: "Bearer",
-            expiresAt: new Date(
-              refreshedAt.getTime() + mobileSession.sessionTtlSeconds() * 1000,
-            ).toISOString(),
-            sessionVersion: user.sessionVersion,
+            ...session,
           },
         }, 200, methods);
       } catch (error) {

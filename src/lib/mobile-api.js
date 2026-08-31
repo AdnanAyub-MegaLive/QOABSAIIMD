@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import mobileSession from "./mobile-session.cjs";
+import { assertMobileSession, mobileSessionError } from "./mobile-session-state";
 
 export const mobileCorsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -38,15 +39,10 @@ export async function requireMobileUser(request) {
       status: true,
       deletedAt: true,
       sessionVersion: true,
+      forcedLogoutAt: true,
     },
   });
-  if (
-    !user ||
-    user.deletedAt ||
-    user.status !== "ACTIVE" ||
-    user.sessionVersion !== payload.sessionVersion
-  )
-    throw new Error("INVALID_SESSION");
+  assertMobileSession(user, payload);
 
   if (payload.deviceId) {
     const device = await prisma.device.findUnique({
@@ -71,6 +67,7 @@ export async function requireMobileRole(request, allowedRoles) {
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   const known = {
     INVALID_SESSION: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
+    SESSION_REVOKED: [401, "SESSION_REVOKED", "This mobile session has been revoked. Please sign in again."],
     INVALID_SESSION_TOKEN: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
     EXPIRED_SESSION_TOKEN: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
     DEVICE_NOT_REGISTERED: [401, "DEVICE_NOT_REGISTERED", "This session is not associated with an active device."],
@@ -115,5 +112,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     fallbackCode,
     "Unable to complete this request right now.",
   ];
+  if (status === 401 && ["INVALID_SESSION", "SESSION_REVOKED"].includes(code))
+    return mobileJson(mobileSessionError(code), status);
   return mobileJson({ success: false, error: { code, message } }, status);
 }

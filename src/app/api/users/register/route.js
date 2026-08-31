@@ -172,7 +172,7 @@ export async function POST(request) {
       return created;
     });
 
-    const sessionToken = mobileSession.createMobileSessionToken(user, {
+    const session = mobileSession.createMobileSession(user, {
       deviceId: body.device
         ? String(body.device.deviceId ?? body.device.macAddress).trim()
         : undefined,
@@ -182,6 +182,7 @@ export async function POST(request) {
         success: true,
         message: "User registered successfully.",
         data: {
+          ...session,
           user: {
             id: user.publicId,
             normalId: user.publicId,
@@ -203,7 +204,6 @@ export async function POST(request) {
             createdAt: user.createdAt.toISOString(),
             sessionVersion: user.sessionVersion,
           },
-          sessionToken,
         },
       },
       201,
