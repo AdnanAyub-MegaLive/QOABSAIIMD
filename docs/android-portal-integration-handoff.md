@@ -128,6 +128,15 @@ Persist `data.sessionToken` and its server-returned `data.expiresAt` only after
 a successful, non-banned response. Login, registration, and refresh share this
 session payload. Treat the token as opaque: do not decode it or infer its
 lifetime; schedule refresh using `expiresAt`.
+
+### Google Sign-In
+
+After Google Play services obtains an ID token, send it to
+`POST /api/v1/auth/google` as `idToken` with the same stable device identifier
+and login location used by password login. The portal, not Android, verifies the
+token and issues the MegaLive session. For a first-time account, collect and
+send a valid phone number because MegaLive accounts require one. Do not include
+an OAuth client secret, `AUTH_SECRET`, or any TRTC signing material in Android.
 Use the returned portal public user ID for portal APIs and TRTC. Do not map it
 back to the legacy numeric user ID.
 

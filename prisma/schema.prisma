@@ -151,6 +151,7 @@ model AuditLog {
 model User {
   id                       String                    @id @default(cuid())
   publicId                 String                    @unique
+  googleSubject            String?                   @unique
   name                     String
   email                    String?                   @unique
   phone                    String                    @unique

@@ -138,6 +138,7 @@ and write its own trusted country header; otherwise registration returns
 | Discover v1 contract | `GET /api/v1` | No authentication required |
 | Login | `POST /api/v1/auth/login` | Device ID and location required |
 | Register | `POST /api/v1/auth/register` | `device.deviceId` required in v1 |
+| Google sign-in | `POST /api/v1/auth/google` | Server-verifies a Google ID token; device ID and location required |
 | Change password | `POST /api/v1/auth/password` | Authenticated password change |
 | Validate session | `GET /api/v1/auth/session?deviceId=...` | Validates the token and device binding |
 | Refresh session | `POST /api/v1/auth/refresh` | Requires a device-bound session |
@@ -238,6 +239,32 @@ session version and disconnects all of that account's portal sockets.
 The default token lifetime is 30 days and is configured server-side with
 `MOBILE_SESSION_TTL_SECONDS` (5 minutes to 90 days). Never expose `AUTH_SECRET`
 or any TRTC signing secret to Android.
+
+## Google Sign-In
+
+`POST /api/v1/auth/google` accepts an Android-acquired Google ID token over
+HTTPS. The portal verifies the token signature, issuer, expiry, and audience
+using `GOOGLE_OAUTH_CLIENT_ID`; Android must not send a Google client secret.
+
+```json
+{
+  "idToken": "<google-id-token>",
+  "phone": "+923001234567",
+  "device": {
+    "deviceId": "stable-installation-id",
+    "location": "Lahore, Pakistan",
+    "platform": "Android",
+    "deviceName": "Pixel 8"
+  }
+}
+```
+
+`phone` is required only when Google Sign-In creates a new MegaLive account;
+existing linked accounts may omit it. A successful response uses the same
+session DTO as login, registration, and refresh, with `data.user` included.
+The portal stores Google’s immutable `sub` claim, never an email address, as
+the Google-account identifier. A third-party email already owned by an existing
+portal account is not auto-linked; return `409 GOOGLE_ACCOUNT_LINK_REQUIRED`.
 
 ## Rate limits and production operation
 
