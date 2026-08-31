@@ -4,6 +4,7 @@ import {
   parsePositiveCoins,
   serializePackage,
   serializeWalletTransaction,
+  serializeWithdrawal,
 } from "./wallet";
 
 describe("wallet helpers", () => {
@@ -42,5 +43,26 @@ describe("wallet helpers", () => {
     });
     expect(result.coins).toBe("9007199254740993");
     expect(result.amount).toBe("1050.00");
+  });
+
+  it("does not expose a withdrawal account number", () => {
+    const withdrawal = serializeWithdrawal({
+      publicId: "WD-1",
+      coins: 9007199254740993n,
+      cashAmount: { toString: () => "450359962737049.65" },
+      currency: "PKR",
+      method: "jazzcash",
+      accountName: "Ayesha Khan",
+      accountNumber: "03001234567",
+      status: "PENDING",
+      reviewNote: null,
+      rejectionReason: null,
+      providerPayoutReference: null,
+      createdAt: new Date("2026-08-10T12:00:00.000Z"),
+      reviewedAt: null,
+      completedAt: null,
+    });
+    expect(withdrawal).toMatchObject({ coins: "9007199254740993", accountNumberLast4: "4567" });
+    expect(withdrawal).not.toHaveProperty("accountNumber");
   });
 });

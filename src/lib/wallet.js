@@ -52,6 +52,25 @@ export function serializeWalletTransaction(item) {
   };
 }
 
+export function serializeWithdrawal(item) {
+  return {
+    id: item.publicId,
+    coins: item.coins.toString(),
+    amount: item.cashAmount.toString(),
+    currency: item.currency,
+    method: item.method,
+    accountName: item.accountName,
+    accountNumberLast4: item.accountNumber.slice(-4),
+    status: item.status,
+    reviewNote: item.reviewNote ?? null,
+    rejectionReason: item.rejectionReason ?? null,
+    payoutReference: item.providerPayoutReference ?? null,
+    createdAt: item.createdAt.toISOString(),
+    reviewedAt: item.reviewedAt?.toISOString() ?? null,
+    completedAt: item.completedAt?.toISOString() ?? null,
+  };
+}
+
 export function ledgerData({
   userId,
   type,

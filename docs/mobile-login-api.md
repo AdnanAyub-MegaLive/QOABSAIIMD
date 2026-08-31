@@ -11,7 +11,7 @@ Every login requires credentials plus current device information. The backend de
   "phone": "+923001234567",
   "password": "MyPass#8",
   "device": {
-    "macAddress": "stable-device-or-installation-id",
+    "deviceId": "stable-device-or-installation-id",
     "location": "Lahore, Pakistan",
     "platform": "Android",
     "deviceName": "Pixel 8"
@@ -19,7 +19,7 @@ Every login requires credentials plus current device information. The backend de
 }
 ```
 
-`device.macAddress` and `device.location` are required. Because recent Android and iOS versions may hide the physical MAC address, send a stable app-installation or device identifier when the physical MAC is unavailable. Do not send `lastLoginIp`; the server obtains it from the connection/proxy headers.
+`device.deviceId` and `device.location` are required. Because recent Android and iOS versions may hide the physical MAC address, send a stable app-installation or device identifier. Do not send `lastLoginIp`; the server obtains it from the connection/proxy headers.
 
 ## Successful response
 
@@ -110,8 +110,9 @@ Both events include `success: true`. The ban event also includes `reason` and `b
 ## Update profile
 
 `PATCH /api/users/profile` requires `Authorization: Bearer <sessionToken>`.
-Send any combination of `name`, `phone`, `email`, `country`, `profileImage`,
-`gender`, and `dob`. Fields that are omitted remain unchanged. Nullable fields
+Send any combination of `name`, `phone`, `email`, `profileImage`, `gender`, and
+`dob`. Fields that are omitted remain unchanged. Country is assigned from signup
+geolocation and cannot be edited by mobile clients. Nullable fields
 can be cleared with `null`, except gender and DOB after their first assignment.
 
 ```json

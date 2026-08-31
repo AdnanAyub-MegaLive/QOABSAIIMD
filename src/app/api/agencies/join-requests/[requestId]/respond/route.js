@@ -6,6 +6,8 @@ import {
   requireMobileUser,
 } from "@/lib/mobile-api";
 import { emitToUser } from "@/lib/realtime";
+import { primaryLegacyRole } from "@/lib/user-roles";
+import { talentPublicIdForApprovedHost } from "@/lib/host-public-id";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -41,6 +43,7 @@ export async function POST(request, { params }) {
             publicId: true,
             agencyId: true,
             appRoles: true,
+            role: true,
           },
         },
         agency: {
@@ -81,6 +84,20 @@ export async function POST(request, { params }) {
 
     const status = body.accept ? "APPROVED" : "REJECTED";
     const reviewedAt = new Date();
+    const hostPublicId = body.accept
+      ? talentPublicIdForApprovedHost(joinRequest.user.publicId)
+      : joinRequest.user.publicId;
+    if (hostPublicId !== joinRequest.user.publicId) {
+      const conflict = await prisma.user.findUnique({
+        where: { publicId: hostPublicId },
+        select: { id: true },
+      });
+      if (conflict && conflict.id !== joinRequest.user.id) {
+        const error = new Error("The Talent ID is already assigned.");
+        error.code = "HOST_PUBLIC_ID_CONFLICT";
+        throw error;
+      }
+    }
     await prisma.$transaction(async (tx) => {
       const changed = await tx.agencyJoinRequest.updateMany({
         where: { id: joinRequest.id, status: "PENDING" },
@@ -95,17 +112,40 @@ export async function POST(request, { params }) {
         const linked = await tx.user.updateMany({
           where: { id: joinRequest.user.id, agencyId: null },
           data: {
+            publicId: hostPublicId,
             agencyId: joinRequest.agencyId,
             appRoles: {
               set: [...new Set([...joinRequest.user.appRoles, "HOST"])],
             },
+            role: primaryLegacyRole(
+              [...new Set([...joinRequest.user.appRoles, "HOST"])],
+              joinRequest.user.role,
+            ),
             isVerified: true,
+            status: "ACTIVE",
+            ...(hostPublicId !== joinRequest.user.publicId
+              ? { sessionVersion: { increment: 1 } }
+              : {}),
           },
         });
         if (!linked.count) {
           const error = new Error("This user already belongs to an agency.");
           error.code = "ALREADY_HAS_AGENCY";
           throw error;
+        }
+        if (hostPublicId !== joinRequest.user.publicId) {
+          await tx.legacyIdMapping.updateMany({
+            where: {
+              userId: joinRequest.user.id,
+              entityType: "USER",
+              publicId: joinRequest.user.publicId,
+            },
+            data: { publicId: hostPublicId },
+          });
+          await tx.auditLog.updateMany({
+            where: { entityType: "User", entityId: joinRequest.user.publicId },
+            data: { entityId: hostPublicId },
+          });
         }
       }
       await tx.auditLog.create({
@@ -114,11 +154,12 @@ export async function POST(request, { params }) {
           category: "AGENCY_MANAGEMENT",
           entityType: "AgencyJoinRequest",
           entityId: joinRequest.publicId,
-          description: `Agency owner ${owner.publicId} ${status.toLowerCase()} user ${joinRequest.user.publicId}'s request to join ${joinRequest.agency.publicId}.`,
+          description: `Agency owner ${owner.publicId} ${status.toLowerCase()} user ${hostPublicId}'s request to join ${joinRequest.agency.publicId}.`,
           metadata: {
             source: "MOBILE_AGENCY_OWNER",
             ownerId: owner.publicId,
-            userId: joinRequest.user.publicId,
+            previousUserId: joinRequest.user.publicId,
+            userId: hostPublicId,
             agencyId: joinRequest.agency.publicId,
             status,
           },
@@ -134,6 +175,8 @@ export async function POST(request, { params }) {
         agencyName: joinRequest.agency.name,
         status,
         reviewedAt: reviewedAt.toISOString(),
+        hostId: body.accept ? hostPublicId : undefined,
+        sessionInvalidated: body.accept && hostPublicId !== joinRequest.user.publicId,
       },
     };
     emitToUser(joinRequest.user.publicId, "agency:join-responded", payload);
@@ -145,6 +188,7 @@ export async function POST(request, { params }) {
       REQUEST_ALREADY_RESOLVED: 409,
       AGENCY_INACTIVE: 409,
       ALREADY_HAS_AGENCY: 409,
+      HOST_PUBLIC_ID_CONFLICT: 409,
     };
     if (statuses[error?.code]) {
       return mobileJson(

@@ -1,5 +1,5 @@
 import { prisma } from "../../../../lib/prisma";
-import mobileSession from "../../../../lib/mobile-session.cjs";
+import { requireMobileUser } from "../../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../../lib/audio-room-maintenance";
 import {
   requestOrigin,
@@ -22,36 +22,15 @@ export function OPTIONS() {
 }
 
 async function authenticatedUser(request) {
-  const token = request.headers
-    .get("authorization")
-    ?.replace(/^Bearer\s+/i, "");
-  const payload = mobileSession.verifyMobileSessionToken(token);
-
-  if (!payload?.userId) throw new Error("INVALID_SESSION");
-
-  const user = await prisma.user.findUnique({
-    where: { publicId: payload.userId },
-    select: {
-      id: true,
-      deletedAt: true,
-      sessionVersion: true,
-    },
-  });
-
-  if (
-    !user ||
-    user.deletedAt ||
-    Number(payload.sessionVersion) !== user.sessionVersion
-  ) {
-    throw new Error("INVALID_SESSION");
-  }
-
-  return user;
+  return requireMobileUser(request);
 }
 
 export async function GET(request) {
   try {
     const user = await authenticatedUser(request);
+    const requestedCountry = new URL(request.url).searchParams.get("country")?.trim().toUpperCase();
+    if (requestedCountry && !/^[A-Z]{2}$/.test(requestedCountry))
+      return json({ success: false, error: { code: "INVALID_COUNTRY", message: "country must be an ISO alpha-2 code." } }, 422);
 
     // Clear restrictions whose allotted time has passed before discovering rooms.
     await reconcileExpiredAudioRoomRestrictions();
@@ -62,6 +41,7 @@ export async function GET(request) {
         status: "LIVE",
         isBlocked: false,
         joiningDisabled: false,
+        ...(requestedCountry ? { country: requestedCountry } : {}),
         owner: {
           deletedAt: null,
           status: "ACTIVE",

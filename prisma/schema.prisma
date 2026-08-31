@@ -82,6 +82,8 @@ enum WalletTransactionStatus {
 
 enum WalletOrderStatus {
   PENDING
+  APPROVED
+  REJECTED
   COMPLETED
   FAILED
   EXPIRED
@@ -91,6 +93,11 @@ enum WalletOrderStatus {
 enum BanTarget {
   USER
   DEVICE
+}
+
+enum LegacyEntityType {
+  USER
+  AUDIO_ROOM
 }
 
 enum EventUserRole {
@@ -120,6 +127,7 @@ model Admin {
   auditLogs                  AuditLog[]
   agencyApplicationsReviewed AgencyApplication[]
   agencyJoinRequestsReviewed AgencyJoinRequest[]
+  withdrawalsReviewed        WalletWithdrawal[]     @relation("WalletWithdrawalReviewer")
 }
 
 model AuditLog {
@@ -194,6 +202,7 @@ model User {
   notificationReads        NotificationRead[]
   friendRequestsSent       FriendRequest[]           @relation("FriendRequestsSent")
   friendRequestsReceived   FriendRequest[]           @relation("FriendRequestsReceived")
+  legacyIdMappings         LegacyIdMapping[]
   totalTopUp               BigInt                    @default(0)
   agency                   Agency?                   @relation("UserAgency", fields: [agencyId], references: [id], onDelete: SetNull)
   ownedAgency              Agency?                   @relation("AgencyOwner")
@@ -757,6 +766,7 @@ model WalletTopUpOrder {
   totalCoins        BigInt
   status            WalletOrderStatus @default(PENDING)
   providerReference String?           @unique
+  idempotencyKey    String?
   expiresAt         DateTime
   completedAt       DateTime?
   createdAt         DateTime          @default(now())
@@ -766,6 +776,7 @@ model WalletTopUpOrder {
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
+  @@unique([userId, idempotencyKey])
 }
 
 model WalletWithdrawal {
@@ -779,13 +790,20 @@ model WalletWithdrawal {
   accountName   String
   accountNumber String
   status        WalletOrderStatus @default(PENDING)
+  reviewedByAdminId String?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   reviewedAt    DateTime?
+  completedAt   DateTime?
+  reviewNote    String?
+  rejectionReason String?
+  providerPayoutReference String? @unique
   user          User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reviewedBy    Admin?            @relation("WalletWithdrawalReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
+  @@index([reviewedByAdminId, reviewedAt])
 }
 
 model WalletTransaction {
@@ -1006,10 +1024,49 @@ model AudioRoom {
   owner                User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   messages             AudioRoomMessage[]
   seats                AudioRoomSeat[]
+  legacyIdMappings     LegacyIdMapping[]
 
   @@unique([ownerId])
   @@index([ownerId, startedAt])
   @@index([status, startedAt])
+}
+
+model LegacyIdMapping {
+  id          String           @id @default(cuid())
+  source      String           @default("MEGACHAT_LEGACY")
+  entityType  LegacyEntityType
+  legacyId    String
+  publicId    String
+  userId      String?
+  audioRoomId String?
+  metadata    Json?
+  migratedAt  DateTime         @default(now())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audioRoom   AudioRoom?       @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+
+  @@unique([source, entityType, legacyId])
+  @@unique([source, entityType, publicId])
+  @@index([publicId])
+  @@index([entityType, migratedAt])
+}
+
+model ApiRequestLog {
+  id           String   @id @default(cuid())
+  requestId    String   @unique
+  apiVersion   String
+  method       String
+  path         String
+  statusCode   Int
+  durationMs   Int
+  clientIp     String?
+  userPublicId String?
+  createdAt    DateTime @default(now())
+
+  @@index([apiVersion, createdAt])
+  @@index([path, createdAt])
+  @@index([userPublicId, createdAt])
 }
 
 model AudioRoomSeat {

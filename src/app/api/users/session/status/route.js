@@ -8,16 +8,16 @@ import { reconcileExpiredBans } from "../../../../../lib/ban-maintenance";
 import { formatDateOnly } from "../../../../../lib/date-only";
 
 export async function GET(request) {
-  const macAddress = new URL(request.url).searchParams
-    .get("macAddress")
-    ?.trim();
-  if (!macAddress)
+  const deviceId =
+    new URL(request.url).searchParams.get("deviceId")?.trim() ||
+    new URL(request.url).searchParams.get("macAddress")?.trim();
+  if (!deviceId)
     return Response.json(
       {
         success: false,
         error: {
           code: "DEVICE_ID_REQUIRED",
-          message: "macAddress query parameter is required.",
+          message: "deviceId query parameter is required.",
         },
       },
       { status: 422 },
@@ -30,7 +30,7 @@ export async function GET(request) {
     const user = await prisma.user.findUnique({
       where: { publicId: payload.userId },
     });
-    if (!user || user.deletedAt)
+    if (!user || user.deletedAt || user.sessionVersion !== payload.sessionVersion)
       return Response.json(
         {
           success: false,
@@ -49,8 +49,19 @@ export async function GET(request) {
       orderBy: { createdAt: "desc" },
     });
     const device = await prisma.device.findUnique({
-      where: { userId_macAddress: { userId: user.id, macAddress } },
+      where: { userId_macAddress: { userId: user.id, macAddress: deviceId } },
     });
+    if (payload.deviceId && payload.deviceId !== deviceId)
+      return Response.json(
+        {
+          success: false,
+          error: {
+            code: "DEVICE_MISMATCH",
+            message: "This session belongs to another device.",
+          },
+        },
+        { status: 401 },
+      );
     const deviceBan = device?.isBanned
       ? await prisma.ban.findFirst({
           where: {
@@ -75,7 +86,8 @@ export async function GET(request) {
         deviceBanned: Boolean(device?.isBanned),
         deviceBanReason: deviceBan?.reason ?? null,
         deviceBanExpiresAt: deviceBan?.expiresAt?.toISOString() ?? null,
-        macAddress,
+        deviceId,
+        macAddress: deviceId,
         id: identity.effectiveId,
         normalId: identity.normalId,
         specialId: identity.specialId,

@@ -5,18 +5,19 @@
   "scripts": {
     "predev": "prisma generate",
     "postinstall": "prisma generate",
-    "dev": "node server.js --dev",
+    "dev": "node server.js --dev --webpack",
     "build": "next build",
     "start": "node server.js",
     "lint": "eslint",
     "test": "vitest run",
     "db:seed": "prisma db seed && node prisma/seed-events.mjs",
     "events:seed": "node prisma/seed-events.mjs",
-    "wallet:setup": "node scripts/setup-wallet-db.mjs"
+    "wallet:setup": "node scripts/setup-wallet-db.mjs",
+    "legacy-ids:import": "node scripts/import-legacy-id-mappings.mjs"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "bcrypt": "^6.0.0",
     "file-type": "^22.0.1",
     "jsonwebtoken": "^9.0.3",
@@ -36,7 +37,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.10",
-    "prisma": "^7.8.0",
+    "prisma": "7.10.0",
     "tailwindcss": "^4",
     "vitest": "^4.1.10"
   }

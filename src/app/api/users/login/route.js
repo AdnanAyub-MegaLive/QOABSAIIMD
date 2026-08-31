@@ -44,13 +44,13 @@ export async function POST(request) {
     .replace(/[\s().-]/g, "");
   const password = String(body?.password ?? "");
   const device = body?.device;
-  const macAddress = clean(device?.macAddress, 255);
+  const deviceId = clean(device?.deviceId ?? device?.macAddress, 255);
   const location = clean(device?.location, 500);
   if (
     !device ||
     typeof device !== "object" ||
     Array.isArray(device) ||
-    !macAddress ||
+    !deviceId ||
     !location
   )
     return json(
@@ -60,10 +60,10 @@ export async function POST(request) {
           code: "VALIDATION_ERROR",
           message: "Login device information is required.",
           fields: {
-            ...(!macAddress
+            ...(!deviceId
               ? {
-                  "device.macAddress":
-                    "A MAC address or stable device identifier is required.",
+                  "device.deviceId":
+                    "A stable Android installation identifier is required.",
                 }
               : {}),
             ...(!location
@@ -111,7 +111,7 @@ export async function POST(request) {
   });
   const storedDevice = await prisma.$transaction(async (tx) => {
     const record = await tx.device.upsert({
-      where: { userId_macAddress: { userId: user.id, macAddress } },
+      where: { userId_macAddress: { userId: user.id, macAddress: deviceId } },
       update: {
         lastLoginIp: loginIp,
         location,
@@ -121,7 +121,7 @@ export async function POST(request) {
       },
       create: {
         userId: user.id,
-        macAddress,
+        macAddress: deviceId,
         lastLoginIp: loginIp,
         location,
         platform: clean(device.platform, 100),
@@ -144,11 +144,11 @@ export async function POST(request) {
         category: "AUTHENTICATION",
         entityType: "User",
         entityId: user.publicId,
-        description: `User ${user.publicId} ${ban ? "attempted to log in while banned" : record.isBanned ? `attempted to log in from banned device ${macAddress}` : "logged in through the mobile application"}`,
+        description: `User ${user.publicId} ${ban ? "attempted to log in while banned" : record.isBanned ? `attempted to log in from banned device ${deviceId}` : "logged in through the mobile application"}`,
         ipAddress: loginIp,
         metadata: {
           source: "MOBILE_APP",
-          macAddress,
+          deviceId,
           location,
           platform: clean(device.platform, 100),
           deviceName: clean(device.deviceName, 255),
@@ -169,6 +169,7 @@ export async function POST(request) {
   };
   const login = {
     ipAddress: storedDevice.lastLoginIp,
+    deviceId: storedDevice.macAddress,
     macAddress: storedDevice.macAddress,
     location: storedDevice.location,
     platform: storedDevice.platform,
@@ -228,7 +229,7 @@ export async function POST(request) {
         createdAt: user.createdAt.toISOString(),
       },
       login,
-      sessionToken: mobileSession.createMobileSessionToken(user),
+      sessionToken: mobileSession.createMobileSessionToken(user, { deviceId }),
     },
   });
 }

@@ -14,6 +14,10 @@ import {
 import { reconcileExpiredAudioRoomRestrictions } from "../lib/audio-room-maintenance";
 import { syncProgressionProps } from "../lib/props-store";
 import { normalizeApplicationRoles, primaryLegacyRole } from "../lib/user-roles";
+import {
+  shouldAssignTalentPublicId,
+  talentPublicIdForApprovedHost,
+} from "../lib/host-public-id";
 import { ledgerData } from "../lib/wallet";
 import { generateNumericPublicId } from "../lib/public-id";
 
@@ -72,9 +76,18 @@ export async function updateUserAccount(publicId, changes) {
   const admin = await requireAdmin();
   const currentUser = await prisma.user.findUniqueOrThrow({
     where: { publicId },
-    select: { agencyId: true, role: true, appRoles: true },
+    select: {
+      id: true,
+      publicId: true,
+      agencyId: true,
+      role: true,
+      appRoles: true,
+      isVerified: true,
+      status: true,
+    },
   });
   const data = {};
+  let nextRoles = normalizeApplicationRoles(currentUser.appRoles);
   if (changes.name !== undefined) data.name = changes.name;
   if (changes.email !== undefined) data.email = normalizeEmail(changes.email);
   if (changes.phone !== undefined) data.phone = normalizePhone(changes.phone);
@@ -89,6 +102,7 @@ export async function updateUserAccount(publicId, changes) {
     if (roles.includes("HOST") && !currentUser.agencyId)
       throw new Error("HOST_AGENCY_REQUIRED");
     data.appRoles = { set: roles };
+    nextRoles = roles;
     data.role = primaryLegacyRole(roles, currentUser.role);
     data.isOfficial = roles.includes("OFFICIAL");
   }
@@ -100,10 +114,46 @@ export async function updateUserAccount(publicId, changes) {
     if (data.isOfficial) roles.add("OFFICIAL");
     else roles.delete("OFFICIAL");
     data.appRoles = { set: normalizeApplicationRoles([...roles]) };
+    nextRoles = normalizeApplicationRoles([...roles]);
   }
-  await prisma.user.update({ where: { publicId }, data });
+  const nextStatus = data.status ?? currentUser.status;
+  const isHost = Boolean(currentUser.agencyId) && (
+    nextRoles.includes("HOST") ||
+    (changes.roles === undefined && currentUser.role === "HOST")
+  );
+  const nextPublicId = shouldAssignTalentPublicId({
+    hostEnabled: isHost,
+    isVerified: currentUser.isVerified,
+    status: nextStatus,
+  })
+    ? talentPublicIdForApprovedHost(currentUser.publicId)
+    : currentUser.publicId;
+  if (nextPublicId !== currentUser.publicId) {
+    const conflict = await prisma.user.findUnique({
+      where: { publicId: nextPublicId },
+      select: { id: true },
+    });
+    if (conflict && conflict.id !== currentUser.id) {
+      throw new Error("HOST_PUBLIC_ID_CONFLICT");
+    }
+    data.publicId = nextPublicId;
+    data.sessionVersion = { increment: 1 };
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: currentUser.id }, data });
+    if (nextPublicId !== currentUser.publicId) {
+      await tx.legacyIdMapping.updateMany({
+        where: { userId: currentUser.id, entityType: "USER", publicId: currentUser.publicId },
+        data: { publicId: nextPublicId },
+      });
+      await tx.auditLog.updateMany({
+        where: { entityType: "User", entityId: currentUser.publicId },
+        data: { entityId: nextPublicId },
+      });
+    }
+  });
   let action = "UPDATE_USER";
-  let description = `${admin.name} updated user ${publicId}`;
+  let description = `${admin.name} updated user ${nextPublicId}`;
   if (changes.vipLevel !== undefined) {
     action = Number(changes.vipLevel) > 0 ? "GRANT_VIP" : "REMOVE_VIP";
     description =
@@ -137,19 +187,24 @@ export async function updateUserAccount(publicId, changes) {
     action,
     category: "USER_MANAGEMENT",
     entityType: "User",
-    entityId: publicId,
+    entityId: nextPublicId,
     description,
-    metadata: { ...changes, reason: changes.auditReason || null },
+    metadata: {
+      ...changes,
+      reason: changes.auditReason || null,
+      previousPublicId: currentUser.publicId,
+      publicId: nextPublicId,
+    },
   });
   if (changes.vipLevel !== undefined) {
     const user = await prisma.user.findUniqueOrThrow({
-      where: { publicId },
+      where: { publicId: nextPublicId },
       select: { id: true },
     });
     await syncProgressionProps(user.id);
-    const assignment = await autoAssignEligibleSpecialId(publicId, "VIP");
+    const assignment = await autoAssignEligibleSpecialId(nextPublicId, "VIP");
     if (assignment)
-      emitToUser(publicId, "special-id:assigned", {
+      emitToUser(nextPublicId, "special-id:assigned", {
         success: true,
         data: {
           specialId: assignment.specialId,
@@ -158,8 +213,16 @@ export async function updateUserAccount(publicId, changes) {
         },
       });
   }
+  if (nextPublicId !== currentUser.publicId) {
+    emitToUser(currentUser.publicId, "host:approved", {
+      previousUserId: currentUser.publicId,
+      userId: nextPublicId,
+      sessionInvalidated: true,
+    });
+  }
   revalidatePath("/users");
-  revalidatePath(`/users/${publicId}`);
+  revalidatePath(`/users/${currentUser.publicId}`);
+  revalidatePath(`/users/${nextPublicId}`);
 }
 
 export async function updateTalentAccount(publicId, changes) {
@@ -230,6 +293,131 @@ export async function updateTalentAccount(publicId, changes) {
   });
   revalidatePath("/talents");
   revalidatePath(`/talents/${publicId}`);
+}
+
+export async function managePortalHost(publicId, changes) {
+  const admin = await requireAdmin();
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { publicId },
+    select: {
+      id: true,
+      publicId: true,
+      name: true,
+      role: true,
+      appRoles: true,
+      agencyId: true,
+      hostSalaryCoinBalance: true,
+      sessionVersion: true,
+    },
+  });
+  const hostEnabled = Boolean(changes.hostEnabled);
+  const agencyPublicId = String(changes.agencyPublicId ?? "").trim();
+  let agencyId = null;
+  if (hostEnabled) {
+    if (!agencyPublicId) throw new Error("HOST_AGENCY_REQUIRED");
+    const agency = await prisma.agency.findFirst({
+      where: { publicId: agencyPublicId, status: "ACTIVE" },
+      select: { id: true, publicId: true, name: true },
+    });
+    if (!agency) throw new Error("HOST_AGENCY_REQUIRED");
+    agencyId = agency.id;
+  } else if (user.hostSalaryCoinBalance > 0n) {
+    throw new Error("HOST_REMOVAL_REQUIRES_ZERO_SALARY");
+  }
+
+  const currentRoles = normalizeApplicationRoles(user.appRoles);
+  const roles = normalizeApplicationRoles(
+    hostEnabled
+      ? [...currentRoles, "HOST"]
+      : currentRoles.filter((role) => role !== "HOST"),
+  );
+  const status = enumValue(changes.status ?? "ACTIVE");
+  if (!["ACTIVE", "PENDING", "SUSPENDED", "BANNED"].includes(status)) {
+    throw new Error("INVALID_ACCOUNT_STATUS");
+  }
+  const isVerified = hostEnabled && Boolean(changes.isVerified);
+  const auditReason = String(changes.auditReason ?? "").trim().slice(0, 1000);
+  if (!auditReason) throw new Error("HOST_AUDIT_REASON_REQUIRED");
+  const nextPublicId = shouldAssignTalentPublicId({ hostEnabled, isVerified, status })
+    ? talentPublicIdForApprovedHost(user.publicId)
+    : user.publicId;
+  if (nextPublicId !== user.publicId) {
+    const existingUser = await prisma.user.findUnique({
+      where: { publicId: nextPublicId },
+      select: { id: true },
+    });
+    if (existingUser && existingUser.id !== user.id) {
+      throw new Error("HOST_PUBLIC_ID_CONFLICT");
+    }
+  }
+  await prisma.$transaction(async (tx) => {
+    if (!hostEnabled) {
+      const openWithdrawals = await tx.walletWithdrawal.count({
+        where: { userId: user.id, status: { in: ["PENDING", "APPROVED"] } },
+      });
+      if (openWithdrawals) throw new Error("HOST_REMOVAL_HAS_OPEN_WITHDRAWALS");
+    }
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        publicId: nextPublicId,
+        agencyId,
+        appRoles: { set: roles },
+        role: primaryLegacyRole(roles, user.role),
+        isVerified,
+        status,
+        ...(nextPublicId !== user.publicId
+          ? { sessionVersion: { increment: 1 } }
+          : {}),
+      },
+    });
+    if (nextPublicId !== user.publicId) {
+      await tx.legacyIdMapping.updateMany({
+        where: { userId: user.id, entityType: "USER", publicId: user.publicId },
+        data: { publicId: nextPublicId },
+      });
+      await tx.auditLog.updateMany({
+        where: { entityType: "User", entityId: user.publicId },
+        data: { entityId: nextPublicId },
+      });
+    }
+    await tx.auditLog.create({
+      data: {
+        adminId: admin.id,
+        action: hostEnabled ? "PORTAL_HOST_CONFIGURED" : "PORTAL_HOST_REMOVED",
+        category: "TALENT_MANAGEMENT",
+        entityType: "User",
+        entityId: nextPublicId,
+        description: hostEnabled
+          ? `${admin.name} configured ${nextPublicId} as a portal host.`
+          : `${admin.name} removed portal host access from ${user.publicId}.`,
+        metadata: {
+          source: "ADMIN_PORTAL",
+          hostEnabled,
+          agencyPublicId: agencyPublicId || null,
+          status,
+          isVerified,
+          reason: auditReason,
+          previousPublicId: user.publicId,
+          publicId: nextPublicId,
+          preservedSalaryCoinBalance: user.hostSalaryCoinBalance.toString(),
+        },
+      },
+    });
+  });
+  revalidatePath("/talents");
+  revalidatePath("/users");
+  revalidatePath(`/users/${user.publicId}`);
+  revalidatePath(`/users/${nextPublicId}`);
+  revalidatePath("/agencies");
+  if (nextPublicId !== user.publicId) {
+    emitToUser(user.publicId, "host:approved", {
+      previousUserId: user.publicId,
+      userId: nextPublicId,
+      sessionInvalidated: true,
+    });
+  }
+  return { publicId: nextPublicId, previousPublicId: user.publicId, hostEnabled, agencyPublicId: agencyPublicId || null, status, isVerified };
 }
 
 export async function adjustUserCoins(publicId, operation, amount, reason) {

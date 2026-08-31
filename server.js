@@ -7,9 +7,10 @@ const { verifyMobileSessionToken } = require("./src/lib/mobile-session.cjs");
 
 loadEnvConfig(process.cwd());
 const dev=process.argv.includes("--dev");
+const webpack=process.argv.includes("--webpack");
 const hostname=process.env.HOSTNAME||"0.0.0.0";
 const port=Number(process.env.PORT||3000);
-const app=next({dev,hostname,port});
+const app=next({dev,hostname,port,webpack});
 const handle=app.getRequestHandler();
 
 app.prepare().then(async()=>{
@@ -136,6 +137,11 @@ app.prepare().then(async()=>{
       const payload=verifyMobileSessionToken(socket.handshake.auth?.token);
       const user=await prisma.user.findUnique({where:{publicId:payload.userId}});
       if(!user||user.deletedAt||user.sessionVersion!==payload.sessionVersion)return nextSocket(new Error("SESSION_REVOKED"));
+      if(payload.deviceId){
+        const device=await prisma.device.findUnique({where:{userId_macAddress:{userId:user.id,macAddress:payload.deviceId}},select:{isBanned:true}});
+        if(!device)return nextSocket(new Error("DEVICE_NOT_REGISTERED"));
+        if(device.isBanned)return nextSocket(new Error("DEVICE_BANNED"));
+      }
       const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});
       if(ban){const error=new Error("ACCOUNT_BANNED");error.data={banReason:ban.reason,banExpiresAt:ban.expiresAt?.toISOString()??null};return nextSocket(error);}
       socket.data.userId=user.publicId;

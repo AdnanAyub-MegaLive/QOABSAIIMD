@@ -1,11 +1,49 @@
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
-import { integerSetting, ledgerData, parsePositiveCoins, WALLET_CURRENCY, walletPublicId } from "@/lib/wallet";
+import { integerSetting, ledgerData, parsePositiveCoins, serializeWithdrawal, WALLET_CURRENCY, walletPublicId } from "@/lib/wallet";
 
 const withdrawalMethods = new Set(["jazzcash", "easypaisa", "bank_transfer"]);
 
 export function OPTIONS() {
   return mobileOptions();
+}
+
+export async function GET(request) {
+  try {
+    const user = await requireMobileUser(request);
+    const url = new URL(request.url);
+    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") ?? 20) || 20));
+    const cursor = String(url.searchParams.get("cursor") ?? "").trim();
+    if (cursor) {
+      const ownedCursor = await prisma.walletWithdrawal.findFirst({
+        where: { publicId: cursor, userId: user.id },
+        select: { publicId: true },
+      });
+      if (!ownedCursor) {
+        const error = new Error("Withdrawal cursor is invalid.");
+        error.code = "VALIDATION_ERROR";
+        throw error;
+      }
+    }
+    const withdrawals = await prisma.walletWithdrawal.findMany({
+      where: { userId: user.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { publicId: cursor }, skip: 1 } : {}),
+    });
+    const hasMore = withdrawals.length > limit;
+    const page = withdrawals.slice(0, limit);
+    return mobileJson({
+      success: true,
+      data: {
+        withdrawals: page.map(serializeWithdrawal),
+        nextCursor: hasMore ? page.at(-1)?.publicId ?? null : null,
+      },
+    });
+  } catch (error) {
+    console.error("Wallet withdrawal history failed", error);
+    return mobileApiError(error, "WITHDRAWAL_HISTORY_FAILED");
+  }
 }
 
 export async function POST(request) {
@@ -30,9 +68,10 @@ export async function POST(request) {
       async (tx) => {
         const user = await tx.user.findUniqueOrThrow({
           where: { id: sessionUser.id },
-          select: { appRoles: true, agencyId: true },
+          select: { appRoles: true, agencyId: true, isVerified: true },
         });
         if (!user.appRoles.includes("HOST") || !user.agencyId) throw new Error("WITHDRAWAL_NOT_ALLOWED");
+        if (!user.isVerified) throw new Error("KYC_REQUIRED");
         const reserved = await tx.user.updateMany({
           where: { id: sessionUser.id, hostSalaryCoinBalance: { gte: coins } },
           data: { hostSalaryCoinBalance: { decrement: coins } },
@@ -43,7 +82,7 @@ export async function POST(request) {
           data: { publicId, userId: sessionUser.id, coins, cashAmount, currency: WALLET_CURRENCY, method, accountName, accountNumber },
         });
         await tx.walletTransaction.create({
-          data: ledgerData({ userId: sessionUser.id, type: "WITHDRAWAL", direction: "DEBIT", title: "Salary withdrawal", description: `${method} payout to ${accountNumber.slice(-4).padStart(accountNumber.length, "*")}`, coins, cashAmount, currency: WALLET_CURRENCY, status: "PENDING", referenceId: publicId, metadata: { method } }),
+          data: ledgerData({ userId: sessionUser.id, type: "WITHDRAWAL", direction: "DEBIT", title: "Salary withdrawal reserved", description: `${method} payout to ${accountNumber.slice(-4).padStart(accountNumber.length, "*")}`, diamonds: coins, cashAmount, currency: WALLET_CURRENCY, referenceId: publicId, metadata: { method, workflowStatus: "PENDING_REVIEW" } }),
         });
         return withdrawal;
       },

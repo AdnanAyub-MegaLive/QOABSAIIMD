@@ -1,5 +1,5 @@
 import { prisma } from "../../../../lib/prisma";
-import mobileSession from "../../../../lib/mobile-session.cjs";
+import { requireMobileUser } from "../../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../../lib/audio-room-maintenance";
 import {
   requestOrigin,
@@ -22,31 +22,7 @@ export function OPTIONS() {
 }
 
 async function authenticatedUser(request) {
-  const token = request.headers
-    .get("authorization")
-    ?.replace(/^Bearer\s+/i, "");
-  const payload = mobileSession.verifyMobileSessionToken(token);
-
-  if (!payload?.userId) throw new Error("INVALID_SESSION");
-
-  const user = await prisma.user.findUnique({
-    where: { publicId: payload.userId },
-    select: {
-      id: true,
-      deletedAt: true,
-      sessionVersion: true,
-    },
-  });
-
-  if (
-    !user ||
-    user.deletedAt ||
-    Number(payload.sessionVersion) !== user.sessionVersion
-  ) {
-    throw new Error("INVALID_SESSION");
-  }
-
-  return user;
+  return requireMobileUser(request);
 }
 
 export async function GET(request) {

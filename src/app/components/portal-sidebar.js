@@ -9,6 +9,7 @@ export const portalNavigation = [
   ["Users / Senders", "/users"],
   ["Host Management", "/talents"],
   ["Agency Management", "/agencies"],
+  ["Finance & Wallet", "/finance"],
   ["Rules & Profit Split", "/platform-rules"],
   ["Uploads", "/uploads"],
   ["Rankings", "/rankings"],

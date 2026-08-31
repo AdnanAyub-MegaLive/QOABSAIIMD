@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import TalentTabs from "./talent-tabs";
-import AddAccountModal from "../components/add-account-modal";
+import PortalHostManagement from "./portal-host-management";
 import FeatureSearch from "../components/feature-search";
 import PortalSidebar from "../components/portal-sidebar";
 import { prisma } from "../../lib/prisma";
@@ -11,7 +11,7 @@ export default async function TalentsPage() {
   const session = await auth();
   if (!session?.user) redirect("/");
   await reconcileExpiredBans();
-  const [talents, devices, agencies] = await Promise.all([
+  const [talents, devices, agencies, portalHosts, hostCandidates] = await Promise.all([
     prisma.talent.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -36,7 +36,119 @@ export default async function TalentsPage() {
       select: { publicId: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.user.findMany({
+      where: { deletedAt: null, appRoles: { has: "HOST" } },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        publicId: true,
+        name: true,
+        email: true,
+        phone: true,
+        country: true,
+        profileImage: true,
+        status: true,
+        isVerified: true,
+        hostSalaryCoinBalance: true,
+        agency: { select: { publicId: true, name: true } },
+        audioRooms: {
+          select: {
+            roomId: true,
+            title: true,
+            status: true,
+            participantCount: true,
+            startedAt: true,
+            endedAt: true,
+          },
+        },
+        walletWithdrawals: {
+          where: { status: { in: ["PENDING", "APPROVED"] } },
+          select: {
+            publicId: true,
+            status: true,
+            coins: true,
+            cashAmount: true,
+            currency: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+        _count: { select: { receivedGifts: true, walletWithdrawals: true } },
+      },
+    }),
+    prisma.user.findMany({
+      where: { deletedAt: null, status: { in: ["ACTIVE", "PENDING"] } },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+      select: {
+        publicId: true,
+        name: true,
+        phone: true,
+        country: true,
+        appRoles: true,
+      },
+    }),
   ]);
+  const portalGiftTotals = portalHosts.length
+    ? await prisma.giftTransaction.groupBy({
+        by: ["recipientUserId"],
+        where: { recipientUserId: { in: portalHosts.map((host) => host.id) } },
+        _sum: { coinValue: true },
+      })
+    : [];
+  const giftsByHostId = new Map(
+    portalGiftTotals.map((item) => [item.recipientUserId, item._sum.coinValue ?? 0n]),
+  );
+  const operationalHosts = portalHosts.map((host) => {
+    const room = host.audioRooms[0] ?? null;
+    const withdrawal = host.walletWithdrawals[0] ?? null;
+    return {
+      id: host.publicId,
+      name: host.name,
+      email: host.email,
+      phone: host.phone,
+      country: host.country,
+      profileImage: host.profileImage,
+      status: host.status,
+      isVerified: host.isVerified,
+      agency: host.agency
+        ? { id: host.agency.publicId, name: host.agency.name }
+        : null,
+      salaryCoins: host.hostSalaryCoinBalance.toString(),
+      giftCoins: (giftsByHostId.get(host.id) ?? 0n).toString(),
+      giftCount: host._count.receivedGifts,
+      withdrawalCount: host._count.walletWithdrawals,
+      room: room
+        ? {
+            id: room.roomId,
+            title: room.title,
+            status: room.status,
+            participantCount: room.participantCount,
+            startedAt: room.startedAt.toISOString(),
+            endedAt: room.endedAt?.toISOString() ?? null,
+          }
+        : null,
+      openWithdrawal: withdrawal
+        ? {
+            id: withdrawal.publicId,
+            status: withdrawal.status,
+            coins: withdrawal.coins.toString(),
+            cashAmount: withdrawal.cashAmount.toString(),
+            currency: withdrawal.currency,
+            createdAt: withdrawal.createdAt.toISOString(),
+          }
+        : null,
+    };
+  });
+  const promotableUsers = hostCandidates
+    .filter((user) => !user.appRoles.includes("HOST"))
+    .map((user) => ({
+      id: user.publicId,
+      name: user.name,
+      phone: user.phone,
+      country: user.country,
+    }));
   const talentData = talents.map((talent) => [
     talent.displayName,
     display(talent.type),
@@ -175,20 +287,33 @@ export default async function TalentsPage() {
             <div>
               <h2 className="text-2xl font-bold">Host management</h2>
               <p className="mt-1.5 text-sm text-[#71847f]">
-                Manage video streamers, audio-room hosts, verification, and
-                earnings.
+                Manage MegaLive portal hosts, their agencies, verification,
+                audio rooms, earnings, gifts, and payouts.
               </p>
             </div>
-            <AddAccountModal
-              type="talent"
-              agencies={agencies.map((agency) => ({ id: agency.publicId, name: agency.name }))}
-            />
           </div>
-          <TalentTabs
-            initialTalents={talentData}
-            devices={deviceData}
-            modules={talentModules}
+          <PortalHostManagement
+            hosts={operationalHosts}
+            candidates={promotableUsers}
+            agencies={agencies.map((agency) => ({
+              id: agency.publicId,
+              name: agency.name,
+            }))}
           />
+          <section className="mt-10 border-t border-[#dce7e4] pt-10">
+            <div className="mb-6">
+              <h3 className="text-lg font-bold">Legacy host records</h3>
+              <p className="mt-1 text-sm text-[#71847f]">
+                Historical Talent data retained for review during the MegaLive
+                migration.
+              </p>
+            </div>
+            <TalentTabs
+              initialTalents={talentData}
+              devices={deviceData}
+              modules={talentModules}
+            />
+          </section>
         </div>
       </section>
     </main>

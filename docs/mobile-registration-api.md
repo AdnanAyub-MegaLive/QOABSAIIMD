@@ -14,12 +14,11 @@ Send the request with `Content-Type: application/json`. The endpoint is public a
   "phone": "+92 300 1234567",
   "password": "MyPass#8",
   "email": "aisha@example.com",
-  "country": "Pakistan",
   "profileImage": "https://cdn.example.com/profiles/aisha.jpg",
   "gender": "female",
   "dob": "2001-07-24",
   "device": {
-    "macAddress": "stable-device-identifier",
+    "deviceId": "stable-device-identifier",
     "lastLoginIp": "192.0.2.10",
     "location": "Lahore, Pakistan",
     "platform": "Android",
@@ -28,7 +27,11 @@ Send the request with `Content-Type: application/json`. The endpoint is public a
 }
 ```
 
-`name`, `phone`, and a password of at least 8 characters are required. Email is optional. Passwords are stored only as salted scrypt hashes and are never returned by the API. Phone numbers and email addresses must be unique across users. The complete `device` object is optional; when supplied, `device.macAddress` must contain either a MAC address or another stable device identifier.
+`name`, `phone`, and a password of at least 8 characters are required. Email is optional. Passwords are stored only as salted scrypt hashes and are never returned by the API. Phone numbers and email addresses must be unique across users. The complete `device` object is optional on the legacy endpoint; v1 requires `device.deviceId`, a stable Android installation identifier.
+
+The portal assigns `country` from trusted edge geolocation at signup and stores
+an ISO alpha-2 code such as `PK`. Do not send country from Android; it is not
+accepted as a client-controlled profile field.
 
 `gender` and `dob` are nullable and returned in the registered user object.
 Dates of birth use the date-only `YYYY-MM-DD` format. `profileImage`

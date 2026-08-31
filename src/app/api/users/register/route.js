@@ -3,6 +3,7 @@ import { hashPassword } from "../../../../lib/password";
 import mobileSession from "../../../../lib/mobile-session.cjs";
 import { formatDateOnly, parseDateOnly } from "../../../../lib/date-only";
 import { generateNumericPublicId } from "../../../../lib/public-id";
+import { requiresSignupGeolocation, resolveSignupCountry } from "../../../../lib/geo-country";
 
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
@@ -39,11 +40,6 @@ function validateRegistration(body) {
   if (password.length < 8)
     errors.password = "Password must contain at least 8 characters.";
   if (
-    body?.country != null &&
-    (typeof body.country !== "string" || body.country.trim().length > 100)
-  )
-    errors.country = "Country must contain no more than 100 characters.";
-  if (
     body?.profileImage != null &&
     (typeof body.profileImage !== "string" || body.profileImage.length > 2048)
   )
@@ -57,10 +53,10 @@ function validateRegistration(body) {
     errors.device = "Device must be an object.";
   if (
     device &&
-    (typeof device.macAddress !== "string" || !device.macAddress.trim())
+    (typeof (device.deviceId ?? device.macAddress) !== "string" || !(device.deviceId ?? device.macAddress).trim())
   )
-    errors["device.macAddress"] =
-      "MAC address or a stable device identifier is required when device information is supplied.";
+    errors["device.deviceId"] =
+      "A stable Android installation identifier is required when device information is supplied.";
 
   return { errors, values: { name, email: email || null, phone, password } };
 }
@@ -101,6 +97,20 @@ export async function POST(request) {
     );
   }
 
+  const signupGeo = resolveSignupCountry(request);
+  if (!signupGeo.country && requiresSignupGeolocation()) {
+    return json(
+      {
+        success: false,
+        error: {
+          code: "GEOLOCATION_UNAVAILABLE",
+          message: "Signup country could not be determined from the connection location.",
+        },
+      },
+      503,
+    );
+  }
+
   const forwardedFor = request.headers.get("x-forwarded-for");
   const ipAddress =
     forwardedFor?.split(",")[0]?.trim() ||
@@ -120,7 +130,7 @@ export async function POST(request) {
           email: values.email,
           phone: values.phone,
           passwordHash,
-          country: cleanOptional(body.country),
+          country: signupGeo.country,
           profileImage: cleanOptional(body.profileImage),
           gender: body.gender === null ? null : cleanOptional(body.gender),
           dob: body.dob == null ? null : parseDateOnly(body.dob),
@@ -129,7 +139,7 @@ export async function POST(request) {
           devices: body.device
             ? {
                 create: {
-                  macAddress: body.device.macAddress.trim(),
+                  macAddress: String(body.device.deviceId ?? body.device.macAddress).trim(),
                   lastLoginIp:
                     cleanOptional(body.device.lastLoginIp) || ipAddress,
                   location: cleanOptional(body.device.location),
@@ -154,13 +164,19 @@ export async function POST(request) {
             source: "MOBILE_APP",
             phone: created.phone,
             email: created.email,
+            country: created.country,
+            countrySource: signupGeo.source,
           },
         },
       });
       return created;
     });
 
-    const sessionToken = mobileSession.createMobileSessionToken(user);
+    const sessionToken = mobileSession.createMobileSessionToken(user, {
+      deviceId: body.device
+        ? String(body.device.deviceId ?? body.device.macAddress).trim()
+        : undefined,
+    });
     return json(
       {
         success: true,

@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma";
-import mobileSession from "../../../lib/mobile-session.cjs";
+import { requireMobileUser } from "../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../lib/audio-room-maintenance";
 import { ensureAudioRoomSeats } from "../../../lib/audio-room-seats";
 import {
@@ -19,16 +19,7 @@ const optional = (value) =>
   typeof value === "string" && value.trim() ? value.trim() : null;
 
 async function authenticatedUser(request) {
-  const token = request.headers
-    .get("authorization")
-    ?.replace(/^Bearer\s+/i, "");
-  const payload = mobileSession.verifyMobileSessionToken(token);
-  const user = await prisma.user.findUnique({
-    where: { publicId: payload.userId },
-  });
-  if (!user || user.deletedAt || user.sessionVersion !== payload.sessionVersion)
-    throw new Error("INVALID_SESSION");
-  return user;
+  return requireMobileUser(request);
 }
 
 export function OPTIONS() {
@@ -169,13 +160,9 @@ export async function POST(request) {
       );
 
     const now = new Date();
-    const countryProvided = Object.prototype.hasOwnProperty.call(
-      body,
-      "country",
-    );
-    const country = typeof body.country === "string" ? body.country : null;
     const data = {
       title,
+      country: user.country ?? existing?.country ?? null,
       status: "LIVE",
       liveAudioUrl: validUrl(body.liveAudioUrl),
       recordingUrl:
@@ -194,12 +181,12 @@ export async function POST(request) {
     );
     existing = await prisma.audioRoom.upsert({
       where: { ownerId: user.id },
-      update: { ...data, ...(countryProvided ? { country } : {}) },
+      update: data,
       create: {
         roomId,
         ownerId: user.id,
         ...data,
-        country: countryProvided ? country : null,
+        country: user.country ?? null,
       },
     });
     await ensureAudioRoomSeats(existing.id);

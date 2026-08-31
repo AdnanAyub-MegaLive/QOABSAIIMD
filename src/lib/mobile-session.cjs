@@ -1,5 +1,7 @@
 const { createHmac, timingSafeEqual } = require("node:crypto");
 
+const DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 30;
+
 const secret = () => {
   if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET is required for mobile sessions.");
   return process.env.AUTH_SECRET;
@@ -7,8 +9,18 @@ const secret = () => {
 const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
 const signature = (body) => createHmac("sha256", secret()).update(body).digest("base64url");
 
-function createMobileSessionToken(user) {
-  const body=encode({userId:user.publicId,sessionVersion:user.sessionVersion,exp:Math.floor(Date.now()/1000)+60*60*24*30});
+function sessionTtlSeconds() {
+  const configured = Number(process.env.MOBILE_SESSION_TTL_SECONDS);
+  return Number.isInteger(configured) && configured >= 300 && configured <= 60 * 60 * 24 * 90
+    ? configured
+    : DEFAULT_TTL_SECONDS;
+}
+
+function createMobileSessionToken(user, { deviceId } = {}) {
+  const normalizedDeviceId = typeof deviceId === "string" && deviceId.trim()
+    ? deviceId.trim().slice(0, 255)
+    : undefined;
+  const body=encode({userId:user.publicId,sessionVersion:user.sessionVersion,deviceId:normalizedDeviceId,exp:Math.floor(Date.now()/1000)+sessionTtlSeconds()});
   return `${body}.${signature(body)}`;
 }
 
@@ -23,4 +35,4 @@ function verifyMobileSessionToken(token) {
   return payload;
 }
 
-module.exports={createMobileSessionToken,verifyMobileSessionToken};
+module.exports={createMobileSessionToken,verifyMobileSessionToken,sessionTtlSeconds};

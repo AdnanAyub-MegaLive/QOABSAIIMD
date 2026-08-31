@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import DeviceInformationTable from "../components/device-information-table";
 import RecordTable from "../components/record-table";
@@ -268,12 +269,12 @@ function TalentList({ talents }) {
                   <td className="font-semibold">{gifts}</td>
                   <td>{followers}</td>
                   <td className="px-5 text-right">
-                    <button
-                      className="p-2 text-[#7d908b]"
-                      aria-label={`Actions for ${name}`}
+                    <Link
+                      href={`/talents/${encodeURIComponent(id)}`}
+                      className="rounded-lg border border-[#d7e4e1] px-3 py-2 text-[10px] font-bold text-[#526b67] hover:bg-[#f1f7f5]"
                     >
-                      •••
-                    </button>
+                      Open profile
+                    </Link>
                   </td>
                 </tr>
               ))}

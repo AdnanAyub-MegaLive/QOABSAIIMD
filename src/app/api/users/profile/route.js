@@ -84,10 +84,20 @@ export async function PATCH(request) {
       );
 
     const data = {};
+    if (Object.hasOwn(body, "country"))
+      return json(
+        {
+          success: false,
+          error: {
+            code: "COUNTRY_MANAGED_BY_GEOLOCATION",
+            message: "Country is assigned from signup geolocation and cannot be edited in the mobile profile.",
+          },
+        },
+        403,
+      );
     const name = optionalString(body, "name");
     const phone = optionalString(body, "phone", { normalizePhone: true });
     const email = optionalString(body, "email", { lowercase: true });
-    const country = optionalString(body, "country");
     const profileImage = optionalString(body, "profileImage");
     const gender = optionalString(body, "gender");
     const dob = Object.hasOwn(body, "dob")
@@ -110,7 +120,6 @@ export async function PATCH(request) {
     if (name !== undefined) data.name = name;
     if (phone !== undefined) data.phone = phone;
     if (email !== undefined) data.email = email;
-    if (country !== undefined) data.country = country;
     if (profileImage !== undefined) data.profileImage = profileImage;
     if (gender !== undefined) data.gender = gender;
     if (dob !== undefined) data.dob = dob;

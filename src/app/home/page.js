@@ -12,13 +12,14 @@ export default async function DashboardHome() {
   const now = new Date();
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(todayStart); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const [totalUsers, userHosts, activeTalents, liveAudioRooms, liveVideoSessions, giftsToday, recentLogs, recentRooms, recentSessions] = await Promise.all([
+  const [totalUsers, userHosts, activeTalents, liveAudioRooms, liveVideoSessions, giftsToday, pendingWithdrawals, recentLogs, recentRooms, recentSessions] = await Promise.all([
     prisma.user.count({ where: { deletedAt: null } }),
     prisma.user.count({ where: { deletedAt: null, appRoles: { has: "HOST" }, status: "ACTIVE" } }),
     prisma.talent.count({ where: { status: "ACTIVE" } }),
     prisma.audioRoom.findMany({ where: { status: "LIVE" }, select: { participantCount: true } }),
     prisma.liveSession.findMany({ where: { status: "LIVE" }, select: { peakViewers: true } }),
     prisma.giftTransaction.aggregate({ where: { createdAt: { gte: todayStart } }, _sum: { coinValue: true }, _count: true }),
+    prisma.walletWithdrawal.count({ where: { status: { in: ["PENDING", "APPROVED"] } } }),
     prisma.auditLog.findMany({ include: { admin: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 4 }),
     prisma.audioRoom.findMany({ where: { startedAt: { gte: sevenDaysAgo } }, select: { startedAt: true } }),
     prisma.liveSession.findMany({ where: { startedAt: { gte: sevenDaysAgo } }, select: { startedAt: true } }),
@@ -89,6 +90,7 @@ export default async function DashboardHome() {
               ],
               ["Live now", (audioLive + videoLive).toLocaleString(), "Live data", "Video & Audio", "/users?tab=Audio%20Room%20Records"],
               ["Gifts today", (giftsToday._sum.coinValue ?? 0n).toLocaleString(), `${giftsToday._count} transactions`, "Total gift value", "/users?tab=Gift%20Sending%20History"],
+              ["Payout review", pendingWithdrawals.toLocaleString(), "Needs finance action", "Withdrawals and reconciliation", "/finance"],
             ].map(([label, value, change, detail, href]) => (
               <Link
                 key={label}
@@ -197,6 +199,12 @@ export default async function DashboardHome() {
                   title="Agency Management"
                   detail="Rankings, targets, applications and salaries"
                   color="bg-[#eee9ff] text-[#6953b5]"
+                />
+                <ManagementLink
+                  href="/finance"
+                  title="Finance & Wallet"
+                  detail="Top-ups, immutable ledger, gift settlements and payout review"
+                  color="bg-[#fff1e9] text-[#bd6123]"
                 />
                 <ManagementLink
                   href="/events-login"

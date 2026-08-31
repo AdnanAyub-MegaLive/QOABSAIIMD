@@ -4,7 +4,7 @@ import mobileSession from "./mobile-session.cjs";
 export const mobileCorsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key",
   "Cache-Control": "no-store, max-age=0",
 };
 
@@ -27,11 +27,15 @@ export async function requireMobileUser(request) {
       id: true,
       publicId: true,
       name: true,
+      country: true,
       profileImage: true,
       gender: true,
       dob: true,
       isVerified: true,
       isOfficial: true,
+      role: true,
+      appRoles: true,
+      status: true,
       deletedAt: true,
       sessionVersion: true,
     },
@@ -39,9 +43,28 @@ export async function requireMobileUser(request) {
   if (
     !user ||
     user.deletedAt ||
+    user.status !== "ACTIVE" ||
     user.sessionVersion !== payload.sessionVersion
   )
     throw new Error("INVALID_SESSION");
+
+  if (payload.deviceId) {
+    const device = await prisma.device.findUnique({
+      where: { userId_macAddress: { userId: user.id, macAddress: payload.deviceId } },
+      select: { isBanned: true },
+    });
+    if (!device) throw new Error("DEVICE_NOT_REGISTERED");
+    if (device.isBanned) throw new Error("DEVICE_BANNED");
+  }
+  return user;
+}
+
+export async function requireMobileRole(request, allowedRoles) {
+  const user = await requireMobileUser(request);
+  const roles = new Set([user.role, ...(user.appRoles ?? [])]);
+  if (!allowedRoles.some((role) => roles.has(role))) {
+    throw new Error("ROLE_FORBIDDEN");
+  }
   return user;
 }
 
@@ -50,6 +73,9 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     INVALID_SESSION: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
     INVALID_SESSION_TOKEN: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
     EXPIRED_SESSION_TOKEN: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
+    DEVICE_NOT_REGISTERED: [401, "DEVICE_NOT_REGISTERED", "This session is not associated with an active device."],
+    DEVICE_BANNED: [403, "DEVICE_BANNED", "This device has been banned."],
+    ROLE_FORBIDDEN: [403, "ROLE_FORBIDDEN", "Your account does not have permission for this action."],
     CONVERSATION_NOT_FOUND: [404, "CONVERSATION_NOT_FOUND", "Conversation not found."],
     NOTIFICATION_NOT_FOUND: [404, "NOTIFICATION_NOT_FOUND", "Notification not found."],
     USER_NOT_FOUND: [404, "USER_NOT_FOUND", "The selected user was not found."],
@@ -67,10 +93,13 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     TRANSFER_LIMIT: [422, "TRANSFER_LIMIT", "The transfer amount is outside the allowed limits."],
     WITHDRAWAL_LIMIT: [422, "WITHDRAWAL_LIMIT", "The withdrawal amount is outside the allowed limits."],
     WITHDRAWAL_NOT_ALLOWED: [403, "WITHDRAWAL_NOT_ALLOWED", "Only an agency-linked host can withdraw salary coins."],
+    KYC_REQUIRED: [403, "KYC_REQUIRED", "Complete account verification before requesting a withdrawal."],
     INSUFFICIENT_SALARY: [409, "INSUFFICIENT_SALARY", "Your host salary balance is too low for this withdrawal."],
     COIN_PACKAGE_NOT_FOUND: [404, "COIN_PACKAGE_NOT_FOUND", "The selected coin package is unavailable."],
     PAYMENT_METHOD_NOT_SUPPORTED: [422, "PAYMENT_METHOD_NOT_SUPPORTED", "The selected payment method is not supported."],
     PAYMENT_PROVIDER_NOT_CONFIGURED: [503, "PAYMENT_PROVIDER_NOT_CONFIGURED", "The payment provider is not configured yet."],
+    INVALID_IDEMPOTENCY_KEY: [422, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must be 8 to 128 safe characters."],
+    IDEMPOTENCY_KEY_REUSED: [409, "IDEMPOTENCY_KEY_REUSED", "This idempotency key was already used for a different top-up request."],
     PROP_NOT_OWNED: [403, "PROP_NOT_OWNED", "You do not own this item or its ownership has expired."],
     PROP_NOT_FOUND: [404, "PROP_NOT_FOUND", "The selected prop was not found."],
     PROP_NOT_EQUIPPABLE: [422, "PROP_NOT_EQUIPPABLE", "This item cannot be applied to a profile."],

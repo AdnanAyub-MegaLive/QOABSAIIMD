@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-08-10-mobile-wallet-v19";
+const prismaSchemaVersion = "2026-08-30-wallet-finance-controls-v21";
 const requiredUserFields = ["sessionVersion", "forcedLogoutAt", "passwordHash", "deletedAt", "totalTopUp", "gender", "dob", "isVerified", "isOfficial", "appRoles", "agencyId", "hostSalaryCoinBalance", "couponBalance"];
 
 const createPrismaClient = () => new PrismaClient({
@@ -14,13 +14,15 @@ const cachedAudioRoomFields = globalForPrisma.prisma?._runtimeDataModel?.models?
 const cachedUploadAssetFields = globalForPrisma.prisma?._runtimeDataModel?.models?.UploadAsset?.fields?.map((field) => field.name) ?? [];
 const cachedUploadAssignmentFields = globalForPrisma.prisma?._runtimeDataModel?.models?.UploadAssetAssignment?.fields?.map((field) => field.name) ?? [];
 const cachedAgencyApplicationFields = globalForPrisma.prisma?._runtimeDataModel?.models?.AgencyApplication?.fields?.map((field) => field.name) ?? [];
+const cachedWalletWithdrawalFields = globalForPrisma.prisma?._runtimeDataModel?.models?.WalletWithdrawal?.fields?.map((field) => field.name) ?? [];
 const cachedClientMatchesSchema = globalForPrisma.prismaSchemaVersion === prismaSchemaVersion
   && requiredUserFields.every((field) => cachedUserFields.includes(field))
   && ["joiningDisabledUntil","blockedUntil","terminatedUntil"].every((field)=>cachedAudioRoomFields.includes(field))
   && ["details","tags","isGlobal","actionUrl"].every((field)=>cachedUploadAssetFields.includes(field))
   && ["durationMinutes","expiresAt"].every((field)=>cachedUploadAssignmentFields.includes(field))
   && ["reviewedById","reviewedAt","reviewNote","rejectionReason"].every((field)=>cachedAgencyApplicationFields.includes(field))
-  && ["agency","profitSplitRule","giftSettlement","userAlbumItem","specialIdAssignment","specialIdDefinition","gameLog","liveSession","talentPerformance","talentViolation","audioRoom","uploadAsset","uploadAssetAssignment","userEquippedProp","propPurchase","agencyApplication","conversation","conversationParticipant","message","notification","notificationRead","friendRequest","walletCoinPackage","walletTopUpOrder","walletWithdrawal","walletTransaction","eventUser","event","eventVersion","eventRefreshToken","uploadLog","publishLog","eventAuditLog"].every((model)=>Boolean(globalForPrisma.prisma?.[model]));
+  && ["reviewedByAdminId","completedAt","reviewNote","rejectionReason","providerPayoutReference"].every((field)=>cachedWalletWithdrawalFields.includes(field))
+  && ["agency","profitSplitRule","giftSettlement","userAlbumItem","specialIdAssignment","specialIdDefinition","gameLog","liveSession","talentPerformance","talentViolation","audioRoom","uploadAsset","uploadAssetAssignment","userEquippedProp","propPurchase","agencyApplication","conversation","conversationParticipant","message","notification","notificationRead","friendRequest","walletCoinPackage","walletTopUpOrder","walletWithdrawal","walletTransaction","eventUser","event","eventVersion","eventRefreshToken","uploadLog","publishLog","eventAuditLog","legacyIdMapping","apiRequestLog"].every((model)=>Boolean(globalForPrisma.prisma?.[model]));
 
 // Fast Refresh keeps globalThis alive. Reuse only a client that contains every
 // field required by the current application schema.
