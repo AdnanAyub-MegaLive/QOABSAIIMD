@@ -244,7 +244,7 @@ or any TRTC signing secret to Android.
 
 `POST /api/v1/auth/google` accepts an Android-acquired Google ID token over
 HTTPS. The portal verifies the token signature, issuer, expiry, and audience
-using `GOOGLE_OAUTH_CLIENT_ID`; Android must not send a Google client secret.
+using `GOOGLE_SERVER_CLIENT_ID`; Android must not send a Google client secret.
 
 ```json
 {

@@ -10,7 +10,10 @@ function googleSsoError(code, message) {
 
 function configuredAudiences() {
   const values = String(
-    process.env.GOOGLE_OAUTH_CLIENT_IDS ?? process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
+    process.env.GOOGLE_SERVER_CLIENT_ID ??
+      process.env.GOOGLE_OAUTH_CLIENT_IDS ??
+      process.env.GOOGLE_OAUTH_CLIENT_ID ??
+      "",
   )
     .split(",")
     .map((value) => value.trim())
