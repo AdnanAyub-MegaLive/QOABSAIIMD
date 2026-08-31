@@ -134,9 +134,9 @@ lifetime; schedule refresh using `expiresAt`.
 After Google Play services obtains an ID token, send it to
 `POST /api/v1/auth/google` as `idToken` with the same stable device identifier
 and login location used by password login. The portal, not Android, verifies the
-token and issues the MegaLive session. For a first-time account, collect and
-send a valid phone number because MegaLive accounts require one. Do not include
-an OAuth client secret, `AUTH_SECRET`, or any TRTC signing material in Android.
+token and issues the MegaLive session. `phone` is optional for Google Sign-In;
+when supplied, it must be a valid 7-to-15-digit number. Do not include an OAuth
+client secret, `AUTH_SECRET`, or any TRTC signing material in Android.
 Use the returned portal public user ID for portal APIs and TRTC. Do not map it
 back to the legacy numeric user ID.
 

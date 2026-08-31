@@ -154,7 +154,7 @@ model User {
   googleSubject            String?                   @unique
   name                     String
   email                    String?                   @unique
-  phone                    String                    @unique
+  phone                    String?                   @unique
   country                  String?
   profileImage             String?
   gender                   String?

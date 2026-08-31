@@ -5,7 +5,7 @@ import { getEffectiveUserId, reconcileExpiredSpecialIds } from "@/lib/special-id
 import { reconcileExpiredBans } from "@/lib/ban-maintenance";
 import { resolveSignupCountry, requiresSignupGeolocation } from "@/lib/geo-country";
 import { formatDateOnly } from "@/lib/date-only";
-import { verifyGoogleIdToken } from "@/lib/google-sso";
+import { normalizeGooglePhone, verifyGoogleIdToken } from "@/lib/google-sso";
 import { bannedAccountLoginResponse } from "@/lib/mobile-login-response";
 import { clientIp, v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
 
@@ -16,7 +16,6 @@ const methods = "POST, OPTIONS";
 
 const clean = (value, max = 255) =>
   typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null;
-const normalizedPhone = (value) => String(value ?? "").trim().replace(/[\s().-]/g, "");
 
 export function OPTIONS(request) { return v1Options(request, methods); }
 
@@ -51,11 +50,6 @@ async function findOrCreateGoogleUser(profile, phone, request, requestId) {
     return { user, created: false };
   }
 
-  if (!/^\+?[0-9]{7,15}$/.test(phone)) {
-    const error = new Error("PHONE_REQUIRED");
-    error.code = "PHONE_REQUIRED";
-    throw error;
-  }
   const signupGeo = resolveSignupCountry(request);
   if (!signupGeo.country && requiresSignupGeolocation()) {
     const error = new Error("GEOLOCATION_UNAVAILABLE");
@@ -131,7 +125,7 @@ export async function POST(request) {
         const profile = await verifyGoogleIdToken(body?.idToken);
         const { user, created } = await findOrCreateGoogleUser(
           profile,
-          normalizedPhone(body?.phone),
+          normalizeGooglePhone(body?.phone),
           request,
           requestId,
         );
@@ -247,7 +241,7 @@ export async function POST(request) {
           GOOGLE_ID_TOKEN_INVALID: [401, "The Google ID token is invalid or expired."],
           GOOGLE_EMAIL_UNVERIFIED: [403, "Google must verify the email address before it can be used to sign in."],
           GOOGLE_ACCOUNT_LINK_REQUIRED: [409, "Sign in with your existing account before linking this Google account."],
-          PHONE_REQUIRED: [422, "A valid phone number is required for first-time Google registration."],
+          PHONE_INVALID: [422, "Enter a valid phone number containing 7 to 15 digits."],
           GEOLOCATION_UNAVAILABLE: [503, "Signup country could not be determined from the connection location."],
         };
         const [status, message] = known[error?.code] ?? [500, "Unable to sign in with Google right now."];

@@ -259,9 +259,10 @@ using `GOOGLE_SERVER_CLIENT_ID`; Android must not send a Google client secret.
 }
 ```
 
-`phone` is required only when Google Sign-In creates a new MegaLive account;
-existing linked accounts may omit it. A successful response uses the same
-session DTO as login, registration, and refresh, with `data.user` included.
+`phone` is optional for Google Sign-In accounts. When supplied, it must contain
+7 to 15 digits and is unique across all accounts. A successful response uses
+the same session DTO as login, registration, and refresh, with `data.user`
+included.
 The portal stores Google’s immutable `sub` claim, never an email address, as
 the Google-account identifier. A third-party email already owned by an existing
 portal account is not auto-linked; return `409 GOOGLE_ACCOUNT_LINK_REQUIRED`.

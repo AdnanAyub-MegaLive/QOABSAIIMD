@@ -37,6 +37,17 @@ function validProfileImage(value) {
   }
 }
 
+export function normalizeGooglePhone(value) {
+  if (value == null || value === "") return null;
+  const phone = typeof value === "string"
+    ? value.trim().replace(/[\s().-]/g, "")
+    : "";
+  if (!/^\+?[0-9]{7,15}$/.test(phone)) {
+    throw googleSsoError("PHONE_INVALID", "Enter a valid phone number containing 7 to 15 digits.");
+  }
+  return phone;
+}
+
 export function googleProfileFromPayload(payload) {
   const subject = typeof payload?.sub === "string" ? payload.sub.trim() : "";
   const email = typeof payload?.email === "string"

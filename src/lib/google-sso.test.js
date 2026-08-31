@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { googleProfileFromPayload } from "./google-sso";
+import { googleProfileFromPayload, normalizeGooglePhone } from "./google-sso";
 
 describe("Google SSO profile validation", () => {
   it("uses the immutable Google subject and a verified Gmail address", () => {
@@ -33,5 +33,13 @@ describe("Google SSO profile validation", () => {
       email: "aisha@example.com",
       email_verified: true,
     }).emailAuthoritative).toBe(false);
+  });
+
+  it("allows first-time Google accounts to omit a phone but rejects malformed values", () => {
+    expect(normalizeGooglePhone(undefined)).toBeNull();
+    expect(normalizeGooglePhone("+92 300 1234567")).toBe("+923001234567");
+    expect(() => normalizeGooglePhone("not-a-phone")).toThrow(
+      "Enter a valid phone number containing 7 to 15 digits.",
+    );
   });
 });
