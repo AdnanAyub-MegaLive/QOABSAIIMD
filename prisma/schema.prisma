@@ -198,6 +198,7 @@ model User {
   posts                    Post[]
   conversationParticipants ConversationParticipant[]
   sentMessages             Message[]
+  messageReceipts          MessageReceipt[]
   sentAudioRoomMessages    AudioRoomMessage[]
   notifications            Notification[]
   notificationReads        NotificationRead[]
@@ -303,9 +304,23 @@ model Message {
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  receipts       MessageReceipt[]
 
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
+}
+
+model MessageReceipt {
+  messageId   String
+  userId      String
+  deliveredAt DateTime?
+  readAt      DateTime?
+  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId, deliveredAt])
+  @@index([userId, readAt])
 }
 
 model AudioRoomMessage {

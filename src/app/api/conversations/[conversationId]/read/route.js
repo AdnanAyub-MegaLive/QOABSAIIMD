@@ -1,11 +1,10 @@
-import { prisma } from "../../../../../lib/prisma";
 import {
   mobileApiError,
   mobileJson,
   mobileOptions,
   requireMobileUser,
 } from "../../../../../lib/mobile-api";
-import { requireConversationParticipant } from "../../../../../lib/messaging";
+import { emitConversationEvent, markConversationRead, requireConversationParticipant } from "../../../../../lib/messaging";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -19,19 +18,14 @@ export async function POST(request, { params }) {
       decodeURIComponent(conversationId),
       user.id,
     );
-    const lastReadAt = new Date();
-    await prisma.conversationParticipant.update({
-      where: { id: membership.id },
-      data: { lastReadAt },
-    });
-    const data = {
-      conversationId: membership.conversation.publicId,
-      userId: user.publicId,
-      lastReadAt: lastReadAt.toISOString(),
-    };
-    globalThis.portalIo
-      ?.to(`conversation:${membership.conversation.publicId}`)
-      .emit("conversation:read", data);
+    const read = await markConversationRead(membership, user.id);
+    const data = { ...read, userId: user.publicId };
+    await emitConversationEvent(
+      globalThis.portalIo,
+      membership.conversation.publicId,
+      "conversation:read",
+      data,
+    );
     return mobileJson({ success: true, data });
   } catch (error) {
     console.error("Conversation read update failed", error);

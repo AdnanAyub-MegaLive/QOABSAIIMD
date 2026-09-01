@@ -1,5 +1,9 @@
 # Mobile messaging API
 
+> New Android integration must use the versioned routes in
+> [`mobile-api-v1.md`](./mobile-api-v1.md). The unversioned routes documented
+> below remain only as a transition layer for legacy portal clients.
+
 All mobile endpoints require:
 
 ```http
@@ -74,6 +78,40 @@ POST /api/conversations/:conversationId/read
 
 This updates the caller's `lastReadAt` and emits `conversation:read` to the
 conversation.
+
+## Delivery and reconnect synchronization
+
+New messages create a persistent receipt for every non-sender participant.
+After persisting a received message locally, the client acknowledges it:
+
+```js
+socket.emit(
+  "message:delivered",
+  { conversationId: "CONV-WORLD", messageId: "MSG-..." },
+  handleAcknowledgement,
+);
+```
+
+The server emits `message:delivered` with `{ conversationId, messageId, userId,
+deliveredAt }`. When a conversation is opened, `conversation:read` records the
+same kind of server-authoritative receipt and emits `{ conversationId, userId,
+lastReadAt }`.
+
+For reconnect/offline synchronization, Android uses the stable v1 contract:
+
+```http
+GET /api/v1/conversations/sync?cursor=MSG-...&limit=50
+```
+
+or the Socket.IO equivalent:
+
+```js
+socket.emit("conversation:sync", { cursor: "MSG-...", limit: 50 }, handleAcknowledgement);
+```
+
+The result is chronologically ordered across conversations and contains
+`messages`, `nextCursor`, and `hasMore`. Continue while `hasMore` is true;
+cursor values are opaque and tied to the authenticated user.
 
 ## System notifications
 

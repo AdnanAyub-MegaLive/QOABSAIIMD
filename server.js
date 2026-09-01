@@ -16,7 +16,7 @@ const handle=app.getRequestHandler();
 app.prepare().then(async()=>{
   const {prisma}=await import("./src/lib/prisma.js");
   const {reconcileExpiredAudioRoomRestrictions}=await import("./src/lib/audio-room-maintenance.js");
-  const {createMessage,ensureWorldConversation,requireConversationParticipant}=await import("./src/lib/messaging.js");
+  const {createMessage,emitConversationEvent,ensureWorldConversation,markConversationRead,markMessageDelivered,messageSyncLimit,requireConversationParticipant,serializeMessage,syncMessagesForUser}=await import("./src/lib/messaging.js");
   const {resolveUserPerks,socketOrigin}=await import("./src/lib/user-perks.js");
   const {formatDateOnly}=await import("./src/lib/date-only.js");
   const {getEffectiveUserId}=await import("./src/lib/special-id.js");
@@ -182,6 +182,46 @@ app.prepare().then(async()=>{
           code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR"].includes(code)?code:"MESSAGE_SEND_FAILED",
           message:error?.validationMessage??(code==="CONVERSATION_NOT_FOUND"?"Conversation not found.":"Unable to send this message."),
         }});
+      }
+    });
+    socket.on("message:delivered",async({conversationId,messageId}={},ack=()=>{})=>{
+      try{
+        const data=await markMessageDelivered(String(conversationId??""),String(messageId??""),user.id);
+        const payload={...data,userId:user.publicId};
+        await emitConversationEvent(io,data.conversationId,"message:delivered",payload);
+        ack({success:true,data:payload});
+      }catch(error){
+        const code=error?.code??error?.message;
+        ack({success:false,error:{
+          code:["CONVERSATION_NOT_FOUND","MESSAGE_NOT_FOUND","MESSAGE_RECEIPT_FORBIDDEN"].includes(code)?code:"MESSAGE_DELIVERY_FAILED",
+          message:code==="MESSAGE_NOT_FOUND"?"Message not found.":code==="MESSAGE_RECEIPT_FORBIDDEN"?"This message cannot be acknowledged by the current user.":"Unable to acknowledge message delivery.",
+        }});
+      }
+    });
+    socket.on("conversation:read",async({conversationId}={},ack=()=>{})=>{
+      try{
+        const membership=await requireConversationParticipant(String(conversationId??""),user.id);
+        const read=await markConversationRead(membership,user.id);
+        const data={...read,userId:user.publicId};
+        await emitConversationEvent(io,read.conversationId,"conversation:read",data);
+        ack({success:true,data});
+      }catch(error){
+        const code=error?.code??error?.message;
+        ack({success:false,error:{code:code==="CONVERSATION_NOT_FOUND"?code:"READ_UPDATE_FAILED",message:code==="CONVERSATION_NOT_FOUND"?"Conversation not found.":"Unable to update conversation read state."}});
+      }
+    });
+    socket.on("conversation:sync",async({cursor,limit}={},ack=()=>{})=>{
+      try{
+        const result=await syncMessagesForUser(user.id,{cursor:typeof cursor==="string"&&cursor.trim()?cursor.trim():null,limit:messageSyncLimit(limit)});
+        const perks=await resolveUserPerks(result.records.map((message)=>message.sender).filter(Boolean),connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]);
+        ack({success:true,data:{
+          messages:result.records.map((message)=>({conversationId:message.conversation.publicId,message:serializeMessage(message,perks.get(message.sender?.publicId))})),
+          nextCursor:result.nextCursor,
+          hasMore:result.hasMore,
+        }});
+      }catch(error){
+        const code=error?.code??error?.message;
+        ack({success:false,error:{code:code==="SYNC_CURSOR_INVALID"?code:"MESSAGE_SYNC_FAILED",message:code==="SYNC_CURSOR_INVALID"?"The message sync cursor is invalid.":"Unable to synchronize messages."}});
       }
     });
     socket.on("audio-room:join",async({roomId}={},ack=()=>{})=>{

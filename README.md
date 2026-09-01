@@ -38,6 +38,32 @@ New Android work uses the versioned [`/api/v1` mobile contract](docs/mobile-api-
 See the [cutover runbook](docs/portal-cutover-runbook.md) before migrating live
 legacy users or balances.
 
+## Mobile messaging
+
+Portal Socket.IO messaging replaces Tencent IM for the currently released
+messaging scope: direct conversations and the fixed `CONV-WORLD` World Chat.
+Clients authenticate the Socket.IO handshake with their opaque portal session
+token. The portal persists every recipient's delivery and read receipt, emits
+the corresponding real-time events, and exposes reconnect/offline sync through
+the versioned API.
+
+```text
+GET/POST /api/v1/conversations
+GET/POST /api/v1/conversations/:conversationId/messages
+POST     /api/v1/conversations/:conversationId/read
+POST     /api/v1/conversations/:conversationId/messages/:messageId/delivered
+GET      /api/v1/conversations/sync?cursor=MSG-...&limit=50
+```
+
+Run `npx prisma migrate deploy` during a release to apply the
+`MessageReceipt` migration. It backfills receipts for existing messages while
+preserving their effective read state. The exact Socket.IO events, payloads,
+acknowledgements, reconnect behavior, and explicit out-of-scope features are
+documented in [`docs/mobile-api-v1.md`](docs/mobile-api-v1.md#messaging-and-socketio-contract).
+Custom groups, typing indicators, message editing/deletion, blocked-user
+policy, and push notifications require separate product decisions before they
+are released.
+
 For the production HTTPS/WSS deployment contract and Android readiness check,
 see [`docs/mobile-production-deployment.md`](docs/mobile-production-deployment.md).
 

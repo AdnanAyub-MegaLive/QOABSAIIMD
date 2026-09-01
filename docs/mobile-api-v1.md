@@ -155,10 +155,91 @@ and write its own trusted country header; otherwise registration returns
 | Withdraw host earnings | `GET`/`POST /api/v1/wallet/withdrawals` | KYC-verified, agency-linked hosts only |
 | Gift catalog | `GET /api/v1/gifts/catalog` | Existing uploaded gift assets only; no media is generated |
 | Send a gift | `POST /api/v1/gifts/send` | Atomically settles sender, host, agency, and company shares |
+| List messaging conversations | `GET /api/v1/conversations` | Direct conversations plus the fixed World Chat conversation |
+| Start or return a direct conversation | `POST /api/v1/conversations` | Body: `{ "participantId": "USR-* or TLN-*" }` |
+| Get/send conversation messages | `GET`/`POST /api/v1/conversations/:conversationId/messages` | Server-persisted chronological message history |
+| Mark a conversation read | `POST /api/v1/conversations/:conversationId/read` | Updates persistent read receipts |
+| Mark a message delivered | `POST /api/v1/conversations/:conversationId/messages/:messageId/delivered` | Idempotent recipient delivery acknowledgement |
+| Synchronize missed messages | `GET /api/v1/conversations/sync?cursor=MSG-...&limit=50` | Reconnect/offline incremental sync across caller conversations |
 
 Socket.IO, social, agency, advanced gift economy, and payout-provider operations
 will be added to v1 one domain at a time. Until an operation appears here, it is
 not a stable v1 contract.
+
+## Messaging and Socket.IO contract
+
+Socket.IO replaces Tencent IM for the released portal messaging scope. Connect
+to the configured Socket.IO base URL with the opaque portal session token:
+
+```js
+io(PORTAL_SOCKET_BASE_URL, {
+  auth: { token: sessionToken },
+  transports: ["websocket", "polling"],
+});
+```
+
+The server validates the token, account/session version, device binding, device
+ban, and account ban before accepting the connection. A connection failure code
+is one of `INVALID_SESSION`, `SESSION_REVOKED`, `DEVICE_NOT_REGISTERED`,
+`DEVICE_BANNED`, or `ACCOUNT_BANNED`. On `INVALID_SESSION` Android may attempt
+the documented refresh flow. On `SESSION_REVOKED` it must clear the local
+session. On a banned-device or banned-account error it must stop reconnecting
+and show the returned server message.
+
+All client events below use an acknowledgement callback. Its envelope is always
+one of:
+
+```json
+{ "success": true, "data": {} }
+```
+
+```json
+{ "success": false, "error": { "code": "MACHINE_READABLE_CODE", "message": "..." } }
+```
+
+| Event | Client payload | Successful acknowledgement / server event |
+| --- | --- | --- |
+| `message:send` | `{ "conversationId": "CONV-*", "body": "1-2000 chars" }` | `{ conversationId, message }`; emits `message:new` to participants |
+| `message:delivered` | `{ "conversationId": "CONV-*", "messageId": "MSG-*" }` | `{ conversationId, messageId, userId, deliveredAt }`; emits the same event |
+| `conversation:read` | `{ "conversationId": "CONV-*" }` | `{ conversationId, userId, lastReadAt }`; emits the same event |
+| `conversation:sync` | `{ "cursor": "MSG-* or null", "limit": 1-100 }` | `{ messages, nextCursor, hasMore }` |
+| `session:status` | Server event on connect | session status and account flags |
+
+`message:new` has this payload:
+
+```json
+{
+  "conversationId": "CONV-WORLD",
+  "message": {
+    "id": "MSG-...",
+    "senderId": "USR-...",
+    "senderName": "...",
+    "senderProfileImage": null,
+    "senderFrameUrl": null,
+    "senderBadgeUrl": null,
+    "senderChatBoxUrl": null,
+    "body": "Hello",
+    "createdAt": "2026-09-01T12:00:00.000Z"
+  }
+}
+```
+
+After persisting a received message locally, Android emits `message:delivered`.
+After displaying a conversation, Android emits `conversation:read`. Both
+operations are idempotent; the server time is authoritative. Reconnect with the
+last successful `nextCursor` using either `conversation:sync` or
+`GET /api/v1/conversations/sync`. A cursor belongs to one authenticated user;
+another user's or an unknown cursor returns `422 SYNC_CURSOR_INVALID`.
+
+The REST alternatives return the same data in the standard v1 envelope. Message
+history returns chronological `messages`, `nextCursor`, and `hasMore`.
+
+Released messaging scope is **direct messages and the fixed `CONV-WORLD` World
+Chat only**. Arbitrary user-created groups, blocking policy, message
+editing/deletion, typing indicators, and push-notification delivery are not
+implemented and are not part of this frozen contract. They need explicit
+product rules before release; Android must not treat their absence as a Tencent
+IM compatibility failure.
 
 ## Audio-room activation authorization
 
