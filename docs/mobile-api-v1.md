@@ -145,7 +145,7 @@ and write its own trusted country header; otherwise registration returns
 | Logout | `POST /api/v1/auth/logout` | Invalidates all portal sessions for that user |
 | Update own profile | `PATCH /api/v1/users/me` | Uses the current profile DTO |
 | Read/manage own room | `GET`/`POST /api/v1/audio-rooms` | Existing room DTO and TRTC rules apply |
-| Discover/search rooms | `GET /api/v1/audio-rooms/discover?country=PK` and `/search` | Returns listener-joinable `LIVE` rooms only; country is an optional ISO alpha-2 discovery filter |
+| Discover/search rooms | `GET /api/v1/audio-rooms/discover?country=PK&includeIdle=true` and `/search?includeIdle=true` | Defaults to listener-joinable `LIVE` rooms; `includeIdle=true` also returns visible `IDLE` rooms, while blocked/terminated rooms remain excluded |
 | Request TRTC credentials | `POST /api/v1/audio-rooms/trtc-token` | Requires an active room and portal session |
 | Wallet overview | `GET /api/v1/wallet` | Coin, diamond/salary, coupon, and recharge balances |
 | Coin packages | `GET /api/v1/wallet/coin-packages` | Active provider-neutral packages and prices |
@@ -155,12 +155,17 @@ and write its own trusted country header; otherwise registration returns
 | Withdraw host earnings | `GET`/`POST /api/v1/wallet/withdrawals` | KYC-verified, agency-linked hosts only |
 | Gift catalog | `GET /api/v1/gifts/catalog` | Existing uploaded gift assets only; no media is generated |
 | Send a gift | `POST /api/v1/gifts/send` | Atomically settles sender, host, agency, and company shares |
-| List messaging conversations | `GET /api/v1/conversations` | Direct conversations plus the fixed World Chat conversation |
+| List messaging conversations | `GET /api/v1/conversations` | Direct, group, and fixed World Chat conversations |
 | Start or return a direct conversation | `POST /api/v1/conversations` | Body: `{ "participantId": "USR-* or TLN-*" }` |
+| Create a group | `POST /api/v1/conversations/groups` | Creator is the owner; body has `name` and 1–99 `participantIds` |
+| Add/remove group member | `POST /api/v1/conversations/:conversationId/members` / `DELETE .../members/:userId` | Group owner manages members; non-owner can remove only themselves |
 | Get/send conversation messages | `GET`/`POST /api/v1/conversations/:conversationId/messages` | Server-persisted chronological message history |
+| Edit/delete own message | `PATCH`/`DELETE /api/v1/conversations/:conversationId/messages/:messageId` | Editing is limited to 15 minutes; deletion is a soft delete |
 | Mark a conversation read | `POST /api/v1/conversations/:conversationId/read` | Updates persistent read receipts |
 | Mark a message delivered | `POST /api/v1/conversations/:conversationId/messages/:messageId/delivered` | Idempotent recipient delivery acknowledgement |
 | Synchronize missed messages | `GET /api/v1/conversations/sync?cursor=MSG-...&limit=50` | Reconnect/offline incremental sync across caller conversations |
+| List/create a block | `GET`/`POST /api/v1/blocks` | Prevents direct messages and friend requests for the blocked pair |
+| Remove a block | `DELETE /api/v1/blocks/:userId` | Restores direct interaction for the pair |
 
 Socket.IO, social, agency, advanced gift economy, and payout-provider operations
 will be added to v1 one domain at a time. Until an operation appears here, it is
@@ -200,9 +205,13 @@ one of:
 | Event | Client payload | Successful acknowledgement / server event |
 | --- | --- | --- |
 | `message:send` | `{ "conversationId": "CONV-*", "body": "1-2000 chars" }` | `{ conversationId, message }`; emits `message:new` to participants |
+| `message:edit` | `{ "conversationId": "CONV-*", "messageId": "MSG-*", "body": "1-2000 chars" }` | `{ conversationId, message }`; emits `message:updated` |
+| `message:delete` | `{ "conversationId": "CONV-*", "messageId": "MSG-*" }` | `{ conversationId, message }`; emits `message:deleted` with a null body |
 | `message:delivered` | `{ "conversationId": "CONV-*", "messageId": "MSG-*" }` | `{ conversationId, messageId, userId, deliveredAt }`; emits the same event |
 | `conversation:read` | `{ "conversationId": "CONV-*" }` | `{ conversationId, userId, lastReadAt }`; emits the same event |
+| `conversation:typing` | `{ "conversationId": "CONV-*", "isTyping": true }` | Emits to other participants with a five-second `expiresAt`; max two updates/second/socket |
 | `conversation:sync` | `{ "cursor": "MSG-* or null", "limit": 1-100 }` | `{ messages, nextCursor, hasMore }` |
+| `conversation:created` / `conversation:updated` | Server event | Full group conversation after creation or membership update |
 | `session:status` | Server event on connect | session status and account flags |
 
 `message:new` has this payload:
@@ -219,7 +228,9 @@ one of:
     "senderBadgeUrl": null,
     "senderChatBoxUrl": null,
     "body": "Hello",
-    "createdAt": "2026-09-01T12:00:00.000Z"
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "editedAt": null,
+    "deletedAt": null
   }
 }
 ```
@@ -234,12 +245,28 @@ another user's or an unknown cursor returns `422 SYNC_CURSOR_INVALID`.
 The REST alternatives return the same data in the standard v1 envelope. Message
 history returns chronological `messages`, `nextCursor`, and `hasMore`.
 
-Released messaging scope is **direct messages and the fixed `CONV-WORLD` World
-Chat only**. Arbitrary user-created groups, blocking policy, message
-editing/deletion, typing indicators, and push-notification delivery are not
-implemented and are not part of this frozen contract. They need explicit
-product rules before release; Android must not treat their absence as a Tencent
-IM compatibility failure.
+Released messaging scope is direct messages, user-created groups, and fixed
+`CONV-WORLD` World Chat. A group creator is its `OWNER`; the owner can add or
+remove members. Members may remove themselves. The owner cannot leave or be
+removed until ownership-transfer support is introduced. Group actions are REST
+operations and publish `conversation:created` or `conversation:updated` to all
+members.
+
+Messages are edited only by their sender during the first 15 minutes. Senders
+can soft-delete their messages at any time; the original body is no longer sent
+to mobile clients and the returned message has `body: null` plus `deletedAt`.
+The server retains the record for integrity and moderation purposes.
+
+`POST /api/v1/blocks` creates a one-way privacy block. Any block in either
+direction hides the direct conversation from the blocker and prevents new
+direct messages and friend requests between the pair. Existing group membership
+and World Chat are not changed by a block. The other user is not notified of a
+block action.
+
+The portal deliberately has no background-push provider. Android receives
+messages over its authenticated Socket.IO connection while it is connected, and
+uses `conversation:sync` after reconnecting. A closed Android app will not be
+woken for a new chat message.
 
 ## Audio-room activation authorization
 
@@ -249,7 +276,9 @@ or restart their assigned room through `POST /api/v1/audio-rooms` with
 `action: "START"`. A Socket.IO `audio-room:join` request is a listener join,
 not a start operation: only `LIVE` rooms can be joined. Joining an `IDLE` room
 returns `ROOM_IDLE` and does not alter its status, participant count, or seat
-state. Discovery and search return `LIVE` rooms only.
+state. Discovery and search return `LIVE` rooms by default; clients that need
+to show an idle-room catalog may explicitly use `includeIdle=true`. An idle ID
+never grants listener join or room-activation permission.
 
 This is an explicit MegaLive product policy. Any change to these authorization
 rules requires explicit product approval and matching regression-test updates.

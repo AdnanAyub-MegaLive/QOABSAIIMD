@@ -16,7 +16,7 @@ const handle=app.getRequestHandler();
 app.prepare().then(async()=>{
   const {prisma}=await import("./src/lib/prisma.js");
   const {reconcileExpiredAudioRoomRestrictions}=await import("./src/lib/audio-room-maintenance.js");
-  const {createMessage,emitConversationEvent,ensureWorldConversation,markConversationRead,markMessageDelivered,messageSyncLimit,requireConversationParticipant,serializeMessage,syncMessagesForUser}=await import("./src/lib/messaging.js");
+  const {createMessage,deleteMessage,editMessage,emitConversationEvent,ensureWorldConversation,markConversationRead,markMessageDelivered,messageSyncLimit,requireConversationParticipant,serializeMessage,syncMessagesForUser}=await import("./src/lib/messaging.js");
   const {resolveUserPerks,socketOrigin}=await import("./src/lib/user-perks.js");
   const {formatDateOnly}=await import("./src/lib/date-only.js");
   const {getEffectiveUserId}=await import("./src/lib/special-id.js");
@@ -196,6 +196,58 @@ app.prepare().then(async()=>{
           code:["CONVERSATION_NOT_FOUND","MESSAGE_NOT_FOUND","MESSAGE_RECEIPT_FORBIDDEN"].includes(code)?code:"MESSAGE_DELIVERY_FAILED",
           message:code==="MESSAGE_NOT_FOUND"?"Message not found.":code==="MESSAGE_RECEIPT_FORBIDDEN"?"This message cannot be acknowledged by the current user.":"Unable to acknowledge message delivery.",
         }});
+      }
+    });
+    socket.on("message:edit",async({conversationId,messageId,body}={},ack=()=>{})=>{
+      try{
+        const id=String(conversationId??"");
+        const record=await editMessage(id,String(messageId??""),user.id,body);
+        const perks=await resolveUserPerks(record.sender?[record.sender]:[],connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]);
+        const data={conversationId:id,message:serializeMessage(record,perks.get(record.sender?.publicId))};
+        await emitConversationEvent(io,id,"message:updated",data);
+        ack({success:true,data});
+      }catch(error){
+        const code=error?.code??error?.message;
+        ack({success:false,error:{
+          code:["CONVERSATION_NOT_FOUND","MESSAGE_NOT_FOUND","MESSAGE_EDIT_FORBIDDEN","MESSAGE_EDIT_WINDOW_EXPIRED","MESSAGE_DELETED","USER_BLOCKED","VALIDATION_ERROR"].includes(code)?code:"MESSAGE_EDIT_FAILED",
+          message:code==="MESSAGE_EDIT_FORBIDDEN"?"You can only edit your own messages.":code==="MESSAGE_EDIT_WINDOW_EXPIRED"?"Messages can only be edited during the first 15 minutes.":"Unable to edit this message.",
+        }});
+      }
+    });
+    socket.on("message:delete",async({conversationId,messageId}={},ack=()=>{})=>{
+      try{
+        const id=String(conversationId??"");
+        const record=await deleteMessage(id,String(messageId??""),user.id);
+        const perks=await resolveUserPerks(record.sender?[record.sender]:[],connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]);
+        const data={conversationId:id,message:serializeMessage(record,perks.get(record.sender?.publicId))};
+        await emitConversationEvent(io,id,"message:deleted",data);
+        ack({success:true,data});
+      }catch(error){
+        const code=error?.code??error?.message;
+        ack({success:false,error:{
+          code:["CONVERSATION_NOT_FOUND","MESSAGE_NOT_FOUND","MESSAGE_DELETE_FORBIDDEN","MESSAGE_DELETED","USER_BLOCKED"].includes(code)?code:"MESSAGE_DELETE_FAILED",
+          message:code==="MESSAGE_DELETE_FORBIDDEN"?"You can only delete your own messages.":"Unable to delete this message.",
+        }});
+      }
+    });
+    socket.on("conversation:typing",async({conversationId,isTyping}={},ack=()=>{})=>{
+      try{
+        const id=String(conversationId??"");
+        await requireConversationParticipant(id,user.id);
+        const now=Date.now();
+        const previous=socket.data.lastTypingAt??0;
+        if(now-previous<500)return ack({success:true,data:{conversationId:id,throttled:true}});
+        socket.data.lastTypingAt=now;
+        const recipients=await prisma.conversationParticipant.findMany({
+          where:{conversation:{publicId:id},userId:{not:user.id}},
+          select:{user:{select:{publicId:true}}},
+        });
+        const data={conversationId:id,userId:user.publicId,isTyping:Boolean(isTyping),expiresAt:new Date(now+5000).toISOString()};
+        for(const recipient of recipients)io.to(`user:${recipient.user.publicId}`).emit("conversation:typing",data);
+        ack({success:true,data});
+      }catch(error){
+        const code=error?.code??error?.message;
+        ack({success:false,error:{code:["CONVERSATION_NOT_FOUND","USER_BLOCKED"].includes(code)?code:"TYPING_UPDATE_FAILED",message:"Unable to update typing state."}});
       }
     });
     socket.on("conversation:read",async({conversationId}={},ack=()=>{})=>{

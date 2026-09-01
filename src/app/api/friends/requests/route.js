@@ -15,6 +15,7 @@ import {
   resolveUserPerks,
 } from "../../../../lib/user-perks.js";
 import { formatDateOnly } from "../../../../lib/date-only.js";
+import { assertUsersCanInteract } from "../../../../lib/user-blocks.js";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,7 @@ export async function POST(request) {
       },
     });
     if (!target) throw new Error("USER_NOT_FOUND");
+    await assertUsersCanInteract(user.id, target.id);
     const pairKey = friendPairKey(user.id, target.id);
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.friendRequest.findUnique({

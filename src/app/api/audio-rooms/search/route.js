@@ -28,7 +28,9 @@ async function authenticatedUser(request) {
 export async function GET(request) {
   try {
     const user = await authenticatedUser(request);
-    const q = new URL(request.url).searchParams.get("q")?.trim();
+    const searchParams = new URL(request.url).searchParams;
+    const q = searchParams.get("q")?.trim();
+    const includeIdle = searchParams.get("includeIdle") === "true";
 
     if (!q) {
       return json({ success: true, data: { rooms: [] } });
@@ -39,9 +41,9 @@ export async function GET(request) {
     const rooms = await prisma.audioRoom.findMany({
       where: {
         ownerId: { not: user.id },
-        // Persistent IDLE rooms are owner-only until their owner restarts them.
-        status: "LIVE",
+        status: includeIdle ? { in: ["LIVE", "IDLE"] } : "LIVE",
         isBlocked: false,
+        joiningDisabled: false,
         owner: {
           deletedAt: null,
           status: "ACTIVE",
@@ -57,6 +59,7 @@ export async function GET(request) {
         country: true,
         coverImageUrl: true,
         participantCount: true,
+        status: true,
         startedAt: true,
         owner: {
           select: {
@@ -91,6 +94,7 @@ export async function GET(request) {
             ? new URL(room.coverImageUrl, origin).toString()
             : null,
           participantCount: room.participantCount,
+          status: room.status,
           startedAt: room.startedAt,
           roomBackgroundUrl:
             perks.get(room.owner.publicId)?.roomBackgroundUrl ?? null,

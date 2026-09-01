@@ -6,6 +6,7 @@ import {
   requireMobileUser,
 } from "../../../lib/mobile-api";
 import { ensureWorldConversation } from "../../../lib/messaging";
+import { assertUsersCanInteract, listBlockedUserIds } from "../../../lib/user-blocks";
 import {
   requestOrigin,
   resolveUserPerks,
@@ -40,6 +41,8 @@ async function conversationPayload(conversation, user, perks) {
     name:
       conversation.kind === "WORLD"
         ? conversation.name
+        : conversation.kind === "GROUP"
+          ? conversation.name ?? "Group chat"
         : other?.name ?? "Deleted user",
     participant:
       conversation.kind === "DIRECT" && other
@@ -54,6 +57,18 @@ async function conversationPayload(conversation, user, perks) {
             frameUrl: perks.get(other.publicId)?.frameUrl ?? null,
             badgeUrl: perks.get(other.publicId)?.badgeUrl ?? null,
           }
+        : null,
+    participants:
+      conversation.kind === "GROUP"
+        ? conversation.participants.map((participant) => ({
+            id: participant.user.publicId,
+            name: participant.user.name,
+            profileImage: participant.user.profileImage ?? null,
+            isVerified: Boolean(participant.user.isVerified),
+            isOfficial: Boolean(participant.user.isOfficial),
+            role: participant.role,
+            joinedAt: participant.joinedAt.toISOString(),
+          }))
         : null,
     lastMessage: lastMessage
       ? {
@@ -102,6 +117,13 @@ export async function GET(request) {
       orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
       take: 200,
     });
+    const blockedUserIds = await listBlockedUserIds(user.id);
+    const visibleConversations = conversations.filter((conversation) => (
+      conversation.kind !== "DIRECT"
+      || !conversation.participants.some((participant) => (
+        participant.userId !== user.id && blockedUserIds.has(participant.userId)
+      ))
+    ));
     const participantUsers = conversations.flatMap((conversation) =>
       conversation.participants.map((participant) => participant.user),
     );
@@ -114,7 +136,7 @@ export async function GET(request) {
       success: true,
       data: {
         conversations: await Promise.all(
-          conversations.map((conversation) =>
+          visibleConversations.map((conversation) =>
             conversationPayload(conversation, user, perks),
           ),
         ),
@@ -142,6 +164,7 @@ export async function POST(request) {
       select: { id: true },
     });
     if (!target) throw new Error("USER_NOT_FOUND");
+    await assertUsersCanInteract(user.id, target.id);
     const directKey = [user.id, target.id].sort().join(":");
     const conversation = await prisma.conversation.upsert({
       where: { directKey },

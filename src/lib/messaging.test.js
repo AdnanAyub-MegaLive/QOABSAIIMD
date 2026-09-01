@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { messageSyncLimit, serializeMessage } from "./messaging";
+import { messageSyncLimit, normalizeGroupMemberIds, normalizeGroupName, serializeMessage } from "./messaging";
 
 describe("messaging contract helpers", () => {
   it("uses a safe bounded page size for offline synchronization", () => {
@@ -32,5 +32,12 @@ describe("messaging contract helpers", () => {
         createdAt: "2026-09-01T12:00:00.000Z",
         senderFrameUrl: "https://cdn.example/frame.png",
       });
+  });
+
+  it("accepts only bounded group names and unique non-owner members", () => {
+    expect(normalizeGroupName("  Mega hosts  ")).toBe("Mega hosts");
+    expect(normalizeGroupMemberIds(["USR-1", "USR-2", "USR-2"], "USR-1")).toEqual(["USR-2"]);
+    expect(() => normalizeGroupName("x")).toThrow("GROUP_NAME_INVALID");
+    expect(() => normalizeGroupMemberIds(["USR-1"], "USR-1")).toThrow("GROUP_MEMBERS_INVALID");
   });
 });

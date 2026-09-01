@@ -40,8 +40,8 @@ legacy users or balances.
 
 ## Mobile messaging
 
-Portal Socket.IO messaging replaces Tencent IM for the currently released
-messaging scope: direct conversations and the fixed `CONV-WORLD` World Chat.
+Portal Socket.IO messaging replaces Tencent IM for direct conversations,
+user-created groups, and the fixed `CONV-WORLD` World Chat.
 Clients authenticate the Socket.IO handshake with their opaque portal session
 token. The portal persists every recipient's delivery and read receipt, emits
 the corresponding real-time events, and exposes reconnect/offline sync through
@@ -49,20 +49,23 @@ the versioned API.
 
 ```text
 GET/POST /api/v1/conversations
+POST     /api/v1/conversations/groups
+POST     /api/v1/conversations/:conversationId/members
+DELETE   /api/v1/conversations/:conversationId/members/:userId
 GET/POST /api/v1/conversations/:conversationId/messages
+PATCH    /api/v1/conversations/:conversationId/messages/:messageId
+DELETE   /api/v1/conversations/:conversationId/messages/:messageId
 POST     /api/v1/conversations/:conversationId/read
 POST     /api/v1/conversations/:conversationId/messages/:messageId/delivered
 GET      /api/v1/conversations/sync?cursor=MSG-...&limit=50
+GET/POST /api/v1/blocks
 ```
 
 Run `npx prisma migrate deploy` during a release to apply the
-`MessageReceipt` migration. It backfills receipts for existing messages while
-preserving their effective read state. The exact Socket.IO events, payloads,
-acknowledgements, reconnect behavior, and explicit out-of-scope features are
-documented in [`docs/mobile-api-v1.md`](docs/mobile-api-v1.md#messaging-and-socketio-contract).
-Custom groups, typing indicators, message editing/deletion, blocked-user
-policy, and push notifications require separate product decisions before they
-are released.
+`MessageReceipt` and `messaging_completion` migrations. They add group roles,
+soft-message moderation and blocks without deleting existing messages. The
+exact Socket.IO events and Android contract are in
+[`docs/mobile-api-v1.md`](docs/mobile-api-v1.md#messaging-and-socketio-contract).
 
 For the production HTTPS/WSS deployment contract and Android readiness check,
 see [`docs/mobile-production-deployment.md`](docs/mobile-production-deployment.md).
