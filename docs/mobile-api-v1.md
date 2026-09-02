@@ -270,18 +270,15 @@ woken for a new chat message.
 
 ## Audio-room activation authorization
 
-An audio room may retain its public room ID while its status is `IDLE`; that ID
-does not represent a live, joinable session. The owner alone may create, start,
-or restart their assigned room through `POST /api/v1/audio-rooms` with
-`action: "START"`. A Socket.IO `audio-room:join` request is a listener join,
-not a start operation: only `LIVE` rooms can be joined. Joining an `IDLE` room
-returns `ROOM_IDLE` and does not alter its status, participant count, or seat
-state. Discovery and search return `LIVE` rooms by default; clients that need
-to show an idle-room catalog may explicitly use `includeIdle=true`. An idle ID
-never grants listener join or room-activation permission.
+An audio room retains its public room ID while its status is `IDLE`. Both `LIVE`
+and `IDLE` rooms are listener-joinable through Socket.IO `audio-room:join`.
+The existing successful-join flow promotes an `IDLE` room to `LIVE`, updates
+its participant count, and returns the normal seat snapshot. The owner may
+still explicitly create, start, or restart their assigned room through
+`POST /api/v1/audio-rooms` with `action: "START"`.
 
-This is an explicit MegaLive product policy. Any change to these authorization
-rules requires explicit product approval and matching regression-test updates.
+Discovery and search return `LIVE` rooms by default; use `includeIdle=true` to
+show both states. Blocked and terminated rooms are never joinable or returned.
 
 ## Wallet and payment contract
 

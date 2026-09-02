@@ -204,15 +204,11 @@ The response gives `data.roomId`. Retain it as a string. The portal preserves
 that room identity after a room ends; the next start reuses it. Its country is
 derived from the owner’s signup geolocation, not a room request field.
 
-An `IDLE` room is not joinable, even when Android already knows its room ID.
-Only the room owner can restart it with `POST /api/v1/audio-rooms` and
-`action: "START"`. Discovery and search return `LIVE` rooms only. Treat the
-Socket.IO `ROOM_IDLE` result as unavailable and refresh discovery instead of
-attempting to join again.
-
-This owner/listener authorization rule is an approved MegaLive product policy.
-Do not change the client behavior or rely on an idle room ID to start a room
-without explicit product approval.
+Both `LIVE` and `IDLE` rooms are joinable with Socket.IO `audio-room:join`.
+When a listener joins an idle room, the existing server join flow promotes it
+to `LIVE` and returns the normal seat snapshot. Discovery and search return
+only `LIVE` rooms by default; pass `includeIdle=true` to show both states.
+Blocked and terminated rooms remain unavailable.
 
 Do not send a media stream URL for TRTC audio. TRTC carries the live audio;
 existing media assets remain separate room/profile presentation assets.
