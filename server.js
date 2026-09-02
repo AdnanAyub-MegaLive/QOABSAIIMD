@@ -277,46 +277,51 @@ app.prepare().then(async()=>{
       }
     });
     socket.on("audio-room:join",async({roomId}={},ack=()=>{})=>{
-      const requestedRoomId=String(roomId??"");
-      await reconcileExpiredAudioRoomRestrictions(requestedRoomId);
-      const room=await prisma.audioRoom.findUnique({where:{roomId:requestedRoomId},include:{owner:{select:{id:true,publicId:true,name:true,profileImage:true,gender:true,dob:true,isVerified:true,isOfficial:true}}}});
-      if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
-      if(room.isBlocked)return ack({success:false,error:{code:"ROOM_BLOCKED",details:{reason:room.blockedReason,expiresAt:room.blockedUntil?.toISOString()??null}}});
-      if(room.status==="TERMINATED")return ack({success:false,error:{code:"ROOM_TERMINATED",details:{expiresAt:room.terminatedUntil?.toISOString()??null}}});
-      const joinError=listenerRoomJoinError(room);
-      if(joinError)return ack({success:false,error:joinError});
-      if(room.joiningDisabled&&room.ownerId!==user.id)return ack({success:false,error:{code:"ROOM_OWNER_ONLY",details:{expiresAt:room.joiningDisabledUntil?.toISOString()??null}}});
-      const roomChannel=`audio-room:${room.roomId}`;
-      const alreadyJoined=socket.rooms.has(roomChannel);
-      socket.join(roomChannel);
-      const participantCount=io.sockets.adapter.rooms.get(roomChannel)?.size??1;
-      await prisma.audioRoom.update({where:{id:room.id},data:{participantCount,status:"LIVE",endedAt:null}});
-      const isOwner=room.ownerId===user.id;
-      const joinedUserPerks=await resolveUserPerks([room.owner,user],connectionOrigin,["FRAMES","BADGES","ROOM_BACKGROUNDS","ENTRANCES","TAIL_LIGHTS","RIDES"]);
-      const roomPerks=joinedUserPerks.get(room.owner.publicId);
-      const joiningPerks=joinedUserPerks.get(user.publicId);
-      const seatState=await readAudioRoomSeatState(room,connectionOrigin);
-      const ownerIdentity=await getEffectiveUserId(room.owner.id,room.owner.publicId);
-      ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,ownerId:room.owner.publicId,isOwner,seatState,roomBackgroundUrl:roomPerks?.roomBackgroundUrl??null,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
-      if(!alreadyJoined){
-        io.to(roomChannel).emit("audio-room:entrance",{
-          success:true,
-          data:{
-            roomId:room.roomId,
-            userId,
-            name:user.name,
-            profileImage:user.profileImage??null,
-            gender:user.gender??null,
-            isVerified:Boolean(user.isVerified),
-            isOfficial:Boolean(user.isOfficial),
-            dob:formatDateOnly(user.dob),
-            entranceUrl:joiningPerks?.entranceUrl??null,
-            rideUrl:joiningPerks?.rideUrl??null,
-          },
-        });
-        if(!isOwner){
-          io.to(`user:${room.owner.publicId}`).emit("audio-room:seat-sync-request",{success:true,data:{roomId:room.roomId,requesterId:userId,requesterName:user.name,requesterProfileImage:user.profileImage??null,requesterGender:user.gender??null,requesterDob:formatDateOnly(user.dob),requesterIsVerified:Boolean(user.isVerified),requesterIsOfficial:Boolean(user.isOfficial),requesterFrameUrl:joiningPerks?.frameUrl??null,requesterBadgeUrl:joiningPerks?.badgeUrl??null,reason:"VIEWER_JOINED"}});
+      try{
+        const requestedRoomId=String(roomId??"");
+        await reconcileExpiredAudioRoomRestrictions(requestedRoomId);
+        const room=await prisma.audioRoom.findUnique({where:{roomId:requestedRoomId},include:{owner:{select:{id:true,publicId:true,name:true,profileImage:true,gender:true,dob:true,isVerified:true,isOfficial:true}}}});
+        if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(room.isBlocked)return ack({success:false,error:{code:"ROOM_BLOCKED",details:{reason:room.blockedReason,expiresAt:room.blockedUntil?.toISOString()??null}}});
+        if(room.status==="TERMINATED")return ack({success:false,error:{code:"ROOM_TERMINATED",details:{expiresAt:room.terminatedUntil?.toISOString()??null}}});
+        const joinError=listenerRoomJoinError(room);
+        if(joinError)return ack({success:false,error:joinError});
+        if(room.joiningDisabled&&room.ownerId!==user.id)return ack({success:false,error:{code:"ROOM_OWNER_ONLY",details:{expiresAt:room.joiningDisabledUntil?.toISOString()??null}}});
+        const roomChannel=`audio-room:${room.roomId}`;
+        const alreadyJoined=socket.rooms.has(roomChannel);
+        socket.join(roomChannel);
+        const participantCount=io.sockets.adapter.rooms.get(roomChannel)?.size??1;
+        await prisma.audioRoom.update({where:{id:room.id},data:{participantCount,status:"LIVE",endedAt:null}});
+        const isOwner=room.ownerId===user.id;
+        const joinedUserPerks=await resolveUserPerks([room.owner,user],connectionOrigin,["FRAMES","BADGES","ROOM_BACKGROUNDS","ENTRANCES","TAIL_LIGHTS","RIDES"]);
+        const roomPerks=joinedUserPerks.get(room.owner.publicId);
+        const joiningPerks=joinedUserPerks.get(user.publicId);
+        const seatState=await readAudioRoomSeatState(room,connectionOrigin);
+        const ownerIdentity=await getEffectiveUserId(room.owner.id,room.owner.publicId);
+        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,ownerId:room.owner.publicId,isOwner,seatState,roomBackgroundUrl:roomPerks?.roomBackgroundUrl??null,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        if(!alreadyJoined){
+          io.to(roomChannel).emit("audio-room:entrance",{
+            success:true,
+            data:{
+              roomId:room.roomId,
+              userId,
+              name:user.name,
+              profileImage:user.profileImage??null,
+              gender:user.gender??null,
+              isVerified:Boolean(user.isVerified),
+              isOfficial:Boolean(user.isOfficial),
+              dob:formatDateOnly(user.dob),
+              entranceUrl:joiningPerks?.entranceUrl??null,
+              rideUrl:joiningPerks?.rideUrl??null,
+            },
+          });
+          if(!isOwner){
+            io.to(`user:${room.owner.publicId}`).emit("audio-room:seat-sync-request",{success:true,data:{roomId:room.roomId,requesterId:userId,requesterName:user.name,requesterProfileImage:user.profileImage??null,requesterGender:user.gender??null,requesterDob:formatDateOnly(user.dob),requesterIsVerified:Boolean(user.isVerified),requesterIsOfficial:Boolean(user.isOfficial),requesterFrameUrl:joiningPerks?.frameUrl??null,requesterBadgeUrl:joiningPerks?.badgeUrl??null,reason:"VIEWER_JOINED"}});
+          }
         }
+      }catch(error){
+        console.error("Audio room join failed",error);
+        ack({success:false,error:{code:"ROOM_JOIN_FAILED",message:"Unable to join this room."}});
       }
     });
     socket.on("audio-room:message",async({roomId,body}={},ack=()=>{})=>{
