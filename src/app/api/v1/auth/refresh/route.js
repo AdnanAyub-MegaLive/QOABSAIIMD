@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import mobileSession from "@/lib/mobile-session.cjs";
 import { mobileApiError, requireMobileUser } from "@/lib/mobile-api";
 import { clientIp, v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
+import { mobileUserProfile } from "@/lib/mobile-user-profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,10 +45,12 @@ export async function POST(request) {
         const session = mobileSession.createMobileSession(user, {
           deviceId: payload.deviceId,
         });
+        const profile = await mobileUserProfile(user.id);
         return v1Json(request, requestId, {
           success: true,
           data: {
             ...session,
+            user: profile,
           },
         }, 200, methods);
       } catch (error) {

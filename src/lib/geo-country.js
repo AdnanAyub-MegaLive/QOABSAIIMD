@@ -10,7 +10,10 @@ export function normalizeCountryCode(value) {
 }
 
 export function requiresSignupGeolocation() {
-  return process.env.GEOLOCATION_REQUIRED === "true" || process.env.NODE_ENV === "production";
+  // Country is a server-authoritative identity field. A new account must not
+  // silently receive a null country just because a client sent an unknown
+  // location string or the trusted edge header was absent.
+  return true;
 }
 
 export function resolveSignupCountry(request) {

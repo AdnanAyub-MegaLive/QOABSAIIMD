@@ -10,6 +10,7 @@ import {
   assertMobileSession,
   mobileSessionError,
 } from "../../../../../lib/mobile-session-state";
+import { mobileUserProfile } from "../../../../../lib/mobile-user-profile";
 
 export async function GET(request) {
   const deviceId =
@@ -72,6 +73,7 @@ export async function GET(request) {
       : null;
     await reconcileExpiredSpecialIds();
     const identity = await getEffectiveUserId(user.id, user.publicId);
+    const profile = await mobileUserProfile(user.id);
     return Response.json({
       success: true,
       data: {
@@ -95,6 +97,7 @@ export async function GET(request) {
         isOfficial: Boolean(user.isOfficial),
         role: user.role,
         roles: user.appRoles,
+        user: profile,
       },
     });
   } catch (error) {

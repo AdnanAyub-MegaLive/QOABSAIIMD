@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { normalizeCountryCode, resolveSignupCountry } from "./geo-country";
+import { normalizeCountryCode, requiresSignupGeolocation, resolveSignupCountry } from "./geo-country";
 
 describe("signup geolocation", () => {
   it("normalizes only ISO alpha-2 country codes", () => {
@@ -23,5 +23,12 @@ describe("signup geolocation", () => {
       headers: { "cf-ipcountry": "PK" },
     });
     expect(resolveSignupCountry(request)).toEqual({ country: null, source: null });
+  });
+
+  it("requires a trusted ISO-2 country for every new account", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("GEOLOCATION_REQUIRED", "false");
+    expect(requiresSignupGeolocation()).toBe(true);
+    expect(normalizeCountryCode("unknown")).toBeNull();
   });
 });

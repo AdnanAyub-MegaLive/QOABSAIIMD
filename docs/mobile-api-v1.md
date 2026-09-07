@@ -128,8 +128,10 @@ Country is assigned once, at registration, from the portal edge/proxy
 geolocation header and returned as an ISO alpha-2 code (for example `PK`). The
 Android request must not send or edit country. The production reverse proxy must
 strip inbound `CF-IPCountry`, `X-Vercel-IP-Country`, and `X-Geo-Country` headers
-and write its own trusted country header; otherwise registration returns
-`503 GEOLOCATION_UNAVAILABLE`.
+and write its own trusted country header. If no trusted ISO-2 value is available
+(including a client location value such as `"unknown"`), registration returns
+`503 GEOLOCATION_UNAVAILABLE`; the portal never silently creates a new account
+with a null country.
 
 ## Released endpoints
 
@@ -143,7 +145,7 @@ and write its own trusted country header; otherwise registration returns
 | Validate session | `GET /api/v1/auth/session?deviceId=...` | Validates the token and device binding |
 | Refresh session | `POST /api/v1/auth/refresh` | Requires a device-bound session |
 | Logout | `POST /api/v1/auth/logout` | Invalidates all portal sessions for that user |
-| Update own profile | `PATCH /api/v1/users/me` | Uses the current profile DTO |
+| Read/update own profile | `GET`/`PATCH /api/v1/users/me` | Current server-authoritative profile DTO, including ISO alpha-2 `country` |
 | Read/manage own room | `GET`/`POST /api/v1/audio-rooms` | Existing room DTO and TRTC rules apply |
 | Discover/search rooms | `GET /api/v1/audio-rooms/discover?country=PK&includeIdle=true` and `/search?includeIdle=true` | Defaults to listener-joinable `LIVE` rooms; `includeIdle=true` also returns visible `IDLE` rooms, while blocked/terminated rooms remain excluded |
 | Request TRTC credentials | `POST /api/v1/audio-rooms/trtc-token` | Requires an active room and portal session |

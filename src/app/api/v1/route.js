@@ -30,7 +30,7 @@ export async function GET(request) {
         },
         endpoints: {
           auth: ["POST /api/v1/auth/login", "POST /api/v1/auth/register", "POST /api/v1/auth/google", "POST /api/v1/auth/password", "POST /api/v1/auth/refresh", "POST /api/v1/auth/logout", "GET /api/v1/auth/session"],
-          user: ["PATCH /api/v1/users/me"],
+          user: ["GET/PATCH /api/v1/users/me"],
           messaging: ["GET/POST /api/v1/conversations", "POST /api/v1/conversations/groups", "POST/DELETE /api/v1/conversations/:conversationId/members", "GET/POST /api/v1/conversations/:conversationId/messages", "PATCH/DELETE /api/v1/conversations/:conversationId/messages/:messageId", "POST /api/v1/conversations/:conversationId/read", "POST /api/v1/conversations/:conversationId/messages/:messageId/delivered", "GET /api/v1/conversations/sync", "GET/POST /api/v1/blocks", "DELETE /api/v1/blocks/:userId"],
           audioRooms: ["GET /api/v1/audio-rooms", "POST /api/v1/audio-rooms"],
           discovery: ["GET /api/v1/audio-rooms/discover", "GET /api/v1/audio-rooms/search"],
