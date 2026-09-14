@@ -221,6 +221,7 @@ export async function POST(request) {
               email: account.email,
               phone: account.phone,
               country: account.country,
+              bio: account.bio,
               profileImage: account.profileImage,
               gender: account.gender,
               dob: formatDateOnly(account.dob),

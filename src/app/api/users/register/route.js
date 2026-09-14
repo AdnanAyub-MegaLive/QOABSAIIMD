@@ -192,6 +192,7 @@ export async function POST(request) {
             email: user.email,
             phone: user.phone,
             country: user.country,
+            bio: user.bio,
             profileImage: user.profileImage,
             gender: user.gender,
             dob: formatDateOnly(user.dob),

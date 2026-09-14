@@ -9,6 +9,7 @@ import {
   assertMobileSession,
   mobileSessionError,
 } from "../../../../lib/mobile-session-state";
+import { normalizeProfileBio } from "../../../../lib/profile-bio";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -98,6 +99,7 @@ export async function PATCH(request) {
     const phone = optionalString(body, "phone", { normalizePhone: true });
     const email = optionalString(body, "email", { lowercase: true });
     const profileImage = optionalString(body, "profileImage");
+    const bio = Object.hasOwn(body, "bio") ? normalizeProfileBio(body.bio) : undefined;
     const gender = optionalString(body, "gender");
     const dob = Object.hasOwn(body, "dob")
       ? body.dob === null
@@ -116,10 +118,23 @@ export async function PATCH(request) {
         },
         422,
       );
+    if (bio?.error)
+      return json(
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Profile data is invalid.",
+            fields: { bio: bio.error },
+          },
+        },
+        422,
+      );
     if (name !== undefined) data.name = name;
     if (phone !== undefined) data.phone = phone;
     if (email !== undefined) data.email = email;
     if (profileImage !== undefined) data.profileImage = profileImage;
+    if (bio !== undefined) data.bio = bio.value;
     if (gender !== undefined) data.gender = gender;
     if (dob !== undefined) data.dob = dob;
 
@@ -162,6 +177,7 @@ export async function PATCH(request) {
           phone: user.phone,
           email: user.email,
           country: user.country,
+          bio: user.bio,
           profileImage: user.profileImage,
           gender: user.gender,
           dob: formatDateOnly(user.dob),

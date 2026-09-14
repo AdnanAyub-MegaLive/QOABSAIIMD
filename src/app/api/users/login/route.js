@@ -220,6 +220,7 @@ export async function POST(request) {
         phone: user.phone,
         email: user.email,
         country: user.country,
+        bio: user.bio,
         profileImage: user.profileImage,
         gender: user.gender,
         dob: formatDateOnly(user.dob),

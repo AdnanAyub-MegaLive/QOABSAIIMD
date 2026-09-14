@@ -173,6 +173,25 @@ Socket.IO, social, agency, advanced gift economy, and payout-provider operations
 will be added to v1 one domain at a time. Until an operation appears here, it is
 not a stable v1 contract.
 
+## Profile bio (Evaluation)
+
+The legacy Android label **Evaluation** maps to the nullable `bio` field. Read
+it from `GET /api/v1/users/me` and update only the authenticated account with:
+
+```http
+PATCH /api/v1/users/me
+Authorization: Bearer <portal-session-token>
+Content-Type: application/json
+
+{ "bio": "Welcome to my profile!" }
+```
+
+`bio` is plain text with a maximum of 200 Unicode characters. Send `null` or
+an empty/whitespace-only string to clear it. Invalid values return `422
+VALIDATION_ERROR` with `error.fields.bio`. The same nullable `bio` is included
+in all authentication responses that contain `data.user`, and in profile GET
+and PATCH responses.
+
 ## Messaging and Socket.IO contract
 
 Socket.IO replaces Tencent IM for the released portal messaging scope. Connect
