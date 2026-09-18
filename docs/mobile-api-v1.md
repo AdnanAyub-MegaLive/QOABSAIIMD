@@ -349,6 +349,12 @@ transaction, the wallet debit/credit rows, the agency/host/company settlement,
 and its policy version in one database transaction. The mobile client receives
 the settled values for display only.
 
+For a room gift, `POST /api/v1/gifts/send` requires a `LIVE` `roomId` and both
+the sender and `recipientId` to be joined to that room through Socket.IO. The
+sender may use their own public ID as `recipientId` while in the room. A missing
+participant returns `403 ROOM_PARTICIPANT_REQUIRED` before any coins are debited.
+Self gifting without a `roomId` remains invalid.
+
 Password-reset delivery by SMS or email is deliberately not enabled yet: the
 portal needs an approved delivery provider, sender identity, verification-code
 policy, and abuse limits before it can safely issue reset tokens. The existing

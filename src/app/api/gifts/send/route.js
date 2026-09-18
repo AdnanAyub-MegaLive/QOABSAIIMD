@@ -6,7 +6,7 @@ import {
   requireMobileUser,
 } from "@/lib/mobile-api";
 import { coinsForShare, getProfitSplitRule } from "@/lib/profit-rules";
-import { emitToAudioRoom, emitToUser } from "@/lib/realtime";
+import { audioRoomParticipantIds, emitToAudioRoom, emitToUser } from "@/lib/realtime";
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
 import { ledgerData } from "@/lib/wallet";
@@ -36,7 +36,7 @@ export async function POST(request) {
       error.code = "VALIDATION_ERROR";
       throw error;
     }
-    if (recipientId === sessionUser.publicId) {
+    if (!roomId && recipientId === sessionUser.publicId) {
       const error = new Error("You cannot send a gift to yourself.");
       error.code = "VALIDATION_ERROR";
       throw error;
@@ -86,6 +86,14 @@ export async function POST(request) {
       const error = new Error("The selected audio room is not live.");
       error.code = "ROOM_NOT_LIVE";
       throw error;
+    }
+    if (roomId) {
+      const participants = await audioRoomParticipantIds(roomId);
+      if (!participants.has(sessionUser.publicId) || !participants.has(recipientId)) {
+        const error = new Error("Both sender and recipient must be in this audio room.");
+        error.code = "ROOM_PARTICIPANT_REQUIRED";
+        throw error;
+      }
     }
     const grossCoins = giftAsset.coinPrice * BigInt(quantity);
     const isHost = Boolean(talent || recipientUser?.appRoles.includes("HOST"));
@@ -290,6 +298,11 @@ export async function POST(request) {
       return mobileJson(
         { success: false, error: { code: error.code, message: error.message } },
         409,
+      );
+    if (error?.code === "ROOM_PARTICIPANT_REQUIRED")
+      return mobileJson(
+        { success: false, error: { code: error.code, message: error.message } },
+        403,
       );
     if (error?.code === "GIFT_NOT_FOUND" || error?.code === "ROOM_NOT_LIVE")
       return mobileJson(
