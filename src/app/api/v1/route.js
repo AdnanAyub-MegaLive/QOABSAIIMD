@@ -32,7 +32,7 @@ export async function GET(request) {
           auth: ["POST /api/v1/auth/login", "POST /api/v1/auth/register", "POST /api/v1/auth/google", "POST /api/v1/auth/password", "POST /api/v1/auth/refresh", "POST /api/v1/auth/logout", "GET /api/v1/auth/session"],
           user: ["GET/PATCH /api/v1/users/me"],
           messaging: ["GET/POST /api/v1/conversations", "POST /api/v1/conversations/groups", "POST/DELETE /api/v1/conversations/:conversationId/members", "GET/POST /api/v1/conversations/:conversationId/messages", "PATCH/DELETE /api/v1/conversations/:conversationId/messages/:messageId", "POST /api/v1/conversations/:conversationId/read", "POST /api/v1/conversations/:conversationId/messages/:messageId/delivered", "GET /api/v1/conversations/sync", "GET/POST /api/v1/blocks", "DELETE /api/v1/blocks/:userId"],
-          audioRooms: ["GET /api/v1/audio-rooms", "POST /api/v1/audio-rooms"],
+          audioRooms: ["GET /api/v1/audio-rooms", "POST /api/v1/audio-rooms", "POST /api/v1/audio-rooms/trtc-token", "POST /api/v1/audio-rooms/livekit-token"],
           discovery: ["GET /api/v1/audio-rooms/discover", "GET /api/v1/audio-rooms/search"],
           wallet: ["GET /api/v1/wallet", "GET /api/v1/wallet/coin-packages", "GET /api/v1/wallet/transactions", "POST /api/v1/wallet/top-ups", "POST /api/v1/wallet/transfers", "GET /api/v1/wallet/withdrawals", "POST /api/v1/wallet/withdrawals"],
           gifts: ["GET /api/v1/gifts/catalog", "POST /api/v1/gifts/send"],

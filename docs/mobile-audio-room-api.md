@@ -95,6 +95,35 @@ now returns `data.trtc` when the role changes. Exit and re-enter TRTC with the
 new credentials before changing microphone state. Refresh the token before
 `expiresAt` by requesting `/trtc-token` again.
 
+## LiveKit connection for Android
+
+LiveKit is supported alongside TRTC. Configure these values only on the portal
+server:
+
+```dotenv
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your-livekit-api-key
+LIVEKIT_API_SECRET=your-livekit-api-secret
+LIVEKIT_TOKEN_TTL_SECONDS=600
+```
+
+Android requests or refreshes a LiveKit token with:
+
+```http
+POST /api/v1/audio-rooms/livekit-token
+Authorization: Bearer <sessionToken>
+Content-Type: application/json
+
+{ "roomId": "ROOM-7F30A921B8C4" }
+```
+
+The response contains `data.liveKit.url`, `token`, `roomName`, `userId`,
+`canPublish`, and `expiresAt`. The token is bound to that portal user and room.
+Listeners can subscribe only. The room owner and users with a persisted seat
+can publish. Socket.IO join and role-transition acknowledgements also include
+`liveKit` when LiveKit is configured. Refresh before `expiresAt`; never place
+the LiveKit API key or secret in the Android application.
+
 ## Get the assigned room
 
 `GET /api/audio-rooms`

@@ -149,6 +149,7 @@ with a null country.
 | Read/manage own room | `GET`/`POST /api/v1/audio-rooms` | Existing room DTO and TRTC rules apply |
 | Discover/search rooms | `GET /api/v1/audio-rooms/discover?country=PK&includeIdle=true` and `/search?includeIdle=true` | Defaults to listener-joinable `LIVE` rooms; `includeIdle=true` also returns visible `IDLE` rooms, while blocked/terminated rooms remain excluded |
 | Request TRTC credentials | `POST /api/v1/audio-rooms/trtc-token` | Requires an active room and portal session |
+| Request LiveKit credentials | `POST /api/v1/audio-rooms/livekit-token` | Optional second provider; publish requires room ownership or a persisted seat |
 | Wallet overview | `GET /api/v1/wallet` | Coin, diamond/salary, coupon, and recharge balances |
 | Coin packages | `GET /api/v1/wallet/coin-packages` | Active provider-neutral packages and prices |
 | Wallet ledger | `GET /api/v1/wallet/transactions?limit=20&cursor=...` | Cursor-paginated, immutable financial history |
