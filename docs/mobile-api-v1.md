@@ -356,6 +356,12 @@ sender may use their own public ID as `recipientId` while in the room. A missing
 participant returns `403 ROOM_PARTICIPANT_REQUIRED` before any coins are debited.
 Self gifting without a `roomId` remains invalid.
 
+Audio-room seat expressions use the authenticated Socket.IO event
+`audio-room:reaction:send` and the `audio-room:reaction` broadcast. The portal
+accepts `gif_0` through `gif_21`, derives sender and seat identity from room
+state, generates the shared dice value for `gif_0`, and does not persist or
+replay these events. See `docs/mobile-socket-api.md` for the exact contract.
+
 Password-reset delivery by SMS or email is deliberately not enabled yet: the
 portal needs an approved delivery provider, sender identity, verification-code
 policy, and abuse limits before it can safely issue reset tokens. The existing

@@ -23,9 +23,11 @@ app.prepare().then(async()=>{
   const {issueTrtcAccess}=await import("./src/lib/trtc-authorization.js");
   const {isLiveKitConfigured,issueLiveKitAccess,updateLiveKitPublishPermission}=await import("./src/lib/livekit-authorization.js");
   const {listenerRoomJoinError}=await import("./src/lib/audio-room-activation-policy.js");
+  const {createAudioRoomReaction,createAudioRoomReactionGuard,parseAudioRoomReactionInput,reactionErrorPayload}=await import("./src/lib/audio-room-reactions.js");
   const {ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>handle(request,response));
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
+  const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
   const liveKitAccessFor=(targetUser,roomId,canPublish)=>isLiveKitConfigured()?issueLiveKitAccess(targetUser,roomId,canPublish):Promise.resolve(null);
   globalThis.portalDisconnectUser=(publicId)=>setTimeout(()=>io.in(`user:${publicId}`).disconnectSockets(true),100);
@@ -325,6 +327,38 @@ app.prepare().then(async()=>{
       }catch(error){
         console.error("Audio room join failed",error);
         ack({success:false,error:{code:"ROOM_JOIN_FAILED",message:"Unable to join this room."}});
+      }
+    });
+    socket.on("audio-room:reaction:send",async(input={},ack=()=>{})=>{
+      try{
+        const {roomId,reactionId,requestId}=parseAudioRoomReactionInput(input);
+        const roomChannel=`audio-room:${roomId}`;
+        if(!socket.rooms.has(roomChannel))return ack(reactionErrorPayload("REACTION_NOT_ALLOWED"));
+        const dedupeKey=`${userId}:${roomId}:${requestId}`;
+        const result=await audioRoomReactionGuard.runOnce(dedupeKey,async()=>{
+          const room=await prisma.audioRoom.findUnique({
+            where:{roomId},
+            select:{
+              ownerId:true,
+              status:true,
+              isBlocked:true,
+              seats:{where:{occupantUserId:user.id},select:{seatId:true},take:1},
+            },
+          });
+          if(!room||room.status!=="LIVE"||room.isBlocked)throw Object.assign(new Error("REACTION_NOT_ALLOWED"),{code:"REACTION_NOT_ALLOWED"});
+          const seatId=room.ownerId===user.id?"owner":room.seats[0]?.seatId;
+          if(!seatId)throw Object.assign(new Error("REACTION_SEAT_REQUIRED"),{code:"REACTION_SEAT_REQUIRED"});
+          if(!audioRoomReactionGuard.consumeRateLimit(`${userId}:${roomId}`))throw Object.assign(new Error("REACTION_RATE_LIMITED"),{code:"REACTION_RATE_LIMITED"});
+          const data=createAudioRoomReaction({roomId,senderId:userId,seatId,reactionId,requestId});
+          io.to(roomChannel).emit("audio-room:reaction",{success:true,data});
+          return data;
+        });
+        ack({success:true,data:{eventId:result.value.eventId,requestId:result.value.requestId}});
+      }catch(error){
+        const code=error?.code??error?.message;
+        if(["REACTION_SEAT_REQUIRED","REACTION_NOT_ALLOWED","REACTION_RATE_LIMITED"].includes(code))return ack(reactionErrorPayload(code));
+        console.error("Audio room reaction failed",error);
+        ack({success:false,error:{code:"REACTION_SEND_FAILED",message:"Unable to send this room expression."}});
       }
     });
     socket.on("audio-room:message",async({roomId,body}={},ack=()=>{})=>{
