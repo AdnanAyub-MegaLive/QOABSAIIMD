@@ -16,6 +16,7 @@ export const portalNavigation = [
   ["Message History", "/messages"],
   ["Audit Logs", "/audit-logs"],
   ["Events Management", "/events-login"],
+  ["Games Management", "/games-management"],
   // ["Live Streams", "#"],
   // ["Audio Rooms", "#"],
   // ["Reports", "#"],

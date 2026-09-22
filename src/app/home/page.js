@@ -212,6 +212,12 @@ export default async function DashboardHome() {
                   detail="Host, version and publish in-app web events"
                   color="bg-[#e2f7ef] text-[#087f74]"
                 />
+                <ManagementLink
+                  href="/games-management"
+                  title="Games Management"
+                  detail="Games, probability controls, wagers and payout logs"
+                  color="bg-[#e2f7ef] text-[#087f74]"
+                />
               </div>
             </section>
             <section className="rounded-2xl border border-[#dce8e5] bg-white">

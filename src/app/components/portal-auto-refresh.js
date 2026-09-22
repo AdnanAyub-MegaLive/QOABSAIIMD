@@ -14,7 +14,9 @@ export default function PortalAutoRefresh() {
     if (
       pathname === "/" ||
       pathname === "/events-login" ||
-      pathname.startsWith("/events-management")
+      pathname.startsWith("/events-management") ||
+      pathname.startsWith("/games-management") ||
+      pathname.startsWith("/games/")
     )
       return;
     const refresh = () => {

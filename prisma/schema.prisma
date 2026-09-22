@@ -66,6 +66,8 @@ enum WalletTransactionType {
   WITHDRAWAL
   BONUS
   ADMIN_ADJUSTMENT
+  GAME_WAGER
+  GAME_PAYOUT
 }
 
 enum WalletDirection {
@@ -189,6 +191,8 @@ model User {
   albumItems               UserAlbumItem[]
   specialIds               SpecialIdAssignment[]
   gameLogs                 GameLog[]
+  gameRounds               GameRound[]
+  gameSessions             GamePlayerSession[]
   audioRooms               AudioRoom[]
   audioRoomSeats           AudioRoomSeat[]
   uploadAssignments        UploadAssetAssignment[]
@@ -993,6 +997,51 @@ model GameLog {
   user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt])
+}
+
+model GameDefinition {
+  id        String      @id
+  revision  Int         @default(1)
+  settings  Json
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  rounds    GameRound[]
+}
+
+model GameRound {
+  id          String         @id
+  userId      String
+  gameId      String
+  requestHash String
+  payload     Json
+  createdAt   DateTime       @default(now())
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  game        GameDefinition @relation(fields: [gameId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt, id])
+  @@index([userId, createdAt])
+}
+
+model GameSettingsAudit {
+  id        String   @id @default(cuid())
+  gameId    String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt, id])
+}
+
+model GamePlayerSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  claims    Json
+  roomId    String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
 }
 
 model LiveSession {

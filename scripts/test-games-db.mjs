@@ -1,0 +1,75 @@
+// Runs against a disposable PostgreSQL database, never the configured application database.
+import { config } from "dotenv";
+import { Client } from "pg";
+import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import assert from "node:assert/strict";
+config({ path: ".env.local", quiet: true });
+const base = new URL(process.env.DATABASE_URL);
+const databaseName = `megalive_games_test_${randomUUID().replaceAll("-", "")}`;
+base.pathname = "/postgres";
+const admin = new Client({ connectionString: base.toString() });
+await admin.connect();
+let prisma;
+try {
+  await admin.query(`CREATE DATABASE "${databaseName}"`);
+  base.pathname = `/${databaseName}`;
+  process.env.DATABASE_URL = base.toString();
+  const push = spawnSync(process.execPath, ["node_modules/prisma/build/index.js", "db", "push"], { env: process.env, encoding: "utf8" });
+  if (push.status !== 0) throw new Error(push.stderr || push.stdout);
+  ({ prisma } = await import("../src/lib/prisma.js"));
+  const { ensureGames, saveGame, placeRound, assertPlayer } = await import("../src/lib/game-control/service.js");
+  await ensureGames();
+  const user = await prisma.user.create({ data: { publicId: "USR-GAME-TEST", name: "Test player", coinBalance: 1000n } });
+  const other = await prisma.user.create({ data: { publicId: "USR-OTHER-TEST", name: "Other player", coinBalance: 1000n } });
+  const identity = { userId: user.id, roomId: null, claims: { userId: user.publicId, sessionVersion: 0, issuedAt: Date.now(), exp: Math.floor(Date.now()/1000) + 600 }, expiresAt: new Date(Date.now()+600000) };
+  const game = { id: "lucky-flip", name: "Lucky Flip", engine: "flip", status: "active", winProbability: 100, payoutMultiplier: 2, minBet: 10, maxBet: 1000, revision: 1 };
+  await saveGame(game, "Test administrator");
+  await assert.rejects(saveGame(game, "Stale administrator"), /Settings changed/);
+  const bet = { id: randomUUID(), gameId: game.id, revision: 2, bet: 100, choice: "heads" };
+  const [first, duplicate] = await Promise.all([placeRound(identity, bet), placeRound(identity, bet)]);
+  assert.equal(first.id, duplicate.id);
+  assert.equal(first.payout, 200);
+  assert.equal((await prisma.user.findUnique({ where: { id: user.id } })).coinBalance, 1100n);
+  assert.equal(await prisma.walletTransaction.count(), 2);
+  assert.equal(await prisma.gameLog.count(), 1);
+  await assert.rejects(placeRound(identity, { ...bet, bet: 200 }), /different wager/);
+  await assert.rejects(placeRound({ ...identity, userId: other.id, claims: { ...identity.claims, userId: other.publicId } }, bet), /different wager/);
+  await assert.rejects(placeRound(identity, { ...bet, id: randomUUID(), revision: 1 }), /settings changed/i);
+  await assert.rejects(placeRound(identity, { ...bet, id: randomUUID(), bet: -10 }), /Invalid wager/);
+  await saveGame({ ...game, revision: 2, winProbability: 0 }, "Test administrator");
+  const concurrent = await Promise.allSettled([1, 2].map(() => placeRound(identity, { ...bet, id: randomUUID(), bet: 1000, revision: 3 })));
+  assert.equal(concurrent.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal((await prisma.user.findUnique({ where: { id: user.id } })).coinBalance, 100n);
+  assert.equal(await prisma.gameRound.count(), 2);
+  await saveGame({ ...game, revision: 3, status: "paused" }, "Test administrator");
+  await assert.rejects(placeRound(identity, { ...bet, id: randomUUID(), revision: 4 }), /paused/);
+  // Replaying a committed wager still returns its immutable accepted settings.
+  assert.equal((await placeRound(identity, bet)).revision, 2);
+  const roulette = { id: "roulette", name: "Roulette", engine: "roulette", status: "active", minBet: 10, maxBet: 1000, pocketWeights: Array(37).fill(0), revision: 1 };
+  roulette.pocketWeights[0] = 1;
+  await saveGame(roulette, "Test administrator");
+  const spin = { id: randomUUID(), gameId: "roulette", revision: 2, bet: 10, bets: { "0": 10 } };
+  await assert.rejects(placeRound(identity, { ...spin, bet: 20 }), /does not match/);
+  assert.equal((await placeRound(identity, spin)).payout, 360);
+  const ledger = await prisma.walletTransaction.findMany({ where: { userId: user.id } });
+  const delta = ledger.reduce((sum, row) => sum + (row.direction === "CREDIT" ? row.coins : -row.coins), 0n);
+  assert.equal((await prisma.user.findUnique({ where: { id: user.id } })).coinBalance, 1000n + delta);
+  // Force a write failure late in settlement and verify the entire transaction rolls back.
+  const failedId = randomUUID();
+  await prisma.gameLog.create({ data: { userId: user.id, gameName: "Conflict fixture", wager: 0n, payout: 0n, result: "test", referenceId: failedId } });
+  const balanceBefore = (await prisma.user.findUnique({ where: { id: user.id } })).coinBalance;
+  const ledgerBefore = await prisma.walletTransaction.count();
+  await assert.rejects(placeRound(identity, { ...spin, id: failedId }));
+  assert.equal((await prisma.user.findUnique({ where: { id: user.id } })).coinBalance, balanceBefore);
+  assert.equal(await prisma.walletTransaction.count(), ledgerBefore);
+  assert.equal(await prisma.gameRound.findUnique({ where: { id: failedId } }), null);
+  await prisma.user.update({ where: { id: user.id }, data: { sessionVersion: 1 } });
+  await assert.rejects(placeRound(identity, { ...spin, id: randomUUID() }), /revoked/);
+  await assert.rejects(assertPlayer(prisma, { ...identity, expiresAt: new Date(0) }), /expired/);
+  console.log("PASS: settings revisions, duplicate operations, replay ownership, concurrent balance protection, paused games, roulette payouts, ledger reconciliation, transaction rollback and session revocation.");
+} finally {
+  await prisma?.$disconnect();
+  await admin.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
+  await admin.end();
+}

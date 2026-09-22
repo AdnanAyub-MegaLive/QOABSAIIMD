@@ -105,6 +105,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 ## Verify
 
+Games Management is available at `/games-management` using the portal admin
+login. See [game setup, wallet settlement, and the mobile launch contract](docs/games-management.md).
+
 ```bash
 npm test
 npm run lint
