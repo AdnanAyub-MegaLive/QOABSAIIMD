@@ -10,7 +10,7 @@ Authorization: Bearer <sessionToken>
 The endpoint returns global assets plus assets assigned specifically to the
 authenticated user. Assets assigned to other users are never included.
 
-Optional filters:
+Optional filters for non-banner assets:
 
 - `category=BANNERS|FRAMES|ENTRANCES|RIDES|TAIL_LIGHTS|GIFTS|BADGES|CHAT_BOXES|ROOM_BACKGROUNDS`
 - `roomBackground=true` returns only assets enabled for use as room backgrounds.
@@ -18,23 +18,33 @@ Optional filters:
 ## Marketing banners
 
 Banners are global marketing content and are never assigned to individual
-users or hosts. Request them with:
+users or hosts. Banner requests require one of the three placements:
+`PARTY`, `HOT_TOP`, or `HOT_MID`.
 
 ```http
-GET /api/uploads/catalog?category=BANNERS
+GET /api/uploads/catalog?category=BANNERS&placement=HOT_TOP
 Authorization: Bearer <sessionToken>
 ```
 
-Each banner includes an `actionUrl`. Display the media from `url`; when the
-user taps it, open `actionUrl` in the application's in-app browser.
+Missing/invalid placement returns HTTP `422`; the endpoint never falls back to
+another placement. A valid empty placement returns `assets: []`, allowing the
+app to use its bundled fallback. Results include only active, global banners
+and are ordered by `sortOrder`, then `createdAt`, then public ID.
+
+Display the media from `url`. `actionUrl` is optional; when non-null, it is a
+normalized HTTPS URL that may be opened in the application's in-app browser.
 
 ```json
 {
   "id": "AST-A1B2C3D4E5F6",
   "name": "Create your agency",
   "category": "BANNERS",
+  "placement": "HOT_TOP",
+  "sortOrder": 1,
+  "mimeType": "image/webp",
   "url": "https://portal.example.com/api/uploads/AST-A1B2C3D4E5F6/file?uid=USR-1048&sv=0&exp=1784883600&sig=...",
   "actionUrl": "https://portal.example.com/events/agency-drive",
+  "updatedAt": "2026-09-21T12:00:00.000Z",
   "isGlobal": true,
   "assignedUsers": []
 }
@@ -42,7 +52,7 @@ user taps it, open `actionUrl` in the application's in-app browser.
 
 The portal includes `/events/agency-drive` as a responsive sample landing page
 for testing banner-to-in-app-browser navigation. In production, `actionUrl`
-may point to this portal or any valid HTTP/HTTPS campaign page.
+may point to this portal or another valid HTTPS campaign page.
 
 Example:
 
@@ -114,9 +124,11 @@ const source = {
 };
 ```
 
-Signed URLs expire after one hour and are bound to the authenticated user and
-current session version. Refresh the catalogue to receive a new URL when one
-expires. Sending the Bearer token in the file request is still supported.
+Signed URLs are bound to the authenticated user and current session version.
+Banner URLs expire after six hours; other catalogue URLs expire after one
+hour. Refresh the catalogue to receive a new URL when one expires. Sending the
+Bearer token in the file request is still supported. Catalogue responses use
+an `ETag`, `Last-Modified` when assets exist, and a 60-second private cache.
 
 Public user payloads may also contain short-lived `frameUrl`, `badgeUrl`, and
 `roomBackgroundUrl` display URLs. These use a separate signature restricted to

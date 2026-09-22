@@ -26,6 +26,15 @@ const categories = {
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
 };
+const bannerPlacements = [
+  ["PARTY", "Party tab"],
+  ["HOT_TOP", "Hot tab — top"],
+  ["HOT_MID", "Hot tab — middle"],
+];
+
+function bannerPlacementLabel(value) {
+  return bannerPlacements.find(([placement]) => placement === value)?.[1] ?? value;
+}
 
 export default function UploadTabs({ initialUploads, users }) {
   const [active, setActive] = useState(tabs[0]);
@@ -234,6 +243,11 @@ function PreviewCard({ item, eager, onManage, onDelete }) {
               {distributionLabel(item)}
             </span>
           )}
+          {isBanner && item.placement && (
+            <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-bold text-amber-700">
+              {bannerPlacementLabel(item.placement)} · order {item.sortOrder}
+            </span>
+          )}
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-[#edf2f1] pt-3 text-[9px] text-[#71847f]">
           <span>
@@ -320,6 +334,8 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
   const [details, setDetails] = useState(asset.details ?? "");
   const [tags, setTags] = useState((asset.tags ?? []).join(", "));
   const [actionUrl, setActionUrl] = useState(asset.actionUrl ?? "");
+  const [placement, setPlacement] = useState(asset.placement ?? "PARTY");
+  const [sortOrder, setSortOrder] = useState(asset.sortOrder ?? 0);
   const [distribution, setDistribution] = useState(
     asset.distribution === "MARKETING" ? "MANUAL" : asset.distribution ?? "MANUAL",
   );
@@ -369,7 +385,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
       details: details.trim(),
       tags: parseTags(tags),
       ...(isBanner
-        ? { actionUrl: actionUrl.trim() }
+        ? { actionUrl: actionUrl.trim(), placement, sortOrder: Number(sortOrder) }
         : isGift
           ? { giftTier, coinPrice, distribution: "STORE", storeVisible: false }
         : {
@@ -454,20 +470,22 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
               </p>
             </Field>
             {isBanner && (
-              <Field label="Destination URL">
-                <input
-                  type="url"
-                  value={actionUrl}
-                  onChange={(event) => setActionUrl(event.target.value)}
-                  required
-                  placeholder="https://example.com/events/agency-drive"
-                  className={inputClass}
-                />
-                <p className="mt-1.5 text-[10px] text-[#7b8e89]">
-                  The mobile app opens this page in its in-app browser when the
-                  banner is tapped.
-                </p>
-              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Placement">
+                  <select value={placement} onChange={(event) => setPlacement(event.target.value)} required className={inputClass}>
+                    {bannerPlacements.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Sort order">
+                  <input type="number" min="0" max="1000000" step="1" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} required className={inputClass} />
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Destination URL (optional)">
+                    <input type="url" pattern="https://.*" value={actionUrl} onChange={(event) => setActionUrl(event.target.value)} placeholder="https://example.com/events/agency-drive" className={inputClass} />
+                    <p className="mt-1.5 text-[10px] text-[#7b8e89]">HTTPS only. Leave empty when the banner is informational.</p>
+                  </Field>
+                </div>
+              </div>
             )}
           </div>
           {isGift && (
@@ -596,7 +614,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
           </button>
           <button
             type="submit"
-            disabled={saving || !title.trim() || (isBanner && !actionUrl.trim())}
+            disabled={saving || !title.trim()}
             className="rounded-lg bg-[#087f74] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save changes"}
@@ -666,6 +684,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
   const [details, setDetails] = useState("");
   const [tags, setTags] = useState("");
   const [actionUrl, setActionUrl] = useState("");
+  const [placement, setPlacement] = useState("PARTY");
+  const [sortOrder, setSortOrder] = useState(0);
   const [distribution, setDistribution] = useState("STORE");
   const [storeVisible, setStoreVisible] = useState(true);
   const [coinPrice, setCoinPrice] = useState("0");
@@ -717,6 +737,10 @@ function UploadModal({ active, users, onClose, onCreated }) {
     form.set("category", categories[active]);
     form.set("file", file);
     form.set("actionUrl", actionUrl.trim());
+    if (isBanner) {
+      form.set("placement", placement);
+      form.set("sortOrder", String(sortOrder));
+    }
     if (isGift) {
       form.set("giftTier", giftTier);
       form.set("coinPrice", String(coinPrice));
@@ -815,20 +839,23 @@ function UploadModal({ active, users, onClose, onCreated }) {
             />
           </Field>
           {isBanner && (
-            <Field label="Destination URL">
-              <input
-                type="url"
-                value={actionUrl}
-                onChange={(event) => setActionUrl(event.target.value)}
-                required
-                placeholder="https://example.com/events/agency-drive"
-                className={inputClass}
-              />
-              <p className="mt-1.5 text-[10px] text-[#7b8e89]">
-                Users will open this URL in the application browser after
-                tapping the banner.
-              </p>
-            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Placement">
+                <select value={placement} onChange={(event) => setPlacement(event.target.value)} required className={inputClass}>
+                  {bannerPlacements.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </Field>
+              <Field label="Sort order">
+                <input type="number" min="0" max="1000000" step="1" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} required className={inputClass} />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Destination URL (optional)">
+                  <input type="url" pattern="https://.*" value={actionUrl} onChange={(event) => setActionUrl(event.target.value)} placeholder="https://example.com/events/agency-drive" className={inputClass} />
+                  <p className="mt-1.5 text-[10px] text-[#7b8e89]">HTTPS only. Leave empty for an informational banner.</p>
+                </Field>
+              </div>
+              <p className="sm:col-span-2 rounded-lg bg-[#eef8f6] px-3 py-2 text-[10px] leading-4 text-[#4d6c67]">Use rights-approved PNG, JPEG, or WebP artwork. Recommended size: 1200 × 500 px (2.4:1), with important text kept inside a safe inset.</p>
+            </div>
           )}
           <Field label="Media file">
             <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#cbded9] bg-[#f8fbfa] px-5 text-center">
@@ -840,7 +867,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
               </span>
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
+                accept={isBanner ? "image/png,image/jpeg,image/webp" : "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"}
                 onChange={chooseFile}
                 required
                 className="sr-only"
@@ -957,8 +984,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
             disabled={
               !name.trim() ||
               !file ||
-              saving ||
-              (isBanner && !actionUrl.trim())
+              saving
             }
             className="rounded-lg bg-[#087f74] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
           >

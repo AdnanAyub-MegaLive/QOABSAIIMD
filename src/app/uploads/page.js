@@ -21,6 +21,8 @@ export default async function UploadsPage() {
         mimeType: true,
         fileSize: true,
         actionUrl: true,
+        placement: true,
+        sortOrder: true,
         isGlobal: true,
         isRoomBackground: true,
         distribution: true,
@@ -32,6 +34,7 @@ export default async function UploadsPage() {
         defaultGrantDurationMinutes: true,
         active: true,
         createdAt: true,
+        updatedAt: true,
         assignments: {
           select: {
             assignedAt: true,

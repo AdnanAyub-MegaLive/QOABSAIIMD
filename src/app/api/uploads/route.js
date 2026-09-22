@@ -1,7 +1,10 @@
 import { auth } from "../../../../auth";
 import { prisma } from "../../../lib/prisma";
 import {
+  cleanBannerActionUrl,
+  cleanSortOrder,
   serializeUploadAsset,
+  validateUploadAssetContract,
   validUploadCategories,
 } from "../../../lib/upload-assets";
 
@@ -37,29 +40,6 @@ function cleanTags(value) {
   return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))]
     .slice(0, 20)
     .map((item) => item.slice(0, 40));
-}
-
-function cleanActionUrl(value, required = false) {
-  const raw = String(value ?? "").trim();
-  if (!raw) {
-    if (required) {
-      const error = new Error("A destination URL is required for banners.");
-      error.code = "VALIDATION_ERROR";
-      throw error;
-    }
-    return null;
-  }
-  try {
-    const url = new URL(raw);
-    if (!["http:", "https:"].includes(url.protocol)) throw new Error();
-    return url.toString();
-  } catch {
-    const error = new Error(
-      "Destination URL must be a valid HTTP or HTTPS address.",
-    );
-    error.code = "VALIDATION_ERROR";
-    throw error;
-  }
 }
 
 function optionalWholeNumber(value, field, { min = 0, max } = {}) {
@@ -263,7 +243,7 @@ export async function POST(request) {
       error.code = "VALIDATION_ERROR";
       throw error;
     }
-    const actionUrl = cleanActionUrl(form.get("actionUrl"), isBanner);
+    const actionUrl = cleanBannerActionUrl(form.get("actionUrl"));
     let selectedIds = [];
     try {
       selectedIds = publicIds(
@@ -364,6 +344,12 @@ export async function POST(request) {
         },
         { status: 415 },
       );
+    const assetContract = validateUploadAssetContract({
+      category,
+      placement: form.get("placement"),
+      mimeType: file.type,
+    });
+    const sortOrder = cleanSortOrder(form.get("sortOrder"));
     if (file.size > maxFileSize)
       return Response.json(
         {
@@ -391,6 +377,8 @@ export async function POST(request) {
           fileSize: file.size,
           fileData: bytes,
           actionUrl,
+          placement: assetContract.placement,
+          sortOrder,
           giftTier,
           isGlobal: isBanner,
           isRoomBackground,
@@ -431,6 +419,8 @@ export async function POST(request) {
             minimumRecharge:
               distribution.minimumRecharge?.toString() ?? null,
             actionUrl,
+            placement: assetContract.placement,
+            sortOrder,
             isRoomBackground,
           },
         },
@@ -538,7 +528,14 @@ export async function PATCH(request) {
     const asset = await prisma.$transaction(async (tx) => {
       const current = await tx.uploadAsset.findUniqueOrThrow({
         where: { publicId: assetId },
-        select: { id: true, name: true, category: true, giftTier: true },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          giftTier: true,
+          placement: true,
+          sortOrder: true,
+        },
       });
       const isBanner = current.category === "BANNERS";
       const isGift = current.category === "GIFTS";
@@ -600,8 +597,22 @@ export async function PATCH(request) {
       }
       const actionUrl =
         body?.actionUrl !== undefined
-          ? cleanActionUrl(body.actionUrl, isBanner)
+          ? cleanBannerActionUrl(body.actionUrl)
           : undefined;
+      const placement = body?.placement !== undefined
+        ? validateUploadAssetContract({
+            category: current.category,
+            placement: body.placement,
+          }).placement
+        : current.placement;
+      if (isBanner && !placement) {
+        validateUploadAssetContract({ category: current.category, placement });
+      }
+      const sortOrder = body?.sortOrder !== undefined
+        ? cleanSortOrder(body.sortOrder)
+        : current.sortOrder;
+      const placementChanged = placement !== current.placement;
+      const orderChanged = sortOrder !== current.sortOrder;
       await tx.uploadAsset.update({
         where: { id: current.id },
         data: {
@@ -616,6 +627,7 @@ export async function PATCH(request) {
             : {}),
           ...(Array.isArray(body?.tags) ? { tags: cleanTags(body.tags) } : {}),
           ...(actionUrl !== undefined ? { actionUrl } : {}),
+          ...(isBanner ? { placement, sortOrder } : {}),
           ...(isGift ? { giftTier } : {}),
           ...(updatesAssignments ? { isGlobal: false } : {}),
           ...(typeof body?.isRoomBackground === "boolean"
@@ -627,7 +639,11 @@ export async function PATCH(request) {
       });
       await tx.auditLog.create({
         data: {
-          action: "UPLOAD_ASSET_UPDATED",
+          action: placementChanged
+            ? "UPLOAD_BANNER_PLACEMENT_CHANGED"
+            : orderChanged
+              ? "UPLOAD_BANNER_REORDERED"
+              : "UPLOAD_ASSET_UPDATED",
           category: "CONTENT_MANAGEMENT",
           entityType: "UploadAsset",
           entityId: assetId,
@@ -635,6 +651,14 @@ export async function PATCH(request) {
           metadata: {
             ...(updatesAssignments ? { assignedUserIds: selectedIds } : {}),
             actionUrl,
+            ...(isBanner
+              ? {
+                  previousPlacement: current.placement,
+                  placement,
+                  previousSortOrder: current.sortOrder,
+                  sortOrder,
+                }
+              : {}),
             isRoomBackground: body?.isRoomBackground,
             ...(distribution
               ? {

@@ -27,6 +27,7 @@ export async function GET(request, { params }) {
       fileName: true,
       mimeType: true,
       category: true,
+      active: true,
       isGlobal: true,
       storeVisible: true,
       assignments: {
@@ -74,6 +75,7 @@ export async function GET(request, { params }) {
       const invalidation = sessionInvalidation(user, payload);
       if (
         invalidation ||
+        !asset.active ||
         (!asset.isGlobal &&
           !asset.storeVisible &&
           !asset.assignments.some(

@@ -520,6 +520,8 @@ model UploadAsset {
   fileSize                    Int
   fileData                    Bytes
   actionUrl                   String?
+  placement                   String?
+  sortOrder                   Int                     @default(0)
   isGlobal                    Boolean                 @default(true)
   isRoomBackground            Boolean                 @default(false)
   distribution                String                  @default("MANUAL")
@@ -538,6 +540,7 @@ model UploadAsset {
   giftTransactions            GiftTransaction[]
 
   @@index([category, createdAt])
+  @@index([category, placement, active, isGlobal, sortOrder, createdAt])
   @@index([isRoomBackground, createdAt])
   @@index([storeVisible, active, createdAt])
   @@index([distribution, active])

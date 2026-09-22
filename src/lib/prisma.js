@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-09-14-user-bio-v24";
+const prismaSchemaVersion = "2026-09-22-banner-placement-v25";
 const requiredUserFields = ["sessionVersion", "forcedLogoutAt", "passwordHash", "deletedAt", "totalTopUp", "gender", "dob", "bio", "isVerified", "isOfficial", "appRoles", "agencyId", "hostSalaryCoinBalance", "couponBalance"];
 
 const createPrismaClient = () => new PrismaClient({
@@ -18,7 +18,7 @@ const cachedWalletWithdrawalFields = globalForPrisma.prisma?._runtimeDataModel?.
 const cachedClientMatchesSchema = globalForPrisma.prismaSchemaVersion === prismaSchemaVersion
   && requiredUserFields.every((field) => cachedUserFields.includes(field))
   && ["joiningDisabledUntil","blockedUntil","terminatedUntil"].every((field)=>cachedAudioRoomFields.includes(field))
-  && ["details","tags","isGlobal","actionUrl"].every((field)=>cachedUploadAssetFields.includes(field))
+  && ["details","tags","isGlobal","actionUrl","placement","sortOrder"].every((field)=>cachedUploadAssetFields.includes(field))
   && ["durationMinutes","expiresAt"].every((field)=>cachedUploadAssignmentFields.includes(field))
   && ["reviewedById","reviewedAt","reviewNote","rejectionReason"].every((field)=>cachedAgencyApplicationFields.includes(field))
   && ["reviewedByAdminId","completedAt","reviewNote","rejectionReason","providerPayoutReference"].every((field)=>cachedWalletWithdrawalFields.includes(field))

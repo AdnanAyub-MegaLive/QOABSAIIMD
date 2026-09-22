@@ -1,7 +1,11 @@
+import { createHash } from "node:crypto";
 import { prisma } from "../../../../lib/prisma";
 import mobileSession from "../../../../lib/mobile-session.cjs";
 import {
   createSignedAssetUrl,
+  bannerCatalogOrderBy,
+  bannerCatalogWhere,
+  cleanBannerPlacement,
   serializeUploadAsset,
   validUploadCategories,
 } from "../../../../lib/upload-assets";
@@ -13,8 +17,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
-const json = (body, status = 200) =>
-  Response.json(body, { status, headers: corsHeaders });
+const json = (body, status = 200, headers = {}) =>
+  Response.json(body, { status, headers: { ...corsHeaders, ...headers } });
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders });
 }
@@ -48,17 +52,50 @@ export async function GET(request) {
         },
         422,
       );
+    const suppliedPlacement = url.searchParams.get("placement");
+    let placement = null;
+    if (category === "BANNERS") {
+      try {
+        placement = cleanBannerPlacement(suppliedPlacement, { required: true });
+      } catch (error) {
+        return json(
+          {
+            success: false,
+            error: { code: "VALIDATION_ERROR", message: error.message },
+          },
+          422,
+        );
+      }
+    } else if (suppliedPlacement !== null) {
+      return json(
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Placement is only supported when category is BANNERS.",
+          },
+        },
+        422,
+      );
+    }
     const roomBackground = url.searchParams.get("roomBackground") === "true";
     const now = new Date();
     const active = { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
     const assets = await prisma.uploadAsset.findMany({
       where: {
-        ...(category ? { category } : {}),
+        ...(category ? { category } : { category: { not: "BANNERS" } }),
+        ...(category === "BANNERS"
+          ? bannerCatalogWhere(placement)
+          : {}),
         ...(roomBackground ? { isRoomBackground: true } : {}),
-        OR: [
-          { isGlobal: true },
-          { assignments: { some: { userId: user.id, ...active } } },
-        ],
+        ...(category === "BANNERS"
+          ? {}
+          : {
+              OR: [
+                { isGlobal: true },
+                { assignments: { some: { userId: user.id, ...active } } },
+              ],
+            }),
       },
       include: {
         assignments: {
@@ -71,7 +108,10 @@ export async function GET(request) {
           orderBy: { assignedAt: "asc" },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy:
+        category === "BANNERS"
+          ? bannerCatalogOrderBy
+          : { createdAt: "desc" },
       take: 200,
     });
     const forwardedHost = request.headers
@@ -88,6 +128,26 @@ export async function GET(request) {
       process.env.MOBILE_API_BASE_URL ||
       (host ? `${protocol}://${host}` : url.origin)
     ).replace(/\/$/, "");
+    const etag = `"${createHash("sha256")
+      .update(assets.map((asset) => `${asset.publicId}:${asset.updatedAt.toISOString()}`).join("|"))
+      .digest("base64url")}"`;
+    const cacheHeaders = {
+      ETag: etag,
+      "Cache-Control": "private, max-age=60, must-revalidate",
+      ...(assets.length
+        ? {
+            "Last-Modified": new Date(
+              Math.max(...assets.map((asset) => asset.updatedAt.getTime())),
+            ).toUTCString(),
+          }
+        : {}),
+    };
+    if (request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: { ...corsHeaders, ...cacheHeaders },
+      });
+    }
     return json({
       success: true,
       data: {
@@ -99,11 +159,12 @@ export async function GET(request) {
               asset.publicId,
               payload.userId,
               payload.sessionVersion,
+              21600,
             ),
           ),
         ),
       },
-    });
+    }, 200, cacheHeaders);
   } catch (error) {
     return json(mobileSessionError(error?.message), 401);
   }

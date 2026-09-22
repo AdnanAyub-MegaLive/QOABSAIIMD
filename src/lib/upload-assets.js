@@ -11,6 +11,86 @@ export const uploadCategories = {
 };
 
 export const validUploadCategories = new Set(Object.values(uploadCategories));
+export const bannerPlacements = ["PARTY", "HOT_TOP", "HOT_MID"];
+export const validBannerPlacements = new Set(bannerPlacements);
+export const bannerMimeTypes = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+export const bannerCatalogOrderBy = [
+  { sortOrder: "asc" },
+  { createdAt: "asc" },
+  { publicId: "asc" },
+];
+
+export function bannerCatalogWhere(placement) {
+  return {
+    category: "BANNERS",
+    placement: cleanBannerPlacement(placement, { required: true }),
+    active: true,
+    isGlobal: true,
+  };
+}
+
+function validationError(message) {
+  const error = new Error(message);
+  error.code = "VALIDATION_ERROR";
+  return error;
+}
+
+export function cleanBannerPlacement(value, { required = false } = {}) {
+  const placement = String(value ?? "").trim();
+  if (!placement && !required) return null;
+  if (!validBannerPlacements.has(placement)) {
+    throw validationError("Banner placement must be PARTY, HOT_TOP, or HOT_MID.");
+  }
+  return placement;
+}
+
+export function cleanSortOrder(value, { defaultValue = 0 } = {}) {
+  if (value === undefined || value === null || value === "") return defaultValue;
+  const sortOrder = Number(value);
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 1_000_000) {
+    throw validationError("Sort order must be a whole number from 0 to 1000000.");
+  }
+  return sortOrder;
+}
+
+export function cleanBannerActionUrl(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error();
+    return url.toString();
+  } catch {
+    throw validationError("Banner destination must be a valid HTTPS URL.");
+  }
+}
+
+export function safeBannerActionUrl(value) {
+  try {
+    return cleanBannerActionUrl(value);
+  } catch {
+    return null;
+  }
+}
+
+export function validateUploadAssetContract({ category, placement, mimeType }) {
+  if (category === "BANNERS") {
+    if (mimeType && !bannerMimeTypes.has(mimeType)) {
+      throw validationError("Banners must be PNG, JPEG, or WebP images.");
+    }
+    return {
+      placement: cleanBannerPlacement(placement, { required: true }),
+    };
+  }
+  if (String(placement ?? "").trim()) {
+    throw validationError("Placement is only supported for banner assets.");
+  }
+  return { placement: null };
+}
 
 export function serializeUploadAsset(asset,url) {
   const assignedUsers=(asset.assignments??[]).map((assignment)=>({
@@ -35,7 +115,11 @@ export function serializeUploadAsset(asset,url) {
     mimeType:asset.mimeType,
     fileSize:asset.fileSize,
     url,
-    actionUrl:asset.actionUrl,
+    actionUrl:asset.category==="BANNERS"
+      ? safeBannerActionUrl(asset.actionUrl)
+      : asset.actionUrl,
+    placement:asset.placement??null,
+    sortOrder:asset.sortOrder??0,
     isGlobal:asset.isGlobal,
     isRoomBackground:asset.isRoomBackground,
     distribution:asset.distribution??"MANUAL",
@@ -49,6 +133,7 @@ export function serializeUploadAsset(asset,url) {
     assignedUsers,
     assignedUser:assignedUsers[0]??null,
     createdAt:asset.createdAt.toISOString(),
+    updatedAt:(asset.updatedAt??asset.createdAt).toISOString(),
   };
 }
 
