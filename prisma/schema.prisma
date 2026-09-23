@@ -68,6 +68,15 @@ enum WalletTransactionType {
   ADMIN_ADJUSTMENT
   GAME_WAGER
   GAME_PAYOUT
+  RED_ENVELOPE_SENT
+  RED_ENVELOPE_CLAIMED
+  RED_ENVELOPE_REFUND
+}
+
+enum RedEnvelopeStatus {
+  ACTIVE
+  DEPLETED
+  EXPIRED
 }
 
 enum WalletDirection {
@@ -197,6 +206,8 @@ model User {
   audioRoomSeats           AudioRoomSeat[]
   dailyTaskInstances       DailyTaskInstance[]
   dailyTaskStreak          DailyTaskStreak?
+  sentRedEnvelopes         RedEnvelope[]             @relation("RedEnvelopeSender")
+  redEnvelopeClaims        RedEnvelopeClaim[]
   uploadAssignments        UploadAssetAssignment[]
   equippedProps            UserEquippedProp[]
   propPurchases            PropPurchase[]
@@ -1118,11 +1129,48 @@ model AudioRoom {
   owner                User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   messages             AudioRoomMessage[]
   seats                AudioRoomSeat[]
+  redEnvelopes         RedEnvelope[]
   legacyIdMappings     LegacyIdMapping[]
 
   @@unique([ownerId])
   @@index([ownerId, startedAt])
   @@index([status, startedAt])
+}
+
+model RedEnvelope {
+  id              String            @id
+  audioRoomId     String
+  senderId        String
+  totalCoins      BigInt
+  remainingCoins  BigInt
+  shareCount      Int
+  remainingShares Int
+  delaySeconds    Int
+  claimableAt     DateTime
+  expiresAt       DateTime
+  status          RedEnvelopeStatus @default(ACTIVE)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  audioRoom       AudioRoom         @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  sender          User              @relation("RedEnvelopeSender", fields: [senderId], references: [id], onDelete: Restrict)
+  claims          RedEnvelopeClaim[]
+
+  @@index([audioRoomId, status, expiresAt])
+  @@index([senderId, createdAt])
+}
+
+model RedEnvelopeClaim {
+  id          String      @id @default(cuid())
+  envelopeId  String
+  userId      String
+  amountCoins BigInt
+  claimedAt   DateTime    @default(now())
+  envelope    RedEnvelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([envelopeId, userId])
+  @@index([envelopeId, claimedAt])
+  @@index([userId, claimedAt])
 }
 
 model LegacyIdMapping {

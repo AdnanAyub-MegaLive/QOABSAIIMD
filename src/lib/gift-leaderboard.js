@@ -3,12 +3,13 @@ import { resolveUserPerks } from "./user-perks.js";
 
 const emptyLeaderboard = () => ({ topGifters: [], topReceivers: [] });
 
-function leaderboardEntry(total, user, perks) {
+export function leaderboardEntry(total, user, perks) {
   return {
     publicId: user.publicId,
     name: user.name,
     profileImage: user.profileImage ?? null,
     frameUrl: perks?.frameUrl ?? null,
+    badgeUrl: perks?.badgeUrl ?? null,
     totalCoins: Number(total ?? 0n),
   };
 }
@@ -47,7 +48,7 @@ export async function getRoomGiftLeaderboard(roomId, origin) {
       })
     : [];
   const usersById = new Map(users.map((user) => [user.id, user]));
-  const perks = await resolveUserPerks(users, origin, ["FRAMES"]);
+  const perks = await resolveUserPerks(users, origin, ["FRAMES", "BADGES"]);
 
   return {
     topGifters: gifterTotals
@@ -135,7 +136,7 @@ export async function getRoomGiftRanking(
       })
     : [];
   const usersById = new Map(users.map((user) => [user.id, user]));
-  const perks = await resolveUserPerks(users, origin, ["FRAMES"]);
+  const perks = await resolveUserPerks(users, origin, ["FRAMES", "BADGES"]);
   return {
     hasMore: totals.length === limit,
     entries: totals

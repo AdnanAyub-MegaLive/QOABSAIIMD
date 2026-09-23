@@ -122,6 +122,12 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     TASK_ALREADY_CLAIMED: [409, "TASK_ALREADY_CLAIMED", "This task reward has already been claimed."],
     TASK_EXPIRED: [409, "TASK_EXPIRED", "This task period has ended. Refresh the task list."],
     TASK_CLAIM_ROUTE_INVALID: [422, "TASK_CLAIM_ROUTE_INVALID", "Use the correct claim action for this task type."],
+    ROOM_UNAVAILABLE: [404, "ROOM_UNAVAILABLE", "This audio room is unavailable."],
+    ROOM_PARTICIPANT_REQUIRED: [403, "ROOM_PARTICIPANT_REQUIRED", "Join this audio room before using red envelopes."],
+    RED_ENVELOPE_NOT_FOUND: [404, "RED_ENVELOPE_NOT_FOUND", "This red envelope was not found."],
+    RED_ENVELOPE_NOT_READY: [409, "RED_ENVELOPE_NOT_READY", "This red envelope is not ready to claim yet."],
+    RED_ENVELOPE_UNAVAILABLE: [409, "RED_ENVELOPE_UNAVAILABLE", "This red envelope is no longer available."],
+    RED_ENVELOPE_ALREADY_CLAIMED: [409, "RED_ENVELOPE_ALREADY_CLAIMED", "You have already claimed this red envelope."],
     VALIDATION_ERROR: [
       422,
       "VALIDATION_ERROR",

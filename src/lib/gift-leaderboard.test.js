@@ -1,11 +1,42 @@
 import { describe, expect, it } from "vitest";
 import {
+  leaderboardEntry,
   parseRoomGiftRankingQuery,
   roomGiftHistoryLimit,
   serializeRoomGiftTransaction,
 } from "./gift-leaderboard";
 
 describe("room gift management helpers", () => {
+  it("serializes equipped frames and badges on ranking entries", () => {
+    expect(
+      leaderboardEntry(
+        2000n,
+        { publicId: "USR-1", name: "Baidi", profileImage: null },
+        {
+          frameUrl: "https://portal.example/frame.webp",
+          badgeUrl: "https://portal.example/badge.webp",
+        },
+      ),
+    ).toEqual({
+      publicId: "USR-1",
+      name: "Baidi",
+      profileImage: null,
+      frameUrl: "https://portal.example/frame.webp",
+      badgeUrl: "https://portal.example/badge.webp",
+      totalCoins: 2000,
+    });
+  });
+
+  it("uses null perk URLs when a ranked user has nothing equipped", () => {
+    expect(
+      leaderboardEntry(0n, {
+        publicId: "USR-2",
+        name: "User",
+        profileImage: null,
+      }),
+    ).toMatchObject({ frameUrl: null, badgeUrl: null });
+  });
+
   it("uses a safe bounded history page size", () => {
     expect(roomGiftHistoryLimit(null)).toBe(20);
     expect(roomGiftHistoryLimit("1")).toBe(1);
