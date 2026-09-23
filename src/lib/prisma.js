@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-09-22-games-module-v26";
+const prismaSchemaVersion = "2026-09-23-games-and-daily-tasks-v27";
 const requiredUserFields = ["sessionVersion", "forcedLogoutAt", "passwordHash", "deletedAt", "totalTopUp", "gender", "dob", "bio", "isVerified", "isOfficial", "appRoles", "agencyId", "hostSalaryCoinBalance", "couponBalance"];
 
 const createPrismaClient = () => new PrismaClient({
@@ -22,7 +22,7 @@ const cachedClientMatchesSchema = globalForPrisma.prismaSchemaVersion === prisma
   && ["durationMinutes","expiresAt"].every((field)=>cachedUploadAssignmentFields.includes(field))
   && ["reviewedById","reviewedAt","reviewNote","rejectionReason"].every((field)=>cachedAgencyApplicationFields.includes(field))
   && ["reviewedByAdminId","completedAt","reviewNote","rejectionReason","providerPayoutReference"].every((field)=>cachedWalletWithdrawalFields.includes(field))
-  && ["agency","profitSplitRule","giftSettlement","userAlbumItem","specialIdAssignment","specialIdDefinition","gameLog","liveSession","talentPerformance","talentViolation","audioRoom","uploadAsset","uploadAssetAssignment","userEquippedProp","propPurchase","agencyApplication","conversation","conversationParticipant","message","messageReceipt","userBlock","notification","notificationRead","friendRequest","walletCoinPackage","walletTopUpOrder","walletWithdrawal","walletTransaction","eventUser","event","eventVersion","eventRefreshToken","uploadLog","publishLog","eventAuditLog","legacyIdMapping","apiRequestLog"].every((model)=>Boolean(globalForPrisma.prisma?.[model]));
+  && ["agency","profitSplitRule","giftSettlement","userAlbumItem","specialIdAssignment","specialIdDefinition","gameLog","gameDefinition","gameRound","gameSettingsAudit","gamePlayerSession","liveSession","talentPerformance","talentViolation","audioRoom","uploadAsset","uploadAssetAssignment","userEquippedProp","propPurchase","agencyApplication","conversation","conversationParticipant","message","messageReceipt","userBlock","notification","notificationRead","friendRequest","walletCoinPackage","walletTopUpOrder","walletWithdrawal","walletTransaction","dailyTaskCategory","dailyTaskDefinition","dailyTaskInstance","dailyTaskStreak","eventUser","event","eventVersion","eventRefreshToken","uploadLog","publishLog","eventAuditLog","legacyIdMapping","apiRequestLog"].every((model)=>Boolean(globalForPrisma.prisma?.[model]));
 
 // Fast Refresh keeps globalThis alive. Reuse only a client that contains every
 // field required by the current application schema.

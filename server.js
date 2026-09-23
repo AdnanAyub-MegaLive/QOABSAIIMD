@@ -25,6 +25,7 @@ app.prepare().then(async()=>{
   const {listenerRoomJoinError}=await import("./src/lib/audio-room-activation-policy.js");
   const {createAudioRoomReaction,createAudioRoomReactionGuard,parseAudioRoomReactionInput,reactionErrorPayload}=await import("./src/lib/audio-room-reactions.js");
   const {getRoomGiftLeaderboard}=await import("./src/lib/gift-leaderboard.js");
+  const {addDailyTaskProgress}=await import("./src/lib/daily-tasks.js");
   const {ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>handle(request,response));
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
@@ -160,6 +161,14 @@ app.prepare().then(async()=>{
     socket.join(`user:${userId}`);
     const user=await prisma.user.findUnique({where:{publicId:userId}});
     const connectionOrigin=socketOrigin(socket);
+    socket.data.audioRoomTaskTimers=new Map();
+    const recordAudioRoomTaskTime=async(roomId)=>{
+      const timer=socket.data.audioRoomTaskTimers.get(roomId);
+      if(!timer)return;
+      socket.data.audioRoomTaskTimers.delete(roomId);
+      const elapsedSeconds=Math.max(0,Math.floor((Date.now()-timer.startedAt)/1000));
+      if(elapsedSeconds)await addDailyTaskProgress(user.id,timer.isOwner?"LIVE_GO_LIVE":"ROOM_WATCH",elapsedSeconds);
+    };
     await ensureWorldConversation(user.id);
     const conversationMemberships=await prisma.conversationParticipant.findMany({
       where:{userId:user.id},
@@ -298,6 +307,7 @@ app.prepare().then(async()=>{
         const participantCount=io.sockets.adapter.rooms.get(roomChannel)?.size??1;
         await prisma.audioRoom.update({where:{id:room.id},data:{participantCount,status:"LIVE",endedAt:null}});
         const isOwner=room.ownerId===user.id;
+        if(!socket.data.audioRoomTaskTimers.has(room.roomId))socket.data.audioRoomTaskTimers.set(room.roomId,{startedAt:Date.now(),isOwner});
         const joinedUserPerks=await resolveUserPerks([room.owner,user],connectionOrigin,["FRAMES","BADGES","ROOM_BACKGROUNDS","ENTRANCES","TAIL_LIGHTS","RIDES"]);
         const roomPerks=joinedUserPerks.get(room.owner.publicId);
         const joiningPerks=joinedUserPerks.get(user.publicId);
@@ -584,6 +594,7 @@ app.prepare().then(async()=>{
     });
     socket.on("audio-room:leave",async({roomId}={},ack=()=>{})=>{
       const id=String(roomId??"");
+      await recordAudioRoomTaskTime(id);
       const room=await prisma.audioRoom.findUnique({where:{roomId:id},include:{owner:{select:{publicId:true}}}});
       const isOwner=room?.owner?.publicId===socket.data.userId;
       await socket.leave(`audio-room:${id}`);
@@ -609,6 +620,7 @@ app.prepare().then(async()=>{
     socket.on("disconnecting",()=>{
       const roomIds=[...socket.rooms].filter((name)=>name.startsWith("audio-room:")).map((name)=>name.slice(11));
       for(const roomId of roomIds){
+        void recordAudioRoomTaskTime(roomId).catch((error)=>console.error("Daily room task progress failed",error));
         setTimeout(async()=>{
           try{
             const room=await prisma.audioRoom.findUnique({where:{roomId},include:{owner:{select:{publicId:true}}}});

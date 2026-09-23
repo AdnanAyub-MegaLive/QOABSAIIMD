@@ -116,6 +116,11 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     PROP_NOT_FOUND: [404, "PROP_NOT_FOUND", "The selected prop was not found."],
     PROP_NOT_EQUIPPABLE: [422, "PROP_NOT_EQUIPPABLE", "This item cannot be applied to a profile."],
     SELF_CONVERSATION: [422, "SELF_CONVERSATION", "You cannot start a direct conversation with yourself."],
+    TASK_NOT_FOUND: [404, "TASK_NOT_FOUND", "This task is no longer available."],
+    TASK_NOT_READY: [409, "TASK_NOT_READY", "Complete the task before claiming its reward."],
+    TASK_ALREADY_CLAIMED: [409, "TASK_ALREADY_CLAIMED", "This task reward has already been claimed."],
+    TASK_EXPIRED: [409, "TASK_EXPIRED", "This task period has ended. Refresh the task list."],
+    TASK_CLAIM_ROUTE_INVALID: [422, "TASK_CLAIM_ROUTE_INVALID", "Use the correct claim action for this task type."],
     VALIDATION_ERROR: [
       422,
       "VALIDATION_ERROR",
