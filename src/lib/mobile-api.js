@@ -40,6 +40,7 @@ export async function requireMobileUser(request) {
       deletedAt: true,
       sessionVersion: true,
       forcedLogoutAt: true,
+      coinBalance: true,
     },
   });
   assertMobileSession(user, payload);
