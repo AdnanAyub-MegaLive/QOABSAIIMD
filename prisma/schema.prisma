@@ -742,6 +742,7 @@ model GiftTransaction {
   @@index([talentId, createdAt])
   @@index([recipientUserId, createdAt])
   @@index([giftAssetId, createdAt])
+  @@index([roomId, createdAt])
 }
 
 model GiftSettlement {

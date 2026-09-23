@@ -62,6 +62,27 @@ After settlement, the backend emits `gift:received` to the audio-room channel
 the sender, recipient, transaction ID, quantity, unit/total price, MIME type,
 and signed media URL so every client can play the animation immediately.
 
+## Room gift history and leaderboard
+
+Authenticated clients can load a room's persisted gift total and newest-first
+history with:
+
+```http
+GET /api/audio-rooms/{roomId}/gifts?limit=20&cursor=<transaction-cuid>
+Authorization: Bearer <sessionToken>
+```
+
+`limit` defaults to 20 and is capped at 50. The response includes
+`totalCoins`, `nextCursor`, sender/recipient identities, quantity, total coins,
+and the gift's signed `mediaUrl`. An empty room history returns `totalCoins` as
+`"0"` and an empty `transactions` array.
+
+The `audio-room:join` acknowledgement includes the room's top three
+`topGifters` and `topReceivers`. After every committed room gift, the server
+broadcasts the refreshed lists to the complete room as
+`audio-room:gift-leaderboard`. Leaderboards are computed from committed gift
+transactions; clients must not calculate or submit authoritative totals.
+
 Host recipients must have role `HOST` and an active agency. Their settlement
 is credited to a salary balance and the agency commission balance. Normal
 users receive only the configured reusable percentage in their coin balance;

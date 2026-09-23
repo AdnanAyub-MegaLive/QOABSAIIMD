@@ -10,6 +10,7 @@ import { audioRoomParticipantIds, emitToAudioRoom, emitToUser } from "@/lib/real
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
 import { ledgerData } from "@/lib/wallet";
+import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -260,8 +261,18 @@ export async function POST(request) {
         createdAt: result.gift.createdAt.toISOString(),
       },
     };
-    if (roomId) emitToAudioRoom(roomId, "gift:received", realtimePayload);
-    else emitToUser(recipientId, "gift:received", realtimePayload);
+    if (roomId) {
+      emitToAudioRoom(roomId, "gift:received", realtimePayload);
+      try {
+        const leaderboard = await getRoomGiftLeaderboard(roomId);
+        emitToAudioRoom(roomId, "audio-room:gift-leaderboard", {
+          success: true,
+          data: { roomId, ...leaderboard },
+        });
+      } catch (leaderboardError) {
+        console.error("Room gift leaderboard update failed", leaderboardError);
+      }
+    } else emitToUser(recipientId, "gift:received", realtimePayload);
 
     return mobileJson(
       {
