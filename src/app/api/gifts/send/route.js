@@ -237,8 +237,9 @@ export async function POST(request) {
       return { gift, settlement, sender };
     });
 
+    const origin = requestOrigin(request);
     const mediaUrl = createPublicDisplayAssetUrl(
-      requestOrigin(request),
+      origin,
       giftAsset.publicId,
     );
     const realtimePayload = {
@@ -264,7 +265,7 @@ export async function POST(request) {
     if (roomId) {
       emitToAudioRoom(roomId, "gift:received", realtimePayload);
       try {
-        const leaderboard = await getRoomGiftLeaderboard(roomId);
+        const leaderboard = await getRoomGiftLeaderboard(roomId, origin);
         emitToAudioRoom(roomId, "audio-room:gift-leaderboard", {
           success: true,
           data: { roomId, ...leaderboard },

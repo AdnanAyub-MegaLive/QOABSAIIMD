@@ -83,6 +83,25 @@ broadcasts the refreshed lists to the complete room as
 `audio-room:gift-leaderboard`. Leaderboards are computed from committed gift
 transactions; clients must not calculate or submit authoritative totals.
 
+The complete sender or receiver ranking is available with page-based offset
+pagination:
+
+```http
+GET /api/audio-rooms/{roomId}/gift-ranking?type=senders&page=1&limit=20
+Authorization: Bearer <sessionToken>
+```
+
+`type` defaults to `senders` and must be `senders` or `receivers`. `page` defaults to 1;
+`limit` defaults to 20 and is capped at 50. Entries contain an absolute `rank`,
+public user identity, and numeric `totalCoins`. Equal totals use the internal
+user ID as a stable secondary order so entries do not move unpredictably
+between pages.
+
+Every sender, linked-user recipient, top-three entry, and ranking entry includes
+that user's own `frameUrl`, resolved from their currently equipped `FRAMES`
+asset as a public-display signed URL. Historical talent-only transactions keep
+`recipient: null` when no linked user exists.
+
 Host recipients must have role `HOST` and an active agency. Their settlement
 is credited to a salary balance and the agency commission balance. Normal
 users receive only the configured reusable percentage in their coin balance;

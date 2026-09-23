@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseRoomGiftRankingQuery,
   roomGiftHistoryLimit,
   serializeRoomGiftTransaction,
 } from "./gift-leaderboard";
@@ -43,11 +44,17 @@ describe("room gift management helpers", () => {
       createdAt: "2026-09-23T10:00:00.000Z",
       quantity: 2,
       coins: "500",
-      sender: { publicId: "USR-1", name: "Baidi", profileImage: null },
+      sender: {
+        publicId: "USR-1",
+        name: "Baidi",
+        profileImage: null,
+        frameUrl: null,
+      },
       recipient: {
         publicId: "USR-2",
         name: "Someone",
         profileImage: "https://example.com/recipient.webp",
+        frameUrl: null,
       },
       gift: {
         name: "Roaring Lion Gift",
@@ -56,7 +63,7 @@ describe("room gift management helpers", () => {
     });
   });
 
-  it("falls back to the talent identity for legacy talent-only gifts", () => {
+  it("returns a null recipient for legacy talent-only gifts", () => {
     const result = serializeRoomGiftTransaction({
       id: "gift-cuid",
       createdAt: new Date("2026-09-23T10:00:00.000Z"),
@@ -68,11 +75,67 @@ describe("room gift management helpers", () => {
       talent: { publicId: "TLN-2", displayName: "Host", profileImage: null },
       giftAsset: null,
     });
-    expect(result.recipient).toEqual({
-      publicId: "TLN-2",
-      name: "Host",
-      profileImage: null,
-    });
+    expect(result.recipient).toBeNull();
     expect(result.gift).toEqual({ name: "Rose", mediaUrl: null });
+  });
+
+  it("adds each user's own resolved frame to history identities", () => {
+    const result = serializeRoomGiftTransaction(
+      {
+        id: "gift-cuid",
+        createdAt: new Date("2026-09-23T10:00:00.000Z"),
+        quantity: 1,
+        coinValue: 100n,
+        giftName: "Rose",
+        sender: { publicId: "USR-1", name: "Sender", profileImage: null },
+        recipientUser: {
+          publicId: "USR-2",
+          name: "Receiver",
+          profileImage: null,
+        },
+        talent: null,
+        giftAsset: null,
+      },
+      null,
+      new Map([
+        ["USR-1", { frameUrl: "https://portal.example/sender-frame" }],
+        ["USR-2", { frameUrl: "https://portal.example/receiver-frame" }],
+      ]),
+    );
+    expect(result.sender.frameUrl).toBe("https://portal.example/sender-frame");
+    expect(result.recipient.frameUrl).toBe(
+      "https://portal.example/receiver-frame",
+    );
+  });
+
+  it("parses and caps gift-ranking pagination", () => {
+    expect(
+      parseRoomGiftRankingQuery(
+        new URLSearchParams("type=senders&page=2&limit=100"),
+      ),
+    ).toEqual({ type: "senders", page: 2, limit: 50, offset: 50 });
+    expect(
+      parseRoomGiftRankingQuery(new URLSearchParams("type=receivers")),
+    ).toEqual({ type: "receivers", page: 1, limit: 20, offset: 0 });
+    expect(parseRoomGiftRankingQuery(new URLSearchParams())).toEqual({
+      type: "senders",
+      page: 1,
+      limit: 20,
+      offset: 0,
+    });
+  });
+
+  it("rejects invalid gift-ranking parameters", () => {
+    expect(() =>
+      parseRoomGiftRankingQuery(new URLSearchParams("type=everyone")),
+    ).toThrow("type must be senders or receivers");
+    expect(() =>
+      parseRoomGiftRankingQuery(new URLSearchParams("type=senders&page=0")),
+    ).toThrow("page must be a positive whole number");
+    expect(() =>
+      parseRoomGiftRankingQuery(
+        new URLSearchParams("type=receivers&limit=invalid"),
+      ),
+    ).toThrow("limit must be a positive whole number");
   });
 });

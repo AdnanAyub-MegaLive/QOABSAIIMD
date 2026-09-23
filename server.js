@@ -303,7 +303,7 @@ app.prepare().then(async()=>{
         const joiningPerks=joinedUserPerks.get(user.publicId);
         const seatState=await readAudioRoomSeatState(room,connectionOrigin);
         const ownerIdentity=await getEffectiveUserId(room.owner.id,room.owner.publicId);
-        const [liveKit,giftLeaderboard]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId)]);
+        const [liveKit,giftLeaderboard]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin)]);
         ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,ownerId:room.owner.publicId,isOwner,seatState,liveKit,roomBackgroundUrl:roomPerks?.roomBackgroundUrl??null,topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         if(!alreadyJoined){
           io.to(roomChannel).emit("audio-room:entrance",{

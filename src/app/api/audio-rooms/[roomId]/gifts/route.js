@@ -10,7 +10,7 @@ import {
   serializeRoomGiftTransaction,
 } from "@/lib/gift-leaderboard";
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
-import { requestOrigin } from "@/lib/user-perks";
+import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -35,10 +35,10 @@ export async function GET(request, { params }) {
         where,
         include: {
           sender: {
-            select: { publicId: true, name: true, profileImage: true },
+            select: { id: true, publicId: true, name: true, profileImage: true },
           },
           recipientUser: {
-            select: { publicId: true, name: true, profileImage: true },
+            select: { id: true, publicId: true, name: true, profileImage: true },
           },
           talent: {
             select: { publicId: true, displayName: true, profileImage: true },
@@ -55,6 +55,18 @@ export async function GET(request, { params }) {
     const hasMore = page.length > limit;
     const transactions = hasMore ? page.slice(0, limit) : page;
     const origin = requestOrigin(request);
+    const perkUsers = [
+      ...new Map(
+        transactions
+          .flatMap((transaction) => [
+            transaction.sender,
+            transaction.recipientUser,
+          ])
+          .filter(Boolean)
+          .map((user) => [user.id, user]),
+      ).values(),
+    ];
+    const perks = await resolveUserPerks(perkUsers, origin, ["FRAMES"]);
 
     return mobileJson({
       success: true,
@@ -68,6 +80,7 @@ export async function GET(request, { params }) {
             transaction.giftAsset
               ? createPublicDisplayAssetUrl(origin, transaction.giftAsset.publicId)
               : null,
+            perks,
           ),
         ),
       },
