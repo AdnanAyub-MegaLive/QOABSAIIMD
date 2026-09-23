@@ -12,6 +12,7 @@ export const portalNavigation = [
   ["Finance & Wallet", "/finance"],
   ["Rules & Profit Split", "/platform-rules"],
   ["Uploads", "/uploads"],
+  ["Daily Tasks", "/daily-tasks"],
   ["Rankings", "/rankings"],
   ["Message History", "/messages"],
   ["Audit Logs", "/audit-logs"],

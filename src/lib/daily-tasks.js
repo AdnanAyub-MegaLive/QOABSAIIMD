@@ -26,7 +26,12 @@ function formatDuration(seconds) {
 function taskState(instance, definition) {
   if (instance.claimedAt || instance.state === "COMPLETED") return "completed";
   if (instance.state === "LOCKED") return "locked";
-  if (instance.state === "CLAIM") return "claim";
+  if (
+    instance.state === "CLAIM" &&
+    (definition.type === "SIGN_IN" ||
+      instance.progressValue >= definition.targetValue)
+  )
+    return "claim";
   return instance.progressValue >= definition.targetValue ? "claim" : "progress";
 }
 
