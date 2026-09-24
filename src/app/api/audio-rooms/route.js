@@ -308,6 +308,8 @@ function serializeRoom(room, perks, origin) {
       : null,
     roomBackgroundUrl: perks?.roomBackgroundUrl ?? null,
     participantCount: room.participantCount,
+    isLocked: Boolean(room.passwordHash),
+    chatLocked: Boolean(room.chatLocked),
     joiningDisabled: room.joiningDisabled,
     joiningDisabledUntil: room.joiningDisabledUntil?.toISOString() ?? null,
     isBlocked: room.isBlocked,

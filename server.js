@@ -2,6 +2,7 @@ const { createServer } = require("node:http");
 const { randomUUID } = require("node:crypto");
 const next = require("next");
 const { Server } = require("socket.io");
+const bcrypt = require("bcrypt");
 const { loadEnvConfig } = require("@next/env");
 const { verifyMobileSessionToken } = require("./src/lib/mobile-session.cjs");
 
@@ -26,6 +27,7 @@ app.prepare().then(async()=>{
   const {createAudioRoomReaction,createAudioRoomReactionGuard,parseAudioRoomReactionInput,reactionErrorPayload}=await import("./src/lib/audio-room-reactions.js");
   const {getRoomGiftLeaderboard}=await import("./src/lib/gift-leaderboard.js");
   const {addDailyTaskProgress}=await import("./src/lib/daily-tasks.js");
+  const {canSendLockedRoomMessage,normalizeRoomPassword,roomControlError}=await import("./src/lib/audio-room-controls.js");
   const {ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>handle(request,response));
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
@@ -290,7 +292,7 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:code==="SYNC_CURSOR_INVALID"?code:"MESSAGE_SYNC_FAILED",message:code==="SYNC_CURSOR_INVALID"?"The message sync cursor is invalid.":"Unable to synchronize messages."}});
       }
     });
-    socket.on("audio-room:join",async({roomId}={},ack=()=>{})=>{
+    socket.on("audio-room:join",async({roomId,password}={},ack=()=>{})=>{
       try{
         const requestedRoomId=String(roomId??"");
         await reconcileExpiredAudioRoomRestrictions(requestedRoomId);
@@ -301,6 +303,10 @@ app.prepare().then(async()=>{
         const joinError=listenerRoomJoinError(room);
         if(joinError)return ack({success:false,error:joinError});
         if(room.joiningDisabled&&room.ownerId!==user.id)return ack({success:false,error:{code:"ROOM_OWNER_ONLY",details:{expiresAt:room.joiningDisabledUntil?.toISOString()??null}}});
+        if(room.passwordHash&&room.ownerId!==user.id){
+          if(!String(password??"").trim())return ack(roomControlError("ROOM_PASSWORD_REQUIRED"));
+          if(!await bcrypt.compare(String(password),room.passwordHash))return ack(roomControlError("ROOM_PASSWORD_INVALID"));
+        }
         const roomChannel=`audio-room:${room.roomId}`;
         const alreadyJoined=socket.rooms.has(roomChannel);
         socket.join(roomChannel);
@@ -314,7 +320,7 @@ app.prepare().then(async()=>{
         const seatState=await readAudioRoomSeatState(room,connectionOrigin);
         const ownerIdentity=await getEffectiveUserId(room.owner.id,room.owner.publicId);
         const [liveKit,giftLeaderboard]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin)]);
-        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,ownerId:room.owner.publicId,isOwner,seatState,liveKit,roomBackgroundUrl:roomPerks?.roomBackgroundUrl??null,topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,liveKit,roomBackgroundUrl:roomPerks?.roomBackgroundUrl??null,topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         if(!alreadyJoined){
           io.to(roomChannel).emit("audio-room:entrance",{
             success:true,
@@ -339,6 +345,52 @@ app.prepare().then(async()=>{
         console.error("Audio room join failed",error);
         ack({success:false,error:{code:"ROOM_JOIN_FAILED",message:"Unable to join this room."}});
       }
+    });
+    socket.on("audio-room:set-password",async({roomId,password}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??"");
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,roomId:true,ownerId:true}});
+        if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(room.ownerId!==user.id)return ack(roomControlError("ROOM_OWNER_REQUIRED"));
+        if(!socket.rooms.has(`audio-room:${id}`))return ack(roomControlError("JOIN_ROOM_FIRST"));
+        const normalized=normalizeRoomPassword(password,{allowEmpty:true});
+        const passwordHash=normalized?await bcrypt.hash(normalized,12):null;
+        await prisma.audioRoom.update({where:{id:room.id},data:{passwordHash}});
+        const data={roomId:id,isLocked:Boolean(passwordHash),by:{publicId:user.publicId,name:user.name}};
+        io.to(`audio-room:${id}`).emit("audio-room:lock-changed",{success:true,data});
+        ack({success:true,data});
+      }catch(error){
+        const code=error?.code??error?.message;
+        if(code==="ROOM_PASSWORD_INVALID_FORMAT")return ack(roomControlError(code));
+        console.error("Audio room password update failed",error);
+        ack({success:false,error:{code:"ROOM_PASSWORD_UPDATE_FAILED",message:"Unable to update the room password."}});
+      }
+    });
+    socket.on("audio-room:chat-lock",async({roomId,locked}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??"");
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,ownerId:true}});
+        if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(room.ownerId!==user.id)return ack(roomControlError("ROOM_OWNER_REQUIRED"));
+        if(!socket.rooms.has(`audio-room:${id}`))return ack(roomControlError("JOIN_ROOM_FIRST"));
+        const value=Boolean(locked);
+        await prisma.audioRoom.update({where:{id:room.id},data:{chatLocked:value}});
+        const data={roomId:id,locked:value,by:{publicId:user.publicId,name:user.name}};
+        io.to(`audio-room:${id}`).emit("audio-room:chat-lock-changed",{success:true,data});
+        ack({success:true,data});
+      }catch(error){console.error("Audio room chat lock failed",error);ack({success:false,error:{code:"CHAT_LOCK_UPDATE_FAILED",message:"Unable to update the room public screen."}});}
+    });
+    socket.on("audio-room:clear-chat",async({roomId}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??"");
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{ownerId:true}});
+        if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(room.ownerId!==user.id)return ack(roomControlError("ROOM_OWNER_REQUIRED"));
+        if(!socket.rooms.has(`audio-room:${id}`))return ack(roomControlError("JOIN_ROOM_FIRST"));
+        const data={roomId:id,by:{publicId:user.publicId,name:user.name},clearedAt:new Date().toISOString()};
+        io.to(`audio-room:${id}`).emit("audio-room:chat-cleared",{success:true,data});
+        ack({success:true,data});
+      }catch(error){console.error("Audio room clear chat failed",error);ack({success:false,error:{code:"CHAT_CLEAR_FAILED",message:"Unable to clear the public screen."}});}
     });
     socket.on("audio-room:reaction:send",async(input={},ack=()=>{})=>{
       try{
@@ -377,9 +429,10 @@ app.prepare().then(async()=>{
         const id=String(roomId??"");
         const text=typeof body==="string"?body.trim():"";
         if(!text||text.length>200)return ack({success:false,error:{code:"VALIDATION_ERROR",message:"Messages must be between 1 and 200 characters."}});
-        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,roomId:true,title:true,status:true,isBlocked:true}});
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,roomId:true,title:true,status:true,isBlocked:true,ownerId:true,chatLocked:true,seats:{where:{occupantUserId:user.id},select:{id:true},take:1}}});
         if(!room||room.status!=="LIVE"||room.isBlocked)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST"}});
+        if(!canSendLockedRoomMessage(room,user.id))return ack(roomControlError("CHAT_LOCKED"));
         const senderPerks=(await resolveUserPerks([user],connectionOrigin,["BADGES","CHAT_BOXES"])).get(user.publicId);
         const messageId=`ARM-${randomUUID().replaceAll("-","").slice(0,16).toUpperCase()}`;
         const storedMessage=await prisma.audioRoomMessage.create({

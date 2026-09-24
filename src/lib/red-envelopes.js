@@ -7,25 +7,44 @@ import { luckyShare, parseRedEnvelopeInput } from "./red-envelope-contract.js";
 
 export { luckyShare, parseRedEnvelopeInput } from "./red-envelope-contract.js";
 
-const DEFAULT_PRESETS = [
-  { id: "QUICK", totalCoins: "500", shareCount: 5, delaySeconds: 5 },
-  { id: "PARTY", totalCoins: "2000", shareCount: 10, delaySeconds: 10 },
-  { id: "MEGA", totalCoins: "10000", shareCount: 20, delaySeconds: 15 },
-];
-
 function redEnvelopeError(code, message = code) {
   const error = new Error(message);
   error.code = code;
   return error;
 }
 
-export function redEnvelopePresets() {
-  try {
-    const configured = JSON.parse(process.env.RED_ENVELOPE_PRESETS || "null");
-    return Array.isArray(configured) && configured.length ? configured : DEFAULT_PRESETS;
-  } catch {
-    return DEFAULT_PRESETS;
-  }
+export async function getRedEnvelopeConfiguration({ includeInactive = false } = {}) {
+  const [settings, presets] = await Promise.all([
+    prisma.redEnvelopeSettings.upsert({
+      where: { id: "DEFAULT" },
+      create: { id: "DEFAULT" },
+      update: {},
+    }),
+    prisma.redEnvelopePreset.findMany({
+      where: includeInactive ? {} : { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    }),
+  ]);
+  return {
+    settings: {
+      enabled: settings.enabled,
+      maxCoins: settings.maxCoins.toString(),
+      maxShareCount: settings.maxShareCount,
+      maxDelaySeconds: settings.maxDelaySeconds,
+      claimWindowSeconds: settings.claimWindowSeconds,
+      updatedAt: settings.updatedAt.toISOString(),
+    },
+    presets: presets.map((preset) => ({
+      id: preset.id,
+      name: preset.name,
+      totalCoins: preset.totalCoins.toString(),
+      shareCount: preset.shareCount,
+      delaySeconds: preset.delaySeconds,
+      sortOrder: preset.sortOrder,
+      active: preset.active,
+      updatedAt: preset.updatedAt.toISOString(),
+    })),
+  };
 }
 
 export function serializeRedEnvelope(item, currentUserId = null) {
@@ -90,10 +109,12 @@ export async function expireRedEnvelopes(roomId = null, now = new Date()) {
 }
 
 export async function createRedEnvelope(user, input, now = new Date()) {
+  const configuration = await getRedEnvelopeConfiguration();
+  if (!configuration.settings.enabled) throw redEnvelopeError("RED_ENVELOPE_DISABLED");
   const room = await requireRoomParticipant(input.roomId, user.publicId);
   await expireRedEnvelopes(input.roomId, now);
   const claimableAt = new Date(now.getTime() + input.delaySeconds * 1000);
-  const lifetimeSeconds = Number(process.env.RED_ENVELOPE_CLAIM_WINDOW_SECONDS || 600);
+  const lifetimeSeconds = configuration.settings.claimWindowSeconds;
   const expiresAt = new Date(claimableAt.getTime() + lifetimeSeconds * 1000);
   const id = walletPublicId("RED");
   const envelope = await prisma.$transaction(async (tx) => {

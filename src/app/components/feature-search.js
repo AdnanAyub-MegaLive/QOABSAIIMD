@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 const features = [
   ["Events Management", "Host and publish web events for the mobile application", "/events-login"],
   ["Games Management", "Game catalog, odds, bet limits and wallet round logs", "/games-management"],
+  ["Red Envelopes", "Manage room Red Envelope presets, limits and countdowns", "/red-envelopes"],
   ["Dashboard", "Platform overview and activity", "/home"],
   ["Rankings", "Review mobile leaderboards and score calculations", "/rankings"],
   ["Message History", "Trace World Chat, private, and audio-room messages", "/messages"],

@@ -13,6 +13,7 @@ export const portalNavigation = [
   ["Rules & Profit Split", "/platform-rules"],
   ["Uploads", "/uploads"],
   ["Daily Tasks", "/daily-tasks"],
+  ["Red Envelopes", "/red-envelopes"],
   ["Rankings", "/rankings"],
   ["Message History", "/messages"],
   ["Audit Logs", "/audit-logs"],

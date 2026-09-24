@@ -59,6 +59,7 @@ export async function GET(request) {
         country: true,
         coverImageUrl: true,
         participantCount: true,
+        passwordHash: true,
         status: true,
         startedAt: true,
         owner: {
@@ -94,6 +95,7 @@ export async function GET(request) {
             ? new URL(room.coverImageUrl, origin).toString()
             : null,
           participantCount: room.participantCount,
+          isLocked: Boolean(room.passwordHash),
           status: room.status,
           startedAt: room.startedAt,
           roomBackgroundUrl:

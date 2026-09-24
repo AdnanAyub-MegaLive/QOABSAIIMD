@@ -1116,6 +1116,8 @@ model AudioRoom {
   coverImageData       Bytes?
   coverImageMime       String?
   participantCount     Int       @default(0)
+  passwordHash         String?
+  chatLocked           Boolean   @default(false)
   joiningDisabled      Boolean   @default(false)
   joiningDisabledUntil DateTime?
   isBlocked            Boolean   @default(false)
@@ -1171,6 +1173,30 @@ model RedEnvelopeClaim {
   @@unique([envelopeId, userId])
   @@index([envelopeId, claimedAt])
   @@index([userId, claimedAt])
+}
+
+model RedEnvelopeSettings {
+  id                 String   @id @default("DEFAULT")
+  enabled            Boolean  @default(true)
+  maxCoins           BigInt   @default(10000000)
+  maxShareCount      Int      @default(100)
+  maxDelaySeconds    Int      @default(300)
+  claimWindowSeconds Int      @default(600)
+  updatedAt          DateTime @updatedAt
+}
+
+model RedEnvelopePreset {
+  id           String   @id
+  name         String
+  totalCoins   BigInt
+  shareCount   Int
+  delaySeconds Int
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([active, sortOrder])
 }
 
 model LegacyIdMapping {

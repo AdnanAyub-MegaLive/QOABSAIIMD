@@ -1,0 +1,3 @@
+ALTER TABLE "AudioRoom"
+ADD COLUMN "passwordHash" TEXT,
+ADD COLUMN "chatLocked" BOOLEAN NOT NULL DEFAULT false;

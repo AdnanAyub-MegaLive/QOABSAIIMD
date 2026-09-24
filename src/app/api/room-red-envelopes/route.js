@@ -1,5 +1,5 @@
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
-import { createRedEnvelope, listRedEnvelopes, parseRedEnvelopeInput } from "@/lib/red-envelopes";
+import { createRedEnvelope, getRedEnvelopeConfiguration, listRedEnvelopes, parseRedEnvelopeInput } from "@/lib/red-envelopes";
 
 export function OPTIONS() { return mobileOptions(); }
 
@@ -18,7 +18,8 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
-    const data = await createRedEnvelope(user, parseRedEnvelopeInput(await request.json()));
+    const configuration = await getRedEnvelopeConfiguration();
+    const data = await createRedEnvelope(user, parseRedEnvelopeInput(await request.json(), configuration.settings));
     return mobileJson({ success: true, data }, 201);
   } catch (error) {
     console.error("Red envelope creation failed", error);
