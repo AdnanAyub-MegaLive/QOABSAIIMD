@@ -17,7 +17,7 @@ const allowedTypes = new Set([
   "video/webm",
 ]);
 const maxFileSize = 15 * 1024 * 1024;
-const distributions = new Set(["MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY"]);
+const distributions = new Set(["FREE", "MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY"]);
 const giftTiers = new Set(["CLASSIC", "PREMIUM", "VIP"]);
 const assignmentInclude = {
   assignments: {
@@ -380,7 +380,7 @@ export async function POST(request) {
           placement: assetContract.placement,
           sortOrder,
           giftTier,
-          isGlobal: isBanner,
+          isGlobal: isBanner || distribution.distribution === "FREE",
           isRoomBackground,
           ...distribution,
         },
@@ -635,6 +635,7 @@ export async function PATCH(request) {
             : {}),
           ...(isBanner ? { isGlobal: true, isRoomBackground: false } : {}),
           ...(distribution ?? {}),
+          ...(distribution ? { isGlobal: distribution.distribution === "FREE" } : {}),
         },
       });
       await tx.auditLog.create({

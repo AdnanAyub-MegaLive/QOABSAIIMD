@@ -25,6 +25,7 @@ const categories = {
   Badges: "BADGES",
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
+  "Seat Styles": "SEAT_STYLES",
 };
 const bannerPlacements = [
   ["PARTY", "Party tab"],
@@ -1128,6 +1129,7 @@ function DistributionSettings({
           onChange={(event) => onDistribution(event.target.value)}
           className={inputClass}
         >
+          <option value="FREE">Free for everyone</option>
           <option value="STORE">Buy from Store</option>
           <option value="VIP">VIP level reward</option>
           <option value="SVIP">SVIP / recharge reward</option>

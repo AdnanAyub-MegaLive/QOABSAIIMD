@@ -7,6 +7,23 @@ import {
   resolveUserPerks,
 } from "../../../lib/user-perks";
 import { generateNumericPublicId } from "../../../lib/public-id";
+import { serializeRoomBackground } from "../../../lib/room-background";
+import { serializeRoomSeatStyle } from "../../../lib/room-seat-style";
+
+const roomBackgroundInclude = {
+  roomBackgroundAsset: {
+    select: {
+      publicId: true,
+      mimeType: true,
+      active: true,
+      isGlobal: true,
+      assignments: { select: { userId: true, expiresAt: true } },
+    },
+  },
+  seatStyleAsset: {
+    select: { publicId: true, mimeType: true, active: true, isGlobal: true, assignments: { select: { userId: true, expiresAt: true } } },
+  },
+};
 
 const cors = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -33,6 +50,7 @@ export async function GET(request) {
     await reconcileExpiredAudioRoomRestrictions();
     const room = await prisma.audioRoom.findUnique({
       where: { ownerId: user.id },
+      include: roomBackgroundInclude,
     });
     const perks = (
       await resolveUserPerks([user], origin)
@@ -72,6 +90,7 @@ export async function POST(request) {
       .toUpperCase();
     let existing = await prisma.audioRoom.findUnique({
       where: { ownerId: user.id },
+      include: roomBackgroundInclude,
     });
 
     if (["EXIT", "EMPTY", "END"].includes(action)) {
@@ -188,6 +207,7 @@ export async function POST(request) {
         ...data,
         country: user.country ?? null,
       },
+      include: roomBackgroundInclude,
     });
     await ensureAudioRoomSeats(existing.id);
     await writeAudit(
@@ -266,6 +286,7 @@ async function makeRoomIdle(room, body = {}) {
         recordingUrl: validUrl(body.recordingUrl) ?? room.recordingUrl,
         endedAt: new Date(),
       },
+      include: roomBackgroundInclude,
     });
   });
 }
@@ -306,7 +327,8 @@ function serializeRoom(room, perks, origin) {
     coverImageUrl: room.coverImageUrl
       ? new URL(room.coverImageUrl, origin).toString()
       : null,
-    roomBackgroundUrl: perks?.roomBackgroundUrl ?? null,
+    roomBackground: serializeRoomBackground(room, origin),
+    seatStyle: serializeRoomSeatStyle(room, origin),
     participantCount: room.participantCount,
     isLocked: Boolean(room.passwordHash),
     chatLocked: Boolean(room.chatLocked),

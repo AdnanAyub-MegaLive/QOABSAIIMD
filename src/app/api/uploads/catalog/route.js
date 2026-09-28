@@ -88,8 +88,18 @@ export async function GET(request) {
           ? bannerCatalogWhere(placement)
           : {}),
         ...(roomBackground ? { isRoomBackground: true } : {}),
+        ...(["ROOM_BACKGROUNDS", "SEAT_STYLES"].includes(category)
+          ? { mimeType: { in: category === "ROOM_BACKGROUNDS" ? ["image/png", "image/jpeg", "image/webp", "video/mp4"] : ["image/png", "image/jpeg", "image/webp"] } }
+          : {}),
         ...(category === "BANNERS"
           ? {}
+          : ["ROOM_BACKGROUNDS", "SEAT_STYLES"].includes(category)
+            ? {
+                OR: [
+                  { isGlobal: true },
+                  { assignments: { some: { userId: user.id } } },
+                ],
+              }
           : {
               OR: [
                 { isGlobal: true },
@@ -99,7 +109,10 @@ export async function GET(request) {
       },
       include: {
         assignments: {
-          where: active,
+          where: {
+            userId: user.id,
+            ...(["ROOM_BACKGROUNDS", "SEAT_STYLES"].includes(category) ? {} : active),
+          },
           include: {
             user: {
               select: { publicId: true, name: true, profileImage: true },

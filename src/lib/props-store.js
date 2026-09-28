@@ -10,6 +10,7 @@ export const equippablePropCategories = new Set([
   "BADGES",
   "CHAT_BOXES",
   "ROOM_BACKGROUNDS",
+  "SEAT_STYLES",
 ]);
 
 export function entitlementExpiry(asset, from = new Date()) {

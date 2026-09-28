@@ -6,6 +6,8 @@ import {
   resolveUserPerks,
 } from "../../../../lib/user-perks";
 import { formatDateOnly } from "../../../../lib/date-only";
+import { serializeRoomBackground } from "../../../../lib/room-background";
+import { serializeRoomSeatStyle } from "../../../../lib/room-seat-style";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -55,11 +57,16 @@ export async function GET(request) {
       },
       select: {
         roomId: true,
+        ownerId: true,
         title: true,
         country: true,
         coverImageUrl: true,
         participantCount: true,
         passwordHash: true,
+        roomBackgroundVersion: true,
+        roomBackgroundAsset: { select: { publicId: true, mimeType: true, active: true, isGlobal: true, assignments: { select: { userId: true, expiresAt: true } } } },
+        seatStyleVersion: true,
+        seatStyleAsset: { select: { publicId: true, mimeType: true, active: true, isGlobal: true, assignments: { select: { userId: true, expiresAt: true } } } },
         status: true,
         startedAt: true,
         owner: {
@@ -82,6 +89,7 @@ export async function GET(request) {
     const perks = await resolveUserPerks(
       rooms.map((room) => room.owner),
       origin,
+      ["FRAMES", "BADGES"],
     );
 
     return json({
@@ -98,8 +106,8 @@ export async function GET(request) {
           isLocked: Boolean(room.passwordHash),
           status: room.status,
           startedAt: room.startedAt,
-          roomBackgroundUrl:
-            perks.get(room.owner.publicId)?.roomBackgroundUrl ?? null,
+          roomBackground: serializeRoomBackground(room, origin),
+          seatStyle: serializeRoomSeatStyle(room, origin),
           owner: {
             id: room.owner.publicId,
             name: room.owner.name,

@@ -4,7 +4,7 @@ import { assertMobileSession, mobileSessionError } from "./mobile-session-state"
 
 export const mobileCorsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key",
   "Cache-Control": "no-store, max-age=0",
 };
@@ -123,6 +123,11 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     TASK_EXPIRED: [409, "TASK_EXPIRED", "This task period has ended. Refresh the task list."],
     TASK_CLAIM_ROUTE_INVALID: [422, "TASK_CLAIM_ROUTE_INVALID", "Use the correct claim action for this task type."],
     ROOM_UNAVAILABLE: [404, "ROOM_UNAVAILABLE", "This audio room is unavailable."],
+    ROOM_OWNER_REQUIRED: [403, "ROOM_OWNER_REQUIRED", "Only the room owner can perform this action."],
+    ROOM_BACKGROUND_UNAVAILABLE: [403, "ROOM_BACKGROUND_UNAVAILABLE", "This room background is unavailable or not owned by you."],
+    ROOM_BACKGROUND_TYPE_UNSUPPORTED: [422, "ROOM_BACKGROUND_TYPE_UNSUPPORTED", "Room backgrounds must be PNG, JPEG, WebP, or MP4."],
+    SEAT_STYLE_UNAVAILABLE: [403, "SEAT_STYLE_UNAVAILABLE", "This seat style is unavailable or not owned by you."],
+    SEAT_STYLE_TYPE_UNSUPPORTED: [422, "SEAT_STYLE_TYPE_UNSUPPORTED", "Seat styles must be PNG, JPEG, or WebP."],
     ROOM_PARTICIPANT_REQUIRED: [403, "ROOM_PARTICIPANT_REQUIRED", "Join this audio room before using red envelopes."],
     RED_ENVELOPE_NOT_FOUND: [404, "RED_ENVELOPE_NOT_FOUND", "This red envelope was not found."],
     RED_ENVELOPE_NOT_READY: [409, "RED_ENVELOPE_NOT_READY", "This red envelope is not ready to claim yet."],

@@ -11,6 +11,7 @@ const publicDisplayCategories = new Set([
   "FRAMES",
   "BADGES",
   "ROOM_BACKGROUNDS",
+  "SEAT_STYLES",
   "ENTRANCES",
   "TAIL_LIGHTS",
   "RIDES",
@@ -55,8 +56,8 @@ export async function GET(request, { params }) {
           expiresAt: url.searchParams.get("displayExp"),
           signature: url.searchParams.get("displaySig"),
         });
-      if (publicDisplay)
-        return mediaResponse(asset);
+      if (publicDisplay && asset.active)
+        return mediaResponse(asset, request);
       const signed = verifySignedAssetUrl(assetId, {
         userId: url.searchParams.get("uid"),
         sessionVersion: url.searchParams.get("sv"),
@@ -100,17 +101,36 @@ export async function GET(request, { params }) {
     }
   }
 
-  return mediaResponse(asset);
+  return mediaResponse(asset, request);
 }
 
-function mediaResponse(asset) {
-  return new Response(asset.fileData, {
+function mediaResponse(asset, request) {
+  const total = asset.fileData.byteLength;
+  const range = asset.mimeType === "video/mp4"
+    ? parseByteRange(request.headers.get("range"), total)
+    : null;
+  const body = range
+    ? asset.fileData.subarray(range.start, range.end + 1)
+    : asset.fileData;
+  return new Response(body, {
+    status: range ? 206 : 200,
     headers: {
       "Content-Type": asset.mimeType,
-      "Content-Length": String(asset.fileData.byteLength),
+      "Content-Length": String(body.byteLength),
       "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(asset.fileName)}`,
       "Cache-Control": "private, max-age=3600",
+      "Accept-Ranges": "bytes",
+      ...(range ? { "Content-Range": `bytes ${range.start}-${range.end}/${total}` } : {}),
       "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
     },
   });
+}
+
+function parseByteRange(value, total) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(String(value ?? "").trim());
+  if (!match || total < 1) return null;
+  const start = match[1] ? Number(match[1]) : 0;
+  const end = match[2] ? Number(match[2]) : total - 1;
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || start >= total) return null;
+  return { start, end: Math.min(end, total - 1) };
 }

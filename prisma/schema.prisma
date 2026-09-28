@@ -138,7 +138,7 @@ model Admin {
   auditLogs                  AuditLog[]
   agencyApplicationsReviewed AgencyApplication[]
   agencyJoinRequestsReviewed AgencyJoinRequest[]
-  withdrawalsReviewed        WalletWithdrawal[]     @relation("WalletWithdrawalReviewer")
+  withdrawalsReviewed        WalletWithdrawal[]   @relation("WalletWithdrawalReviewer")
 }
 
 model AuditLog {
@@ -321,17 +321,17 @@ model ConversationParticipant {
 }
 
 model Message {
-  id             String       @id @default(cuid())
-  publicId       String       @unique
+  id             String           @id @default(cuid())
+  publicId       String           @unique
   conversationId String
   senderId       String?
   body           String
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime         @default(now())
   editedAt       DateTime?
   deletedAt      DateTime?
   deletedById    String?
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User?            @relation(fields: [senderId], references: [id], onDelete: SetNull)
   receipts       MessageReceipt[]
 
   @@index([conversationId, createdAt])
@@ -344,8 +344,8 @@ model MessageReceipt {
   userId      String
   deliveredAt DateTime?
   readAt      DateTime?
-  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message     Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([messageId, userId])
   @@index([userId, deliveredAt])
@@ -555,6 +555,8 @@ model UploadAsset {
   equippedBy                  UserEquippedProp[]
   purchases                   PropPurchase[]
   giftTransactions            GiftTransaction[]
+  selectedForAudioRooms       AudioRoom[]             @relation("AudioRoomBackground")
+  selectedAsSeatStyle         AudioRoom[]             @relation("AudioRoomSeatStyle")
 
   @@index([category, createdAt])
   @@index([category, placement, active, isGlobal, sortOrder, createdAt])
@@ -834,32 +836,32 @@ model WalletTopUpOrder {
   user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   package           WalletCoinPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
 
+  @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([status, expiresAt])
-  @@unique([userId, idempotencyKey])
 }
 
 model WalletWithdrawal {
-  id            String            @id @default(cuid())
-  publicId      String            @unique
-  userId        String
-  coins         BigInt
-  cashAmount    Decimal           @db.Decimal(12, 2)
-  currency      String
-  method        String
-  accountName   String
-  accountNumber String
-  status        WalletOrderStatus @default(PENDING)
-  reviewedByAdminId String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  reviewedAt    DateTime?
-  completedAt   DateTime?
-  reviewNote    String?
-  rejectionReason String?
-  providerPayoutReference String? @unique
-  user          User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  reviewedBy    Admin?            @relation("WalletWithdrawalReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  id                      String            @id @default(cuid())
+  publicId                String            @unique
+  userId                  String
+  coins                   BigInt
+  cashAmount              Decimal           @db.Decimal(12, 2)
+  currency                String
+  method                  String
+  accountName             String
+  accountNumber           String
+  status                  WalletOrderStatus @default(PENDING)
+  reviewedByAdminId       String?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  reviewedAt              DateTime?
+  completedAt             DateTime?
+  reviewNote              String?
+  rejectionReason         String?
+  providerPayoutReference String?           @unique
+  user                    User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reviewedBy              Admin?            @relation("WalletWithdrawalReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -1104,43 +1106,51 @@ model TalentViolation {
 }
 
 model AudioRoom {
-  id                   String    @id @default(cuid())
-  roomId               String    @unique
-  ownerId              String
-  title                String
-  country              String?
-  status               String    @default("LIVE")
-  liveAudioUrl         String?
-  recordingUrl         String?
-  coverImageUrl        String?
-  coverImageData       Bytes?
-  coverImageMime       String?
-  participantCount     Int       @default(0)
-  passwordHash         String?
-  chatLocked           Boolean   @default(false)
-  joiningDisabled      Boolean   @default(false)
-  joiningDisabledUntil DateTime?
-  isBlocked            Boolean   @default(false)
-  blockedReason        String?
-  blockedUntil         DateTime?
-  terminatedUntil      DateTime?
-  startedAt            DateTime  @default(now())
-  endedAt              DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  owner                User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  messages             AudioRoomMessage[]
-  seats                AudioRoomSeat[]
-  redEnvelopes         RedEnvelope[]
-  legacyIdMappings     LegacyIdMapping[]
+  id                    String             @id @default(cuid())
+  roomId                String             @unique
+  ownerId               String
+  title                 String
+  country               String?
+  status                String             @default("LIVE")
+  liveAudioUrl          String?
+  recordingUrl          String?
+  coverImageUrl         String?
+  coverImageData        Bytes?
+  coverImageMime        String?
+  participantCount      Int                @default(0)
+  passwordHash          String?
+  chatLocked            Boolean            @default(false)
+  roomBackgroundAssetId String?
+  roomBackgroundVersion Int                @default(0)
+  seatStyleAssetId      String?
+  seatStyleVersion      Int                @default(0)
+  joiningDisabled       Boolean            @default(false)
+  joiningDisabledUntil  DateTime?
+  isBlocked             Boolean            @default(false)
+  blockedReason         String?
+  blockedUntil          DateTime?
+  terminatedUntil       DateTime?
+  startedAt             DateTime           @default(now())
+  endedAt               DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  owner                 User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  roomBackgroundAsset   UploadAsset?       @relation("AudioRoomBackground", fields: [roomBackgroundAssetId], references: [id], onDelete: SetNull)
+  seatStyleAsset        UploadAsset?       @relation("AudioRoomSeatStyle", fields: [seatStyleAssetId], references: [id], onDelete: SetNull)
+  messages              AudioRoomMessage[]
+  seats                 AudioRoomSeat[]
+  redEnvelopes          RedEnvelope[]
+  legacyIdMappings      LegacyIdMapping[]
 
   @@unique([ownerId])
   @@index([ownerId, startedAt])
   @@index([status, startedAt])
+  @@index([roomBackgroundAssetId])
+  @@index([seatStyleAssetId])
 }
 
 model RedEnvelope {
-  id              String            @id
+  id              String             @id
   audioRoomId     String
   senderId        String
   totalCoins      BigInt
@@ -1150,11 +1160,11 @@ model RedEnvelope {
   delaySeconds    Int
   claimableAt     DateTime
   expiresAt       DateTime
-  status          RedEnvelopeStatus @default(ACTIVE)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  audioRoom       AudioRoom         @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
-  sender          User              @relation("RedEnvelopeSender", fields: [senderId], references: [id], onDelete: Restrict)
+  status          RedEnvelopeStatus  @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  audioRoom       AudioRoom          @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  sender          User               @relation("RedEnvelopeSender", fields: [senderId], references: [id], onDelete: Restrict)
   claims          RedEnvelopeClaim[]
 
   @@index([audioRoomId, status, expiresAt])
@@ -1258,26 +1268,26 @@ model AudioRoomSeat {
 }
 
 model DailyTaskDefinition {
-  id            String              @id
-  type          String              @unique
-  title         String
-  description   String?
-  rewardCoins   BigInt
-  targetValue   Int                 @default(1)
-  unit          String              @default("COUNT")
-  cadence       String              @default("DAILY")
-  categoryKey   String
-  categoryIcon  String
-  icon          String?
-  iconUrl       String?
-  featured      Boolean             @default(false)
-  topSupporter  Boolean             @default(false)
-  sortOrder     Int                 @default(0)
-  active        Boolean             @default(true)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  instances     DailyTaskInstance[]
-  category      DailyTaskCategory   @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
+  id           String              @id
+  type         String              @unique
+  title        String
+  description  String?
+  rewardCoins  BigInt
+  targetValue  Int                 @default(1)
+  unit         String              @default("COUNT")
+  cadence      String              @default("DAILY")
+  categoryKey  String
+  categoryIcon String
+  icon         String?
+  iconUrl      String?
+  featured     Boolean             @default(false)
+  topSupporter Boolean             @default(false)
+  sortOrder    Int                 @default(0)
+  active       Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  instances    DailyTaskInstance[]
+  category     DailyTaskCategory   @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
 
   @@index([active, categoryKey, sortOrder])
 }
@@ -1313,9 +1323,9 @@ model DailyTaskInstance {
 }
 
 model DailyTaskStreak {
-  userId         String   @id
-  currentStreak  Int      @default(0)
+  userId         String    @id
+  currentStreak  Int       @default(0)
   lastSignInDate DateTime?
-  updatedAt      DateTime @updatedAt
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

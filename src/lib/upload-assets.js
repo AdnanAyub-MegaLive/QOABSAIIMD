@@ -8,6 +8,7 @@ export const uploadCategories = {
   Badges: "BADGES",
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
+  "Seat Styles": "SEAT_STYLES",
 };
 
 export const validUploadCategories = new Set(Object.values(uploadCategories));
@@ -18,6 +19,13 @@ export const bannerMimeTypes = new Set([
   "image/jpeg",
   "image/webp",
 ]);
+export const roomBackgroundMimeTypes = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "video/mp4",
+]);
+export const seatStyleMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 export const bannerCatalogOrderBy = [
   { sortOrder: "asc" },
   { createdAt: "asc" },
@@ -85,6 +93,12 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
     return {
       placement: cleanBannerPlacement(placement, { required: true }),
     };
+  }
+  if (category === "ROOM_BACKGROUNDS" && mimeType && !roomBackgroundMimeTypes.has(mimeType)) {
+    throw validationError("Room backgrounds must be PNG, JPEG, WebP, or MP4.");
+  }
+  if (category === "SEAT_STYLES" && mimeType && !seatStyleMimeTypes.has(mimeType)) {
+    throw validationError("Seat styles must be PNG, JPEG, or WebP images.");
   }
   if (String(placement ?? "").trim()) {
     throw validationError("Placement is only supported for banner assets.");
