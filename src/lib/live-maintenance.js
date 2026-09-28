@@ -6,6 +6,46 @@ export function pkWinner(leftScore, rightScore, leftId, rightId) {
   return left === right ? null : left > right ? leftId : rightId;
 }
 
+export function socketUserCounts(sockets) {
+  const counts = new Map();
+  for (const socket of sockets) {
+    const userId = String(socket?.data?.userId ?? "").trim();
+    if (userId) counts.set(userId, (counts.get(userId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export async function reconcileAudioRoomPresence(io, now = new Date()) {
+  if (!io) return { rooms: 0, corrected: 0 };
+  const rooms = await prisma.audioRoom.findMany({
+    where: { OR: [{ participantCount: { gt: 0 } }, { members: { some: { socketCount: { gt: 0 } } } }] },
+    select: { id: true, roomId: true, participantCount: true, revision: true },
+  });
+  let corrected = 0;
+  for (const room of rooms) {
+    const sockets = await io.in(`audio-room:${room.roomId}`).fetchSockets();
+    const counts = socketUserCounts(sockets);
+    const connectedPublicIds = [...counts.keys()];
+    const connectedUsers = connectedPublicIds.length
+      ? await prisma.user.findMany({ where: { publicId: { in: connectedPublicIds } }, select: { id: true, publicId: true } })
+      : [];
+    const userByPublicId = new Map(connectedUsers.map((user) => [user.publicId, user.id]));
+    const current = await prisma.audioRoomMember.findMany({ where: { audioRoomId: room.id, socketCount: { gt: 0 } }, select: { userId: true, socketCount: true } });
+    const desired = new Map(connectedPublicIds.map((publicId) => [userByPublicId.get(publicId), counts.get(publicId)]).filter(([userId]) => userId));
+    const changed = current.some((member) => member.socketCount !== (desired.get(member.userId) ?? 0)) || [...desired].some(([userId, count]) => !current.some((member) => member.userId === userId && member.socketCount === count));
+    const total = desired.size;
+    if (!changed && room.participantCount === total) continue;
+    await prisma.$transaction(async (tx) => {
+      await tx.audioRoomMember.updateMany({ where: { audioRoomId: room.id, socketCount: { gt: 0 } }, data: { socketCount: 0, lastSeenAt: now } });
+      for (const [userId, socketCount] of desired) await tx.audioRoomMember.upsert({ where: { audioRoomId_userId: { audioRoomId: room.id, userId } }, create: { audioRoomId: room.id, userId, socketCount, lastSeenAt: now }, update: { socketCount, lastSeenAt: now } });
+      await tx.audioRoom.update({ where: { id: room.id }, data: { participantCount: total, revision: { increment: 1 } } });
+    });
+    corrected += 1;
+    emitToAudioRoom(room.roomId, "audio-room:presence-snapshot", { success: true, data: { roomId: room.roomId, participantCount: total, revision: room.revision + 1, reconciledAt: now.toISOString() } });
+  }
+  return { rooms: rooms.length, corrected };
+}
+
 export async function finalizeExpiredPkSessions(now = new Date()) {
   const [audio, video] = await Promise.all([
     prisma.audioRoomPkSession.findMany({ where: { status: "LIVE", endsAt: { lte: now } }, include: { leftRoom: true, rightRoom: true } }),

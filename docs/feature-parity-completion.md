@@ -24,6 +24,12 @@ This document records the completed replacement contracts added in the 2026-09-2
 - Existing Games Management remains the server-authoritative game catalogue and wallet settlement system.
 - Existing daily tasks track watch/live/gift progress and are managed at `/daily-tasks`.
 
+## Audio-room presence and moderation
+
+- Socket.IO membership is reconciled against Prisma at startup and every 15 seconds, repairing stale `socketCount` and `participantCount` values after a crash or restart.
+- Presence counts unique users while retaining per-user multi-socket counts for correct disconnect behavior.
+- `POST /api/v1/audio-rooms/{roomId}/kicks` supports kick-only, timed bans and permanent bans for seated or non-seated members.
+
 ## Gifts and PK
 
 - `POST /api/v1/gifts/send-multi` atomically sends to 1–12 room members, including the sender.

@@ -32,13 +32,15 @@ app.prepare().then(async()=>{
   const {canSendLockedRoomMessage,normalizeRoomPassword,roomControlError}=await import("./src/lib/audio-room-controls.js");
   const {readRoomChatHistory,serializeRoomChatMessages}=await import("./src/lib/audio-room-chat.js");
   const {serializeEntertainment}=await import("./src/lib/room-entertainment.js");
-  const {expireGuestRequests,finalizeExpiredPkSessions,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
+  const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>handle(request,response));
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
-  const maintenanceTimer=setInterval(()=>Promise.all([finalizeExpiredPkSessions(),reconcileStaleVideoPresence(),expireGuestRequests()]).catch(error=>console.error("Realtime maintenance failed",error)),15000);
+  const runRealtimeMaintenance=()=>Promise.all([finalizeExpiredPkSessions(),reconcileAudioRoomPresence(io),reconcileStaleVideoPresence(),expireGuestRequests()]).catch(error=>console.error("Realtime maintenance failed",error));
+  void runRealtimeMaintenance();
+  const maintenanceTimer=setInterval(runRealtimeMaintenance,15000);
   maintenanceTimer.unref?.();
   const liveKitAccessFor=(targetUser,roomId,canPublish)=>isLiveKitConfigured()?issueLiveKitAccess(targetUser,roomId,canPublish):Promise.resolve(null);
   globalThis.portalDisconnectUser=(publicId)=>setTimeout(()=>io.in(`user:${publicId}`).disconnectSockets(true),100);
@@ -565,8 +567,9 @@ app.prepare().then(async()=>{
         if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST"}});
         const occupiedSeat=await prisma.audioRoomSeat.findFirst({where:{audioRoomId:room.id,occupantUserId:user.id},select:{isForceMuted:true}});if(!occupiedSeat)return ack({success:false,error:{code:"SPEAKER_NOT_SEATED"}});if(occupiedSeat.isForceMuted&&!Boolean(muted))return ack({success:false,error:{code:"SEAT_FORCE_MUTED",message:"A room moderator has muted your microphone."}});const result=await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:user.id},data:{isMuted:Boolean(muted),isSpeaking:Boolean(speaking)&&!Boolean(muted)}});
         if(!result.count)return ack({success:false,error:{code:"SPEAKER_NOT_SEATED"}});
+        await updateLiveKitPublishPermission(id,user.publicId,!Boolean(muted));
         const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
-        ack({success:true,data:{seatState}});
+        ack({success:true,data:{seatState,canPublish:!Boolean(muted)}});
       }catch(error){
         console.error("Audio room seat status failed",error);
         ack({success:false,error:{code:"SEAT_STATUS_FAILED"}});

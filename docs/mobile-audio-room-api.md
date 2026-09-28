@@ -46,6 +46,9 @@ Content-Type: application/json
 The owner and seated users receive publish permission. Listeners receive
 subscribe-only access. Seat take, leave, kick, force-mute, invitation acceptance,
 and bulk-clear operations update LiveKit publisher permissions on the server.
+`audio-room:seat-status` also updates the connected LiveKit participant when a
+seated user mutes or unmutes; Android must wait for its acknowledgement before
+showing the microphone as enabled.
 The relevant Socket.IO acknowledgements also return the refreshed `liveKit`
 object when the client needs a new token.
 
