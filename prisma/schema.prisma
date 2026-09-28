@@ -71,6 +71,16 @@ enum WalletTransactionType {
   RED_ENVELOPE_SENT
   RED_ENVELOPE_CLAIMED
   RED_ENVELOPE_REFUND
+  CUSTOM_BACKGROUND_PURCHASE
+  CUSTOM_BACKGROUND_REFUND
+  ROOM_ENTRY_PAID
+  ROOM_ENTRY_EARNED
+}
+
+enum CustomBackgroundStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum RedEnvelopeStatus {
@@ -123,14 +133,14 @@ enum EventStatus {
 }
 
 model Admin {
-  id                         String               @id @default(cuid())
+  id                         String                        @id @default(cuid())
   name                       String
-  email                      String               @unique
+  email                      String                        @unique
   passwordHash               String
-  role                       String               @default("ADMIN")
-  active                     Boolean              @default(true)
-  createdAt                  DateTime             @default(now())
-  updatedAt                  DateTime             @updatedAt
+  role                       String                        @default("ADMIN")
+  active                     Boolean                       @default(true)
+  createdAt                  DateTime                      @default(now())
+  updatedAt                  DateTime                      @updatedAt
   bans                       Ban[]
   coinAdjustments            CoinAdjustment[]
   verifications              TalentVerification[]
@@ -138,7 +148,8 @@ model Admin {
   auditLogs                  AuditLog[]
   agencyApplicationsReviewed AgencyApplication[]
   agencyJoinRequestsReviewed AgencyJoinRequest[]
-  withdrawalsReviewed        WalletWithdrawal[]   @relation("WalletWithdrawalReviewer")
+  withdrawalsReviewed        WalletWithdrawal[]            @relation("WalletWithdrawalReviewer")
+  customBackgroundReviews    CustomRoomBackgroundRequest[] @relation("CustomBackgroundReviewer")
 }
 
 model AuditLog {
@@ -160,75 +171,85 @@ model AuditLog {
 }
 
 model User {
-  id                       String                    @id @default(cuid())
-  publicId                 String                    @unique
-  googleSubject            String?                   @unique
-  name                     String
-  email                    String?                   @unique
-  phone                    String?                   @unique
-  country                  String?
-  bio                      String?
-  profileImage             String?
-  gender                   String?
-  dob                      DateTime?
-  isVerified               Boolean                   @default(false)
-  isOfficial               Boolean                   @default(false)
-  agencyId                 String?
-  passwordHash             String?
-  role                     UserRole                  @default(LISTENER)
-  appRoles                 ApplicationRole[]         @default([LISTENER])
-  status                   AccountStatus             @default(ACTIVE)
-  vipLevel                 Int                       @default(0)
-  coinBalance              BigInt                    @default(0)
-  couponBalance            Int                       @default(0)
-  hostSalaryCoinBalance    BigInt                    @default(0)
-  totalSpent               BigInt                    @default(0)
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  lastLoginAt              DateTime?
-  sessionVersion           Int                       @default(0)
-  forcedLogoutAt           DateTime?
-  deletedAt                DateTime?
-  devices                  Device[]
-  sentGifts                GiftTransaction[]         @relation("GiftSender")
-  receivedGifts            GiftTransaction[]         @relation("GiftRecipientUser")
-  bans                     Ban[]
-  coinAdjustments          CoinAdjustment[]
-  walletTransactions       WalletTransaction[]
-  walletTopUps             WalletTopUpOrder[]
-  walletWithdrawals        WalletWithdrawal[]
-  albumItems               UserAlbumItem[]
-  specialIds               SpecialIdAssignment[]
-  gameLogs                 GameLog[]
-  gameRounds               GameRound[]
-  gameSessions             GamePlayerSession[]
-  audioRooms               AudioRoom[]
-  audioRoomSeats           AudioRoomSeat[]
-  dailyTaskInstances       DailyTaskInstance[]
-  dailyTaskStreak          DailyTaskStreak?
-  sentRedEnvelopes         RedEnvelope[]             @relation("RedEnvelopeSender")
-  redEnvelopeClaims        RedEnvelopeClaim[]
-  uploadAssignments        UploadAssetAssignment[]
-  equippedProps            UserEquippedProp[]
-  propPurchases            PropPurchase[]
-  agencyApplications       AgencyApplication[]
-  agencyJoinRequests       AgencyJoinRequest[]
-  posts                    Post[]
-  createdConversations     Conversation[]            @relation("ConversationCreator")
-  conversationParticipants ConversationParticipant[]
-  sentMessages             Message[]
-  messageReceipts          MessageReceipt[]
-  blockedUsers             UserBlock[]               @relation("UserBlocksCreated")
-  blockedByUsers           UserBlock[]               @relation("UserBlocksReceived")
-  sentAudioRoomMessages    AudioRoomMessage[]
-  notifications            Notification[]
-  notificationReads        NotificationRead[]
-  friendRequestsSent       FriendRequest[]           @relation("FriendRequestsSent")
-  friendRequestsReceived   FriendRequest[]           @relation("FriendRequestsReceived")
-  legacyIdMappings         LegacyIdMapping[]
-  totalTopUp               BigInt                    @default(0)
-  agency                   Agency?                   @relation("UserAgency", fields: [agencyId], references: [id], onDelete: SetNull)
-  ownedAgency              Agency?                   @relation("AgencyOwner")
+  id                         String                        @id @default(cuid())
+  publicId                   String                        @unique
+  googleSubject              String?                       @unique
+  name                       String
+  email                      String?                       @unique
+  phone                      String?                       @unique
+  country                    String?
+  bio                        String?
+  profileImage               String?
+  gender                     String?
+  dob                        DateTime?
+  isVerified                 Boolean                       @default(false)
+  isOfficial                 Boolean                       @default(false)
+  agencyId                   String?
+  passwordHash               String?
+  role                       UserRole                      @default(LISTENER)
+  appRoles                   ApplicationRole[]             @default([LISTENER])
+  status                     AccountStatus                 @default(ACTIVE)
+  vipLevel                   Int                           @default(0)
+  coinBalance                BigInt                        @default(0)
+  couponBalance              Int                           @default(0)
+  hostSalaryCoinBalance      BigInt                        @default(0)
+  totalSpent                 BigInt                        @default(0)
+  createdAt                  DateTime                      @default(now())
+  updatedAt                  DateTime                      @updatedAt
+  lastLoginAt                DateTime?
+  sessionVersion             Int                           @default(0)
+  forcedLogoutAt             DateTime?
+  deletedAt                  DateTime?
+  devices                    Device[]
+  sentGifts                  GiftTransaction[]             @relation("GiftSender")
+  receivedGifts              GiftTransaction[]             @relation("GiftRecipientUser")
+  bans                       Ban[]
+  coinAdjustments            CoinAdjustment[]
+  walletTransactions         WalletTransaction[]
+  walletTopUps               WalletTopUpOrder[]
+  walletWithdrawals          WalletWithdrawal[]
+  albumItems                 UserAlbumItem[]
+  specialIds                 SpecialIdAssignment[]
+  gameLogs                   GameLog[]
+  gameRounds                 GameRound[]
+  gameSessions               GamePlayerSession[]
+  audioRooms                 AudioRoom[]
+  audioRoomSeats             AudioRoomSeat[]
+  dailyTaskInstances         DailyTaskInstance[]
+  dailyTaskStreak            DailyTaskStreak?
+  sentRedEnvelopes           RedEnvelope[]                 @relation("RedEnvelopeSender")
+  redEnvelopeClaims          RedEnvelopeClaim[]
+  customBackgroundRequests   CustomRoomBackgroundRequest[]
+  audioRoomRoles             AudioRoomRole[]               @relation("AudioRoomRoleUser")
+  grantedAudioRoomRoles      AudioRoomRole[]               @relation("AudioRoomRoleGrantor")
+  audioRoomBans              AudioRoomBan[]                @relation("AudioRoomBanUser")
+  createdAudioRoomBans       AudioRoomBan[]                @relation("AudioRoomBanActor")
+  audioRoomModerationActs    AudioRoomModerationLog[]      @relation("AudioRoomModerationActor")
+  audioRoomModerationTargets AudioRoomModerationLog[]      @relation("AudioRoomModerationTarget")
+  audioRoomMemberships       AudioRoomMember[]
+  audioRoomAdmissions        AudioRoomAdmission[]          @relation("AudioRoomAdmissionUser")
+  receivedRoomAdmissions     AudioRoomAdmission[]          @relation("AudioRoomAdmissionOwner")
+  uploadAssignments          UploadAssetAssignment[]
+  equippedProps              UserEquippedProp[]
+  propPurchases              PropPurchase[]
+  agencyApplications         AgencyApplication[]
+  agencyJoinRequests         AgencyJoinRequest[]
+  posts                      Post[]
+  createdConversations       Conversation[]                @relation("ConversationCreator")
+  conversationParticipants   ConversationParticipant[]
+  sentMessages               Message[]
+  messageReceipts            MessageReceipt[]
+  blockedUsers               UserBlock[]                   @relation("UserBlocksCreated")
+  blockedByUsers             UserBlock[]                   @relation("UserBlocksReceived")
+  sentAudioRoomMessages      AudioRoomMessage[]
+  notifications              Notification[]
+  notificationReads          NotificationRead[]
+  friendRequestsSent         FriendRequest[]               @relation("FriendRequestsSent")
+  friendRequestsReceived     FriendRequest[]               @relation("FriendRequestsReceived")
+  legacyIdMappings           LegacyIdMapping[]
+  totalTopUp                 BigInt                        @default(0)
+  agency                     Agency?                       @relation("UserAgency", fields: [agencyId], references: [id], onDelete: SetNull)
+  ownedAgency                Agency?                       @relation("AgencyOwner")
 
   @@index([status])
   @@index([vipLevel])
@@ -526,11 +547,11 @@ model EventAuditLog {
 }
 
 model UploadAsset {
-  id                          String                  @id @default(cuid())
-  publicId                    String                  @unique
+  id                          String                       @id @default(cuid())
+  publicId                    String                       @unique
   name                        String
   details                     String?
-  tags                        String[]                @default([])
+  tags                        String[]                     @default([])
   category                    String
   fileName                    String
   mimeType                    String
@@ -538,25 +559,26 @@ model UploadAsset {
   fileData                    Bytes
   actionUrl                   String?
   placement                   String?
-  sortOrder                   Int                     @default(0)
-  isGlobal                    Boolean                 @default(true)
-  isRoomBackground            Boolean                 @default(false)
-  distribution                String                  @default("MANUAL")
-  storeVisible                Boolean                 @default(false)
+  sortOrder                   Int                          @default(0)
+  isGlobal                    Boolean                      @default(true)
+  isRoomBackground            Boolean                      @default(false)
+  distribution                String                       @default("MANUAL")
+  storeVisible                Boolean                      @default(false)
   coinPrice                   BigInt?
   giftTier                    String?
   minimumVipLevel             Int?
   minimumRecharge             BigInt?
   defaultGrantDurationMinutes Int?
-  active                      Boolean                 @default(true)
-  createdAt                   DateTime                @default(now())
-  updatedAt                   DateTime                @updatedAt
+  active                      Boolean                      @default(true)
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
   assignments                 UploadAssetAssignment[]
   equippedBy                  UserEquippedProp[]
   purchases                   PropPurchase[]
   giftTransactions            GiftTransaction[]
-  selectedForAudioRooms       AudioRoom[]             @relation("AudioRoomBackground")
-  selectedAsSeatStyle         AudioRoom[]             @relation("AudioRoomSeatStyle")
+  selectedForAudioRooms       AudioRoom[]                  @relation("AudioRoomBackground")
+  selectedAsSeatStyle         AudioRoom[]                  @relation("AudioRoomSeatStyle")
+  customBackgroundApproval    CustomRoomBackgroundRequest? @relation("CustomBackgroundApprovedAsset")
 
   @@index([category, createdAt])
   @@index([category, placement, active, isGlobal, sortOrder, createdAt])
@@ -581,6 +603,57 @@ model UploadAssetAssignment {
   @@index([userId, assignedAt])
   @@index([expiresAt])
   @@index([source, assignedAt])
+}
+
+model CustomRoomBackgroundSettings {
+  id               String   @id @default("DEFAULT")
+  enabled          Boolean  @default(true)
+  maxBytes         Int      @default(5242880)
+  allowedMimeTypes String[] @default(["image/jpeg", "image/png", "image/webp"])
+  updatedAt        DateTime @updatedAt
+}
+
+model CustomRoomBackgroundPrice {
+  id           String                        @id
+  name         String
+  durationDays Int
+  coins        BigInt
+  sortOrder    Int                           @default(0)
+  active       Boolean                       @default(true)
+  createdAt    DateTime                      @default(now())
+  updatedAt    DateTime                      @updatedAt
+  requests     CustomRoomBackgroundRequest[]
+
+  @@index([active, sortOrder])
+}
+
+model CustomRoomBackgroundRequest {
+  id                String                     @id @default(cuid())
+  publicId          String                     @unique
+  requestId         String
+  userId            String
+  priceId           String?
+  priceName         String
+  durationDays      Int
+  coins             BigInt
+  status            CustomBackgroundStatus     @default(PENDING)
+  fileName          String
+  mimeType          String
+  fileSize          Int
+  fileData          Bytes
+  rejectionReason   String?
+  submittedAt       DateTime                   @default(now())
+  reviewedAt        DateTime?
+  reviewedByAdminId String?
+  approvedAssetId   String?                    @unique
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  price             CustomRoomBackgroundPrice? @relation(fields: [priceId], references: [id], onDelete: SetNull)
+  reviewedBy        Admin?                     @relation("CustomBackgroundReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  approvedAsset     UploadAsset?               @relation("CustomBackgroundApprovedAsset", fields: [approvedAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, requestId])
+  @@index([userId, submittedAt])
+  @@index([status, submittedAt])
 }
 
 model UserEquippedProp {
@@ -1106,47 +1179,137 @@ model TalentViolation {
 }
 
 model AudioRoom {
-  id                    String             @id @default(cuid())
-  roomId                String             @unique
+  id                    String                   @id @default(cuid())
+  roomId                String                   @unique
   ownerId               String
   title                 String
   country               String?
-  status                String             @default("LIVE")
+  status                String                   @default("LIVE")
   liveAudioUrl          String?
   recordingUrl          String?
   coverImageUrl         String?
   coverImageData        Bytes?
   coverImageMime        String?
-  participantCount      Int                @default(0)
+  participantCount      Int                      @default(0)
   passwordHash          String?
-  chatLocked            Boolean            @default(false)
+  chatLocked            Boolean                  @default(false)
+  announcement          String?
+  language              String?
+  tags                  String[]                 @default([])
+  privacyMode           String                   @default("PUBLIC")
+  paidEntryCoins        BigInt?
+  revision              Int                      @default(0)
   roomBackgroundAssetId String?
-  roomBackgroundVersion Int                @default(0)
+  roomBackgroundVersion Int                      @default(0)
   seatStyleAssetId      String?
-  seatStyleVersion      Int                @default(0)
-  joiningDisabled       Boolean            @default(false)
+  seatStyleVersion      Int                      @default(0)
+  joiningDisabled       Boolean                  @default(false)
   joiningDisabledUntil  DateTime?
-  isBlocked             Boolean            @default(false)
+  isBlocked             Boolean                  @default(false)
   blockedReason         String?
   blockedUntil          DateTime?
   terminatedUntil       DateTime?
-  startedAt             DateTime           @default(now())
+  startedAt             DateTime                 @default(now())
   endedAt               DateTime?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  owner                 User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  roomBackgroundAsset   UploadAsset?       @relation("AudioRoomBackground", fields: [roomBackgroundAssetId], references: [id], onDelete: SetNull)
-  seatStyleAsset        UploadAsset?       @relation("AudioRoomSeatStyle", fields: [seatStyleAssetId], references: [id], onDelete: SetNull)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  owner                 User                     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  roomBackgroundAsset   UploadAsset?             @relation("AudioRoomBackground", fields: [roomBackgroundAssetId], references: [id], onDelete: SetNull)
+  seatStyleAsset        UploadAsset?             @relation("AudioRoomSeatStyle", fields: [seatStyleAssetId], references: [id], onDelete: SetNull)
   messages              AudioRoomMessage[]
   seats                 AudioRoomSeat[]
   redEnvelopes          RedEnvelope[]
   legacyIdMappings      LegacyIdMapping[]
+  roles                 AudioRoomRole[]
+  roomBans              AudioRoomBan[]
+  moderationLogs        AudioRoomModerationLog[]
+  members               AudioRoomMember[]
+  admissions            AudioRoomAdmission[]
 
   @@unique([ownerId])
   @@index([ownerId, startedAt])
   @@index([status, startedAt])
   @@index([roomBackgroundAssetId])
   @@index([seatStyleAssetId])
+}
+
+model AudioRoomRole {
+  id          String    @id @default(cuid())
+  audioRoomId String
+  userId      String
+  role        String    @default("ADMIN")
+  grantedById String
+  grantedAt   DateTime  @default(now())
+  audioRoom   AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  user        User      @relation("AudioRoomRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User      @relation("AudioRoomRoleGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@unique([audioRoomId, userId])
+  @@index([userId])
+}
+
+model AudioRoomBan {
+  id          String    @id @default(cuid())
+  publicId    String    @unique
+  audioRoomId String
+  userId      String
+  actorId     String
+  reason      String?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  audioRoom   AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  user        User      @relation("AudioRoomBanUser", fields: [userId], references: [id], onDelete: Cascade)
+  actor       User      @relation("AudioRoomBanActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([audioRoomId, userId, expiresAt])
+  @@index([audioRoomId, createdAt])
+}
+
+model AudioRoomModerationLog {
+  id              String    @id
+  audioRoomId     String
+  actorId         String
+  targetId        String?
+  action          String
+  reason          String?
+  durationMinutes Int?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  audioRoom       AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  actor           User      @relation("AudioRoomModerationActor", fields: [actorId], references: [id], onDelete: Restrict)
+  target          User?     @relation("AudioRoomModerationTarget", fields: [targetId], references: [id], onDelete: SetNull)
+
+  @@index([audioRoomId, createdAt])
+}
+
+model AudioRoomMember {
+  audioRoomId String
+  userId      String
+  socketCount Int       @default(0)
+  joinedAt    DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  audioRoom   AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([audioRoomId, userId])
+  @@index([audioRoomId, socketCount, joinedAt])
+}
+
+model AudioRoomAdmission {
+  id                   String    @id @default(cuid())
+  audioRoomId          String
+  userId               String
+  ownerId              String
+  roomSessionStartedAt DateTime
+  coins                BigInt
+  admittedAt           DateTime  @default(now())
+  audioRoom            AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  user                 User      @relation("AudioRoomAdmissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  owner                User      @relation("AudioRoomAdmissionOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@unique([audioRoomId, userId, roomSessionStartedAt])
+  @@index([userId, admittedAt])
 }
 
 model RedEnvelope {

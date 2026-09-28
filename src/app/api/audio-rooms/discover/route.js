@@ -45,6 +45,7 @@ export async function GET(request) {
         status: includeIdle ? { in: ["LIVE", "IDLE"] } : "LIVE",
         isBlocked: false,
         joiningDisabled: false,
+        privacyMode: { not: "HIDDEN" },
         ...(requestedCountry ? { country: requestedCountry } : {}),
         owner: {
           deletedAt: null,
@@ -54,6 +55,12 @@ export async function GET(request) {
       select: {
         roomId: true,
         ownerId: true,
+        announcement: true,
+        language: true,
+        tags: true,
+        privacyMode: true,
+        paidEntryCoins: true,
+        revision: true,
         title: true,
         country: true,
         coverImageUrl: true,
@@ -103,6 +110,12 @@ export async function GET(request) {
           status: room.status,
           startedAt: room.startedAt,
           roomBackground: serializeRoomBackground(room, origin),
+          announcement: room.announcement,
+          language: room.language,
+          tags: room.tags,
+          privacyMode: room.privacyMode,
+          paidEntryCoins: room.paidEntryCoins?.toString() ?? null,
+          revision: room.revision,
           seatStyle: serializeRoomSeatStyle(room, origin),
           owner: {
             id: room.owner.publicId,

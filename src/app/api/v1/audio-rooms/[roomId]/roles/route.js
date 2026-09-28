@@ -1,0 +1,5 @@
+import { prisma } from "@/lib/prisma";
+import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
+import { permissionsForRole, requireRoomPermission } from "@/lib/audio-room-management";
+export function OPTIONS(){return mobileOptions()}
+export async function GET(request,{params}){try{const user=await requireMobileUser(request);const {roomId}=await params;const room=await prisma.audioRoom.findUnique({where:{roomId:decodeURIComponent(roomId)},select:{id:true,roomId:true,ownerId:true,revision:true}});if(!room)throw new Error("ROOM_UNAVAILABLE");await requireRoomPermission(room,user.id,"canModerateMembers");const entries=await prisma.audioRoomRole.findMany({where:{audioRoomId:room.id},include:{user:{select:{publicId:true,name:true,profileImage:true}},grantedBy:{select:{publicId:true}}},orderBy:{grantedAt:"asc"}});return mobileJson({success:true,data:{roomId:room.roomId,revision:room.revision,entries:entries.map(e=>({...e.user,frameUrl:null,role:e.role,permissions:permissionsForRole(e.role),grantedAt:e.grantedAt.toISOString(),grantedBy:e.grantedBy.publicId}))}})}catch(e){return mobileApiError(e,"ROOM_ROLES_FAILED")}}

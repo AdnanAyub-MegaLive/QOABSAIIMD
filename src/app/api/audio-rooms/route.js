@@ -277,6 +277,7 @@ async function makeRoomIdle(room, body = {}) {
         isSpeaking: false,
       },
     });
+    await tx.audioRoomMember.updateMany({ where: { audioRoomId: room.id }, data: { socketCount: 0, lastSeenAt: new Date() } });
     return tx.audioRoom.update({
       where: { id: room.id },
       data: {
@@ -332,6 +333,12 @@ function serializeRoom(room, perks, origin) {
     participantCount: room.participantCount,
     isLocked: Boolean(room.passwordHash),
     chatLocked: Boolean(room.chatLocked),
+    announcement: room.announcement ?? null,
+    language: room.language ?? null,
+    tags: room.tags ?? [],
+    privacyMode: room.privacyMode ?? "PUBLIC",
+    paidEntryCoins: room.paidEntryCoins?.toString() ?? null,
+    revision: room.revision ?? 0,
     joiningDisabled: room.joiningDisabled,
     joiningDisabledUntil: room.joiningDisabledUntil?.toISOString() ?? null,
     isBlocked: room.isBlocked,

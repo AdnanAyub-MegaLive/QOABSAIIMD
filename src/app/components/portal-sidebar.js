@@ -14,6 +14,8 @@ export const portalNavigation = [
   ["Uploads", "/uploads"],
   ["Daily Tasks", "/daily-tasks"],
   ["Red Envelopes", "/red-envelopes"],
+  ["Room Appearance", "/room-appearance"],
+  ["Room Management", "/room-management"],
   ["Rankings", "/rankings"],
   ["Message History", "/messages"],
   ["Audit Logs", "/audit-logs"],
