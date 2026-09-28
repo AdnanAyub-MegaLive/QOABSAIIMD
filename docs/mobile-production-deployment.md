@@ -26,8 +26,10 @@ commit production values.
 | `MOBILE_SESSION_TTL_SECONDS` | No | Portal session lifetime; defaults to 30 days. |
 | `GEOLOCATION_REQUIRED` | Yes in production | Requires a trusted country result for every registration. |
 | `TRUST_PROXY_GEO_HEADERS` | Yes in production | Allows country headers only after the proxy has removed client-supplied copies and set its own value. |
-| `TRTC_SDK_APP_ID` | Yes | Tencent TRTC application identifier. |
-| `TRTC_SECRET_KEY` | Yes | Server-only TRTC signing secret. |
+| `LIVEKIT_URL` | Yes | Public `wss://` LiveKit endpoint. |
+| `LIVEKIT_API_KEY` | Yes | Server-only LiveKit API key. |
+| `LIVEKIT_API_SECRET` | Yes | Server-only LiveKit signing secret. |
+| `LIVEKIT_TOKEN_TTL_SECONDS` | No | Token lifetime; defaults to 600 seconds. |
 | `MOBILE_API_BASE_URL` | Yes | Canonical public HTTPS portal origin, without a trailing slash. |
 | `MOBILE_APP_ORIGIN` | Yes for browser clients | Explicit web origin allowed by CORS; native Android requests do not use browser CORS. |
 | `PORT` | Yes | Internal custom-server port, normally `3000`. |

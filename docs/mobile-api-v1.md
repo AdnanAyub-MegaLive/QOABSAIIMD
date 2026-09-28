@@ -146,10 +146,9 @@ with a null country.
 | Refresh session | `POST /api/v1/auth/refresh` | Requires a device-bound session |
 | Logout | `POST /api/v1/auth/logout` | Invalidates all portal sessions for that user |
 | Read/update own profile | `GET`/`PATCH /api/v1/users/me` | Current server-authoritative profile DTO, including ISO alpha-2 `country` |
-| Read/manage own room | `GET`/`POST /api/v1/audio-rooms` | Existing room DTO and TRTC rules apply |
+| Read/manage own room | `GET`/`POST /api/v1/audio-rooms` | Existing room DTO and LiveKit rules apply |
 | Discover/search rooms | `GET /api/v1/audio-rooms/discover?country=PK&includeIdle=true` and `/search?includeIdle=true` | Defaults to listener-joinable `LIVE` rooms; `includeIdle=true` also returns visible `IDLE` rooms, while blocked/terminated rooms remain excluded |
-| Request TRTC credentials | `POST /api/v1/audio-rooms/trtc-token` | Requires an active room and portal session |
-| Request LiveKit credentials | `POST /api/v1/audio-rooms/livekit-token` | Optional second provider; publish requires room ownership or a persisted seat |
+| Request LiveKit credentials | `POST /api/v1/audio-rooms/livekit-token` | Publish requires room ownership or a persisted seat |
 | Wallet overview | `GET /api/v1/wallet` | Coin, diamond/salary, coupon, and recharge balances |
 | Coin packages | `GET /api/v1/wallet/coin-packages` | Active provider-neutral packages and prices |
 | Wallet ledger | `GET /api/v1/wallet/transactions?limit=20&cursor=...` | Cursor-paginated, immutable financial history |
@@ -379,7 +378,7 @@ session version and disconnects all of that account's portal sockets.
 
 The default token lifetime is 30 days and is configured server-side with
 `MOBILE_SESSION_TTL_SECONDS` (5 minutes to 90 days). Never expose `AUTH_SECRET`
-or any TRTC signing secret to Android.
+or any LiveKit signing secret to Android.
 
 ## Google Sign-In
 

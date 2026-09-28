@@ -42,7 +42,7 @@ and after import. Do not use a one-way “copy completed” flag as validation.
 
 - Run portal APIs against staging copies first.
 - Test two real Android devices: login, session refresh/logout, room discovery,
-  Socket.IO join/leave, TRTC audience/speaker roles, gift/wallet flow, bans,
+  Socket.IO join/leave, LiveKit audience/speaker roles, gift/wallet flow, bans,
   and reconnects.
 - Enable v1 for internal staff and a limited pilot cohort before the public
   release.
@@ -65,4 +65,4 @@ acceptance checks fail. Keep backups and immutable wallet audit records.
 Only decommission a legacy domain after its portal replacement has been stable
 through an agreed observation period, its data has been reconciled, and a
 restore/export plan is tested. Revoke legacy credentials separately from the
-portal session and TRTC credentials.
+portal session and LiveKit credentials.

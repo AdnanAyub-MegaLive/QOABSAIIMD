@@ -105,6 +105,22 @@ export async function POST(request) {
       }
     }
     const grossCoins = giftAsset.coinPrice * BigInt(quantity);
+    let luckyRewardBps = 0;
+    let requestedLuckyReward = 0n;
+    if (giftAsset.giftTier === "LUCKY") {
+      const min = Math.max(0, Math.min(50_000, giftAsset.giftRewardMinBps ?? 0));
+      const max = Math.max(min, Math.min(50_000, giftAsset.giftRewardMaxBps ?? 10_000));
+      luckyRewardBps = randomInt(min, max + 1);
+      requestedLuckyReward = coinsForShare(grossCoins, luckyRewardBps);
+    }
+    const blindBoxReward = giftAsset.giftTier === "BLIND_BOX"
+      ? await prisma.uploadAsset.findFirst({
+          where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } },
+          select: { id: true, publicId: true, name: true, mimeType: true },
+          orderBy: { createdAt: "asc" },
+          skip: randomInt(0, Math.max(1, await prisma.uploadAsset.count({ where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } } }))),
+        })
+      : null;
     const isHost = Boolean(talent || recipientUser?.appRoles.includes("HOST"));
     const agencyId = talent?.agencyId ?? recipientUser?.agencyId ?? null;
     if (isHost && !agencyId) {
@@ -132,9 +148,11 @@ export async function POST(request) {
       const reusableCoins = isHost
         ? 0n
         : coinsForShare(grossCoins, policy.normalUserReusableShareBps);
-      const companyCoins = isHost
+      let companyCoins = isHost
         ? grossCoins - hostSalaryCoins - agencyCoins
         : grossCoins - reusableCoins;
+      const luckyRewardCoins = requestedLuckyReward > companyCoins ? companyCoins : requestedLuckyReward;
+      companyCoins -= luckyRewardCoins;
 
       const gift = await tx.giftTransaction.create({
         data: {
@@ -220,6 +238,11 @@ export async function POST(request) {
           policyVersion: policy.version,
         },
       });
+      if (blindBoxReward) await tx.userGiftInventory.upsert({
+        where: { userId_giftAssetId: { userId: sessionUser.id, giftAssetId: blindBoxReward.id } },
+        create: { userId: sessionUser.id, giftAssetId: blindBoxReward.id, quantity },
+        update: { quantity: { increment: quantity } },
+      });
       await tx.auditLog.create({
         data: {
           action: "GIFT_SETTLED",
@@ -239,13 +262,7 @@ export async function POST(request) {
           },
         },
       });
-      let luckyRewardCoins = 0n;
-      if (giftAsset.giftTier === "LUCKY") {
-        const min = giftAsset.giftRewardMinBps ?? 0, max = giftAsset.giftRewardMaxBps ?? 20000;
-        const rewardBps = randomInt(min, Math.max(min + 1, max + 1));
-        luckyRewardCoins = coinsForShare(grossCoins, rewardBps);
-        if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); await tx.walletTransaction.create({ data: ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps } }) }); }
-      }
+      if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); await tx.walletTransaction.create({ data: ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps: luckyRewardBps } }) }); }
       const sender = await tx.user.findUniqueOrThrow({
         where: { id: sessionUser.id },
         select: { coinBalance: true },
@@ -267,8 +284,7 @@ export async function POST(request) {
     }
 
     const origin = requestOrigin(request);
-    let revealedGift = null;
-    if (giftAsset.giftTier === "BLIND_BOX") { const pool = await prisma.uploadAsset.findMany({ where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } }, select: { publicId: true, name: true, mimeType: true } }); if (pool.length) { const chosen = pool[randomInt(0, pool.length)]; revealedGift = { ...chosen, mediaUrl: createPublicDisplayAssetUrl(origin, chosen.publicId) }; } }
+    const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, mimeType: blindBoxReward.mimeType, quantity, mediaUrl: createPublicDisplayAssetUrl(origin, blindBoxReward.publicId) } : null;
     await Promise.allSettled([addDailyTaskProgress(sessionUser.id, "SEND_GIFTS", quantity), addDailyTaskProgress(sessionUser.id, "TOP_SUPPORTER", quantity)]);
     const mediaUrl = createPublicDisplayAssetUrl(
       origin,

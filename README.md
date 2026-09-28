@@ -9,19 +9,16 @@ seats, and real-time Socket.IO activity.
 - Next.js 16 and React 19
 - PostgreSQL with Prisma
 - Socket.IO for real-time portal and mobile events
-- Tencent TRTC for Android audio rooms
-- LiveKit as an optional second Android audio provider
+- LiveKit for Android audio and video rooms
 
 ## Configure
 
-Create `.env.local` with the database, authentication, and TRTC values required
+Create `.env.local` with the database, authentication, and LiveKit values required
 by your deployment. Do not commit this file.
 
 ```dotenv
 DATABASE_URL=postgresql://...
 AUTH_SECRET=replace-with-a-long-random-value
-TRTC_SDK_APP_ID=1400000000
-TRTC_SECRET_KEY=your-tencent-trtc-secret
 LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your-livekit-api-key
 LIVEKIT_API_SECRET=your-livekit-api-secret
@@ -31,12 +28,7 @@ MOBILE_SESSION_TTL_SECONDS=2592000
 MOBILE_APP_ORIGIN=https://your-browser-client.example
 ```
 
-Enable **permission key verification** for the TRTC application in Tencent's
-console. The portal issues short-lived, room-scoped Android credentials at
-`POST /api/audio-rooms/trtc-token`; the Android app must never contain
-`TRTC_SECRET_KEY`.
-
-When LiveKit is configured, clients can request a second room-scoped credential
+When LiveKit is configured, clients request a room-scoped credential
 from `POST /api/v1/audio-rooms/livekit-token`. Listeners receive subscribe-only
 access, while only the room owner or a currently seated user may publish. The
 LiveKit API key and secret must remain on the portal server.
@@ -144,7 +136,5 @@ npm run build
 
 ## Notes
 
-- The `trtc-sdk-v5` package is the Web SDK. JDAX Android should integrate the
-  native Tencent TRTC Android SDK and obtain its credentials from this portal.
-- TRTC and LiveKit are both supported. Socket.IO and Prisma remain the
+- LiveKit is the only media transport. Socket.IO and Prisma remain the
   authoritative source for room membership, seats, and publish permission.

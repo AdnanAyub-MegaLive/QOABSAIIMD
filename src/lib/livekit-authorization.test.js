@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TokenVerifier } from "livekit-server-sdk";
-import { issueLiveKitAccess } from "./livekit-authorization";
+import { isLiveKitConfigured, issueLiveKitAccess } from "./livekit-authorization";
 
 const apiKey = "test-api-key";
 const apiSecret = "test-api-secret-with-enough-entropy";
@@ -15,6 +15,19 @@ function configure() {
 }
 
 describe("LiveKit authorization", () => {
+  it("allows a private-LAN ws endpoint during local development", () => {
+    configure();
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("LIVEKIT_URL", "ws://192.168.88.167:7880");
+    expect(isLiveKitConfigured()).toBe(true);
+  });
+
+  it("rejects insecure ws endpoints in production", () => {
+    configure();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("LIVEKIT_URL", "ws://192.168.88.167:7880");
+    expect(isLiveKitConfigured()).toBe(false);
+  });
   it("issues a room-bound subscribe-only token for a listener", async () => {
     configure();
     const access = await issueLiveKitAccess(

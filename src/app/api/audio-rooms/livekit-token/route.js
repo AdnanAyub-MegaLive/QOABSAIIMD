@@ -24,7 +24,7 @@ export async function POST(request) {
         seats: { where: { occupantUserId: user.id }, select: { id: true }, take: 1 },
       },
     });
-    if (!room || room.status !== "LIVE" || room.isBlocked) {
+    if (!room || !["LIVE", "IDLE"].includes(room.status) || room.isBlocked) {
       return mobileJson({ success: false, error: { code: "ROOM_UNAVAILABLE", message: "This room is unavailable." } }, 404);
     }
     const isOwner = room.ownerId === user.id;

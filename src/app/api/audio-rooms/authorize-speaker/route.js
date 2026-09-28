@@ -5,9 +5,7 @@ import {
   mobileOptions,
   requireMobileUser,
 } from "@/lib/mobile-api";
-import {
-  issueTrtcAccess,
-} from "@/lib/trtc-authorization";
+import { issueLiveKitAccess, updateLiveKitPublishPermission } from "@/lib/livekit-authorization";
 import { readAudioRoomSeatState } from "@/lib/audio-room-seats";
 import { requestOrigin } from "@/lib/user-perks";
 
@@ -153,12 +151,12 @@ async function changeAuthorization(request, forcedAuthorization) {
         category: "USER_MANAGEMENT",
         entityType: "AudioRoom",
         entityId: roomId,
-        description: `${owner.name} ${authorized ? "authorized" : "revoked"} TRTC audio publishing for ${speaker.publicId} in room ${roomId}.`,
+        description: `${owner.name} ${authorized ? "authorized" : "revoked"} LiveKit audio publishing for ${speaker.publicId} in room ${roomId}.`,
         metadata: {
           ownerId: owner.publicId,
           speakerId: speaker.publicId,
           seatId: occupiedSeat?.seatId ?? null,
-          trtcAccessIssued: true,
+          liveKitAccessIssued: true,
         },
       },
     });
@@ -167,6 +165,7 @@ async function changeAuthorization(request, forcedAuthorization) {
       ?.to(`audio-room:${roomId}`)
       .emit("audio-room:seat-update", { success: true, data: seatState });
 
+    await updateLiveKitPublishPermission(roomId, speaker.publicId, authorized);
     return mobileJson({
       success: true,
       data: {
@@ -175,11 +174,11 @@ async function changeAuthorization(request, forcedAuthorization) {
         authorized,
         seatId: occupiedSeat?.seatId ?? null,
         seatState,
-        trtc: issueTrtcAccess(speaker, roomId, authorized),
+        liveKit: await issueLiveKitAccess(speaker, roomId, authorized),
       },
     });
   } catch (error) {
-    console.error("TRTC speaker authorization failed", error);
+    console.error("LiveKit speaker authorization failed", error);
     return mobileApiError(error, "SPEAKER_AUTHORIZATION_FAILED");
   }
 }

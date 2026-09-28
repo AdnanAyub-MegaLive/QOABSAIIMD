@@ -11,8 +11,8 @@ function liveKitConfiguration() {
   const apiKey = String(process.env.LIVEKIT_API_KEY ?? "").trim();
   const apiSecret = String(process.env.LIVEKIT_API_SECRET ?? "").trim();
   const secureUrl = /^wss:\/\//i.test(url);
-  const localDevelopmentUrl = process.env.NODE_ENV !== "production" && /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(url);
-  if ((!secureUrl && !localDevelopmentUrl) || !apiKey || !apiSecret) {
+  const privateDevelopmentUrl = process.env.NODE_ENV !== "production" && /^ws:\/\/(localhost|127\.0\.0\.1|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(:\d+)?$/i.test(url);
+  if ((!secureUrl && !privateDevelopmentUrl) || !apiKey || !apiSecret) {
     throw new Error("LIVEKIT_NOT_CONFIGURED");
   }
   const configuredTtl = Number(process.env.LIVEKIT_TOKEN_TTL_SECONDS);

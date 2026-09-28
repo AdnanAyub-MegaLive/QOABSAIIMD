@@ -258,6 +258,11 @@ model User {
   hostedVideoLives           VideoLiveSession[]            @relation("VideoLiveHost")
   videoLiveViewers           VideoLiveViewer[]
   videoGuestRequests         VideoLiveGuestRequest[]
+  following                  UserFollow[]                  @relation("UserFollowing")
+  followers                  UserFollow[]                  @relation("UserFollowers")
+  videoLiveBans              VideoLiveBan[]                @relation("VideoLiveBanUser")
+  createdVideoLiveBans       VideoLiveBan[]                @relation("VideoLiveBanActor")
+  videoLiveReports           VideoLiveReport[]             @relation("VideoLiveReporter")
   legacyIdMappings           LegacyIdMapping[]
   totalTopUp                 BigInt                        @default(0)
   agency                     Agency?                       @relation("UserAgency", fields: [agencyId], references: [id], onDelete: SetNull)
@@ -290,6 +295,8 @@ model VideoLiveSession {
   gifts         GiftTransaction[]
   pkAsLeft      VideoLivePkSession[]    @relation("VideoPkLeft")
   pkAsRight     VideoLivePkSession[]    @relation("VideoPkRight")
+  bans          VideoLiveBan[]
+  reports       VideoLiveReport[]
 
   @@index([status, startedAt])
   @@index([hostId, startedAt])
@@ -315,16 +322,62 @@ model VideoLivePkSession {
 }
 
 model VideoLiveViewer {
-  sessionId  String
-  userId     String
-  active     Boolean          @default(true)
-  joinedAt   DateTime         @default(now())
-  lastSeenAt DateTime         @updatedAt
-  session    VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String
+  userId      String
+  active      Boolean          @default(true)
+  socketCount Int              @default(0)
+  joinedAt    DateTime         @default(now())
+  lastSeenAt  DateTime         @updatedAt
+  session     VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([sessionId, userId])
   @@index([sessionId, active])
+}
+
+model UserFollow {
+  followerId String
+  followedId String
+  createdAt  DateTime @default(now())
+  follower   User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   User     @relation("UserFollowers", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followedId])
+  @@index([followedId, createdAt])
+  @@index([followerId, createdAt])
+}
+
+model VideoLiveBan {
+  id        String           @id
+  sessionId String
+  userId    String
+  actorId   String
+  reason    String?
+  expiresAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime         @default(now())
+  session   VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User             @relation("VideoLiveBanUser", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User             @relation("VideoLiveBanActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, userId, expiresAt])
+  @@index([sessionId, createdAt])
+}
+
+model VideoLiveReport {
+  id         String           @id
+  sessionId  String
+  reporterId String
+  reason     String
+  details    String?
+  status     String           @default("OPEN")
+  createdAt  DateTime         @default(now())
+  resolvedAt DateTime?
+  session    VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reporter   User             @relation("VideoLiveReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status, createdAt])
+  @@index([reporterId, createdAt])
 }
 
 model VideoLiveGuestRequest {
