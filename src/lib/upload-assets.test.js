@@ -12,6 +12,13 @@ import {
   validateUploadAssetContract,
 } from "./upload-assets";
 
+describe("business-card assets", () => {
+  it("accepts supported media and rejects WebM", () => {
+    expect(validateUploadAssetContract({ category: "BUSINESS_CARD", mimeType: "video/mp4" })).toEqual({ placement: null });
+    expect(() => validateUploadAssetContract({ category: "BUSINESS_CARD", mimeType: "video/webm" })).toThrow("Business cards");
+  });
+});
+
 describe("serializeUploadAsset", () => {
   it("preserves Store distribution fields after a database reload", () => {
     const asset = serializeUploadAsset(

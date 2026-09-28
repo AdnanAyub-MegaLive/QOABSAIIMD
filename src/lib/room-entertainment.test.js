@@ -1,0 +1,2 @@
+import { describe,expect,it } from "vitest";import { normalizeEntertainmentUpdate } from "./room-entertainment";
+describe("room entertainment",()=>{it("never accepts a device-local music path",()=>{expect(normalizeEntertainmentUpdate({kind:"music",state:{status:"playing",positionMs:12.8,localUri:"file:///secret.mp3"}})).toEqual({kind:"music",state:{status:"PLAYING",positionMs:12}})});it("supports clearing one state",()=>{expect(normalizeEntertainmentUpdate({kind:"watch",state:null})).toEqual({kind:"watch",state:null})})});

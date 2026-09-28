@@ -8,6 +8,7 @@ import { formatDateOnly } from "@/lib/date-only";
 import { normalizeGooglePhone, verifyGoogleIdToken } from "@/lib/google-sso";
 import { bannedAccountLoginResponse } from "@/lib/mobile-login-response";
 import { clientIp, v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
+import { requestOrigin,resolveUserPerks } from "@/lib/user-perks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -208,6 +209,7 @@ export async function POST(request) {
         await reconcileExpiredSpecialIds();
         const identity = await getEffectiveUserId(account.id, account.publicId);
         const session = mobileSession.createMobileSession(account, { deviceId });
+        const perks=(await resolveUserPerks([account],requestOrigin(request),["FRAMES","BADGES","BUSINESS_CARD"])).get(account.publicId);
         return v1Json(request, requestId, {
           success: true,
           data: {
@@ -223,6 +225,11 @@ export async function POST(request) {
               country: account.country,
               bio: account.bio,
               profileImage: account.profileImage,
+              frameUrl: perks?.frameUrl??null,
+              badgeUrl: perks?.badgeUrl??null,
+              businessCardUrl: perks?.businessCardUrl??null,
+              businessCardPosterUrl: perks?.businessCardPosterUrl??null,
+              businessCardMimeType: perks?.businessCardMimeType??null,
               gender: account.gender,
               dob: formatDateOnly(account.dob),
               isVerified: Boolean(account.isVerified),

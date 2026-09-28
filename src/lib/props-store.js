@@ -11,6 +11,7 @@ export const equippablePropCategories = new Set([
   "CHAT_BOXES",
   "ROOM_BACKGROUNDS",
   "SEAT_STYLES",
+  "BUSINESS_CARD",
 ]);
 
 export function entitlementExpiry(asset, from = new Date()) {
@@ -117,6 +118,8 @@ export function storeAssetPayload(asset, user, entitlement, equipped) {
     mimeType: asset.mimeType,
     fileSize: asset.fileSize,
     url: asset.url,
+    posterUrl: asset.posterFileData ? `${asset.url}&poster=1` : null,
+    posterMimeType: asset.posterMimeType ?? null,
     distribution: asset.distribution,
     price: asset.coinPrice?.toString() ?? null,
     minimumVipLevel: asset.minimumVipLevel,

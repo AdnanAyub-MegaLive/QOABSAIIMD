@@ -18,7 +18,7 @@ const allowedTypes = new Set([
 ]);
 const maxFileSize = 15 * 1024 * 1024;
 const distributions = new Set(["FREE", "MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY"]);
-const giftTiers = new Set(["CLASSIC", "PREMIUM", "VIP"]);
+const giftTiers = new Set(["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"]);
 const assignmentInclude = {
   assignments: {
     include: {
@@ -119,7 +119,7 @@ function cleanGiftTier(value, required = false) {
   const tier = String(value ?? "").trim().toUpperCase();
   if (!tier && !required) return null;
   if (!giftTiers.has(tier)) {
-    const error = new Error("Gift tier must be Classic, Premium, or VIP.");
+    const error = new Error("Gift tier must be Classic, Premium, VIP, Lucky, or Blind Box.");
     error.code = "VALIDATION_ERROR";
     throw error;
   }
@@ -238,6 +238,8 @@ export async function POST(request) {
       isBanner,
     );
     const giftTier = cleanGiftTier(form.get("giftTier"), isGift);
+    const giftRewardMinBps = giftTier === "LUCKY" ? Math.max(0, Math.min(50000, Number(form.get("giftRewardMinBps")) || 0)) : null;
+    const giftRewardMaxBps = giftTier === "LUCKY" ? Math.max(giftRewardMinBps, Math.min(50000, Number(form.get("giftRewardMaxBps")) || 20000)) : null;
     if (isGift && (!distribution.coinPrice || distribution.coinPrice <= 0n)) {
       const error = new Error("Gift unit price must be at least 1 coin.");
       error.code = "VALIDATION_ERROR";
@@ -299,6 +301,7 @@ export async function POST(request) {
       (form.get("isRoomBackground") === "true" ||
         category === "ROOM_BACKGROUNDS");
     const file = form.get("file");
+    const posterFile = form.get("posterFile");
     if (!name || name.length > 80)
       return Response.json(
         {
@@ -361,9 +364,19 @@ export async function POST(request) {
         },
         { status: 413 },
       );
+    const hasPoster = posterFile instanceof File && posterFile.size > 0;
+    if (hasPoster && !["image/png", "image/jpeg", "image/webp"].includes(posterFile.type))
+      return Response.json({ success: false, error: { code: "UNSUPPORTED_POSTER_TYPE", message: "Poster images must be PNG, JPEG, or WebP." } }, { status: 415 });
+    if (hasPoster && posterFile.size > 5 * 1024 * 1024)
+      return Response.json({ success: false, error: { code: "POSTER_TOO_LARGE", message: "Poster images cannot exceed 5 MB." } }, { status: 413 });
+    if (hasPoster && category !== "BUSINESS_CARD")
+      return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Poster images are currently supported only for Business Cards." } }, { status: 422 });
+    if (category === "BUSINESS_CARD" && file.type === "video/mp4" && !hasPoster)
+      return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Video Business Cards require a poster image." } }, { status: 422 });
     const users = await resolveUsers(prisma, selectedIds);
     const publicId = `AST-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const bytes = Buffer.from(await file.arrayBuffer());
+    const posterBytes = hasPoster ? Buffer.from(await posterFile.arrayBuffer()) : null;
     const asset = await prisma.$transaction(async (tx) => {
       const created = await tx.uploadAsset.create({
         data: {
@@ -376,10 +389,16 @@ export async function POST(request) {
           mimeType: file.type,
           fileSize: file.size,
           fileData: bytes,
+          posterFileName: hasPoster ? posterFile.name.slice(0, 255) : null,
+          posterMimeType: hasPoster ? posterFile.type : null,
+          posterFileSize: hasPoster ? posterFile.size : null,
+          posterFileData: posterBytes,
           actionUrl,
           placement: assetContract.placement,
           sortOrder,
           giftTier,
+          giftRewardMinBps,
+          giftRewardMaxBps,
           isGlobal: isBanner || distribution.distribution === "FREE",
           isRoomBackground,
           ...distribution,

@@ -1,0 +1,1 @@
+ALTER TABLE "AudioRoomSeat" ADD COLUMN "isForceMuted" BOOLEAN NOT NULL DEFAULT false;

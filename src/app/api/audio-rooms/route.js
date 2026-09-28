@@ -274,6 +274,7 @@ async function makeRoomIdle(room, body = {}) {
         occupantUserId: null,
         occupiedAt: null,
         isMuted: true,
+        isForceMuted: false,
         isSpeaking: false,
       },
     });

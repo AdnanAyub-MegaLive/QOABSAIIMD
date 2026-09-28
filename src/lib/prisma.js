@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-09-28-paid-room-admission-v35";
+const prismaSchemaVersion = "2026-09-28-feature-parity-v40";
 const requiredUserFields = [
   "sessionVersion",
   "forcedLogoutAt",
@@ -18,6 +18,8 @@ const requiredUserFields = [
   "agencyId",
   "hostSalaryCoinBalance",
   "couponBalance",
+  "profilePrivate",
+  "showDateOfBirth",
 ];
 
 const createPrismaClient = () =>
@@ -58,6 +60,8 @@ const cachedClientMatchesSchema =
     "terminatedUntil",
     "passwordHash",
     "chatLocked",
+    "chatRevision",
+    "chatClearedAt",
     "roomBackgroundAssetId",
     "roomBackgroundVersion",
     "seatStyleAssetId",
@@ -68,8 +72,9 @@ const cachedClientMatchesSchema =
     "privacyMode",
     "paidEntryCoins",
     "revision",
+    "seatRevision",
   ].every((field) => cachedAudioRoomFields.includes(field)) &&
-  ["details", "tags", "isGlobal", "actionUrl", "placement", "sortOrder"].every(
+  ["details", "tags", "isGlobal", "actionUrl", "placement", "sortOrder", "posterFileName", "posterMimeType", "posterFileSize", "posterFileData", "giftRewardMinBps", "giftRewardMaxBps"].every(
     (field) => cachedUploadAssetFields.includes(field),
   ) &&
   ["durationMinutes", "expiresAt"].every((field) =>
@@ -106,6 +111,7 @@ const cachedClientMatchesSchema =
     "audioRoomModerationLog",
     "audioRoomMember",
     "audioRoomAdmission",
+    "audioRoomSeatInvitation",
     "redEnvelope",
     "redEnvelopeClaim",
     "redEnvelopeSettings",

@@ -1,0 +1,9 @@
+import { prisma } from "@/lib/prisma";
+import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
+import { requireRoomPermission } from "@/lib/audio-room-management";
+import { emitToAudioRoom } from "@/lib/realtime";
+import { normalizeEntertainmentUpdate, serializeEntertainment } from "@/lib/room-entertainment";
+
+export function OPTIONS(){ return mobileOptions(); }
+export async function GET(request,{params}){try{await requireMobileUser(request);const{roomId}=await params;const room=await prisma.audioRoom.findUnique({where:{roomId:decodeURIComponent(roomId)},include:{entertainmentState:true}});if(!room)throw new Error("ROOM_UNAVAILABLE");return mobileJson({success:true,data:{roomId:room.roomId,...serializeEntertainment(room.entertainmentState)}})}catch(e){return mobileApiError(e,"ROOM_ENTERTAINMENT_FAILED")}}
+export async function PATCH(request,{params}){try{const user=await requireMobileUser(request);const{roomId}=await params;const room=await prisma.audioRoom.findUnique({where:{roomId:decodeURIComponent(roomId)},select:{id:true,roomId:true,ownerId:true}});if(!room)throw new Error("ROOM_UNAVAILABLE");await requireRoomPermission(room,user.id,"canManageMusic");const{kind,state}=normalizeEntertainmentUpdate(await request.json());const updated=await prisma.audioRoomEntertainmentState.upsert({where:{audioRoomId:room.id},create:{audioRoomId:room.id,[kind]:state,revision:1,updatedById:user.id},update:{[kind]:state,revision:{increment:1},updatedById:user.id}});const data={roomId:room.roomId,...serializeEntertainment(updated),changedKind:kind,changedBy:{publicId:user.publicId}};emitToAudioRoom(room.roomId,"audio-room:entertainment-changed",{success:true,data});return mobileJson({success:true,data})}catch(e){return mobileApiError(e,"ROOM_ENTERTAINMENT_UPDATE_FAILED")}}

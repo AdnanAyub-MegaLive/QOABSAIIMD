@@ -4,6 +4,7 @@ import mobileSession from "../../../../lib/mobile-session.cjs";
 import { formatDateOnly, parseDateOnly } from "../../../../lib/date-only";
 import { generateNumericPublicId } from "../../../../lib/public-id";
 import { requiresSignupGeolocation, resolveSignupCountry } from "../../../../lib/geo-country";
+import { requestOrigin,resolveUserPerks } from "../../../../lib/user-perks";
 
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
@@ -70,6 +71,7 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch {
+    const perks=(await resolveUserPerks([user],requestOrigin(request),["FRAMES","BADGES","BUSINESS_CARD"])).get(user.publicId);
     return json(
       {
         success: false,
@@ -194,6 +196,11 @@ export async function POST(request) {
             country: user.country,
             bio: user.bio,
             profileImage: user.profileImage,
+            frameUrl: perks?.frameUrl??null,
+            badgeUrl: perks?.badgeUrl??null,
+            businessCardUrl: perks?.businessCardUrl??null,
+            businessCardPosterUrl: perks?.businessCardPosterUrl??null,
+            businessCardMimeType: perks?.businessCardMimeType??null,
             gender: user.gender,
             dob: formatDateOnly(user.dob),
             isVerified: Boolean(user.isVerified),

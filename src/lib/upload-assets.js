@@ -9,6 +9,9 @@ export const uploadCategories = {
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
   "Seat Styles": "SEAT_STYLES",
+  "Business Cards": "BUSINESS_CARD",
+  "VIP Stickers": "VIP_STICKERS",
+  "Campaign Widgets": "CAMPAIGN_WIDGETS",
 };
 
 export const validUploadCategories = new Set(Object.values(uploadCategories));
@@ -26,6 +29,7 @@ export const roomBackgroundMimeTypes = new Set([
   "video/mp4",
 ]);
 export const seatStyleMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+export const businessCardMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "video/mp4"]);
 export const bannerCatalogOrderBy = [
   { sortOrder: "asc" },
   { createdAt: "asc" },
@@ -100,6 +104,9 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (category === "SEAT_STYLES" && mimeType && !seatStyleMimeTypes.has(mimeType)) {
     throw validationError("Seat styles must be PNG, JPEG, or WebP images.");
   }
+  if (category === "BUSINESS_CARD" && mimeType && !businessCardMimeTypes.has(mimeType)) {
+    throw validationError("Business cards must be PNG, JPEG, WebP, or MP4.");
+  }
   if (String(placement ?? "").trim()) {
     throw validationError("Placement is only supported for banner assets.");
   }
@@ -129,6 +136,9 @@ export function serializeUploadAsset(asset,url) {
     mimeType:asset.mimeType,
     fileSize:asset.fileSize,
     url,
+    posterUrl:asset.posterFileData?`${url}${url.includes("?")?"&":"?"}poster=1`:null,
+    posterMimeType:asset.posterMimeType??null,
+    posterFileSize:asset.posterFileSize??null,
     actionUrl:asset.category==="BANNERS"
       ? safeBannerActionUrl(asset.actionUrl)
       : asset.actionUrl,

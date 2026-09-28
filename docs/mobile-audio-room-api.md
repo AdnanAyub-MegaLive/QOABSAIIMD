@@ -408,3 +408,19 @@ and rooms owned by unavailable accounts are excluded.
 
 An invalid or expired token returns HTTP `401` with the error code
 `INVALID_SESSION`.
+# Room chat history and recovery
+
+`GET /api/v1/audio-rooms/{roomId}/messages?limit=30&cursor=...` requires the
+mobile bearer token and returns `{ roomId, chatRevision, retentionDays,
+nextCursor, messages }`. The cursor is opaque and must not be constructed by
+the client. The same first-page object is returned as `chatHistory` by the
+`audio-room:join` acknowledgement for reconnect recovery.
+
+Send with `audio-room:message` and `{ roomId, body, requestId }`. `requestId`
+is a client-generated stable value (maximum 100 characters). Reusing it for
+the same account and room acknowledges the stored message with
+`duplicate: true` without a second room broadcast.
+
+`audio-room:clear-chat` advances the canonical `chatRevision`; it does not
+delete prior records. Clients receiving `audio-room:chat-cleared` must discard
+messages from older revisions. Member-visible history is 30 days.

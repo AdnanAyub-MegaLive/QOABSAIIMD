@@ -681,6 +681,7 @@ function UserRow({ user, meta, action, tone, onAction }) {
 function UploadModal({ active, users, onClose, onCreated }) {
   const isBanner = active === "Banners";
   const isGift = active === "Gifts";
+  const isBusinessCard = active === "Business Cards";
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
   const [tags, setTags] = useState("");
@@ -691,10 +692,13 @@ function UploadModal({ active, users, onClose, onCreated }) {
   const [storeVisible, setStoreVisible] = useState(true);
   const [coinPrice, setCoinPrice] = useState("0");
   const [giftTier, setGiftTier] = useState("CLASSIC");
+  const [giftRewardMinBps, setGiftRewardMinBps] = useState("0");
+  const [giftRewardMaxBps, setGiftRewardMaxBps] = useState("20000");
   const [minimumVipLevel, setMinimumVipLevel] = useState(1);
   const [minimumRecharge, setMinimumRecharge] = useState("1");
   const [defaultGrantDuration, setDefaultGrantDuration] = useState(null);
   const [file, setFile] = useState(null);
+  const [posterFile, setPosterFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [assignedUserIds, setAssignedUserIds] = useState([]);
   const [userQuery, setUserQuery] = useState("");
@@ -737,6 +741,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
     form.set("tags", JSON.stringify(parseTags(tags)));
     form.set("category", categories[active]);
     form.set("file", file);
+    if (posterFile) form.set("posterFile", posterFile);
     form.set("actionUrl", actionUrl.trim());
     if (isBanner) {
       form.set("placement", placement);
@@ -744,6 +749,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
     }
     if (isGift) {
       form.set("giftTier", giftTier);
+      form.set("giftRewardMinBps", giftRewardMinBps);
+      form.set("giftRewardMaxBps", giftRewardMaxBps);
       form.set("coinPrice", String(coinPrice));
       form.set("distribution", "STORE");
       form.set("storeVisible", "false");
@@ -889,12 +896,22 @@ function UploadModal({ active, users, onClose, onCreated }) {
               </p>
             </div>
           )}
+          {isBusinessCard && (
+            <Field label="Poster image (required for video cards)">
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setPosterFile(event.target.files?.[0] ?? null)} className={inputClass} />
+              <p className="mt-1.5 text-[10px] text-[#7b8e89]">PNG, JPEG, or WebP; maximum 5 MB. Used before a video card starts playing.</p>
+            </Field>
+          )}
           {isGift && (
             <GiftCatalogSettings
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
               onCoinPrice={setCoinPrice}
+              giftRewardMinBps={giftRewardMinBps}
+              onGiftRewardMinBps={setGiftRewardMinBps}
+              giftRewardMaxBps={giftRewardMaxBps}
+              onGiftRewardMaxBps={setGiftRewardMaxBps}
             />
           )}
           {!isBanner && !isGift && (
@@ -1065,7 +1082,7 @@ function AssignmentPeriod({ value, onChange }) {
   );
 }
 
-function GiftCatalogSettings({ giftTier, onGiftTier, coinPrice, onCoinPrice }) {
+function GiftCatalogSettings({ giftTier, onGiftTier, coinPrice, onCoinPrice, giftRewardMinBps, onGiftRewardMinBps, giftRewardMaxBps, onGiftRewardMaxBps }) {
   return (
     <fieldset className="rounded-xl border border-[#cadbd7] bg-[#f8fbfa] p-4">
       <legend className="px-2 text-xs font-bold text-[#294a45]">
@@ -1081,6 +1098,8 @@ function GiftCatalogSettings({ giftTier, onGiftTier, coinPrice, onCoinPrice }) {
             <option value="CLASSIC">Classic</option>
             <option value="PREMIUM">Premium</option>
             <option value="VIP">VIP</option>
+            <option value="LUCKY">Lucky Gift</option>
+            <option value="BLIND_BOX">Blind Box</option>
           </select>
         </Field>
         <Field label="Unit price (coins)">
@@ -1095,6 +1114,7 @@ function GiftCatalogSettings({ giftTier, onGiftTier, coinPrice, onCoinPrice }) {
           />
         </Field>
       </div>
+      {giftTier === "LUCKY" && onGiftRewardMinBps && <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Minimum reward (basis points)"><input type="number" min="0" max="50000" value={giftRewardMinBps} onChange={(event)=>onGiftRewardMinBps(event.target.value)} className={inputClass}/></Field><Field label="Maximum reward (basis points)"><input type="number" min="0" max="50000" value={giftRewardMaxBps} onChange={(event)=>onGiftRewardMaxBps(event.target.value)} className={inputClass}/></Field></div>}
       <p className="mt-3 text-[10px] leading-4 text-[#748681]">
         Gifts are consumable. Users spend this price each time they send one;
         gifts are never owned, assigned, or equipped.

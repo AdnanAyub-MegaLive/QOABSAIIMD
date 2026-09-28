@@ -16,6 +16,10 @@ const publicDisplayCategories = new Set([
   "TAIL_LIGHTS",
   "RIDES",
   "GIFTS",
+  "CHAT_BOXES",
+  "BUSINESS_CARD",
+  "VIP_STICKERS",
+  "CAMPAIGN_WIDGETS",
 ]);
 
 export async function GET(request, { params }) {
@@ -27,6 +31,9 @@ export async function GET(request, { params }) {
       fileData: true,
       fileName: true,
       mimeType: true,
+      posterFileData: true,
+      posterFileName: true,
+      posterMimeType: true,
       category: true,
       active: true,
       isGlobal: true,
@@ -105,6 +112,8 @@ export async function GET(request, { params }) {
 }
 
 function mediaResponse(asset, request) {
+  const wantsPoster = new URL(request.url).searchParams.get("poster") === "1";
+  if (wantsPoster && asset.posterFileData) asset = { ...asset, fileData: asset.posterFileData, fileName: asset.posterFileName, mimeType: asset.posterMimeType };
   const total = asset.fileData.byteLength;
   const range = asset.mimeType === "video/mp4"
     ? parseByteRange(request.headers.get("range"), total)

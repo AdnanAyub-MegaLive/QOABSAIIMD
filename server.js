@@ -31,7 +31,9 @@ app.prepare().then(async()=>{
   const {activeRoomBan,resolveRoomAccess,serializeRoomMembers}=await import("./src/lib/audio-room-management.js");
   const {addDailyTaskProgress}=await import("./src/lib/daily-tasks.js");
   const {canSendLockedRoomMessage,normalizeRoomPassword,roomControlError}=await import("./src/lib/audio-room-controls.js");
-  const {ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
+  const {readRoomChatHistory,serializeRoomChatMessages}=await import("./src/lib/audio-room-chat.js");
+  const {serializeEntertainment}=await import("./src/lib/room-entertainment.js");
+  const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>handle(request,response));
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
@@ -146,12 +148,13 @@ app.prepare().then(async()=>{
     if(!room||room.status!=="LIVE")return false;
     const endedAt=new Date();
     await prisma.$transaction([prisma.audioRoomMember.updateMany({where:{audioRoomId:room.id},data:{socketCount:0,lastSeenAt:endedAt}}),prisma.audioRoom.update({where:{id:room.id},data:{status:"IDLE",participantCount:0,liveAudioUrl:null,endedAt}})]);
-    await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isSpeaking:false}});
+    await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isForceMuted:false,isSpeaking:false}});
     await prisma.auditLog.create({data:{action:"AUDIO_ROOM_AUTO_RELEASED",category:"USER_MANAGEMENT",entityType:"AudioRoom",entityId:roomId,description:`Audio room ${roomId} became empty; live resources were released and its persistent ID was retained.`,metadata:{source:"SOCKET_IO",ownerId:room.owner.publicId,persistentRoomId:true}}});
     io.to(`user:${room.owner.publicId}`).emit("audio-room:idle",{success:true,data:{roomId,status:"IDLE",endedAt:endedAt.toISOString(),roomIdRetained:true}});
     return true;
   };
-  const broadcastAudioRoomSeatState=async(room,origin,participantCount)=>{
+  const broadcastAudioRoomSeatState=async(room,origin,participantCount,mutated=false)=>{
+    if(mutated)await advanceAudioRoomSeatRevision(room.id);
     const seatState=await readAudioRoomSeatState(room,origin);
     io.to(`audio-room:${room.roomId}`).emit("audio-room:seat-update",{
       success:true,
@@ -315,7 +318,7 @@ app.prepare().then(async()=>{
       try{
         const requestedRoomId=String(roomId??"");
         await reconcileExpiredAudioRoomRestrictions(requestedRoomId);
-        const room=await prisma.audioRoom.findUnique({where:{roomId:requestedRoomId},include:{owner:{select:{id:true,publicId:true,name:true,profileImage:true,gender:true,dob:true,isVerified:true,isOfficial:true}},roomBackgroundAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},seatStyleAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},seats:{where:{occupantUserId:user.id},select:{id:true},take:1}}});
+        const room=await prisma.audioRoom.findUnique({where:{roomId:requestedRoomId},include:{owner:{select:{id:true,publicId:true,name:true,profileImage:true,gender:true,dob:true,isVerified:true,isOfficial:true}},roomBackgroundAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},seatStyleAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},entertainmentState:true,seats:{where:{occupantUserId:user.id},select:{id:true},take:1}}});
         if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(room.isBlocked)return ack({success:false,error:{code:"ROOM_BLOCKED",details:{reason:room.blockedReason,expiresAt:room.blockedUntil?.toISOString()??null}}});
         if(room.status==="TERMINATED")return ack({success:false,error:{code:"ROOM_TERMINATED",details:{expiresAt:room.terminatedUntil?.toISOString()??null}}});
@@ -345,8 +348,11 @@ app.prepare().then(async()=>{
         const joiningPerks=joinedUserPerks.get(user.publicId);
         const seatState=await readAudioRoomSeatState(room,connectionOrigin);
         const ownerIdentity=await getEffectiveUserId(room.owner.id,room.owner.publicId);
-        const [liveKit,giftLeaderboard,access,members]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30})]);
-        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,revision:presence.revision??room.revision,announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,liveKit,roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        await prisma.audioRoomSeatInvitation.updateMany({where:{targetId:user.id,status:"PENDING",expiresAt:{lte:new Date()}},data:{status:"EXPIRED",respondedAt:new Date()}});
+        const pendingSeatInvitations=await prisma.audioRoomSeatInvitation.findMany({where:{audioRoomId:room.id,targetId:user.id,status:"PENDING",expiresAt:{gt:new Date()}},include:{inviter:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{createdAt:"desc"}});
+        const [liveKit,giftLeaderboard,access,members,chatHistory]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30}),readRoomChatHistory(room,connectionOrigin,{limit:30})]);
+        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,revision:presence.revision??room.revision,announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,liveKit,roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        for(const invitation of pendingSeatInvitations)socket.emit("audio-room:seat-invited",{success:true,data:{invitationId:invitation.id,roomId:room.roomId,seatId:invitation.seatId,status:invitation.status,expiresAt:invitation.expiresAt.toISOString(),inviter:invitation.inviter,recovered:true}});
         if(!alreadyJoined){
           io.to(roomChannel).emit("audio-room:entrance",{
             success:true,
@@ -372,6 +378,10 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:"ROOM_JOIN_FAILED",message:"Unable to join this room."}});
       }
     });
+    socket.on("live-video:join",async({liveId}={},ack=()=>{})=>{
+      try{const id=String(liveId??"");const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},include:{host:{select:{publicId:true,name:true,profileImage:true}},guestRequests:{where:{status:"APPROVED"},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{slot:"asc"}}}});if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live video is unavailable."}});socket.join(`live-video:${id}`);ack({success:true,data:{liveId:id,revision:live.revision,hostAway:live.hostAway,viewerCount:live.viewerCount,likeCount:live.likeCount,giftIncome:live.giftIncome.toString(),host:live.host,guests:live.guestRequests.map(g=>({requestId:g.id,slot:g.slot,user:g.user}))}})}catch(error){console.error("Live video join failed",error);ack({success:false,error:{code:"LIVE_JOIN_FAILED",message:"Unable to join this live video."}})}
+    });
+    socket.on("live-video:leave",async({liveId}={},ack=()=>{})=>{const id=String(liveId??"");await socket.leave(`live-video:${id}`);ack({success:true,data:{liveId:id}})});
     socket.on("audio-room:set-password",async({roomId,password}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");
@@ -395,7 +405,7 @@ app.prepare().then(async()=>{
     socket.on("audio-room:chat-lock",async({roomId,locked}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");
-        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,ownerId:true}});
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,ownerId:true,chatRevision:true}});
         if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(!(await resolveRoomAccess(room,user.id)).permissions.canManageChat)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});
         if(!socket.rooms.has(`audio-room:${id}`))return ack(roomControlError("JOIN_ROOM_FIRST"));
@@ -413,7 +423,9 @@ app.prepare().then(async()=>{
         if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(!(await resolveRoomAccess(room,user.id)).permissions.canManageChat)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});
         if(!socket.rooms.has(`audio-room:${id}`))return ack(roomControlError("JOIN_ROOM_FIRST"));
-        const data={roomId:id,by:{publicId:user.publicId,name:user.name},clearedAt:new Date().toISOString()};
+        const clearedAt=new Date();
+        const updated=await prisma.audioRoom.update({where:{id:room.id},data:{chatRevision:{increment:1},chatClearedAt:clearedAt},select:{chatRevision:true}});
+        const data={roomId:id,chatRevision:updated.chatRevision,by:{publicId:user.publicId,name:user.name},clearedAt:clearedAt.toISOString(),permanentlyDeleted:false};
         io.to(`audio-room:${id}`).emit("audio-room:chat-cleared",{success:true,data});
         ack({success:true,data});
       }catch(error){console.error("Audio room clear chat failed",error);ack({success:false,error:{code:"CHAT_CLEAR_FAILED",message:"Unable to clear the public screen."}});}
@@ -450,16 +462,21 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:"REACTION_SEND_FAILED",message:"Unable to send this room expression."}});
       }
     });
-    socket.on("audio-room:message",async({roomId,body}={},ack=()=>{})=>{
+    socket.on("audio-room:message",async({roomId,body,requestId}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");
         const text=typeof body==="string"?body.trim():"";
         if(!text||text.length>200)return ack({success:false,error:{code:"VALIDATION_ERROR",message:"Messages must be between 1 and 200 characters."}});
-        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,roomId:true,title:true,status:true,isBlocked:true,ownerId:true,chatLocked:true,seats:{where:{occupantUserId:user.id},select:{id:true},take:1}}});
+        const normalizedRequestId=String(requestId??"").trim();
+        if(normalizedRequestId.length>100)return ack({success:false,error:{code:"VALIDATION_ERROR",message:"requestId must not exceed 100 characters."}});
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,roomId:true,title:true,status:true,isBlocked:true,ownerId:true,chatLocked:true,chatRevision:true,seats:{where:{occupantUserId:user.id},select:{id:true},take:1}}});
         if(!room||room.status!=="LIVE"||room.isBlocked)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST"}});
         if(!canSendLockedRoomMessage(room,user.id))return ack(roomControlError("CHAT_LOCKED"));
-        const senderPerks=(await resolveUserPerks([user],connectionOrigin,["BADGES","CHAT_BOXES"])).get(user.publicId);
+        if(normalizedRequestId){
+          const duplicate=await prisma.audioRoomMessage.findFirst({where:{audioRoomId:room.id,senderId:user.id,requestId:normalizedRequestId},include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}}});
+          if(duplicate){const [data]=await serializeRoomChatMessages([duplicate],connectionOrigin);return ack({success:true,data:{...data,duplicate:true}})}
+        }
         const messageId=`ARM-${randomUUID().replaceAll("-","").slice(0,16).toUpperCase()}`;
         const storedMessage=await prisma.audioRoomMessage.create({
           data:{
@@ -471,25 +488,19 @@ app.prepare().then(async()=>{
             senderPublicId:user.publicId,
             senderName:user.name,
             body:text,
+            requestId:normalizedRequestId||null,
+            chatRevision:room.chatRevision,
           },
-          select:{createdAt:true},
+          include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}},
         });
-        const data={
-          id:messageId,
-          roomId:id,
-          body:text,
-          createdAt:storedMessage.createdAt.toISOString(),
-          sender:{
-            publicId:user.publicId,
-            name:user.name,
-            profileImage:user.profileImage??null,
-            badgeUrl:senderPerks?.badgeUrl??null,
-            chatBoxUrl:senderPerks?.chatBoxUrl??null,
-          },
-        };
+        const [data]=await serializeRoomChatMessages([storedMessage],connectionOrigin);
         io.to(`audio-room:${id}`).emit("audio-room:message",{success:true,data});
         ack({success:true,data});
       }catch(error){
+        if(error?.code==="P2002"&&String(requestId??"").trim()){
+          const duplicate=await prisma.audioRoomMessage.findFirst({where:{roomPublicId:String(roomId??""),senderId:user.id,requestId:String(requestId).trim()},include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}}});
+          if(duplicate){const [data]=await serializeRoomChatMessages([duplicate],connectionOrigin);return ack({success:true,data:{...data,duplicate:true}})}
+        }
         console.error("Audio room message failed",error);
         ack({success:false,error:{code:"MESSAGE_SEND_FAILED",message:"Unable to send this message."}});
       }
@@ -519,7 +530,7 @@ app.prepare().then(async()=>{
           liveKitAccessFor(user,id,true),
         ]);
         const seat=await takeAudioRoomSeat(room,user.id,requestedSeatId);
-        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         ack({success:true,data:{seatId:seat.seatId,seatState,trtc,liveKit}});
       }catch(error){
         console.error("Audio room seat take failed",error);
@@ -533,7 +544,7 @@ app.prepare().then(async()=>{
         if(!room||room.status!=="LIVE"||room.isBlocked)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST"}});
         const seat=await moveAudioRoomSeat(room,user.id,String(fromSeatId??""),String(toSeatId??""));
-        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         ack({success:true,data:{fromSeatId:String(fromSeatId??""),seatId:seat.seatId,seatState}});
       }catch(error){
         console.error("Audio room seat move failed",error);
@@ -546,9 +557,9 @@ app.prepare().then(async()=>{
         const room=await prisma.audioRoom.findUnique({where:{roomId:id}});
         if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST"}});
-        const result=await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:user.id},data:{isMuted:Boolean(muted),isSpeaking:Boolean(speaking)&&!Boolean(muted)}});
+        const occupiedSeat=await prisma.audioRoomSeat.findFirst({where:{audioRoomId:room.id,occupantUserId:user.id},select:{isForceMuted:true}});if(!occupiedSeat)return ack({success:false,error:{code:"SPEAKER_NOT_SEATED"}});if(occupiedSeat.isForceMuted&&!Boolean(muted))return ack({success:false,error:{code:"SEAT_FORCE_MUTED",message:"A room moderator has muted your microphone."}});const result=await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:user.id},data:{isMuted:Boolean(muted),isSpeaking:Boolean(speaking)&&!Boolean(muted)}});
         if(!result.count)return ack({success:false,error:{code:"SPEAKER_NOT_SEATED"}});
-        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         ack({success:true,data:{seatState}});
       }catch(error){
         console.error("Audio room seat status failed",error);
@@ -564,7 +575,7 @@ app.prepare().then(async()=>{
         await ensureAudioRoomSeats(room.id);
         const result=await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,seatId:String(seatId??"")},data:{isLocked:Boolean(locked),note:typeof note==="string"?note.slice(0,200):undefined}});
         if(!result.count)return ack({success:false,error:{code:"SEAT_NOT_FOUND"}});
-        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         ack({success:true,data:{seatId:String(seatId??""),locked:Boolean(locked),seatState}});
       }catch(error){
         console.error("Audio room seat lock failed",error);
@@ -592,7 +603,7 @@ app.prepare().then(async()=>{
         ]);
         const result=await leaveAudioRoomSeat(room.id,targetSeat.occupantUserId,targetSeatId);
         if(!result.count)return ack({success:false,error:{code:"SEAT_NOT_OCCUPIED"}});
-        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         io.to(`user:${kickedUserId}`).emit("audio-room:seat-kicked",{
           success:true,
           data:{roomId:id,seatId:targetSeatId,trtc,liveKit},
@@ -602,6 +613,38 @@ app.prepare().then(async()=>{
         console.error("Audio room seat kick failed",error);
         ack({success:false,error:{code:error?.message==="TRTC_NOT_CONFIGURED"?"TRTC_NOT_CONFIGURED":"SEAT_KICK_FAILED"}});
       }
+    });
+    socket.on("audio-room:seat-invite",async({roomId,userId:targetPublicId,seatId,requestId}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??""),targetId=String(targetPublicId??""),targetSeatId=String(seatId??""),clientRequestId=String(requestId??"");
+        if(clientRequestId&&!/^[A-Za-z0-9._:-]{8,128}$/.test(clientRequestId))return ack({success:false,error:{code:"INVALID_REQUEST_ID",message:"requestId must contain 8 to 128 safe characters."}});
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if(!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});
+        const target=await prisma.user.findUnique({where:{publicId:targetId},select:{id:true,publicId:true,name:true,profileImage:true}});if(!target)return ack({success:false,error:{code:"USER_NOT_FOUND"}});
+        const member=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:target.id}}});if(!member?.socketCount)return ack({success:false,error:{code:"VIEWER_NOT_IN_ROOM"}});
+        await ensureAudioRoomSeats(room.id);const seat=await prisma.audioRoomSeat.findUnique({where:{audioRoomId_seatId:{audioRoomId:room.id,seatId:targetSeatId}}});if(!seat)return ack({success:false,error:{code:"SEAT_NOT_FOUND"}});if(seat.isLocked)return ack({success:false,error:{code:"SEAT_LOCKED"}});if(seat.occupantUserId&&seat.occupantUserId!==target.id)return ack({success:false,error:{code:"SEAT_OCCUPIED"}});
+        const invitationId=`SEATINV-${clientRequestId||randomUUID()}`;const existingInvitation=clientRequestId?await prisma.audioRoomSeatInvitation.findUnique({where:{id:invitationId}}):null;if(existingInvitation){if(existingInvitation.audioRoomId!==room.id||existingInvitation.inviterId!==user.id||existingInvitation.targetId!==target.id)return ack({success:false,error:{code:"REQUEST_ID_REUSED",message:"This requestId was already used for another invitation."}});const data={invitationId:existingInvitation.id,requestId:clientRequestId,roomId:id,seatId:existingInvitation.seatId,status:existingInvitation.status,expiresAt:existingInvitation.expiresAt.toISOString(),inviter:{publicId:user.publicId,name:user.name,profileImage:user.profileImage??null}};return ack({success:true,data})}await prisma.audioRoomSeatInvitation.updateMany({where:{audioRoomId:room.id,targetId:target.id,status:"PENDING"},data:{status:"CANCELLED",respondedAt:new Date()}});const expiresAt=new Date(Date.now()+60000);const invitation=await prisma.audioRoomSeatInvitation.create({data:{id:invitationId,audioRoomId:room.id,inviterId:user.id,targetId:target.id,seatId:targetSeatId,expiresAt}});
+        setTimeout(async()=>{try{const expired=await prisma.audioRoomSeatInvitation.updateMany({where:{id:invitation.id,status:"PENDING",expiresAt:{lte:new Date()}},data:{status:"EXPIRED",respondedAt:new Date()}});if(expired.count){const payload={success:false,error:{code:"SEAT_INVITATION_EXPIRED",message:"This seat invitation expired."},data:{invitationId:invitation.id,roomId:id,seatId:targetSeatId,status:"EXPIRED"}};io.to(`user:${target.publicId}`).emit("audio-room:seat-invite-result",payload);io.to(`user:${user.publicId}`).emit("audio-room:seat-invite-result",payload)}}catch(error){console.error("Seat invitation expiry failed",error)}},60050);
+        const data={invitationId:invitation.id,requestId:clientRequestId||null,roomId:id,seatId:targetSeatId,status:"PENDING",expiresAt:expiresAt.toISOString(),inviter:{publicId:user.publicId,name:user.name,profileImage:user.profileImage??null}};io.to(`user:${target.publicId}`).emit("audio-room:seat-invited",{success:true,data});ack({success:true,data});
+      }catch(error){console.error("Audio room seat invite failed",error);ack({success:false,error:{code:error?.code==="P2002"?"DUPLICATE_REQUEST":"SEAT_INVITE_FAILED",message:"Unable to invite this member."}})}
+    });
+    socket.on("audio-room:seat-invite-respond",async({roomId,invitationId,accept}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??""),inviteId=String(invitationId??"");const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        const invitation=await prisma.audioRoomSeatInvitation.findUnique({where:{id:inviteId},include:{inviter:{select:{publicId:true}},target:{select:{id:true,publicId:true,name:true}}}});if(!invitation||invitation.audioRoomId!==room.id||invitation.targetId!==user.id)return ack({success:false,error:{code:"SEAT_INVITATION_NOT_FOUND"}});if(invitation.status!=="PENDING")return ack({success:false,error:{code:"SEAT_INVITATION_RESOLVED"}});if(invitation.expiresAt<=new Date()){await prisma.audioRoomSeatInvitation.update({where:{id:inviteId},data:{status:"EXPIRED",respondedAt:new Date()}});return ack({success:false,error:{code:"SEAT_INVITATION_EXPIRED"}})}
+        let trtc=null,liveKit=null,seatState=await readAudioRoomSeatState(room,connectionOrigin);const status=accept?"ACCEPTED":"DECLINED";
+        const claimed=await prisma.audioRoomSeatInvitation.updateMany({where:{id:inviteId,status:"PENDING",expiresAt:{gt:new Date()}},data:{status,respondedAt:new Date()}});if(!claimed.count)return ack({success:false,error:{code:"SEAT_INVITATION_RESOLVED"}});if(accept){try{await moveAudioRoomMember(room,user.id,invitation.seatId)}catch(error){await prisma.audioRoomSeatInvitation.updateMany({where:{id:inviteId,status:"ACCEPTED"},data:{status:"PENDING",respondedAt:null}});throw error}[trtc,liveKit]=await Promise.all([Promise.resolve(issueTrtcAccess(user,id,true)),liveKitAccessFor(user,id,true),updateLiveKitPublishPermission(id,user.publicId,true)]);seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true)}
+        const data={invitationId:inviteId,roomId:id,userId:user.publicId,seatId:invitation.seatId,status,seatState,trtc,liveKit};io.to(`user:${invitation.inviter.publicId}`).emit("audio-room:seat-invite-result",{success:true,data});ack({success:true,data});
+      }catch(error){console.error("Audio room seat invitation response failed",error);ack({success:false,error:seatErrorPayload(error)})}
+    });
+    socket.on("audio-room:seat-force-mute",async({roomId,userId:targetPublicId,muted,requestId}={},ack=()=>{})=>{
+      try{const id=String(roomId??""),targetId=String(targetPublicId??"");const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});if(!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});const target=await prisma.user.findUnique({where:{publicId:targetId},select:{id:true,publicId:true,name:true}});if(!target)return ack({success:false,error:{code:"USER_NOT_FOUND"}});const result=await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:target.id},data:{isMuted:Boolean(muted),isForceMuted:Boolean(muted),isSpeaking:false}});if(!result.count)return ack({success:false,error:{code:"SPEAKER_NOT_SEATED"}});await updateLiveKitPublishPermission(id,target.publicId,!Boolean(muted));const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);const data={requestId:String(requestId??""),roomId:id,userId:target.publicId,muted:Boolean(muted),seatState};io.to(`user:${target.publicId}`).emit("audio-room:seat-force-muted",{success:true,data});ack({success:true,data})}catch(error){console.error("Audio room force mute failed",error);ack({success:false,error:{code:"SEAT_FORCE_MUTE_FAILED"}})}
+    });
+    socket.on("audio-room:seat-move-member",async({roomId,userId:targetPublicId,seatId,requestId}={},ack=()=>{})=>{
+      try{const id=String(roomId??""),targetId=String(targetPublicId??""),targetSeatId=String(seatId??"");const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});if(!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});const target=await prisma.user.findUnique({where:{publicId:targetId},select:{id:true,publicId:true,name:true}});if(!target)return ack({success:false,error:{code:"USER_NOT_FOUND"}});const member=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:target.id}}});if(!member?.socketCount)return ack({success:false,error:{code:"VIEWER_NOT_IN_ROOM"}});const moved=await moveAudioRoomMember(room,target.id,targetSeatId);await updateLiveKitPublishPermission(id,target.publicId,true);const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);const data={requestId:String(requestId??""),roomId:id,userId:target.publicId,seatId:moved.seatId,seatState};io.to(`user:${target.publicId}`).emit("audio-room:seat-moved",{success:true,data});ack({success:true,data})}catch(error){console.error("Audio room member move failed",error);ack({success:false,error:seatErrorPayload(error)})}
+    });
+    socket.on("audio-room:seats-bulk",async({roomId,action,requestId}={},ack=()=>{})=>{
+      try{const id=String(roomId??""),operation=String(action??"").toUpperCase();if(!["LOCK_ALL","UNLOCK_ALL","CLEAR_ALL"].includes(operation))return ack({success:false,error:{code:"SEAT_BULK_ACTION_INVALID"}});const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});if(!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});await ensureAudioRoomSeats(room.id);let removed=[];if(operation==="CLEAR_ALL"){removed=await prisma.audioRoomSeat.findMany({where:{audioRoomId:room.id,occupantUserId:{not:null}},include:{occupant:{select:{publicId:true}}}});await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:{not:null}},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isForceMuted:false,isSpeaking:false}});await Promise.all(removed.map(item=>updateLiveKitPublishPermission(id,item.occupant.publicId,false)))}else await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id},data:{isLocked:operation==="LOCK_ALL"}});const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);const data={requestId:String(requestId??""),roomId:id,action:operation,removedUserIds:removed.map(item=>item.occupant.publicId),seatState};io.to(`audio-room:${id}`).emit("audio-room:seats-bulk-updated",{success:true,data});ack({success:true,data})}catch(error){console.error("Audio room bulk seat action failed",error);ack({success:false,error:{code:"SEAT_BULK_FAILED"}})}
     });
     socket.on("audio-room:seat-request",async({roomId,seatId,note}={},ack=()=>{})=>{
       try{
@@ -634,7 +677,7 @@ app.prepare().then(async()=>{
         ]);
         const result=await leaveAudioRoomSeat(room.id,user.id,String(seatId??"")||null);
         if(!result.count)return ack({success:false,error:{code:"SPEAKER_NOT_SEATED"}});
-        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+        const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         ack({success:true,data:{roomId:id,seatId:String(seatId??"")||null,userId,leftAt:new Date().toISOString(),seatState,trtc,liveKit}});
       }catch(error){
         console.error("Audio room seat leave failed",error);
@@ -661,7 +704,7 @@ app.prepare().then(async()=>{
             Promise.resolve(issueTrtcAccess(targetUser,id,true)),
             liveKitAccessFor(targetUser,id,true),
           ]);
-          seatState=await broadcastAudioRoomSeatState(room,connectionOrigin);
+          seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         }
         const data={requestId:String(requestId??""),roomId:id,requesterId:targetUserId,seatId:seatId??null,accepted:Boolean(accepted),reason:typeof reason==="string"?reason.slice(0,500):null,respondedAt:new Date().toISOString(),seatState,trtc,liveKit};
         io.to(`user:${targetUserId}`).emit("audio-room:seat-response",{success:true,data});
@@ -681,7 +724,7 @@ app.prepare().then(async()=>{
       if(room&&isOwner){
         const ownerSeat=await prisma.audioRoomSeat.findFirst({where:{audioRoomId:room.id,occupantUserId:user.id},select:{id:true}});
         if(ownerSeat){
-          await prisma.audioRoomSeat.update({where:{id:ownerSeat.id},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isSpeaking:false}});
+          await prisma.audioRoomSeat.update({where:{id:ownerSeat.id},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isForceMuted:false,isSpeaking:false}});
         }
       }else if(room){
         await leaveAudioRoomSeat(room.id,user.id);
@@ -692,7 +735,7 @@ app.prepare().then(async()=>{
       }
       if(participantCount){
         await prisma.audioRoom.updateMany({where:{roomId:id,status:"LIVE"},data:{participantCount}});
-        if(room)await broadcastAudioRoomSeatState(room,connectionOrigin,participantCount);
+        if(room)await broadcastAudioRoomSeatState(room,connectionOrigin,participantCount,true);
       }
       else await releaseEmptyAudioRoom(id);
       ack({success:true,data:{roomId:id,participantCount,idRetained:true}});
@@ -710,7 +753,7 @@ app.prepare().then(async()=>{
             if(room&&isOwner){
               const ownerSeat=await prisma.audioRoomSeat.findFirst({where:{audioRoomId:room.id,occupantUserId:user.id},select:{id:true}});
               if(ownerSeat){
-                await prisma.audioRoomSeat.update({where:{id:ownerSeat.id},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isSpeaking:false}});
+                await prisma.audioRoomSeat.update({where:{id:ownerSeat.id},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isForceMuted:false,isSpeaking:false}});
               }
             }else if(room){
               const userSockets=await io.in(`user:${userId}`).fetchSockets();
@@ -722,7 +765,7 @@ app.prepare().then(async()=>{
             if(isOwner&&uniqueRemaining>0){
               io.to(`audio-room:${roomId}`).emit("audio-room:owner-left",{success:true,data:{roomId,reason:"OWNER_LEFT"}});
             }
-            if(room&&uniqueRemaining>0)await broadcastAudioRoomSeatState(room,connectionOrigin,uniqueRemaining);
+            if(room&&uniqueRemaining>0)await broadcastAudioRoomSeatState(room,connectionOrigin,uniqueRemaining,true);
             await releaseEmptyAudioRoom(roomId);
           }catch(error){
             console.error("Audio room disconnect cleanup failed",error);

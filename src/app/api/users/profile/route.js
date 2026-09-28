@@ -137,6 +137,8 @@ export async function PATCH(request) {
     if (bio !== undefined) data.bio = bio.value;
     if (gender !== undefined) data.gender = gender;
     if (dob !== undefined) data.dob = dob;
+    if (Object.hasOwn(body, "profilePrivate")) data.profilePrivate = Boolean(body.profilePrivate);
+    if (Object.hasOwn(body, "showDateOfBirth")) data.showDateOfBirth = Boolean(body.showDateOfBirth);
 
     if (!Object.keys(data).length)
       return json(
@@ -181,6 +183,8 @@ export async function PATCH(request) {
           profileImage: user.profileImage,
           gender: user.gender,
           dob: formatDateOnly(user.dob),
+          profilePrivate: Boolean(user.profilePrivate),
+          showDateOfBirth: Boolean(user.showDateOfBirth),
           isVerified: Boolean(user.isVerified),
           isOfficial: Boolean(user.isOfficial),
           role: user.role,

@@ -105,6 +105,34 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 ## Verify
 
+The consolidated room-chat, Business Card, entertainment, live-video and
+public-profile contracts are documented in
+[`docs/feature-parity-completion.md`](docs/feature-parity-completion.md).
+
+## Room chat recovery
+
+Room chat is persisted in Prisma and recovered on every `audio-room:join`
+acknowledgement through `chatHistory`. Older pages are available from
+`GET /api/v1/audio-rooms/{roomId}/messages` using the opaque `nextCursor`.
+Clients should attach a stable `requestId` to `audio-room:message`; retrying the
+same request returns the original message with `duplicate: true` and does not
+broadcast it twice.
+
+Member-visible history is retained for 30 days. `audio-room:clear-chat` does
+not permanently delete records: it atomically advances `chatRevision`, records
+`chatClearedAt`, and broadcasts the new revision. Earlier revisions remain in
+the database for audit/moderation but are excluded from member history.
+
+## Business Cards
+
+Business Cards use the existing Upload, Store, entitlement, purchase, and
+equip pipeline under category `BUSINESS_CARD`. They may be PNG, JPEG, WebP, or
+MP4. Video cards require a separate PNG/JPEG/WebP poster (maximum 5 MB).
+Equipped DTO fields are `businessCardUrl`, `businessCardPosterUrl`, and
+`businessCardMimeType`; they are returned on current profiles, room seats, and
+room-member snapshots. The poster is served through the same signed public
+display route with `poster=1`.
+
 Games Management is available at `/games-management` using the portal admin
 login. See [game setup, wallet settlement, and the mobile launch contract](docs/games-management.md).
 

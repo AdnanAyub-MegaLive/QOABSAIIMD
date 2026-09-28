@@ -6,11 +6,13 @@ import {
   requireMobileUser,
 } from "@/lib/mobile-api";
 import { coinsForShare, getProfitSplitRule } from "@/lib/profit-rules";
-import { audioRoomParticipantIds, emitToAudioRoom, emitToUser } from "@/lib/realtime";
+import { audioRoomParticipantIds, emitToAudioRoom, emitToUser, emitToVideoLive } from "@/lib/realtime";
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
 import { ledgerData } from "@/lib/wallet";
 import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
+import { addDailyTaskProgress } from "@/lib/daily-tasks";
+import { randomInt } from "node:crypto";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -23,6 +25,7 @@ export async function POST(request) {
     const recipientId = String(body?.recipientId ?? "").trim();
     const giftId = String(body?.giftId ?? "").trim();
     const roomId = String(body?.roomId ?? "").trim().slice(0, 120) || null;
+    const liveId = String(body?.liveId ?? "").trim().slice(0, 120) || null;
     const quantity = Number(body?.quantity ?? 1);
     if (
       !recipientId ||
@@ -37,19 +40,20 @@ export async function POST(request) {
       error.code = "VALIDATION_ERROR";
       throw error;
     }
-    if (!roomId && recipientId === sessionUser.publicId) {
+    if (roomId && liveId) throw Object.assign(new Error("Choose either an audio room or live video."), { code: "VALIDATION_ERROR" });
+    if (!roomId && !liveId && recipientId === sessionUser.publicId) {
       const error = new Error("You cannot send a gift to yourself.");
       error.code = "VALIDATION_ERROR";
       throw error;
     }
 
-    const [giftAsset, recipientUser, talent, policy, room] = await Promise.all([
+    const [giftAsset, recipientUser, talent, policy, room, live] = await Promise.all([
       prisma.uploadAsset.findFirst({
         where: {
           publicId: giftId,
           category: "GIFTS",
           active: true,
-          giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] },
+          giftTier: { in: ["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"] },
           coinPrice: { gt: 0n },
         },
         select: {
@@ -59,6 +63,8 @@ export async function POST(request) {
           giftTier: true,
           mimeType: true,
           coinPrice: true,
+          giftRewardMinBps: true,
+          giftRewardMaxBps: true,
         },
       }),
       prisma.user.findFirst({
@@ -76,6 +82,7 @@ export async function POST(request) {
             select: { id: true },
           })
         : Promise.resolve(null),
+      liveId ? prisma.videoLiveSession.findFirst({ where: { publicId: liveId, status: "LIVE" }, include: { viewers: { where: { userId: sessionUser.id, active: true }, take: 1 }, host: { select: { publicId: true } } } }) : Promise.resolve(null),
     ]);
     if (!giftAsset) {
       const error = new Error("The selected gift is unavailable.");
@@ -88,6 +95,7 @@ export async function POST(request) {
       error.code = "ROOM_NOT_LIVE";
       throw error;
     }
+    if (liveId && (!live || live.host.publicId !== recipientId || (live.hostId !== sessionUser.id && !live.viewers.length))) throw Object.assign(new Error("Join this live video before sending a gift to its host."), { code: "LIVE_GIFT_FORBIDDEN" });
     if (roomId) {
       const participants = await audioRoomParticipantIds(roomId);
       if (!participants.has(sessionUser.publicId) || !participants.has(recipientId)) {
@@ -138,6 +146,7 @@ export async function POST(request) {
           quantity,
           coinValue: grossCoins,
           roomId,
+          liveSessionId: live?.id ?? null,
         },
       });
       await tx.walletTransaction.create({
@@ -149,7 +158,7 @@ export async function POST(request) {
           description: `To ${recipientId}`,
           coins: grossCoins,
           referenceId: gift.id,
-          metadata: { giftId: giftAsset.publicId, quantity, recipientId, roomId },
+          metadata: { giftId: giftAsset.publicId, quantity, recipientId, roomId, liveId },
         }),
       });
       if (talent)
@@ -230,14 +239,37 @@ export async function POST(request) {
           },
         },
       });
+      let luckyRewardCoins = 0n;
+      if (giftAsset.giftTier === "LUCKY") {
+        const min = giftAsset.giftRewardMinBps ?? 0, max = giftAsset.giftRewardMaxBps ?? 20000;
+        const rewardBps = randomInt(min, Math.max(min + 1, max + 1));
+        luckyRewardCoins = coinsForShare(grossCoins, rewardBps);
+        if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); await tx.walletTransaction.create({ data: ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps } }) }); }
+      }
       const sender = await tx.user.findUniqueOrThrow({
         where: { id: sessionUser.id },
         select: { coinBalance: true },
       });
-      return { gift, settlement, sender };
+      return { gift, settlement, sender, luckyRewardCoins };
     });
 
+    if (live) {
+      const updatedLive = await prisma.videoLiveSession.update({ where: { id: live.id }, data: { giftIncome: { increment: grossCoins }, revision: { increment: 1 } }, select: { giftIncome: true, revision: true } });
+      const liveGiftData = { liveId: live.publicId, giftIncome: updatedLive.giftIncome.toString(), revision: updatedLive.revision, sender: { publicId: sessionUser.publicId, name: sessionUser.name }, recipientId, giftId: giftAsset.publicId, quantity, totalCoins: grossCoins.toString() };
+      emitToVideoLive(live.publicId, "live-video:gift", { success: true, data: liveGiftData });
+      const pk = await prisma.videoLivePkSession.findFirst({ where: { status: "LIVE", OR: [{ leftSessionId: live.id }, { rightSessionId: live.id }] }, include: { leftSession: true, rightSession: true } });
+      if (pk) {
+        const field = pk.leftSessionId === live.id ? "leftScore" : "rightScore";
+        const scored = await prisma.videoLivePkSession.update({ where: { id: pk.id }, data: { [field]: { increment: grossCoins }, revision: { increment: 1 } } });
+        const data = { id: scored.id, leftLiveId: pk.leftSession.publicId, rightLiveId: pk.rightSession.publicId, leftScore: scored.leftScore.toString(), rightScore: scored.rightScore.toString(), revision: scored.revision };
+        emitToVideoLive(pk.leftSession.publicId, "live-video:pk-score", { success: true, data }); emitToVideoLive(pk.rightSession.publicId, "live-video:pk-score", { success: true, data });
+      }
+    }
+
     const origin = requestOrigin(request);
+    let revealedGift = null;
+    if (giftAsset.giftTier === "BLIND_BOX") { const pool = await prisma.uploadAsset.findMany({ where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } }, select: { publicId: true, name: true, mimeType: true } }); if (pool.length) { const chosen = pool[randomInt(0, pool.length)]; revealedGift = { ...chosen, mediaUrl: createPublicDisplayAssetUrl(origin, chosen.publicId) }; } }
+    await Promise.allSettled([addDailyTaskProgress(sessionUser.id, "SEND_GIFTS", quantity), addDailyTaskProgress(sessionUser.id, "TOP_SUPPORTER", quantity)]);
     const mediaUrl = createPublicDisplayAssetUrl(
       origin,
       giftAsset.publicId,
@@ -247,6 +279,7 @@ export async function POST(request) {
       data: {
         transactionId: result.gift.id,
         roomId,
+        liveId,
         sender: { id: sessionUser.publicId, name: sessionUser.name },
         recipientId,
         gift: {
@@ -265,6 +298,16 @@ export async function POST(request) {
     if (roomId) {
       emitToAudioRoom(roomId, "gift:received", realtimePayload);
       try {
+        const pk = await prisma.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoom: { roomId } }, { rightRoom: { roomId } }] }, include: { leftRoom: true, rightRoom: true } });
+        if (pk) {
+          const side = pk.leftRoom.roomId === roomId ? "leftScore" : "rightScore";
+          const updatedPk = await prisma.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: grossCoins }, revision: { increment: 1 } } });
+          const pkData = { id: updatedPk.id, status: updatedPk.status, leftRoomId: pk.leftRoom.roomId, rightRoomId: pk.rightRoom.roomId, leftScore: updatedPk.leftScore.toString(), rightScore: updatedPk.rightScore.toString(), revision: updatedPk.revision, endsAt: updatedPk.endsAt?.toISOString() ?? null };
+          emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-score", { success: true, data: pkData });
+          emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-score", { success: true, data: pkData });
+        }
+      } catch (pkError) { console.error("PK gift score update failed", pkError); }
+      try {
         const leaderboard = await getRoomGiftLeaderboard(roomId, origin);
         emitToAudioRoom(roomId, "audio-room:gift-leaderboard", {
           success: true,
@@ -273,7 +316,7 @@ export async function POST(request) {
       } catch (leaderboardError) {
         console.error("Room gift leaderboard update failed", leaderboardError);
       }
-    } else emitToUser(recipientId, "gift:received", realtimePayload);
+    } else if (!liveId) emitToUser(recipientId, "gift:received", realtimePayload);
 
     return mobileJson(
       {
@@ -296,6 +339,8 @@ export async function POST(request) {
           policyVersion: result.settlement.policyVersion,
           senderCoinBalance: result.sender.coinBalance.toString(),
           createdAt: result.gift.createdAt.toISOString(),
+          luckyRewardCoins: result.luckyRewardCoins.toString(),
+          revealedGift,
         },
       },
       201,

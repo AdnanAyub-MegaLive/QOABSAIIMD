@@ -2,9 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
 
-export const defaultAudioRoomSeatIds = Array.from(
-  { length: 3 },
-  (_, row) => Array.from({ length: 4 }, (_, seat) => `row${row}-seat${seat + 1}`),
+export const defaultAudioRoomSeatIds = Array.from({ length: 3 }, (_, row) =>
+  Array.from({ length: 4 }, (_, seat) => `row${row}-seat${seat + 1}`),
 ).flat();
 
 export async function ensureAudioRoomSeats(audioRoomId) {
@@ -22,29 +21,38 @@ function publicOccupant(user, perks) {
     profileImage: user.profileImage ?? null,
     frameUrl: perks?.frameUrl ?? null,
     badgeUrl: perks?.badgeUrl ?? null,
+    businessCardUrl: perks?.businessCardUrl ?? null,
+    businessCardPosterUrl: perks?.businessCardPosterUrl ?? null,
+    businessCardMimeType: perks?.businessCardMimeType ?? null,
     isOfficial: Boolean(user.isOfficial),
   };
 }
 
 export async function readAudioRoomSeatState(room, origin) {
   await ensureAudioRoomSeats(room.id);
-  const seats = await prisma.audioRoomSeat.findMany({
-    where: { audioRoomId: room.id },
-    include: {
-      occupant: {
-        select: {
-          id: true,
-          publicId: true,
-          name: true,
-          profileImage: true,
-          isOfficial: true,
+  const [seats, revision] = await Promise.all([
+    prisma.audioRoomSeat.findMany({
+      where: { audioRoomId: room.id },
+      include: {
+        occupant: {
+          select: {
+            id: true,
+            publicId: true,
+            name: true,
+            profileImage: true,
+            isOfficial: true,
+          },
         },
       },
-    },
-    orderBy: { seatId: "asc" },
-  });
+      orderBy: { seatId: "asc" },
+    }),
+    prisma.audioRoom.findUnique({
+      where: { id: room.id },
+      select: { seatRevision: true },
+    }),
+  ]);
   const occupants = seats.map((seat) => seat.occupant).filter(Boolean);
-  const perks = await resolveUserPerks(occupants, origin, ["FRAMES", "BADGES"]);
+  const perks = await resolveUserPerks(occupants, origin, ["FRAMES", "BADGES", "BUSINESS_CARD"]);
   const rows = new Map();
   let updatedAt = room.updatedAt ?? room.createdAt ?? new Date();
   for (const seat of seats) {
@@ -61,17 +69,67 @@ export async function readAudioRoomSeatState(room, origin) {
       ),
       note: seat.note ?? null,
       muted: seat.occupant ? seat.isMuted : true,
+      forceMuted: seat.occupant ? seat.isForceMuted : false,
       speaking: seat.occupant ? seat.isSpeaking : false,
     });
     if (seat.updatedAt > updatedAt) updatedAt = seat.updatedAt;
   }
   return {
     roomId: room.roomId,
+    revision: revision?.seatRevision ?? room.seatRevision ?? 0,
     seatRows: [...rows.entries()]
       .sort(([left], [right]) => left - right)
       .map(([, row]) => row),
     updatedAt: updatedAt.toISOString(),
   };
+}
+
+export async function advanceAudioRoomSeatRevision(audioRoomId) {
+  return prisma.audioRoom.update({
+    where: { id: audioRoomId },
+    data: { seatRevision: { increment: 1 } },
+    select: { seatRevision: true },
+  });
+}
+
+export async function moveAudioRoomMember(room, targetUserId, toSeatId) {
+  await ensureAudioRoomSeats(room.id);
+  return serializableSeatTransaction(async (tx) => {
+    const target = await tx.audioRoomSeat.findUnique({
+      where: { audioRoomId_seatId: { audioRoomId: room.id, seatId: toSeatId } },
+    });
+    if (!target) throw new Error("SEAT_NOT_FOUND");
+    if (target.isLocked) throw new Error("SEAT_LOCKED");
+    if (target.occupantUserId && target.occupantUserId !== targetUserId)
+      throw new Error("SEAT_OCCUPIED");
+    await tx.audioRoomSeat.updateMany({
+      where: {
+        audioRoomId: room.id,
+        occupantUserId: targetUserId,
+        id: { not: target.id },
+      },
+      data: {
+        occupantUserId: null,
+        occupiedAt: null,
+        isMuted: true,
+        isForceMuted: false,
+        isSpeaking: false,
+      },
+    });
+    return tx.audioRoomSeat.update({
+      where: { id: target.id },
+      data: {
+        occupantUserId: targetUserId,
+        occupiedAt:
+          target.occupantUserId === targetUserId
+            ? target.occupiedAt
+            : new Date(),
+        isMuted: true,
+        isForceMuted: false,
+        isSpeaking: false,
+      },
+    });
+  });
 }
 
 async function serializableSeatTransaction(operation) {
@@ -104,6 +162,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
         occupantUserId: null,
         occupiedAt: null,
         isMuted: true,
+        isForceMuted: false,
         isSpeaking: false,
       },
     });
@@ -117,6 +176,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
         occupantUserId: userId,
         occupiedAt: new Date(),
         isMuted: true,
+        isForceMuted: false,
         isSpeaking: false,
       },
     });
@@ -125,12 +185,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
   });
 }
 
-export async function moveAudioRoomSeat(
-  room,
-  userId,
-  fromSeatId,
-  toSeatId,
-) {
+export async function moveAudioRoomSeat(room, userId, fromSeatId, toSeatId) {
   await ensureAudioRoomSeats(room.id);
   return serializableSeatTransaction(async (tx) => {
     const [source, target] = await Promise.all([
@@ -157,6 +212,7 @@ export async function moveAudioRoomSeat(
         occupantUserId: null,
         occupiedAt: null,
         isMuted: true,
+        isForceMuted: false,
         isSpeaking: false,
       },
     });
@@ -166,6 +222,7 @@ export async function moveAudioRoomSeat(
         occupantUserId: userId,
         occupiedAt: new Date(),
         isMuted: source.isMuted,
+        isForceMuted: source.isForceMuted,
         isSpeaking: false,
       },
     });
@@ -183,6 +240,7 @@ export async function leaveAudioRoomSeat(roomId, userId, seatId = null) {
       occupantUserId: null,
       occupiedAt: null,
       isMuted: true,
+      isForceMuted: false,
       isSpeaking: false,
     },
   });

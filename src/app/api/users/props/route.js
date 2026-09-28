@@ -65,6 +65,8 @@ export async function GET(request) {
           category: ownership.asset.category,
           mimeType: ownership.asset.mimeType,
           url: mobileAssetUrl(request, ownership.asset, user),
+          posterUrl: ownership.asset.posterFileData ? `${mobileAssetUrl(request, ownership.asset, user)}&poster=1` : null,
+          posterMimeType: ownership.asset.posterMimeType ?? null,
           source: ownership.source,
           acquiredAt: ownership.assignedAt.toISOString(),
           expiresAt: ownership.expiresAt?.toISOString() ?? null,
@@ -85,6 +87,8 @@ export async function GET(request) {
               {
                 assetId: ownership.asset.publicId,
                 url: mobileAssetUrl(request, ownership.asset, user),
+                posterUrl: ownership.asset.posterFileData ? `${mobileAssetUrl(request, ownership.asset, user)}&poster=1` : null,
+                mimeType: ownership.asset.mimeType,
               },
             ]),
         ),

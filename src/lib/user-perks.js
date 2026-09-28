@@ -10,6 +10,7 @@ const perkFields = {
   TAIL_LIGHTS: "rideUrl",
   RIDES: "rideUrl",
   ROOM_BACKGROUNDS: "roomBackgroundUrl",
+  BUSINESS_CARD: "businessCardUrl",
 };
 
 export function requestOrigin(request) {
@@ -71,6 +72,9 @@ export async function resolveUserPerks(
         entranceUrl: null,
         rideUrl: null,
         roomBackgroundUrl: null,
+        businessCardUrl: null,
+        businessCardPosterUrl: null,
+        businessCardMimeType: null,
       },
     ]),
   );
@@ -98,6 +102,8 @@ export async function resolveUserPerks(
       id: true,
       publicId: true,
       category: true,
+      mimeType: true,
+      posterFileData: true,
       isGlobal: true,
       createdAt: true,
       assignments: {
@@ -139,11 +145,16 @@ export async function resolveUserPerks(
           )
         : null;
       const asset = selectedAsset ?? newestGlobal.get(category);
-      if (asset)
+      if (asset) {
         perks[perkFields[category]] = createPublicDisplayAssetUrl(
           origin,
           asset.publicId,
         );
+        if (category === "BUSINESS_CARD") {
+          perks.businessCardMimeType = asset.mimeType;
+          if (asset.posterFileData) perks.businessCardPosterUrl = `${createPublicDisplayAssetUrl(origin, asset.publicId)}&poster=1`;
+        }
+      }
     }
   }
   return result;
@@ -161,5 +172,8 @@ export function publicUserWithPerks(user, perks) {
     roles: user.appRoles ?? [],
     frameUrl: perks?.frameUrl ?? null,
     badgeUrl: perks?.badgeUrl ?? null,
+    businessCardUrl: perks?.businessCardUrl ?? null,
+    businessCardPosterUrl: perks?.businessCardPosterUrl ?? null,
+    businessCardMimeType: perks?.businessCardMimeType ?? null,
   };
 }
