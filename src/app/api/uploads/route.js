@@ -15,8 +15,15 @@ const allowedTypes = new Set([
   "image/gif",
   "video/mp4",
   "video/webm",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/ogg",
+  "audio/wav",
+  "audio/x-wav",
 ]);
 const maxFileSize = 15 * 1024 * 1024;
+const maxMusicFileSize = 50 * 1024 * 1024;
 const distributions = new Set(["FREE", "MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY"]);
 const giftTiers = new Set(["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"]);
 const assignmentInclude = {
@@ -225,9 +232,10 @@ export async function POST(request) {
     const category = String(form.get("category") ?? "");
     const isBanner = category === "BANNERS";
     const isGift = category === "GIFTS";
+    const isMusic = category === "MUSIC_TRACKS";
     const distribution = distributionFields(
       {
-        distribution: isGift ? "STORE" : form.get("distribution"),
+        distribution: isGift ? "STORE" : isMusic ? "FREE" : form.get("distribution"),
         storeVisible: isGift ? false : form.get("storeVisible"),
         coinPrice: form.get("coinPrice"),
         minimumVipLevel: form.get("minimumVipLevel"),
@@ -263,7 +271,7 @@ export async function POST(request) {
         { status: 422 },
       );
     }
-    if (isBanner || isGift) selectedIds = [];
+    if (isBanner || isGift || isMusic) selectedIds = [];
     if (selectedIds.length && !(await isSuperAdmin(session)))
       return Response.json(
         {
@@ -342,7 +350,7 @@ export async function POST(request) {
           error: {
             code: "UNSUPPORTED_MEDIA_TYPE",
             message:
-              "Only PNG, JPG, WEBP, GIF, MP4, and WEBM files are supported.",
+              "Only supported image, video, and music audio files are allowed.",
           },
         },
         { status: 415 },
@@ -353,13 +361,14 @@ export async function POST(request) {
       mimeType: file.type,
     });
     const sortOrder = cleanSortOrder(form.get("sortOrder"));
-    if (file.size > maxFileSize)
+    const fileSizeLimit = category === "MUSIC_TRACKS" ? maxMusicFileSize : maxFileSize;
+    if (file.size > fileSizeLimit)
       return Response.json(
         {
           success: false,
           error: {
             code: "FILE_TOO_LARGE",
-            message: "Files cannot exceed 15 MB.",
+            message: category === "MUSIC_TRACKS" ? "Music files cannot exceed 50 MB." : "Files cannot exceed 15 MB.",
           },
         },
         { status: 413 },
@@ -558,6 +567,7 @@ export async function PATCH(request) {
       });
       const isBanner = current.category === "BANNERS";
       const isGift = current.category === "GIFTS";
+      const isMusic = current.category === "MUSIC_TRACKS";
       const changesDistribution =
         body?.distribution !== undefined ||
         body?.storeVisible !== undefined ||
@@ -569,6 +579,8 @@ export async function PATCH(request) {
         ? distributionFields(
             isGift
               ? { ...body, distribution: "STORE", storeVisible: false }
+              : isMusic
+                ? { ...body, distribution: "FREE", storeVisible: false }
               : body,
             isBanner,
           )
@@ -582,8 +594,8 @@ export async function PATCH(request) {
         error.code = "VALIDATION_ERROR";
         throw error;
       }
-      if (isBanner && updatesAssignments) {
-        const error = new Error("Banners cannot be assigned to users.");
+      if ((isBanner || isMusic) && updatesAssignments) {
+        const error = new Error(isMusic ? "Music catalogue tracks cannot be assigned to individual users." : "Banners cannot be assigned to users.");
         error.code = "VALIDATION_ERROR";
         throw error;
       }
@@ -653,6 +665,7 @@ export async function PATCH(request) {
             ? { isRoomBackground: body.isRoomBackground }
             : {}),
           ...(isBanner ? { isGlobal: true, isRoomBackground: false } : {}),
+          ...(isMusic ? { isGlobal: true, isRoomBackground: false, distribution: "FREE", storeVisible: false } : {}),
           ...(distribution ?? {}),
           ...(distribution ? { isGlobal: distribution.distribution === "FREE" } : {}),
         },

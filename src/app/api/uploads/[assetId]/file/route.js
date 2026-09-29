@@ -20,6 +20,7 @@ const publicDisplayCategories = new Set([
   "BUSINESS_CARD",
   "VIP_STICKERS",
   "CAMPAIGN_WIDGETS",
+  "MUSIC_TRACKS",
 ]);
 
 export async function GET(request, { params }) {
@@ -115,7 +116,7 @@ function mediaResponse(asset, request) {
   const wantsPoster = new URL(request.url).searchParams.get("poster") === "1";
   if (wantsPoster && asset.posterFileData) asset = { ...asset, fileData: asset.posterFileData, fileName: asset.posterFileName, mimeType: asset.posterMimeType };
   const total = asset.fileData.byteLength;
-  const range = asset.mimeType === "video/mp4"
+  const range = (asset.mimeType === "video/mp4" || asset.mimeType.startsWith("audio/"))
     ? parseByteRange(request.headers.get("range"), total)
     : null;
   const body = range

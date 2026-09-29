@@ -12,6 +12,7 @@ export const uploadCategories = {
   "Business Cards": "BUSINESS_CARD",
   "VIP Stickers": "VIP_STICKERS",
   "Campaign Widgets": "CAMPAIGN_WIDGETS",
+  Music: "MUSIC_TRACKS",
 };
 
 export const validUploadCategories = new Set(Object.values(uploadCategories));
@@ -30,6 +31,7 @@ export const roomBackgroundMimeTypes = new Set([
 ]);
 export const seatStyleMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 export const businessCardMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "video/mp4"]);
+export const musicTrackMimeTypes = new Set(["audio/mpeg", "audio/mp4", "audio/aac", "audio/ogg", "audio/wav", "audio/x-wav"]);
 export const bannerCatalogOrderBy = [
   { sortOrder: "asc" },
   { createdAt: "asc" },
@@ -106,6 +108,9 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
   }
   if (category === "BUSINESS_CARD" && mimeType && !businessCardMimeTypes.has(mimeType)) {
     throw validationError("Business cards must be PNG, JPEG, WebP, or MP4.");
+  }
+  if (category === "MUSIC_TRACKS" && mimeType && !musicTrackMimeTypes.has(mimeType)) {
+    throw validationError("Music tracks must be MP3, M4A, AAC, OGG, or WAV audio files.");
   }
   if (String(placement ?? "").trim()) {
     throw validationError("Placement is only supported for banner assets.");

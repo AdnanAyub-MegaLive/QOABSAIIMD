@@ -94,6 +94,15 @@ the dedicated LiveKit music participant.
 Listeners hear the published LiveKit track directly; they must not try to open
 the owner's `localTrackId`. That value is only an opaque UI/library identifier.
 
+For portal catalogue music, authenticated clients obtain tracks from
+`GET /api/music/catalog`. A catalogue play request sends `source: "CATALOG"`
+and the raw `catalogTrackId`; it must not send or choose `trackUrl`. The server
+looks up an active global `MUSIC_TRACKS` asset and generates a signed streaming
+URL. Both `audio-room:music-changed` and the join `musicState` then contain that
+server-generated `trackUrl`, allowing every participant to play the same file
+from `positionSeconds`/`startedAt`. For `source: "LOCAL"` (and omitted source),
+`trackUrl` is always null and the dedicated LiveKit publisher remains required.
+
 ## Local server requirement
 
 The portal signs tokens but does not itself relay audio. `LIVEKIT_URL` must point

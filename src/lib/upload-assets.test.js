@@ -19,6 +19,13 @@ describe("business-card assets", () => {
   });
 });
 
+describe("music-track assets", () => {
+  it("accepts audio and rejects non-audio media", () => {
+    expect(validateUploadAssetContract({ category: "MUSIC_TRACKS", mimeType: "audio/mpeg" })).toEqual({ placement: null });
+    expect(() => validateUploadAssetContract({ category: "MUSIC_TRACKS", mimeType: "video/mp4" })).toThrow("Music tracks");
+  });
+});
+
 describe("serializeUploadAsset", () => {
   it("preserves Store distribution fields after a database reload", () => {
     const asset = serializeUploadAsset(

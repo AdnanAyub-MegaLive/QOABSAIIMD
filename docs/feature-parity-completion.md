@@ -22,6 +22,7 @@ This document records the completed replacement contracts added in the 2026-09-2
 - Local-device room music is implemented with a dedicated, publish-only LiveKit identity from `POST /api/v1/audio-rooms/{roomId}/music-token`.
 - `audio-room:music-play|pause|seek|stop` persist and broadcast canonical metadata; `audio-room:join` returns `musicState` for reconnect recovery.
 - Only playback metadata is synchronized. Local paths, content URIs, music bytes and playable URLs are never accepted or stored by the portal.
+- Admin-uploaded `MUSIC_TRACKS` are listed by `GET /api/music/catalog`; catalogue room state receives only a track ID from Android and exposes a server-resolved signed `trackUrl` to room participants.
 - `POST /api/v1/audio-rooms/{roomId}/campaign/contribute` atomically debits coins and broadcasts progress.
 - Existing Games Management remains the server-authoritative game catalogue and wallet settlement system.
 - Existing daily tasks track watch/live/gift progress and are managed at `/daily-tasks`.

@@ -14,6 +14,7 @@ const tabs = [
   "Badges",
   "Chat Boxes",
   "Room Backgrounds",
+  "Music",
 ];
 const categories = {
   Banners: "BANNERS",
@@ -26,6 +27,7 @@ const categories = {
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
   "Seat Styles": "SEAT_STYLES",
+  Music: "MUSIC_TRACKS",
 };
 const bannerPlacements = [
   ["PARTY", "Party tab"],
@@ -331,6 +333,7 @@ function DeleteAssetModal({asset,deleting,error,onClose,onDelete}) {
 function AssetManager({ asset, users, saving, error, onClose, onSave }) {
   const isBanner = asset.category === "BANNERS";
   const isGift = asset.category === "GIFTS";
+  const isMusic = asset.category === "MUSIC_TRACKS";
   const [title, setTitle] = useState(asset.name);
   const [details, setDetails] = useState(asset.details ?? "");
   const [tags, setTags] = useState((asset.tags ?? []).join(", "));
@@ -389,6 +392,8 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
         ? { actionUrl: actionUrl.trim(), placement, sortOrder: Number(sortOrder) }
         : isGift
           ? { giftTier, coinPrice, distribution: "STORE", storeVisible: false }
+        : isMusic
+          ? { distribution: "FREE", storeVisible: false, isRoomBackground: false }
         : {
             assignmentGrants: grants,
             isRoomBackground,
@@ -497,7 +502,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
               onCoinPrice={setCoinPrice}
             />
           )}
-          {!isBanner && !isGift && (
+          {!isBanner && !isGift && !isMusic && (
             <DistributionSettings
               distribution={distribution}
               onDistribution={setDistribution}
@@ -513,7 +518,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
               onDefaultDuration={setDefaultGrantDuration}
             />
           )}
-          {!isBanner && !isGift && <UserPanel
+          {!isBanner && !isGift && !isMusic && <UserPanel
             title="Granted to Users"
             query={grantedQuery}
             onQuery={setGrantedQuery}
@@ -548,11 +553,11 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
               );
             })}
           </UserPanel>}
-          {!isBanner && !isGift && <AssignmentPeriod
+          {!isBanner && !isGift && !isMusic && <AssignmentPeriod
             value={durationMinutes}
             onChange={setDurationMinutes}
           />}
-          {!isBanner && !isGift && <UserPanel
+          {!isBanner && !isGift && !isMusic && <UserPanel
             title="Assign to Users"
             query={assignQuery}
             onQuery={setAssignQuery}
@@ -583,7 +588,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
               />
             ))}
           </UserPanel>}
-          {!isBanner && !isGift && <label className="flex items-center gap-3 rounded-xl border border-[#d7e5e2] bg-[#f8fbfa] p-4">
+          {!isBanner && !isGift && !isMusic && <label className="flex items-center gap-3 rounded-xl border border-[#d7e5e2] bg-[#f8fbfa] p-4">
             <input
               type="checkbox"
               checked={isRoomBackground}
@@ -682,13 +687,14 @@ function UploadModal({ active, users, onClose, onCreated }) {
   const isBanner = active === "Banners";
   const isGift = active === "Gifts";
   const isBusinessCard = active === "Business Cards";
+  const isMusic = active === "Music";
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
   const [tags, setTags] = useState("");
   const [actionUrl, setActionUrl] = useState("");
   const [placement, setPlacement] = useState("PARTY");
   const [sortOrder, setSortOrder] = useState(0);
-  const [distribution, setDistribution] = useState("STORE");
+  const [distribution, setDistribution] = useState(isMusic ? "FREE" : "STORE");
   const [storeVisible, setStoreVisible] = useState(true);
   const [coinPrice, setCoinPrice] = useState("0");
   const [giftTier, setGiftTier] = useState("CLASSIC");
@@ -868,14 +874,14 @@ function UploadModal({ active, users, onClose, onCreated }) {
           <Field label="Media file">
             <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#cbded9] bg-[#f8fbfa] px-5 text-center">
               <strong className="text-xs text-[#087f74]">
-                Choose image, GIF, WebP, or video
+                {isMusic ? "Choose an MP3, M4A, AAC, OGG, or WAV file" : "Choose image, GIF, WebP, or video"}
               </strong>
               <span className="mt-1 text-[10px] text-[#849691]">
-                Maximum 15 MB
+                Maximum {isMusic ? "50" : "15"} MB
               </span>
               <input
                 type="file"
-                accept={isBanner ? "image/png,image/jpeg,image/webp" : "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"}
+                accept={isMusic ? "audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/x-wav" : isBanner ? "image/png,image/jpeg,image/webp" : "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"}
                 onChange={chooseFile}
                 required
                 className="sr-only"
@@ -914,7 +920,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
               onGiftRewardMaxBps={setGiftRewardMaxBps}
             />
           )}
-          {!isBanner && !isGift && (
+          {!isBanner && !isGift && !isMusic && (
             <DistributionSettings
               distribution={distribution}
               onDistribution={setDistribution}
@@ -930,11 +936,11 @@ function UploadModal({ active, users, onClose, onCreated }) {
               onDefaultDuration={setDefaultGrantDuration}
             />
           )}
-          {!isBanner && !isGift && <AssignmentPeriod
+          {!isBanner && !isGift && !isMusic && <AssignmentPeriod
             value={durationMinutes}
             onChange={setDurationMinutes}
           />}
-          {!isBanner && !isGift && <UserPanel
+          {!isBanner && !isGift && !isMusic && <UserPanel
             title="Assign to Users"
             query={userQuery}
             onQuery={setUserQuery}
@@ -952,7 +958,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
               />
             ))}
           </UserPanel>}
-          {!isBanner && !isGift && assignedUserIds.length > 0 && (
+          {!isBanner && !isGift && !isMusic && assignedUserIds.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {assignedUserIds.map((id) => {
                 const user = users.find((item) => item.id === id);
@@ -973,7 +979,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
               })}
             </div>
           )}
-          {!isBanner && !isGift && <label className="flex items-center gap-3 rounded-xl border border-[#dce8e5] bg-[#f8fbfa] p-4">
+          {!isBanner && !isGift && !isMusic && <label className="flex items-center gap-3 rounded-xl border border-[#dce8e5] bg-[#f8fbfa] p-4">
             <input
               type="checkbox"
               checked={isRoomBackground}
@@ -1246,7 +1252,11 @@ function EmptyState({ active }) {
   );
 }
 function MediaPreview({ url, type, name, eager = false }) {
-  return type?.startsWith("video/") ? (
+  return type?.startsWith("audio/") ? (
+    <div className="flex h-full w-full items-center justify-center p-6">
+      <audio src={url} controls preload="metadata" className="w-full" aria-label={`${name} preview`} />
+    </div>
+  ) : type?.startsWith("video/") ? (
     <video
       src={url}
       controls
@@ -1303,6 +1313,7 @@ function singular(value) {
     Badges: "Badge",
     "Chat Boxes": "Chat Box",
     "Room Backgrounds": "Room Background",
+    Music: "Music Track",
   }[value];
 }
 function formatSize(bytes) {

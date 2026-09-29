@@ -147,6 +147,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     ROOM_PERMISSION_DENIED: [403, "ROOM_PERMISSION_DENIED", "You do not have permission to manage this room."],
     ROOM_MUSIC_JOIN_REQUIRED: [409, "ROOM_MUSIC_JOIN_REQUIRED", "Join this audio room before publishing room music."],
     ROOM_MUSIC_NOT_ACTIVE: [409, "ROOM_MUSIC_NOT_ACTIVE", "No room music is currently selected."],
+    MUSIC_TRACK_NOT_FOUND: [404, "MUSIC_TRACK_NOT_FOUND", "The selected catalog track is unavailable."],
     ROOM_BANNED: [403, "ROOM_BANNED", "You are not allowed to join this room."],
     ROOM_PAYMENT_REQUIRED: [402, "ROOM_PAYMENT_REQUIRED", "Paid admission is required before joining this room."],
     ROOM_BACKGROUND_UNAVAILABLE: [403, "ROOM_BACKGROUND_UNAVAILABLE", "This room background is unavailable or not owned by you."],
