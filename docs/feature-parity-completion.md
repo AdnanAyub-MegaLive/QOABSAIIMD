@@ -19,7 +19,9 @@ This document records the completed replacement contracts added in the 2026-09-2
 ## Room entertainment
 
 - `GET|PATCH /api/v1/audio-rooms/{roomId}/entertainment` controls revisioned `music`, `game`, `campaign`, and `watch` state.
-- Only playback metadata is synchronized; local device paths are rejected/removed.
+- Local-device room music is implemented with a dedicated, publish-only LiveKit identity from `POST /api/v1/audio-rooms/{roomId}/music-token`.
+- `audio-room:music-play|pause|seek|stop` persist and broadcast canonical metadata; `audio-room:join` returns `musicState` for reconnect recovery.
+- Only playback metadata is synchronized. Local paths, content URIs, music bytes and playable URLs are never accepted or stored by the portal.
 - `POST /api/v1/audio-rooms/{roomId}/campaign/contribute` atomically debits coins and broadcasts progress.
 - Existing Games Management remains the server-authoritative game catalogue and wallet settlement system.
 - Existing daily tasks track watch/live/gift progress and are managed at `/daily-tasks`.

@@ -145,6 +145,8 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     INVALID_CURSOR: [422, "INVALID_CURSOR", "The room chat cursor is invalid."],
     ROOM_OWNER_REQUIRED: [403, "ROOM_OWNER_REQUIRED", "Only the room owner can perform this action."],
     ROOM_PERMISSION_DENIED: [403, "ROOM_PERMISSION_DENIED", "You do not have permission to manage this room."],
+    ROOM_MUSIC_JOIN_REQUIRED: [409, "ROOM_MUSIC_JOIN_REQUIRED", "Join this audio room before publishing room music."],
+    ROOM_MUSIC_NOT_ACTIVE: [409, "ROOM_MUSIC_NOT_ACTIVE", "No room music is currently selected."],
     ROOM_BANNED: [403, "ROOM_BANNED", "You are not allowed to join this room."],
     ROOM_PAYMENT_REQUIRED: [402, "ROOM_PAYMENT_REQUIRED", "Paid admission is required before joining this room."],
     ROOM_BACKGROUND_UNAVAILABLE: [403, "ROOM_BACKGROUND_UNAVAILABLE", "This room background is unavailable or not owned by you."],

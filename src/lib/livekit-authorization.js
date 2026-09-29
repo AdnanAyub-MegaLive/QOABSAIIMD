@@ -68,6 +68,23 @@ export async function issueLiveKitAccess(user, roomId, canPublish) {
   };
 }
 
+export async function issueLiveKitMusicAccess(user, roomId) {
+  const { url, apiKey, apiSecret, ttlSeconds } = liveKitConfiguration();
+  const portalUserId = String(user?.publicId ?? "").trim();
+  const room = String(roomId ?? "").trim();
+  const publisherId = `MUSIC-${portalUserId}`;
+  if (!ID_PATTERN.test(portalUserId) || !ID_PATTERN.test(room) || !ID_PATTERN.test(publisherId)) throw new Error("LIVEKIT_INVALID_IDENTITY");
+  const token = new AccessToken(apiKey, apiSecret, {
+    identity: publisherId,
+    name: `${String(user?.name ?? portalUserId).slice(0, 80)} music`,
+    ttl: ttlSeconds,
+    metadata: JSON.stringify({ portalUserId, source: "ROOM_MUSIC" }),
+  });
+  token.addGrant({ roomJoin: true, room, canSubscribe: false, canPublish: true, canPublishData: false, canUpdateOwnMetadata: false });
+  const issuedAt = Math.floor(Date.now() / 1000);
+  return { url, token: await token.toJwt(), roomName: room, userId: publisherId, publisherId, canPublish: true, canSubscribe: false, source: "ROOM_MUSIC", expiresAt: new Date((issuedAt + ttlSeconds) * 1000).toISOString() };
+}
+
 export async function updateLiveKitPublishPermission(roomId, userId, canPublish) {
   if (!isLiveKitConfigured()) return { configured: false, updated: false };
   const { url, apiKey, apiSecret } = liveKitConfiguration();
@@ -86,6 +103,19 @@ export async function updateLiveKitPublishPermission(roomId, userId, canPublish)
     if ([404, 5].includes(error?.status ?? error?.code)) {
       return { configured: true, updated: false };
     }
+    throw error;
+  }
+}
+
+export async function removeLiveKitParticipant(roomId, userId) {
+  if (!isLiveKitConfigured()) return { configured: false, removed: false };
+  const { url, apiKey, apiSecret } = liveKitConfiguration();
+  const client = new RoomServiceClient(serviceUrl(url), apiKey, apiSecret);
+  try {
+    await client.removeParticipant(String(roomId), String(userId));
+    return { configured: true, removed: true };
+  } catch (error) {
+    if ([404, 5].includes(error?.status ?? error?.code)) return { configured: true, removed: false };
     throw error;
   }
 }

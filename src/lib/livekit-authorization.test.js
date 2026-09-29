@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TokenVerifier } from "livekit-server-sdk";
-import { isLiveKitConfigured, issueLiveKitAccess } from "./livekit-authorization";
+import { isLiveKitConfigured, issueLiveKitAccess, issueLiveKitMusicAccess } from "./livekit-authorization";
 
 const apiKey = "test-api-key";
 const apiSecret = "test-api-secret-with-enough-entropy";
@@ -61,5 +61,13 @@ describe("LiveKit authorization", () => {
     const claims = await new TokenVerifier(apiKey, apiSecret).verify(access.token);
     expect(access.canPublish).toBe(true);
     expect(claims.video?.canPublish).toBe(true);
+  });
+
+  it("issues a publish-only identity for room music", async () => {
+    configure();
+    const access = await issueLiveKitMusicAccess({ publicId: "USR-100", name: "DJ" }, "ROOM-100");
+    const claims = await new TokenVerifier(apiKey, apiSecret).verify(access.token);
+    expect(access).toMatchObject({ publisherId: "MUSIC-USR-100", canPublish: true, canSubscribe: false, source: "ROOM_MUSIC" });
+    expect(claims.video).toMatchObject({ room: "ROOM-100", roomJoin: true, canPublish: true, canSubscribe: false });
   });
 });

@@ -56,6 +56,44 @@ Android should connect with the official LiveKit Android SDK, treat the token as
 opaque, refresh it before `expiresAt`, publish the microphone only when
 `canPublish` is true, and disconnect media when removed from the room.
 
+## Room music from Android local storage
+
+Music files remain entirely on the Android device. The portal never receives a
+file, local URI, filesystem path, or playable music URL. The room owner first
+joins the Socket.IO audio room and then requests a separate publish-only LiveKit
+identity:
+
+```http
+POST /api/v1/audio-rooms/ROOM-123/music-token
+Authorization: Bearer <portal-session-token>
+```
+
+The response contains `data.liveKitMusic` with `url`, `token`, `roomName`,
+`publisherId`, `canPublish`, `canSubscribe`, `source`, and `expiresAt`. The
+identity is `MUSIC-{ownerPublicId}`, cannot subscribe, and must be used only for
+the audio track decoded from the owner's local music file. The regular user
+identity continues carrying microphone audio.
+
+Only a connected user with `canManageMusic` can obtain this token or control
+the canonical state. Current permissions grant this to the room owner. Socket
+actions are:
+
+- `audio-room:music-play`: `{ roomId, requestId?, localTrackId?, title, artist?, durationSeconds, positionSeconds? }`
+- `audio-room:music-pause`: `{ roomId, requestId? }`
+- `audio-room:music-seek`: `{ roomId, requestId?, positionSeconds }`
+- `audio-room:music-stop`: `{ roomId, requestId? }`
+
+Every successful action acknowledges and broadcasts
+`audio-room:music-changed`. Its data contains `roomId`, metadata, `status`,
+`positionSeconds`, `startedAt`, `publisherId`, `revision`, `updatedAt`, and
+`changedBy`. It never contains a local path or media URL. The join
+acknowledgement returns the same canonical object as `musicState`, allowing a
+reconnecting client to restore its controls. On stop, the server also removes
+the dedicated LiveKit music participant.
+
+Listeners hear the published LiveKit track directly; they must not try to open
+the owner's `localTrackId`. That value is only an opaque UI/library identifier.
+
 ## Local server requirement
 
 The portal signs tokens but does not itself relay audio. `LIVEKIT_URL` must point

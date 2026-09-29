@@ -21,7 +21,7 @@ app.prepare().then(async()=>{
   const {resolveUserPerks,socketOrigin}=await import("./src/lib/user-perks.js");
   const {formatDateOnly}=await import("./src/lib/date-only.js");
   const {getEffectiveUserId}=await import("./src/lib/special-id.js");
-  const {isLiveKitConfigured,issueLiveKitAccess,updateLiveKitPublishPermission}=await import("./src/lib/livekit-authorization.js");
+  const {isLiveKitConfigured,issueLiveKitAccess,removeLiveKitParticipant,updateLiveKitPublishPermission}=await import("./src/lib/livekit-authorization.js");
   const {listenerRoomJoinError}=await import("./src/lib/audio-room-activation-policy.js");
   const {createAudioRoomReaction,createAudioRoomReactionGuard,parseAudioRoomReactionInput,reactionErrorPayload}=await import("./src/lib/audio-room-reactions.js");
   const {getRoomGiftLeaderboard}=await import("./src/lib/gift-leaderboard.js");
@@ -31,7 +31,7 @@ app.prepare().then(async()=>{
   const {addDailyTaskProgress}=await import("./src/lib/daily-tasks.js");
   const {canSendLockedRoomMessage,normalizeRoomPassword,roomControlError}=await import("./src/lib/audio-room-controls.js");
   const {readRoomChatHistory,serializeRoomChatMessages}=await import("./src/lib/audio-room-chat.js");
-  const {serializeEntertainment}=await import("./src/lib/room-entertainment.js");
+  const {nextRoomMusicState,serializeEntertainment,serializeRoomMusic}=await import("./src/lib/room-entertainment.js");
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>handle(request,response));
@@ -362,7 +362,7 @@ app.prepare().then(async()=>{
         await prisma.audioRoomSeatInvitation.updateMany({where:{targetId:user.id,status:"PENDING",expiresAt:{lte:new Date()}},data:{status:"EXPIRED",respondedAt:new Date()}});
         const pendingSeatInvitations=await prisma.audioRoomSeatInvitation.findMany({where:{audioRoomId:room.id,targetId:user.id,status:"PENDING",expiresAt:{gt:new Date()}},include:{inviter:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{createdAt:"desc"}});
         const [liveKit,giftLeaderboard,access,members,chatHistory]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30}),readRoomChatHistory(room,connectionOrigin,{limit:30})]);
-        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,revision:presence.revision??room.revision,announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,liveKit,roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,revision:presence.revision??room.revision,announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState:serializeRoomMusic(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,liveKit,roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         for(const invitation of pendingSeatInvitations)socket.emit("audio-room:seat-invited",{success:true,data:{invitationId:invitation.id,roomId:room.roomId,seatId:invitation.seatId,status:invitation.status,expiresAt:invitation.expiresAt.toISOString(),inviter:invitation.inviter,recovered:true}});
         if(!alreadyJoined){
           io.to(roomChannel).emit("audio-room:entrance",{
@@ -389,6 +389,39 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:"ROOM_JOIN_FAILED",message:"Unable to join this room."}});
       }
     });
+    const changeRoomMusic=async(action,input={},ack=()=>{})=>{
+      try{
+        const id=String(input?.roomId??"").trim();
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},include:{entertainmentState:true}});
+        if(!room||room.status==="TERMINATED")return ack({success:false,error:{code:"ROOM_UNAVAILABLE",message:"This audio room is unavailable."}});
+        if(room.isBlocked)return ack({success:false,error:{code:"ROOM_BLOCKED",message:"This audio room is blocked."}});
+        if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST",message:"Join this audio room before controlling its music."}});
+        const access=await resolveRoomAccess(room,user.id);
+        if(!access.permissions.canManageMusic)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED",message:"You do not have permission to manage room music."}});
+        const publisherId=`MUSIC-${user.publicId}`;
+        const music=nextRoomMusicState(action,input,room.entertainmentState?.music??null,new Date(),publisherId);
+        const updated=await prisma.audioRoomEntertainmentState.upsert({
+          where:{audioRoomId:room.id},
+          create:{audioRoomId:room.id,music,revision:1,updatedById:user.id},
+          update:{music,revision:{increment:1},updatedById:user.id},
+        });
+        if(action==="STOP")await removeLiveKitParticipant(room.roomId,publisherId).catch(error=>console.error("LiveKit music participant removal failed",error));
+        const requestId=String(input?.requestId??"").trim().slice(0,128)||null;
+        const state=serializeRoomMusic(updated);
+        const data={roomId:room.roomId,...state,requestId,changedBy:{publicId:user.publicId}};
+        io.to(`audio-room:${room.roomId}`).emit("audio-room:music-changed",{success:true,data});
+        ack({success:true,data});
+      }catch(error){
+        const code=error?.code??error?.message;
+        const known=["VALIDATION_ERROR","ROOM_MUSIC_NOT_ACTIVE"];
+        console.error(`Audio room music ${String(action).toLowerCase()} failed`,error);
+        ack({success:false,error:{code:known.includes(code)?code:"ROOM_MUSIC_UPDATE_FAILED",message:code==="ROOM_MUSIC_NOT_ACTIVE"?"No room music is currently selected.":error?.message||"Unable to update room music."}});
+      }
+    };
+    socket.on("audio-room:music-play",(input,ack)=>changeRoomMusic("PLAY",input,ack));
+    socket.on("audio-room:music-pause",(input,ack)=>changeRoomMusic("PAUSE",input,ack));
+    socket.on("audio-room:music-seek",(input,ack)=>changeRoomMusic("SEEK",input,ack));
+    socket.on("audio-room:music-stop",(input,ack)=>changeRoomMusic("STOP",input,ack));
     socket.on("live-video:join",async({liveId}={},ack=()=>{})=>{
       try{const id=String(liveId??"");const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},include:{host:{select:{publicId:true,name:true,profileImage:true}},guestRequests:{where:{status:"APPROVED"},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{slot:"asc"}}}});if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live video is unavailable."}});const ban=await prisma.videoLiveBan.findFirst({where:{sessionId:live.id,userId:user.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});if(ban)return ack({success:false,error:{code:"LIVE_BANNED",message:"You are banned from this live video.",details:{reason:ban.reason,expiresAt:ban.expiresAt?.toISOString()??null}}});const channel=`live-video:${id}`,alreadyJoined=socket.rooms.has(channel);socket.join(channel);if(!alreadyJoined)await prisma.videoLiveViewer.upsert({where:{sessionId_userId:{sessionId:live.id,userId:user.id}},create:{sessionId:live.id,userId:user.id,active:true,socketCount:1},update:{active:true,socketCount:{increment:1}}});const viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});const updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,peakViewers:{set:Math.max(live.peakViewers,viewerCount)},revision:alreadyJoined?undefined:{increment:1}},select:{revision:true}});ack({success:true,data:{liveId:id,revision:updated.revision,hostAway:live.hostAway,viewerCount,likeCount:live.likeCount,giftIncome:live.giftIncome.toString(),host:live.host,guests:live.guestRequests.map(g=>({requestId:g.id,slot:g.slot,user:g.user}))}});if(!alreadyJoined)io.to(channel).emit("live-video:viewer-joined",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,user:{publicId:user.publicId,name:user.name,profileImage:user.profileImage}}})}catch(error){console.error("Live video join failed",error);ack({success:false,error:{code:"LIVE_JOIN_FAILED",message:"Unable to join this live video."}})}
     });
