@@ -14,6 +14,10 @@ const tabs = [
   "Badges",
   "Chat Boxes",
   "Room Backgrounds",
+  "Seat Styles",
+  "Business Cards",
+  "VIP Stickers",
+  "Campaign Widgets",
   "Music",
 ];
 const categories = {
@@ -27,6 +31,9 @@ const categories = {
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
   "Seat Styles": "SEAT_STYLES",
+  "Business Cards": "BUSINESS_CARD",
+  "VIP Stickers": "VIP_STICKERS",
+  "Campaign Widgets": "CAMPAIGN_WIDGETS",
   Music: "MUSIC_TRACKS",
 };
 const bannerPlacements = [

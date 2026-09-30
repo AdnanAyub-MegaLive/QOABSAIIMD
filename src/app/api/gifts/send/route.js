@@ -9,6 +9,7 @@ import { coinsForShare, getProfitSplitRule } from "@/lib/profit-rules";
 import { audioRoomParticipantIds, emitToAudioRoom, emitToUser, emitToVideoLive } from "@/lib/realtime";
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
+import { resolveGiftSender } from "@/lib/gift-sender";
 import { ledgerData } from "@/lib/wallet";
 import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
@@ -284,6 +285,7 @@ export async function POST(request) {
     }
 
     const origin = requestOrigin(request);
+    const giftSender = await resolveGiftSender(sessionUser, origin);
     const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, mimeType: blindBoxReward.mimeType, quantity, mediaUrl: createPublicDisplayAssetUrl(origin, blindBoxReward.publicId) } : null;
     await Promise.allSettled([addDailyTaskProgress(sessionUser.id, "SEND_GIFTS", quantity), addDailyTaskProgress(sessionUser.id, "TOP_SUPPORTER", quantity)]);
     const mediaUrl = createPublicDisplayAssetUrl(
@@ -296,7 +298,7 @@ export async function POST(request) {
         transactionId: result.gift.id,
         roomId,
         liveId,
-        sender: { id: sessionUser.publicId, name: sessionUser.name },
+        sender: giftSender,
         recipientId,
         gift: {
           id: giftAsset.publicId,

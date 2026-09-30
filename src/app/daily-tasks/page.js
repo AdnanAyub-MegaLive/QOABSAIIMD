@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import FeatureSearch from "../components/feature-search";
 import PortalSidebar from "../components/portal-sidebar";
 import DailyTasksManager from "./daily-tasks-manager";
+import RoomManagementTabs from "../components/room-management-tabs";
 
 export default async function DailyTasksPage() {
   const session = await auth();
@@ -52,6 +53,7 @@ export default async function DailyTasksPage() {
           <FeatureSearch />
         </header>
         <div className="mx-auto max-w-7xl p-6 md:p-10">
+          <RoomManagementTabs />
           <div className="mb-7"><h2 className="text-2xl font-bold">Task catalogue</h2><p className="mt-1.5 text-sm text-[#71847f]">Control the mobile task tabs, rewards, targets and campaign placement. Changes affect newly created periods and unclaimed task displays.</p></div>
           <DailyTasksManager initialCategories={categoryData} initialTasks={taskData} />
         </div>

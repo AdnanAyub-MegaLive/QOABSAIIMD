@@ -7,6 +7,7 @@ import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
+import { resolveGiftSender } from "@/lib/gift-sender";
 
 export function OPTIONS() { return mobileOptions(); }
 
@@ -39,7 +40,7 @@ export async function POST(request) {
       await tx.auditLog.create({ data: { action: "BACKPACK_GIFT_SENT", category: "FINANCE", entityType: "GiftTransaction", entityId: giftTx.id, description: `${sender.publicId} sent backpack gift ${gift.publicId} to ${recipient.publicId}.`, metadata: { roomId, quantity, grossCoins: gross.toString() } } });
       return giftTx;
     });
-    const origin = requestOrigin(request), data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", gift: { id: gift.publicId, name: gift.name, mimeType: gift.mimeType, mediaUrl: createPublicDisplayAssetUrl(origin, gift.publicId) } };
+    const origin = requestOrigin(request), giftSender = await resolveGiftSender(sender, origin), data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, mimeType: gift.mimeType, mediaUrl: createPublicDisplayAssetUrl(origin, gift.publicId) } };
     emitToAudioRoom(roomId, "gift:received", { success: true, data });
     const pk = await prisma.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: true, rightRoom: true } });
     if (pk) { const side = pk.leftRoomId === room.id ? "leftScore" : "rightScore", updated = await prisma.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: gross }, revision: { increment: 1 } } }), payload = { id: pk.id, leftRoomId: pk.leftRoom.roomId, rightRoomId: pk.rightRoom.roomId, leftScore: updated.leftScore.toString(), rightScore: updated.rightScore.toString(), revision: updated.revision }; emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); }

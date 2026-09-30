@@ -12,9 +12,6 @@ export const portalNavigation = [
   ["Finance & Wallet", "/finance"],
   ["Rules & Profit Split", "/platform-rules"],
   ["Uploads", "/uploads"],
-  ["Daily Tasks", "/daily-tasks"],
-  ["Red Envelopes", "/red-envelopes"],
-  ["Room Appearance", "/room-appearance"],
   ["Room Management", "/room-management"],
   ["Rankings", "/rankings"],
   ["Message History", "/messages"],
@@ -28,6 +25,17 @@ export const portalNavigation = [
 
 function isActiveRoute(pathname, href) {
   if (href === "/home") return pathname === href;
+  if (href === "/room-management") {
+    return [
+      "/room-management",
+      "/daily-tasks",
+      "/red-envelopes",
+      "/room-appearance",
+      "/live-video-management",
+      "/notifications-management",
+      "/content-moderation",
+    ].some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

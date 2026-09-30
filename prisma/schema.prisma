@@ -1382,6 +1382,7 @@ model AudioRoom {
   paidEntryCoins        BigInt?
   revision              Int                          @default(0)
   seatRevision          Int                          @default(0)
+  seatLayout            Json?
   roomBackgroundAssetId String?
   roomBackgroundVersion Int                          @default(0)
   seatStyleAssetId      String?
@@ -1523,6 +1524,8 @@ model AudioRoomMember {
   socketCount Int       @default(0)
   joinedAt    DateTime  @default(now())
   lastSeenAt  DateTime  @default(now())
+  isDeafened  Boolean   @default(false)
+  deafenedUntil DateTime?
   audioRoom   AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1671,6 +1674,7 @@ model AudioRoomSeat {
   note           String?
   isMuted        Boolean   @default(true)
   isForceMuted   Boolean   @default(false)
+  forceMutedUntil DateTime?
   isSpeaking     Boolean   @default(false)
   occupiedAt     DateTime?
   updatedAt      DateTime  @updatedAt
