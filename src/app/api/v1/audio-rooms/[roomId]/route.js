@@ -7,6 +7,8 @@ import {
 } from "@/lib/mobile-api";
 import { requireRoomPermission } from "@/lib/audio-room-management";
 import { emitToAudioRoom } from "@/lib/realtime";
+import { ensureAudioRoomSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "@/lib/audio-room-seats";
+import { requestOrigin } from "@/lib/user-perks";
 export function OPTIONS() {
   return mobileOptions();
 }
@@ -17,7 +19,7 @@ export async function PATCH(request, { params }) {
       body = await request.json();
     const room = await prisma.audioRoom.findUnique({
       where: { roomId: decodeURIComponent(roomId) },
-      select: { id: true, roomId: true, ownerId: true, privacyMode: true, paidEntryCoins: true },
+      select: { id: true, roomId: true, ownerId: true, privacyMode: true, paidEntryCoins: true, seatLayout: true },
     });
     if (!room) throw new Error("ROOM_UNAVAILABLE");
     await requireRoomPermission(room, actor.id, "canManagePrivacy");
@@ -76,6 +78,8 @@ export async function PATCH(request, { params }) {
         });
       data.paidEntryCoins = v;
     }
+    if ("seatLayout" in body)
+      data.seatLayout = normalizeAudioRoomSeatLayout(body.seatLayout);
     const nextPrivacyMode = data.privacyMode ?? room.privacyMode;
     const nextPaidEntryCoins = data.paidEntryCoins === undefined ? room.paidEntryCoins : data.paidEntryCoins;
     if (nextPrivacyMode === "PAID" && (!nextPaidEntryCoins || nextPaidEntryCoins < 1n))
@@ -91,6 +95,7 @@ export async function PATCH(request, { params }) {
         privacyMode: true,
         paidEntryCoins: true,
         revision: true,
+        seatLayout: true,
         updatedAt: true,
       },
     });
@@ -103,6 +108,11 @@ export async function PATCH(request, { params }) {
       success: true,
       data: result,
     });
+    if (data.seatLayout) {
+      await ensureAudioRoomSeats(room.id, data.seatLayout);
+      const seatState = await readAudioRoomSeatState({ ...room, ...updated }, requestOrigin(request));
+      emitToAudioRoom(room.roomId, "audio-room:seat-update", { success: true, data: { ...seatState, seatLayout: data.seatLayout } });
+    }
     return mobileJson({ success: true, data: { room: result } });
   } catch (e) {
     return mobileApiError(e, "ROOM_UPDATE_FAILED");

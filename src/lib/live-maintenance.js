@@ -77,3 +77,21 @@ export async function reconcileStaleVideoPresence(now = new Date(), staleMs = 90
 export async function expireGuestRequests(now = new Date()) {
   return prisma.videoLiveGuestRequest.updateMany({ where: { status: "PENDING", expiresAt: { lte: now } }, data: { status: "EXPIRED", respondedAt: now } });
 }
+
+export async function reconcileExpiredAudioRoomControls(now = new Date()) {
+  const [seats, members] = await Promise.all([
+    prisma.audioRoomSeat.findMany({ where: { isForceMuted: true, forceMutedUntil: { lte: now } }, include: { occupant: { select: { publicId: true } }, audioRoom: { select: { id: true, roomId: true, seatLayout: true, seatRevision: true, updatedAt: true } } } }),
+    prisma.audioRoomMember.findMany({ where: { isDeafened: true, deafenedUntil: { lte: now } }, include: { user: { select: { publicId: true } }, audioRoom: { select: { roomId: true } } } }),
+  ]);
+  const releasedSeats = [];
+  for (const seat of seats) {
+    const result = await prisma.audioRoomSeat.updateMany({ where: { id: seat.id, isForceMuted: true, forceMutedUntil: { lte: now } }, data: { isMuted: false, isForceMuted: false, forceMutedUntil: null } });
+    if (result.count && seat.occupant) releasedSeats.push(seat);
+  }
+  const releasedMembers = [];
+  for (const member of members) {
+    const result = await prisma.audioRoomMember.updateMany({ where: { audioRoomId: member.audioRoomId, userId: member.userId, isDeafened: true, deafenedUntil: { lte: now } }, data: { isDeafened: false, deafenedUntil: null } });
+    if (result.count) releasedMembers.push(member);
+  }
+  return { seats: releasedSeats, members: releasedMembers };
+}

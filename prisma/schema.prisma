@@ -1519,18 +1519,19 @@ model AudioRoomModerationLog {
 }
 
 model AudioRoomMember {
-  audioRoomId String
-  userId      String
-  socketCount Int       @default(0)
-  joinedAt    DateTime  @default(now())
-  lastSeenAt  DateTime  @default(now())
-  isDeafened  Boolean   @default(false)
+  audioRoomId   String
+  userId        String
+  socketCount   Int       @default(0)
+  joinedAt      DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  isDeafened    Boolean   @default(false)
   deafenedUntil DateTime?
-  audioRoom   AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audioRoom     AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([audioRoomId, userId])
   @@index([audioRoomId, socketCount, joinedAt])
+  @@index([deafenedUntil])
 }
 
 model AudioRoomAdmission {
@@ -1666,25 +1667,26 @@ model ApiRequestLog {
 }
 
 model AudioRoomSeat {
-  id             String    @id @default(cuid())
-  audioRoomId    String
-  seatId         String
-  occupantUserId String?
-  isLocked       Boolean   @default(false)
-  note           String?
-  isMuted        Boolean   @default(true)
-  isForceMuted   Boolean   @default(false)
+  id              String    @id @default(cuid())
+  audioRoomId     String
+  seatId          String
+  occupantUserId  String?
+  isLocked        Boolean   @default(false)
+  note            String?
+  isMuted         Boolean   @default(true)
+  isForceMuted    Boolean   @default(false)
   forceMutedUntil DateTime?
-  isSpeaking     Boolean   @default(false)
-  occupiedAt     DateTime?
-  updatedAt      DateTime  @updatedAt
-  audioRoom      AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
-  occupant       User?     @relation(fields: [occupantUserId], references: [id], onDelete: SetNull)
+  isSpeaking      Boolean   @default(false)
+  occupiedAt      DateTime?
+  updatedAt       DateTime  @updatedAt
+  audioRoom       AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  occupant        User?     @relation(fields: [occupantUserId], references: [id], onDelete: SetNull)
 
   @@unique([audioRoomId, seatId])
   @@unique([audioRoomId, occupantUserId])
   @@index([audioRoomId, updatedAt])
   @@index([occupantUserId])
+  @@index([forceMutedUntil])
 }
 
 model DailyTaskDefinition {

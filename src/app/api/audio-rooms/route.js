@@ -1,7 +1,8 @@
 import { prisma } from "../../../lib/prisma";
 import { requireMobileUser } from "../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../lib/audio-room-maintenance";
-import { ensureAudioRoomSeats } from "../../../lib/audio-room-seats";
+import { ensureAudioRoomSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "../../../lib/audio-room-seats";
+import { emitToAudioRoom } from "../../../lib/realtime";
 import {
   requestOrigin,
   resolveUserPerks,
@@ -179,6 +180,9 @@ export async function POST(request) {
       );
 
     const now = new Date();
+    const seatLayout = Object.hasOwn(body, "seatLayout")
+      ? normalizeAudioRoomSeatLayout(body.seatLayout)
+      : normalizeAudioRoomSeatLayout(existing?.seatLayout);
     const data = {
       title,
       country: user.country ?? existing?.country ?? null,
@@ -189,6 +193,7 @@ export async function POST(request) {
       participantCount: Math.max(0, Number(body.participantCount) || 0),
       startedAt: now,
       endedAt: null,
+      seatLayout,
     };
     const created = !existing;
     const roomId = existing?.roomId ?? await generateNumericPublicId(
@@ -209,7 +214,11 @@ export async function POST(request) {
       },
       include: roomBackgroundInclude,
     });
-    await ensureAudioRoomSeats(existing.id);
+    await ensureAudioRoomSeats(existing.id, seatLayout);
+    if (Object.hasOwn(body, "seatLayout")) {
+      const seatState = await readAudioRoomSeatState(existing, origin);
+      emitToAudioRoom(existing.roomId, "audio-room:seat-update", { success: true, data: { ...seatState, seatLayout } });
+    }
     await writeAudit(
       user,
       created ? "AUDIO_ROOM_ID_ASSIGNED" : "AUDIO_ROOM_RESTARTED",
@@ -252,6 +261,17 @@ export async function POST(request) {
         },
         401,
       );
+    if (error?.code === "VALIDATION_ERROR")
+      return json(
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: error.message,
+          },
+        },
+        422,
+      );
     console.error("Audio room request failed", error);
     return json(
       {
@@ -275,10 +295,11 @@ async function makeRoomIdle(room, body = {}) {
         occupiedAt: null,
         isMuted: true,
         isForceMuted: false,
+        forceMutedUntil: null,
         isSpeaking: false,
       },
     });
-    await tx.audioRoomMember.updateMany({ where: { audioRoomId: room.id }, data: { socketCount: 0, lastSeenAt: new Date() } });
+    await tx.audioRoomMember.updateMany({ where: { audioRoomId: room.id }, data: { socketCount: 0, lastSeenAt: new Date(), isDeafened: false, deafenedUntil: null } });
     return tx.audioRoom.update({
       where: { id: room.id },
       data: {
@@ -332,6 +353,7 @@ function serializeRoom(room, perks, origin) {
     roomBackground: serializeRoomBackground(room, origin),
     seatStyle: serializeRoomSeatStyle(room, origin),
     participantCount: room.participantCount,
+    seatLayout: normalizeAudioRoomSeatLayout(room.seatLayout),
     isLocked: Boolean(room.passwordHash),
     chatLocked: Boolean(room.chatLocked),
     announcement: room.announcement ?? null,

@@ -2,15 +2,37 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
 
-export const defaultAudioRoomSeatIds = Array.from({ length: 3 }, (_, row) =>
-  Array.from({ length: 4 }, (_, seat) => `row${row}-seat${seat + 1}`),
-).flat();
+export const defaultAudioRoomSeatLayout = [3, 4, 4];
+export const maxAudioRoomSeats = 20;
 
-export async function ensureAudioRoomSeats(audioRoomId) {
+export function normalizeAudioRoomSeatLayout(value, { optional = false } = {}) {
+  if (value == null && optional) return null;
+  const layout = value == null ? defaultAudioRoomSeatLayout : value;
+  if (!Array.isArray(layout) || layout.length < 1 || layout.length > 6)
+    throw Object.assign(new Error("Seat layout must contain 1 to 6 rows."), { code: "VALIDATION_ERROR" });
+  const normalized = layout.map(Number);
+  if (normalized.some((count) => !Number.isSafeInteger(count) || count < 1 || count > 5))
+    throw Object.assign(new Error("Every seat row must contain 1 to 5 seats."), { code: "VALIDATION_ERROR" });
+  if (normalized.reduce((total, count) => total + count, 0) > maxAudioRoomSeats)
+    throw Object.assign(new Error(`A room cannot contain more than ${maxAudioRoomSeats} seats.`), { code: "VALIDATION_ERROR" });
+  return normalized;
+}
+
+export function audioRoomSeatIds(layout = defaultAudioRoomSeatLayout) {
+  return normalizeAudioRoomSeatLayout(layout).flatMap((count, row) =>
+    Array.from({ length: count }, (_, seat) => `row${row}-seat${seat + 1}`),
+  );
+}
+
+export const defaultAudioRoomSeatIds = audioRoomSeatIds();
+
+export async function ensureAudioRoomSeats(audioRoomId, layout = defaultAudioRoomSeatLayout) {
+  const seatIds = audioRoomSeatIds(layout);
   await prisma.audioRoomSeat.createMany({
-    data: defaultAudioRoomSeatIds.map((seatId) => ({ audioRoomId, seatId })),
+    data: seatIds.map((seatId) => ({ audioRoomId, seatId })),
     skipDuplicates: true,
   });
+  return seatIds;
 }
 
 function publicOccupant(user, perks) {
@@ -29,10 +51,11 @@ function publicOccupant(user, perks) {
 }
 
 export async function readAudioRoomSeatState(room, origin) {
-  await ensureAudioRoomSeats(room.id);
+  const seatLayout = normalizeAudioRoomSeatLayout(room.seatLayout);
+  const seatIds = await ensureAudioRoomSeats(room.id, seatLayout);
   const [seats, revision] = await Promise.all([
     prisma.audioRoomSeat.findMany({
-      where: { audioRoomId: room.id },
+      where: { audioRoomId: room.id, seatId: { in: seatIds } },
       include: {
         occupant: {
           select: {
@@ -70,6 +93,7 @@ export async function readAudioRoomSeatState(room, origin) {
       note: seat.note ?? null,
       muted: seat.occupant ? seat.isMuted : true,
       forceMuted: seat.occupant ? seat.isForceMuted : false,
+      forceMutedUntil: seat.occupant ? seat.forceMutedUntil?.toISOString() ?? null : null,
       speaking: seat.occupant ? seat.isSpeaking : false,
     });
     if (seat.updatedAt > updatedAt) updatedAt = seat.updatedAt;
@@ -77,6 +101,7 @@ export async function readAudioRoomSeatState(room, origin) {
   return {
     roomId: room.roomId,
     revision: revision?.seatRevision ?? room.seatRevision ?? 0,
+    seatLayout,
     seatRows: [...rows.entries()]
       .sort(([left], [right]) => left - right)
       .map(([, row]) => row),
@@ -92,14 +117,14 @@ export async function advanceAudioRoomSeatRevision(audioRoomId) {
   });
 }
 
-export async function moveAudioRoomMember(room, targetUserId, toSeatId) {
-  await ensureAudioRoomSeats(room.id);
+export async function moveAudioRoomMember(room, targetUserId, toSeatId, { allowLocked = false } = {}) {
+  await ensureAudioRoomSeats(room.id, room.seatLayout);
   return serializableSeatTransaction(async (tx) => {
     const target = await tx.audioRoomSeat.findUnique({
       where: { audioRoomId_seatId: { audioRoomId: room.id, seatId: toSeatId } },
     });
     if (!target) throw new Error("SEAT_NOT_FOUND");
-    if (target.isLocked) throw new Error("SEAT_LOCKED");
+    if (target.isLocked && !allowLocked) throw new Error("SEAT_LOCKED");
     if (target.occupantUserId && target.occupantUserId !== targetUserId)
       throw new Error("SEAT_OCCUPIED");
     await tx.audioRoomSeat.updateMany({
@@ -113,6 +138,7 @@ export async function moveAudioRoomMember(room, targetUserId, toSeatId) {
         occupiedAt: null,
         isMuted: true,
         isForceMuted: false,
+        forceMutedUntil: null,
         isSpeaking: false,
       },
     });
@@ -126,6 +152,7 @@ export async function moveAudioRoomMember(room, targetUserId, toSeatId) {
             : new Date(),
         isMuted: true,
         isForceMuted: false,
+        forceMutedUntil: null,
         isSpeaking: false,
       },
     });
@@ -145,7 +172,7 @@ async function serializableSeatTransaction(operation) {
 }
 
 export async function takeAudioRoomSeat(room, userId, seatId) {
-  await ensureAudioRoomSeats(room.id);
+  await ensureAudioRoomSeats(room.id, room.seatLayout);
   return serializableSeatTransaction(async (tx) => {
     const target = await tx.audioRoomSeat.findUnique({
       where: { audioRoomId_seatId: { audioRoomId: room.id, seatId } },
@@ -163,6 +190,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
         occupiedAt: null,
         isMuted: true,
         isForceMuted: false,
+        forceMutedUntil: null,
         isSpeaking: false,
       },
     });
@@ -177,6 +205,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
         occupiedAt: new Date(),
         isMuted: true,
         isForceMuted: false,
+        forceMutedUntil: null,
         isSpeaking: false,
       },
     });
@@ -186,7 +215,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
 }
 
 export async function moveAudioRoomSeat(room, userId, fromSeatId, toSeatId) {
-  await ensureAudioRoomSeats(room.id);
+  await ensureAudioRoomSeats(room.id, room.seatLayout);
   return serializableSeatTransaction(async (tx) => {
     const [source, target] = await Promise.all([
       tx.audioRoomSeat.findUnique({
@@ -213,6 +242,7 @@ export async function moveAudioRoomSeat(room, userId, fromSeatId, toSeatId) {
         occupiedAt: null,
         isMuted: true,
         isForceMuted: false,
+        forceMutedUntil: null,
         isSpeaking: false,
       },
     });
@@ -241,6 +271,7 @@ export async function leaveAudioRoomSeat(roomId, userId, seatId = null) {
       occupiedAt: null,
       isMuted: true,
       isForceMuted: false,
+      forceMutedUntil: null,
       isSpeaking: false,
     },
   });
