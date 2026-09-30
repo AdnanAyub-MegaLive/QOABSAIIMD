@@ -41,7 +41,7 @@ export async function serializeRoomMusicForDelivery(state, origin) {
     return { ...localMusic, source: "LOCAL", trackUrl: null };
   }
   try {
-    const track = await resolveCatalogTrack(music.catalogTrackId, origin);
+    const track = await resolveCatalogTrack(music.catalogTrackId, origin, state?.audioRoomId ?? null);
     return { ...music, title: track.title, artist: track.artist, mimeType: track.mimeType, trackUrl: track.trackUrl };
   } catch (error) {
     if (error?.code !== "MUSIC_TRACK_NOT_FOUND") throw error;
@@ -69,7 +69,7 @@ export function nextRoomMusicState(action, input = {}, current = null, now = new
     if (source === "CATALOG" && !catalogTrack) throw Object.assign(new Error("The selected catalog track is unavailable."), { code: "MUSIC_TRACK_NOT_FOUND" });
     const title = text(catalogTrack?.title ?? input.title ?? current?.title, 160);
     if (!title) throw Object.assign(new Error("Music title is required."), { code: "VALIDATION_ERROR" });
-    const durationSeconds = seconds(input.durationSeconds ?? current?.durationSeconds, 86400);
+    const durationSeconds = seconds(catalogTrack?.durationSeconds ?? input.durationSeconds ?? current?.durationSeconds, 86400);
     const positionSeconds = seconds(input.positionSeconds ?? (current ? currentMusicPosition(current, now) : 0), durationSeconds || 86400);
     return {
       source,

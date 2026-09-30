@@ -399,17 +399,27 @@ app.prepare().then(async()=>{
         if(!socket.rooms.has(`audio-room:${id}`))return ack({success:false,error:{code:"JOIN_ROOM_FIRST",message:"Join this audio room before controlling its music."}});
         const access=await resolveRoomAccess(room,user.id);
         if(!access.permissions.canManageMusic)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED",message:"You do not have permission to manage room music."}});
+        let command=action;
+        let commandInput=input;
+        if(command==="SKIP"){
+          const tracks=await prisma.uploadAsset.findMany({where:{audioRoomId:room.id,category:"MUSIC_TRACKS",isGlobal:false,active:true},select:{publicId:true},orderBy:[{sortOrder:"asc"},{createdAt:"asc"},{publicId:"asc"}]});
+          if(!tracks.length)throw Object.assign(new Error("The room music catalog is empty."),{code:"MUSIC_TRACK_NOT_FOUND"});
+          const currentIndex=tracks.findIndex(track=>track.publicId===room.entertainmentState?.music?.catalogTrackId);
+          command="PLAY";
+          commandInput={...input,source:"CATALOG",catalogTrackId:tracks[(currentIndex+1+tracks.length)%tracks.length].publicId,positionSeconds:0};
+        }
         const publisherId=`MUSIC-${user.publicId}`;
-        const requestedSource=String(input?.source??room.entertainmentState?.music?.source??"LOCAL").trim().toUpperCase();
-        const catalogTrack=action==="PLAY"&&requestedSource==="CATALOG"?await resolveCatalogTrack(input?.catalogTrackId??room.entertainmentState?.music?.catalogTrackId,connectionOrigin):null;
-        const music=nextRoomMusicState(action,input,room.entertainmentState?.music??null,new Date(),publisherId,catalogTrack);
+        const requestedSource=String(commandInput?.source??room.entertainmentState?.music?.source??"CATALOG").trim().toUpperCase();
+        if(command==="PLAY"&&requestedSource!=="CATALOG")throw Object.assign(new Error("Room music must use a catalog track."),{code:"MUSIC_SOURCE_UNSUPPORTED"});
+        const catalogTrack=command==="PLAY"?await resolveCatalogTrack(commandInput?.catalogTrackId??room.entertainmentState?.music?.catalogTrackId,connectionOrigin,room.id):null;
+        const music=nextRoomMusicState(command,commandInput,room.entertainmentState?.music??null,new Date(),publisherId,catalogTrack);
         const persistedMusic=music?Object.fromEntries(Object.entries(music).filter(([key])=>key!=="trackUrl")):null;
         const updated=await prisma.audioRoomEntertainmentState.upsert({
           where:{audioRoomId:room.id},
           create:{audioRoomId:room.id,music:persistedMusic,revision:1,updatedById:user.id},
           update:{music:persistedMusic,revision:{increment:1},updatedById:user.id},
         });
-        if(action==="STOP")await removeLiveKitParticipant(room.roomId,publisherId).catch(error=>console.error("LiveKit music participant removal failed",error));
+        if(command==="STOP")await removeLiveKitParticipant(room.roomId,publisherId).catch(error=>console.error("LiveKit music participant removal failed",error));
         const requestId=String(input?.requestId??"").trim().slice(0,128)||null;
         const state=await serializeRoomMusicForDelivery(updated,connectionOrigin);
         const data={roomId:room.roomId,...state,requestId,changedBy:{publicId:user.publicId}};
@@ -417,7 +427,7 @@ app.prepare().then(async()=>{
         ack({success:true,data});
       }catch(error){
         const code=error?.code??error?.message;
-        const known=["VALIDATION_ERROR","ROOM_MUSIC_NOT_ACTIVE","MUSIC_TRACK_NOT_FOUND"];
+        const known=["VALIDATION_ERROR","ROOM_MUSIC_NOT_ACTIVE","MUSIC_TRACK_NOT_FOUND","MUSIC_SOURCE_UNSUPPORTED"];
         console.error(`Audio room music ${String(action).toLowerCase()} failed`,error);
         ack({success:false,error:{code:known.includes(code)?code:"ROOM_MUSIC_UPDATE_FAILED",message:code==="ROOM_MUSIC_NOT_ACTIVE"?"No room music is currently selected.":error?.message||"Unable to update room music."}});
       }
@@ -426,6 +436,7 @@ app.prepare().then(async()=>{
     socket.on("audio-room:music-pause",(input,ack)=>changeRoomMusic("PAUSE",input,ack));
     socket.on("audio-room:music-seek",(input,ack)=>changeRoomMusic("SEEK",input,ack));
     socket.on("audio-room:music-stop",(input,ack)=>changeRoomMusic("STOP",input,ack));
+    socket.on("audio-room:music-skip",(input,ack)=>changeRoomMusic("SKIP",input,ack));
     socket.on("live-video:join",async({liveId}={},ack=()=>{})=>{
       try{const id=String(liveId??"");const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},include:{host:{select:{publicId:true,name:true,profileImage:true}},guestRequests:{where:{status:"APPROVED"},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{slot:"asc"}}}});if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live video is unavailable."}});const ban=await prisma.videoLiveBan.findFirst({where:{sessionId:live.id,userId:user.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});if(ban)return ack({success:false,error:{code:"LIVE_BANNED",message:"You are banned from this live video.",details:{reason:ban.reason,expiresAt:ban.expiresAt?.toISOString()??null}}});const channel=`live-video:${id}`,alreadyJoined=socket.rooms.has(channel);socket.join(channel);if(!alreadyJoined)await prisma.videoLiveViewer.upsert({where:{sessionId_userId:{sessionId:live.id,userId:user.id}},create:{sessionId:live.id,userId:user.id,active:true,socketCount:1},update:{active:true,socketCount:{increment:1}}});const viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});const updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,peakViewers:{set:Math.max(live.peakViewers,viewerCount)},revision:alreadyJoined?undefined:{increment:1}},select:{revision:true}});ack({success:true,data:{liveId:id,revision:updated.revision,hostAway:live.hostAway,viewerCount,likeCount:live.likeCount,giftIncome:live.giftIncome.toString(),host:live.host,guests:live.guestRequests.map(g=>({requestId:g.id,slot:g.slot,user:g.user}))}});if(!alreadyJoined)io.to(channel).emit("live-video:viewer-joined",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,user:{publicId:user.publicId,name:user.name,profileImage:user.profileImage}}})}catch(error){console.error("Live video join failed",error);ack({success:false,error:{code:"LIVE_JOIN_FAILED",message:"Unable to join this live video."}})}
     });

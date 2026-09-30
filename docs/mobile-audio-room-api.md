@@ -56,52 +56,38 @@ Android should connect with the official LiveKit Android SDK, treat the token as
 opaque, refresh it before `expiresAt`, publish the microphone only when
 `canPublish` is true, and disconnect media when removed from the room.
 
-## Room music from Android local storage
+## Room-private music catalogue
 
-Music files remain entirely on the Android device. The portal never receives a
-file, local URI, filesystem path, or playable music URL. The room owner first
-joins the Socket.IO audio room and then requests a separate publish-only LiveKit
-identity:
+The current room-music product uses private, persistent catalogues rather than
+publishing an owner's device-local file through the voice codec. The owner APIs
+are:
 
-```http
-POST /api/v1/audio-rooms/ROOM-123/music-token
-Authorization: Bearer <portal-session-token>
-```
+- `GET /api/v1/audio-rooms/{roomId}/music/tracks`
+- `POST /api/v1/audio-rooms/{roomId}/music/tracks` as multipart form data with
+  `file`, `title`, optional `artist`, and optional `durationSeconds`
+- `DELETE /api/v1/audio-rooms/{roomId}/music/tracks/{trackId}`
 
-The response contains `data.liveKitMusic` with `url`, `token`, `roomName`,
-`publisherId`, `canPublish`, `canSubscribe`, `source`, and `expiresAt`. The
-identity is `MUSIC-{ownerPublicId}`, cannot subscribe, and must be used only for
-the audio track decoded from the owner's local music file. The regular user
-identity continues carrying microphone audio.
+Uploads are limited to decoded MP3, M4A, AAC, OGG, or WAV content, 20 MB, and a
+declared duration of at most 15 minutes. Each asset is stored with the room's
+internal ID, is never global, and is cascade-deleted with the persistent room.
+All three operations require `canManageMusic`, currently granted only to the
+room owner. Listing never includes global music or another room's tracks.
 
-Only a connected user with `canManageMusic` can obtain this token or control
-the canonical state. Current permissions grant this to the room owner. Socket
-actions are:
+New playback accepts only `source: "CATALOG"`. The server resolves a track only
+when it is either an existing global catalogue track or belongs to the exact
+room being controlled. `audio-room:music-skip` advances through that room's
+private catalogue order. Playback state and broadcasts remain independently
+keyed and channelled by room. Device-local music playback is retired for new
+commands; audio files and local URIs are never sent through Socket.IO.
 
-- `audio-room:music-play`: `{ roomId, requestId?, localTrackId?, title, artist?, durationSeconds, positionSeconds? }`
-- `audio-room:music-pause`: `{ roomId, requestId? }`
-- `audio-room:music-seek`: `{ roomId, requestId?, positionSeconds }`
-- `audio-room:music-stop`: `{ roomId, requestId? }`
-
-Every successful action acknowledges and broadcasts
-`audio-room:music-changed`. Its data contains `roomId`, metadata, `status`,
-`positionSeconds`, `startedAt`, `publisherId`, `revision`, `updatedAt`, and
-`changedBy`. It never contains a local path or media URL. The join
-acknowledgement returns the same canonical object as `musicState`, allowing a
-reconnecting client to restore its controls. On stop, the server also removes
-the dedicated LiveKit music participant.
-
-Listeners hear the published LiveKit track directly; they must not try to open
-the owner's `localTrackId`. That value is only an opaque UI/library identifier.
-
-For portal catalogue music, authenticated clients obtain tracks from
-`GET /api/music/catalog`. A catalogue play request sends `source: "CATALOG"`
-and the raw `catalogTrackId`; it must not send or choose `trackUrl`. The server
-looks up an active global `MUSIC_TRACKS` asset and generates a signed streaming
-URL. Both `audio-room:music-changed` and the join `musicState` then contain that
-server-generated `trackUrl`, allowing every participant to play the same file
-from `positionSeconds`/`startedAt`. For `source: "LOCAL"` (and omitted source),
-`trackUrl` is always null and the dedicated LiveKit publisher remains required.
+Socket controls are `audio-room:music-play`, `audio-room:music-pause`,
+`audio-room:music-seek`, `audio-room:music-stop`, and
+`audio-room:music-skip`. Every successful mutation broadcasts
+`audio-room:music-changed` only to `audio-room:{roomId}`. The room join
+acknowledgement contains the same signed-URL state as `musicState`, so late and
+reconnecting listeners resume the correct room's track. The legacy global
+`GET /api/music/catalog` remains available separately but is never included in
+the room-private listing.
 
 ## Local server requirement
 

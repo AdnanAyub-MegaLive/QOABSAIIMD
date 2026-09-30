@@ -743,6 +743,7 @@ model UploadAsset {
   minimumRecharge             BigInt?
   defaultGrantDurationMinutes Int?
   active                      Boolean                      @default(true)
+  audioRoomId                 String?
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   assignments                 UploadAssetAssignment[]
@@ -753,8 +754,10 @@ model UploadAsset {
   selectedAsSeatStyle         AudioRoom[]                  @relation("AudioRoomSeatStyle")
   customBackgroundApproval    CustomRoomBackgroundRequest? @relation("CustomBackgroundApprovedAsset")
   giftInventories             UserGiftInventory[]
+  audioRoom                   AudioRoom?                   @relation("AudioRoomMusicTracks", fields: [audioRoomId], references: [id], onDelete: Cascade)
 
   @@index([category, createdAt])
+  @@index([audioRoomId, category, active, sortOrder, createdAt])
   @@index([category, placement, active, isGlobal, sortOrder, createdAt])
   @@index([isRoomBackground, createdAt])
   @@index([storeVisible, active, createdAt])
@@ -1409,6 +1412,7 @@ model AudioRoom {
   entertainmentState    AudioRoomEntertainmentState?
   pkAsLeft              AudioRoomPkSession[]         @relation("PkLeftRoom")
   pkAsRight             AudioRoomPkSession[]         @relation("PkRightRoom")
+  musicTracks           UploadAsset[]                @relation("AudioRoomMusicTracks")
 
   @@unique([ownerId])
   @@index([ownerId, startedAt])
