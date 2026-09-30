@@ -31,6 +31,7 @@ function isActiveRoute(pathname, href) {
       "/daily-tasks",
       "/red-envelopes",
       "/room-appearance",
+      "/room-games",
       "/live-video-management",
       "/notifications-management",
       "/content-moderation",
@@ -43,11 +44,22 @@ export default function PortalSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-[#092f2d] px-5 py-7 text-white lg:flex">
+    <>
+    <div className="border-b border-white/10 bg-[#092f2d] px-6 py-3 text-white lg:hidden">
+      <details key={pathname} className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#62e0d0]">
+          <span>Mega Live Portal</span><span className="text-[#62e0d0]">Menu <span aria-hidden="true">☰</span></span>
+        </summary>
+        <nav aria-label="Mobile portal navigation" className="grid max-h-[65vh] gap-1 overflow-y-auto pb-2 pt-3 sm:grid-cols-2">
+          {portalNavigation.map(([label, href]) => <Link key={href} href={href} aria-current={isActiveRoute(pathname, href) ? "page" : undefined} className={`rounded-lg px-3 py-3 text-sm ${isActiveRoute(pathname, href) ? "bg-white/10 font-semibold text-[#62e0d0]" : "text-[#a9c5c1] hover:bg-white/5 hover:text-white"}`}>{label}</Link>)}
+        </nav>
+      </details>
+    </div>
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-[#092f2d] px-5 py-6 text-white lg:flex">
       <Link href="/home" className="px-2" aria-label="Mega Live Portal dashboard">
         <BrandLogo light compact priority />
       </Link>
-      <nav className="mt-12 space-y-1" aria-label="Portal navigation">
+      <nav className="portal-navigation mt-7 min-h-0 flex-1 space-y-1 overflow-y-auto pb-4" aria-label="Portal navigation">
         {portalNavigation.map(([label, href]) => {
           const active = isActiveRoute(pathname, href);
           return (
@@ -66,11 +78,12 @@ export default function PortalSidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto border-t border-white/10 pt-5 text-xs text-[#82a6a1]">
+      <div className="shrink-0 border-t border-white/10 pt-4 text-xs leading-relaxed text-[#82a6a1]">
         Mega Live Portal
         <br />
         Control center
       </div>
     </aside>
+    </>
   );
 }

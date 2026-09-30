@@ -12,7 +12,7 @@ export async function POST(request) {
     if (["launch", "profile"].includes(body.action)) {
       const user = await assertPlayer(prisma, identity);
       const games = await prisma.gameDefinition.findMany({ orderBy: { createdAt: "asc" } });
-      return gameJson({ user: { userId: user.publicId, nickname: user.name, availableCoins: user.coinBalance.toString() }, roomId: identity.roomId, games: games.map(serializeGame).filter((game) => game.status === "active"), live: true });
+      return gameJson({ user: { userId: user.publicId, nickname: user.name, availableCoins: user.coinBalance.toString() }, roomId: identity.roomId, games: games.map(serializeGame).filter((game) => game.status === "active" && game.engine !== "external"), live: true });
     }
     if (body.action === "bet") return gameJson({ round: await placeRound(identity, body) });
     if (body.action === "round") {

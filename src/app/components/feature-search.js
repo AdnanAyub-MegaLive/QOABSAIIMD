@@ -4,6 +4,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const features = [
+  ["Room Games", "Game links, mobile visibility and display order", "/room-games"],
+  ["Daily Tasks", "Task categories, rewards and progress targets", "/daily-tasks"],
+  ["Live Video", "Review live sessions, guests and moderation", "/live-video-management"],
+  ["Notification Center", "Manage application announcements and notifications", "/notifications-management"],
+  ["Content Safety", "Review posts and social activity", "/content-moderation"],
   ["Events Management", "Host and publish web events for the mobile application", "/events-login"],
   ["Games Management", "Game catalog, odds, bet limits and wallet round logs", "/games-management"],
   ["Red Envelopes", "Manage room Red Envelope presets, limits and countdowns", "/red-envelopes"],
@@ -135,7 +140,7 @@ export default function FeatureSearch() {
   }
 
   return (
-    <div className="relative hidden w-full max-w-md md:block">
+    <div className="relative hidden min-w-0 w-full max-w-md md:block">
       <svg
         className="absolute top-1/2 left-3.5 z-10 h-4 w-4 -translate-y-1/2 fill-none stroke-[#7d918c] stroke-2"
         viewBox="0 0 24 24"
@@ -170,7 +175,8 @@ export default function FeatureSearch() {
               <button
                 key={`${item.label}-${item.href}`}
                 type="button"
-                onMouseDown={() => navigate(item.href)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => navigate(item.href)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#f3f8f7]"
               >
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e6f4f1] text-sm font-bold text-[#087f74]">

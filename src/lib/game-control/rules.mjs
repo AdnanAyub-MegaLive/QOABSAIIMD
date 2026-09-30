@@ -1,4 +1,5 @@
 import { validateWeights } from "./roulette/engine.mjs";
+import { validateLaunchUrl } from "./catalog.mjs";
 export function validateGame(input) {
   if (!input || typeof input !== "object")
     throw new Error("Game settings are required.");
@@ -22,10 +23,15 @@ export function validateGame(input) {
     name.trim().length > 60
   )
     throw new Error("Game name must be 2–60 characters.");
-  if (!["flip", "roulette"].includes(engine))
+  if (!["flip", "roulette", "external"].includes(engine))
     throw new Error("Unknown game engine.");
   if (!["active", "paused"].includes(status))
     throw new Error("Invalid game status.");
+  const sortOrder = input.sortOrder ?? 0;
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 100000)
+    throw new Error("Display order must be a whole number from 0 to 100000.");
+  if (engine === "external") return { id, name: name.trim(), engine, status, sortOrder,
+    launchUrl: validateLaunchUrl(input.launchUrl), category: "Room game", color: "purple" };
   if (
     engine === "flip" &&
     (!Number.isFinite(winProbability) ||
@@ -57,6 +63,7 @@ export function validateGame(input) {
     );
   return {
     id,
+    sortOrder,
     name: name.trim(),
     engine,
     status,
@@ -72,6 +79,7 @@ export function validateGame(input) {
   };
 }
 export function resolveRound(game, bet, choice, roll) {
+  if (game.engine !== "flip") throw new Error("This game does not support coin-flip wagers.");
   validateGame(game);
   if (game.status !== "active") throw new Error("This game is paused.");
   if (!Number.isSafeInteger(bet) || bet < game.minBet || bet > game.maxBet)

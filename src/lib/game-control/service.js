@@ -75,6 +75,7 @@ export async function placeRound(identity, input) {
     if (!row) throw new GameError("Game not found.", 404);
     const game = serializeGame(row);
     if (request.revision !== game.revision) throw new GameError("Game settings changed. Refresh before betting.", 409);
+    if (game.engine === "external") throw new GameError("Linked games do not support portal wagers.", 400);
     if (game.status !== "active") throw new GameError("This game is paused.", 409);
     let result;
     try {

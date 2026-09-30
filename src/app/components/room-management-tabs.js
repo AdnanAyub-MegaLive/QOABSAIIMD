@@ -8,6 +8,7 @@ const sections = [
   ["Daily Tasks", "/daily-tasks"],
   ["Red Envelopes", "/red-envelopes"],
   ["Appearance", "/room-appearance"],
+  ["Games", "/room-games"],
   ["Live Video", "/live-video-management"],
   ["Notifications", "/notifications-management"],
   ["Content Safety", "/content-moderation"],
@@ -16,7 +17,7 @@ const sections = [
 export default function RoomManagementTabs() {
   const pathname = usePathname();
   return (
-    <nav className="mb-7 overflow-x-auto border-b border-[#dce7e4]" aria-label="Room management sections">
+    <nav className="mb-7 max-w-full overflow-x-auto border-b border-[#dce7e4]" aria-label="Room management sections">
       <div className="flex min-w-max gap-1">
         {sections.map(([label, href]) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
