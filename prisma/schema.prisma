@@ -1383,6 +1383,7 @@ model AudioRoom {
   revision              Int                          @default(0)
   seatRevision          Int                          @default(0)
   seatLayout            Json?
+  giftInteractions      Json?
   roomBackgroundAssetId String?
   roomBackgroundVersion Int                          @default(0)
   seatStyleAssetId      String?

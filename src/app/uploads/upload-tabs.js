@@ -1310,7 +1310,7 @@ function initials(name) {
     .toUpperCase();
 }
 function singular(value) {
-  return {
+  const labels = {
     Banners: "Banner",
     Frames: "Frame",
     "Entrance Strip": "Entrance Strip",
@@ -1320,8 +1320,14 @@ function singular(value) {
     Badges: "Badge",
     "Chat Boxes": "Chat Box",
     "Room Backgrounds": "Room Background",
+    "Seat Styles": "Seat Style",
+    "Business Cards": "Business Card",
+    "VIP Stickers": "VIP Sticker",
+    "Campaign Widgets": "Campaign Widget",
     Music: "Music Track",
-  }[value];
+  };
+  const normalized = String(value ?? "").trim();
+  return labels[normalized] ?? (normalized.replace(/s$/i, "") || "Asset");
 }
 function formatSize(bytes) {
   return bytes < 1024

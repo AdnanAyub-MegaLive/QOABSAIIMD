@@ -6,6 +6,7 @@ import {
   requireMobileUser,
 } from "@/lib/mobile-api";
 import { requestOrigin } from "@/lib/user-perks";
+import { emitToAudioRoom } from "@/lib/realtime";
 
 const maxImageSize = 10 * 1024 * 1024;
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -105,14 +106,16 @@ export async function POST(request) {
       );
 
     const coverImageUrl = `/api/audio-rooms/${room.roomId}/cover`;
-    await prisma.$transaction([
+    const [updated] = await prisma.$transaction([
       prisma.audioRoom.update({
         where: { id: room.id },
         data: {
           coverImageData: imageData,
           coverImageMime: file.type,
           coverImageUrl,
+          revision: { increment: 1 },
         },
+        select: { revision: true },
       }),
       prisma.auditLog.create({
         data: {
@@ -131,10 +134,17 @@ export async function POST(request) {
       }),
     ]);
 
+    const resolvedCoverImageUrl = new URL(coverImageUrl, requestOrigin(request)).toString();
+    emitToAudioRoom(room.roomId, "audio-room:updated", {
+      success: true,
+      data: { roomId: room.roomId, coverImageUrl: resolvedCoverImageUrl, revision: updated.revision },
+    });
     return mobileJson({
       success: true,
       data: {
-        coverImageUrl: new URL(coverImageUrl, requestOrigin(request)).toString(),
+        roomId: room.roomId,
+        coverImageUrl: resolvedCoverImageUrl,
+        revision: updated.revision,
       },
     });
   } catch (error) {

@@ -3,6 +3,7 @@ import { requireMobileUser } from "../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../lib/audio-room-maintenance";
 import { ensureAudioRoomSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "../../../lib/audio-room-seats";
 import { emitToAudioRoom } from "../../../lib/realtime";
+import { normalizeGiftInteractions, serializeGiftInteractions } from "../../../lib/audio-room-gift-interactions";
 import {
   requestOrigin,
   resolveUserPerks,
@@ -180,6 +181,7 @@ export async function POST(request) {
       );
 
     const now = new Date();
+    const previousTitle = existing?.title ?? null;
     const seatLayout = Object.hasOwn(body, "seatLayout")
       ? normalizeAudioRoomSeatLayout(body.seatLayout)
       : normalizeAudioRoomSeatLayout(existing?.seatLayout);
@@ -194,6 +196,9 @@ export async function POST(request) {
       startedAt: now,
       endedAt: null,
       seatLayout,
+      ...(Object.hasOwn(body, "giftInteractions")
+        ? { giftInteractions: normalizeGiftInteractions(body.giftInteractions) }
+        : {}),
     };
     const created = !existing;
     const roomId = existing?.roomId ?? await generateNumericPublicId(
@@ -205,7 +210,7 @@ export async function POST(request) {
     );
     existing = await prisma.audioRoom.upsert({
       where: { ownerId: user.id },
-      update: data,
+      update: { ...data, revision: { increment: 1 } },
       create: {
         roomId,
         ownerId: user.id,
@@ -219,6 +224,10 @@ export async function POST(request) {
       const seatState = await readAudioRoomSeatState(existing, origin);
       emitToAudioRoom(existing.roomId, "audio-room:seat-update", { success: true, data: { ...seatState, seatLayout } });
     }
+    if (!created && existing.title !== previousTitle)
+      emitToAudioRoom(existing.roomId, "audio-room:updated", { success: true, data: { roomId: existing.roomId, title: existing.title, revision: existing.revision } });
+    if (Object.hasOwn(body, "giftInteractions"))
+      emitToAudioRoom(existing.roomId, "audio-room:gift-interactions", { success: true, data: { roomId: existing.roomId, ...serializeGiftInteractions(existing.giftInteractions), revision: existing.revision } });
     await writeAudit(
       user,
       created ? "AUDIO_ROOM_ID_ASSIGNED" : "AUDIO_ROOM_RESTARTED",
@@ -354,6 +363,7 @@ function serializeRoom(room, perks, origin) {
     seatStyle: serializeRoomSeatStyle(room, origin),
     participantCount: room.participantCount,
     seatLayout: normalizeAudioRoomSeatLayout(room.seatLayout),
+    giftInteractions: serializeGiftInteractions(room.giftInteractions),
     isLocked: Boolean(room.passwordHash),
     chatLocked: Boolean(room.chatLocked),
     announcement: room.announcement ?? null,

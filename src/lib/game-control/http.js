@@ -7,10 +7,35 @@ import { isRateLimited } from "../rate-limit.js";
 
 const cookieName = "megalive_game_session";
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+function isDevelopmentOrigin(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:") return false;
+    return url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "0.0.0.0" ||
+      /^10(?:\.\d{1,3}){3}$/.test(url.hostname) ||
+      /^192\.168(?:\.\d{1,3}){2}$/.test(url.hostname) ||
+      /^172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}$/.test(url.hostname);
+  } catch { return false; }
+}
 export function sameOrigin(request) {
   const origin = request.headers.get("origin");
-  const expected = new URL(process.env.AUTH_URL || request.url).origin;
-  if (!origin || origin !== expected) throw new GameError("Open this page from the portal's configured origin.", 403);
+  const configured = [process.env.AUTH_URL, process.env.MOBILE_API_BASE_URL]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .map((value) => {
+      try { return new URL(value).origin; } catch { return null; }
+    })
+    .filter(Boolean);
+  const allowed = new Set(configured);
+  if (process.env.NODE_ENV !== "production" || allowed.size === 0)
+    allowed.add(new URL(request.url).origin);
+  let normalizedOrigin = null;
+  try { normalizedOrigin = origin ? new URL(origin).origin : null; } catch {}
+  const developmentLanOrigin = process.env.NODE_ENV !== "production" && normalizedOrigin && isDevelopmentOrigin(normalizedOrigin);
+  if (!normalizedOrigin || (!allowed.has(normalizedOrigin) && !developmentLanOrigin))
+    throw new GameError("Open this page from the portal's configured origin.", 403);
 }
 export async function jsonBody(request) {
   const text = await request.text();

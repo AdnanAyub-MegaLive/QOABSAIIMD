@@ -25,6 +25,7 @@ app.prepare().then(async()=>{
   const {listenerRoomJoinError}=await import("./src/lib/audio-room-activation-policy.js");
   const {createAudioRoomReaction,createAudioRoomReactionGuard,parseAudioRoomReactionInput,reactionErrorPayload}=await import("./src/lib/audio-room-reactions.js");
   const {getRoomGiftLeaderboard}=await import("./src/lib/gift-leaderboard.js");
+  const {normalizeGiftInteractions,serializeGiftInteractions}=await import("./src/lib/audio-room-gift-interactions.js");
   const {serializeRoomBackground}=await import("./src/lib/room-background.js");
   const {serializeRoomSeatStyle}=await import("./src/lib/room-seat-style.js");
   const {activeRoomBan,resolveRoomAccess,serializeRoomMembers}=await import("./src/lib/audio-room-management.js");
@@ -363,7 +364,7 @@ app.prepare().then(async()=>{
         await prisma.audioRoomSeatInvitation.updateMany({where:{targetId:user.id,status:"PENDING",expiresAt:{lte:new Date()}},data:{status:"EXPIRED",respondedAt:new Date()}});
         const pendingSeatInvitations=await prisma.audioRoomSeatInvitation.findMany({where:{audioRoomId:room.id,targetId:user.id,status:"PENDING",expiresAt:{gt:new Date()}},include:{inviter:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{createdAt:"desc"}});
         const [liveKit,giftLeaderboard,access,members,chatHistory,musicState]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30}),readRoomChatHistory(room,connectionOrigin,{limit:30}),serializeRoomMusicForDelivery(room.entertainmentState,connectionOrigin)]);
-        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,liveKit,roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,giftInteractions:serializeGiftInteractions(room.giftInteractions),announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,liveKit,roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         for(const invitation of pendingSeatInvitations)socket.emit("audio-room:seat-invited",{success:true,data:{invitationId:invitation.id,roomId:room.roomId,seatId:invitation.seatId,status:invitation.status,expiresAt:invitation.expiresAt.toISOString(),inviter:invitation.inviter,recovered:true}});
         if(!alreadyJoined){
           io.to(roomChannel).emit("audio-room:entrance",{
@@ -488,6 +489,19 @@ app.prepare().then(async()=>{
         io.to(`audio-room:${id}`).emit("audio-room:chat-cleared",{success:true,data});
         ack({success:true,data});
       }catch(error){console.error("Audio room clear chat failed",error);ack({success:false,error:{code:"CHAT_CLEAR_FAILED",message:"Unable to clear the public screen."}});}
+    });
+    socket.on("audio-room:gift-interactions",async({roomId,active,items}={},ack=()=>{})=>{
+      try{
+        const id=String(roomId??"");
+        const room=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true,roomId:true,ownerId:true}});
+        if(!room||room.ownerId!==user.id)return ack({success:false,error:{code:room?"ROOM_OWNER_REQUIRED":"ROOM_UNAVAILABLE",message:room?"Only the room owner can change gift interactions.":"This room is unavailable."}});
+        if(!socket.rooms.has(`audio-room:${id}`))return ack(roomControlError("JOIN_ROOM_FIRST"));
+        const setting=normalizeGiftInteractions({active,items});
+        const updated=await prisma.audioRoom.update({where:{id:room.id},data:{giftInteractions:setting,revision:{increment:1}},select:{revision:true,giftInteractions:true}});
+        const data={roomId:id,...serializeGiftInteractions(updated.giftInteractions),revision:updated.revision,changedBy:{publicId:user.publicId}};
+        io.to(`audio-room:${id}`).emit("audio-room:gift-interactions",{success:true,data});
+        ack({success:true,data});
+      }catch(error){const code=error?.code??error?.message;console.error("Audio room gift interactions failed",error);ack({success:false,error:{code:code==="VALIDATION_ERROR"?code:"GIFT_INTERACTIONS_UPDATE_FAILED",message:error?.message||"Unable to update gift interactions."}});}
     });
     socket.on("audio-room:reaction:send",async(input={},ack=()=>{})=>{
       try{

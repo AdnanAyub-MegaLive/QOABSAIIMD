@@ -9,6 +9,7 @@ import { requireRoomPermission } from "@/lib/audio-room-management";
 import { emitToAudioRoom } from "@/lib/realtime";
 import { ensureAudioRoomSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "@/lib/audio-room-seats";
 import { requestOrigin } from "@/lib/user-perks";
+import { normalizeGiftInteractions, serializeGiftInteractions } from "@/lib/audio-room-gift-interactions";
 export function OPTIONS() {
   return mobileOptions();
 }
@@ -24,6 +25,12 @@ export async function PATCH(request, { params }) {
     if (!room) throw new Error("ROOM_UNAVAILABLE");
     await requireRoomPermission(room, actor.id, "canManagePrivacy");
     const data = {};
+    if ("title" in body) {
+      const title = String(body.title ?? "").trim();
+      if (title.length < 2 || title.length > 120)
+        throw Object.assign(new Error("Room title must contain 2 to 120 characters."), { code: "VALIDATION_ERROR" });
+      data.title = title;
+    }
     if ("announcement" in body) {
       const v = String(body.announcement ?? "").trim();
       if (v.length > 300)
@@ -80,6 +87,11 @@ export async function PATCH(request, { params }) {
     }
     if ("seatLayout" in body)
       data.seatLayout = normalizeAudioRoomSeatLayout(body.seatLayout);
+    if ("giftInteractions" in body) {
+      if (actor.id !== room.ownerId)
+        throw Object.assign(new Error("Only the room owner can change gift interactions."), { code: "ROOM_OWNER_REQUIRED" });
+      data.giftInteractions = normalizeGiftInteractions(body.giftInteractions);
+    }
     const nextPrivacyMode = data.privacyMode ?? room.privacyMode;
     const nextPaidEntryCoins = data.paidEntryCoins === undefined ? room.paidEntryCoins : data.paidEntryCoins;
     if (nextPrivacyMode === "PAID" && (!nextPaidEntryCoins || nextPaidEntryCoins < 1n))
@@ -89,6 +101,7 @@ export async function PATCH(request, { params }) {
       data: { ...data, revision: { increment: 1 } },
       select: {
         roomId: true,
+        title: true,
         announcement: true,
         language: true,
         tags: true,
@@ -96,6 +109,7 @@ export async function PATCH(request, { params }) {
         paidEntryCoins: true,
         revision: true,
         seatLayout: true,
+        giftInteractions: true,
         updatedAt: true,
       },
     });
@@ -108,6 +122,8 @@ export async function PATCH(request, { params }) {
       success: true,
       data: result,
     });
+    if (data.giftInteractions)
+      emitToAudioRoom(room.roomId, "audio-room:gift-interactions", { success: true, data: { roomId: room.roomId, ...serializeGiftInteractions(updated.giftInteractions), revision: updated.revision } });
     if (data.seatLayout) {
       await ensureAudioRoomSeats(room.id, data.seatLayout);
       const seatState = await readAudioRoomSeatState({ ...room, ...updated }, requestOrigin(request));
