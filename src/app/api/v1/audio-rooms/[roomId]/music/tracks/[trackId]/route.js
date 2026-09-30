@@ -13,7 +13,7 @@ export async function DELETE(request, { params }) {
     const { roomId, trackId } = await params;
     const room = await prisma.audioRoom.findUnique({ where: { roomId: decodeURIComponent(roomId) }, include: { entertainmentState: true } });
     if (!room) throw new Error("ROOM_UNAVAILABLE");
-    await requireRoomPermission(room, user.id, "canManageMusic");
+    await requireRoomPermission(room, user.id, "canManageMusicCatalog");
     const track = await prisma.uploadAsset.findFirst({ where: { publicId: decodeURIComponent(trackId), audioRoomId: room.id, category: "MUSIC_TRACKS", isGlobal: false }, select: { id: true, publicId: true } });
     if (!track) throw Object.assign(new Error("The selected catalog track is unavailable."), { code: "MUSIC_TRACK_NOT_FOUND" });
     const selected = room.entertainmentState?.music?.catalogTrackId === track.publicId;

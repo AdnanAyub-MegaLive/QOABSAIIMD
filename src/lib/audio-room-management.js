@@ -2,9 +2,9 @@ import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
 
 export const roomPermissions = Object.freeze({
-  OWNER: { canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageRoles: true },
-  ADMIN: { canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: false, canManageMusic: false, canManageRoles: false },
-  MEMBER: { canModerateMembers: false, canManageSeats: false, canManageChat: false, canManagePrivacy: false, canManageMusic: false, canManageRoles: false },
+  OWNER: { canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageMusicCatalog: true, canManageRoles: true },
+  ADMIN: { canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageMusicCatalog: false, canManageRoles: false },
+  MEMBER: { canModerateMembers: false, canManageSeats: false, canManageChat: false, canManagePrivacy: false, canManageMusic: false, canManageMusicCatalog: false, canManageRoles: false },
 });
 
 export async function resolveRoomAccess(room, userId, client = prisma) {

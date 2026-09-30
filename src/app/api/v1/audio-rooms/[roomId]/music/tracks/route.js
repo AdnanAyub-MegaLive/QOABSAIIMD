@@ -9,12 +9,12 @@ export function OPTIONS() {
   return mobileOptions();
 }
 
-async function authorizedRoom(request, params) {
+async function authorizedRoom(request, params, permission) {
   const user = await requireMobileUser(request);
   const { roomId } = await params;
   const room = await prisma.audioRoom.findUnique({ where: { roomId: decodeURIComponent(roomId) }, select: { id: true, roomId: true, ownerId: true } });
   if (!room) throw new Error("ROOM_UNAVAILABLE");
-  await requireRoomPermission(room, user.id, "canManageMusic");
+  await requireRoomPermission(room, user.id, permission);
   return { room, user };
 }
 
@@ -29,7 +29,7 @@ function trackDto(asset, origin) {
 
 export async function GET(request, { params }) {
   try {
-    const { room } = await authorizedRoom(request, params);
+    const { room } = await authorizedRoom(request, params, "canManageMusic");
     const tracks = await prisma.uploadAsset.findMany({
       where: { audioRoomId: room.id, category: "MUSIC_TRACKS", isGlobal: false, active: true },
       select: trackSelect,
@@ -45,7 +45,7 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
-    const { room, user } = await authorizedRoom(request, params);
+    const { room, user } = await authorizedRoom(request, params, "canManageMusicCatalog");
     const form = await request.formData();
     const file = form.get("file");
     const title = String(form.get("title") ?? "").trim();
