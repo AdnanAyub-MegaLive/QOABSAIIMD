@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
@@ -6,16 +7,10 @@ import FinanceConsole from "./finance-console";
 import { prisma } from "../../lib/prisma";
 import { reconcileWalletBalances } from "../../lib/wallet-reconciliation";
 
-const financeRoles = new Set(["ADMIN", "SENIOR_ADMIN", "SUPER_ADMIN"]);
-
 export default async function FinancePage() {
+  const admin = await requirePagePermission("finance.view");
   const session = await auth();
   if (!session?.user?.email) redirect("/");
-  const admin = await prisma.admin.findFirst({
-    where: { email: session.user.email.toLowerCase(), active: true },
-    select: { id: true, name: true, email: true, role: true },
-  });
-  if (!admin || !financeRoles.has(admin.role)) redirect("/home");
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);

@@ -1,7 +1,11 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../../../../auth";
 import { prisma } from "../../../../../../../lib/prisma";
 
 export async function GET(_request,{params}) {
+  const permissionDenied = await portalPermissionError("agencies.view");
+  if (permissionDenied) return permissionDenied;
+
   const session=await auth();
   if(!session?.user)return Response.json({success:false,error:{code:"UNAUTHORIZED",message:"Administrator authentication is required."}},{status:401});
   const {applicationId,side}=await params;

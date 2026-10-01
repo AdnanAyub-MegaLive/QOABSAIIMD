@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "../../auth";
+import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "../lib/prisma";
 import { generateTemporaryPassword, hashPassword } from "../lib/password";
 import { emitToAudioRoom, emitToUser } from "../lib/realtime";
@@ -21,21 +21,7 @@ import {
 import { ledgerData } from "../lib/wallet";
 import { generateNumericPublicId } from "../lib/public-id";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
-  const admin = await prisma.admin.findUnique({
-    where: { email: session.user.email },
-  });
-  if (!admin?.active) throw new Error("Unauthorized");
-  return admin;
-}
 
-async function requireSuperAdmin() {
-  const admin = await requireAdmin();
-  if (admin.role !== "SUPER_ADMIN") throw new Error("SUPER_ADMIN_REQUIRED");
-  return admin;
-}
 
 async function logActivity(admin, data) {
   await prisma.auditLog.create({
@@ -73,7 +59,10 @@ const normalizeEmail = (value) =>
     .toLowerCase() || null;
 
 export async function updateUserAccount(publicId, changes) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.edit");
+  if (changes.status !== undefined) await requirePermission("users.ban");
+  if (changes.isOfficial !== undefined || changes.isVerified !== undefined) await requirePermission("users.verify");
+  if (changes.role !== undefined || changes.roles !== undefined) await requirePermission("hosts.manage");
   const currentUser = await prisma.user.findUniqueOrThrow({
     where: { publicId },
     select: {
@@ -226,7 +215,8 @@ export async function updateUserAccount(publicId, changes) {
 }
 
 export async function updateTalentAccount(publicId, changes) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("hosts.manage");
+  if (changes.salary !== undefined) await requirePermission("hosts.salary");
   const talent = await prisma.talent.findUniqueOrThrow({ where: { publicId } });
   const data = {};
   if (changes.name !== undefined) data.displayName = changes.name;
@@ -296,7 +286,7 @@ export async function updateTalentAccount(publicId, changes) {
 }
 
 export async function managePortalHost(publicId, changes) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("hosts.manage");
   const user = await prisma.user.findUniqueOrThrow({
     where: { publicId },
     select: {
@@ -421,7 +411,7 @@ export async function managePortalHost(publicId, changes) {
 }
 
 export async function adjustUserCoins(publicId, operation, amount, reason) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("finance.adjust");
   const user = await prisma.user.findUniqueOrThrow({ where: { publicId } });
   const value = BigInt(amount);
   const after =
@@ -493,7 +483,7 @@ export async function manageUserAssetGrant(
   assetPublicId,
   options = {},
 ) {
-  const admin = await requireSuperAdmin();
+  const admin = await requirePermission("users.props");
   const [user, asset] = await Promise.all([
     prisma.user.findFirstOrThrow({
       where: { publicId, deletedAt: null },
@@ -589,7 +579,7 @@ export async function manageUserAssetGrant(
 }
 
 export async function createAccount(type, values) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.create");
   if (type === "user") {
     const publicId = await generateNumericPublicId("USR", async (candidate) =>
       prisma.user.findUnique({ where: { publicId: candidate }, select: { id: true } }),
@@ -665,7 +655,7 @@ export async function createBan({
   proofImage,
   macAddress,
 }) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission(target === "DEVICE" ? "users.devices" : "users.ban");
   const isTalent = publicId.startsWith("T");
   const owner = isTalent
     ? await prisma.talent.findUniqueOrThrow({ where: { publicId } })
@@ -747,7 +737,7 @@ export async function createBan({
 }
 
 export async function unbanUser(publicId, reason) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.ban");
   const isTalent = publicId.startsWith("T");
   const owner = isTalent
     ? await prisma.talent.findUniqueOrThrow({ where: { publicId } })
@@ -799,7 +789,7 @@ export async function unbanUser(publicId, reason) {
 }
 
 export async function forceLogoutUser(publicId, reason) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.logout");
   const user = await prisma.user.update({
     where: { publicId },
     data: { sessionVersion: { increment: 1 }, forcedLogoutAt: new Date() },
@@ -839,7 +829,7 @@ export async function forceLogoutUser(publicId, reason) {
 }
 
 export async function unbanDevice(publicId, macAddress, reason) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.devices");
   const user = await prisma.user.findUniqueOrThrow({ where: { publicId } });
   const device = await prisma.device.findFirstOrThrow({
     where: { userId: user.id, macAddress },
@@ -878,7 +868,7 @@ export async function unbanDevice(publicId, macAddress, reason) {
 }
 
 export async function resetUserPassword(publicId, reason) {
-  const admin = await requireSuperAdmin();
+  const admin = await requirePermission("users.password");
   const temporaryPassword = generateTemporaryPassword();
   const passwordHash = await hashPassword(temporaryPassword);
   const user = await prisma.user.update({
@@ -916,7 +906,7 @@ export async function resetUserPassword(publicId, reason) {
 }
 
 export async function deleteUserAccount(publicId, reason) {
-  const admin = await requireSuperAdmin();
+  const admin = await requirePermission("users.delete");
   const user = await prisma.user.findUniqueOrThrow({ where: { publicId } });
   const deletedAt = new Date();
   await prisma.user.update({
@@ -956,7 +946,7 @@ export async function controlAudioRoom(
   reason,
   durationMinutes,
 ) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("rooms.manage");
   await reconcileExpiredAudioRoomRestrictions(roomId);
   const room = await prisma.audioRoom.findUniqueOrThrow({
     where: { roomId },
@@ -1067,7 +1057,7 @@ export async function controlAudioRoom(
 }
 
 export async function createSpecialIdDefinition(values) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.specialIds");
   const code = normalizeSpecialId(values.code);
   const category = String(values.category ?? "STANDARD").toUpperCase();
   if (!["STANDARD", "VIP", "SVIP"].includes(category))
@@ -1138,7 +1128,7 @@ export async function deleteSpecialIdDefinition(
   reason,
   revokeActive = false,
 ) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.specialIds");
   const note = String(reason ?? "").trim().slice(0, 500);
   if (!note) throw new Error("DELETION_REASON_REQUIRED");
   await reconcileExpiredSpecialIds();
@@ -1212,7 +1202,7 @@ export async function assignSpecialId(
   durationMinutes,
   reason,
 ) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.specialIds");
   const assignment = await assignDefinitionToUser({
     publicId,
     definitionId,
@@ -1251,7 +1241,7 @@ export async function assignSpecialId(
 }
 
 export async function revokeSpecialId(assignmentId, reason) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.specialIds");
   await reconcileExpiredSpecialIds();
   const assignment = await prisma.specialIdAssignment.findUniqueOrThrow({
     where: { id: assignmentId },

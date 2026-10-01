@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePortalAccess } from "./portal-access";
+import { canAccessPage } from "@/lib/portal-permissions";
 
 const features = [
+  ["Accounts & Permissions", "Staff accounts and feature access", "/accounts-permissions"],
   ["Room Games", "Game links, mobile visibility and display order", "/room-games"],
   ["Daily Tasks", "Task categories, rewards and progress targets", "/daily-tasks"],
   ["Live Video", "Review live sessions, guests and moderation", "/live-video-management"],
@@ -120,6 +123,7 @@ const features = [
 
 export default function FeatureSearch() {
   const router = useRouter();
+  const admin = usePortalAccess();
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
   const results = useMemo(() => {
@@ -130,8 +134,8 @@ export default function FeatureSearch() {
             `${item.label} ${item.description}`.toLowerCase().includes(value),
           )
         : features.slice(0, 6)
-    ).slice(0, 8);
-  }, [query]);
+    ).filter(item => canAccessPage(admin, item.href)).slice(0, 8);
+  }, [query, admin]);
 
   function navigate(href) {
     setQuery("");

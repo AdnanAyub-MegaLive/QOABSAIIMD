@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../auth";
 import { prisma } from "@/lib/prisma";
 
@@ -61,6 +62,9 @@ async function audit(tx, admin, action, entityType, entityId, metadata) {
 }
 
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError("tasks.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     const admin = await requireAdmin();
     const body = await request.json();
@@ -96,6 +100,9 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
+  const permissionDenied = await portalPermissionError("tasks.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     const admin = await requireAdmin();
     const body = await request.json();

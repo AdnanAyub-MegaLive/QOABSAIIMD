@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
@@ -11,6 +12,9 @@ function failure(error) {
   return Response.json({ success: false, error: { message: status === 500 ? "Unable to save the game catalogue." : error.message } }, { status });
 }
 export async function GET(request) {
+  const permissionDenied = await portalPermissionError("roomGames.view");
+  if (permissionDenied) return permissionDenied;
+
   try {
     if (!await requirePortalAdmin()) throw new GameError("Administrator access is required.", 401);
     const rows = await prisma.gameDefinition.findMany({ orderBy: { createdAt: "asc" } });
@@ -22,6 +26,9 @@ export async function GET(request) {
   } catch (error) { return failure(error); }
 }
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError("roomGames.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     sameOrigin(request);
     const admin = await requirePortalAdmin();

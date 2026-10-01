@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requireFinanceAdmin } from "@/lib/portal-admin";
 import { ledgerData } from "@/lib/wallet";
@@ -15,6 +16,9 @@ function json(body, status = 200) {
 const actions = new Set(["APPROVE", "REJECT", "MARK_PAID"]);
 
 export async function PATCH(request, { params }) {
+  const permissionDenied = await portalPermissionError("finance.withdrawals");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requireFinanceAdmin();
   if (!admin)
     return json({ success: false, error: { code: "UNAUTHORIZED", message: "Finance administrator access is required." } }, 401);

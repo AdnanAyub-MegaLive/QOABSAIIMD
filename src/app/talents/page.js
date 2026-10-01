@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import TalentTabs from "./talent-tabs";
@@ -8,6 +9,7 @@ import { prisma } from "../../lib/prisma";
 import { reconcileExpiredBans } from "../../lib/ban-maintenance";
 
 export default async function TalentsPage() {
+  await requirePagePermission("hosts.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   await reconcileExpiredBans();

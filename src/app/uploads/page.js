@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
@@ -7,6 +8,7 @@ import { serializeUploadAsset } from "../../lib/upload-assets";
 import PortalSidebar from "../components/portal-sidebar";
 
 export default async function UploadsPage() {
+  await requirePagePermission("uploads.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const [assets, users] = await Promise.all([

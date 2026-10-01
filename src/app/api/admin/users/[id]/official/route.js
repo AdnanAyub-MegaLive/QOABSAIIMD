@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../../../auth";
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +21,9 @@ async function requirePortalAdmin() {
 }
 
 export async function PATCH(request, { params }) {
+  const permissionDenied = await portalPermissionError("users.verify");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requirePortalAdmin();
   if (!admin)
     return json(

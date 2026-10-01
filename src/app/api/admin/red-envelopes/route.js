@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../auth";
 import { prisma } from "@/lib/prisma";
 import { getRedEnvelopeConfiguration } from "@/lib/red-envelopes";
@@ -38,6 +39,9 @@ async function audit(tx, admin, action, entityId, metadata) {
 }
 
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError("envelopes.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     const admin = await requireAdmin();
     const body = await request.json();
@@ -50,6 +54,9 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
+  const permissionDenied = await portalPermissionError("envelopes.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     const admin = await requireAdmin();
     const body = await request.json();
@@ -79,6 +86,9 @@ async function enforceCurrentLimits(data) {
 }
 
 export async function DELETE(request) {
+  const permissionDenied = await portalPermissionError("envelopes.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     const admin = await requireAdmin();
     const id = new URL(request.url).searchParams.get("id")?.trim();

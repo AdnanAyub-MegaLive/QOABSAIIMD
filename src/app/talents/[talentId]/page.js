@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
@@ -6,6 +7,7 @@ import { prisma } from "../../../lib/prisma";
 import PortalSidebar from "../../components/portal-sidebar";
 
 export default async function TalentProfilePage({ params }) {
+  await requirePagePermission("hosts.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const { talentId } = await params;

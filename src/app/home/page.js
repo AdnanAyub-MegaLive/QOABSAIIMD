@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
@@ -6,6 +7,7 @@ import PortalSidebar from "../components/portal-sidebar";
 import { prisma } from "../../lib/prisma";
 
 export default async function DashboardHome() {
+  await requirePagePermission("dashboard.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const firstName = session.user.name?.split(" ")[0] ?? "Admin";

@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../auth";
 import { prisma } from "../../../lib/prisma";
 import {
@@ -204,6 +205,9 @@ function parseGrants(
 }
 
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError("uploads.manage");
+  if (permissionDenied) return permissionDenied;
+
   const session = await auth();
   if (!session?.user)
     return Response.json(
@@ -496,6 +500,9 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
+  const permissionDenied = await portalPermissionError("uploads.manage");
+  if (permissionDenied) return permissionDenied;
+
   const session = await auth();
   if (!session?.user)
     return Response.json(
@@ -755,6 +762,9 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
+  const permissionDenied = await portalPermissionError("uploads.delete");
+  if (permissionDenied) return permissionDenied;
+
   const session = await auth();
   if (!session?.user)
     return Response.json(

@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
@@ -6,6 +7,7 @@ import PortalSidebar from "../components/portal-sidebar";
 import { prisma } from "../../lib/prisma";
 
 export default async function AgenciesPage() {
+  await requirePagePermission("agencies.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const monthStart=new Date(Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),1));

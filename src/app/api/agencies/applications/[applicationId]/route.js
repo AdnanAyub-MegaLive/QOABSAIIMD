@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../../auth";
 import { prisma } from "../../../../../lib/prisma";
 import { generateNumericPublicId } from "../../../../../lib/public-id";
@@ -7,6 +8,9 @@ function json(body, status = 200) {
 }
 
 export async function PATCH(request, { params }) {
+  const permissionDenied = await portalPermissionError("agencies.manage");
+  if (permissionDenied) return permissionDenied;
+
   const session = await auth();
   if (!session?.user?.email)
     return json(

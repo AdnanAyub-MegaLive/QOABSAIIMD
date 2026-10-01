@@ -1,9 +1,11 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import RoomManagementShell from "../components/room-management-shell";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import { prisma } from "@/lib/prisma";
 import DailyTasksManager from "./daily-tasks-manager";
 export default async function DailyTasksPage() {
+  await requirePagePermission("tasks.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const [categories, tasks] = await Promise.all([

@@ -1,9 +1,11 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import RoomManagementShell from "../components/room-management-shell";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import { getRedEnvelopeConfiguration } from "@/lib/red-envelopes";
 import RedEnvelopeManager from "./red-envelope-manager";
 export default async function RedEnvelopesPage() {
+  await requirePagePermission("envelopes.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const configuration = await getRedEnvelopeConfiguration({ includeInactive: true });

@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
@@ -10,6 +11,7 @@ import RankingsView from "./rankings-view";
 const pageSize = 25;
 
 export default async function RankingsPage({ searchParams }) {
+  await requirePagePermission("rankings.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const params = await searchParams;

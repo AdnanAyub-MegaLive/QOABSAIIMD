@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
 import { emitToAudioRoom } from "@/lib/realtime";
@@ -5,6 +6,9 @@ import { emitToAudioRoom } from "@/lib/realtime";
 const unauthorized = () => Response.json({ success: false, error: { code: "UNAUTHORIZED", message: "Administrator access is required." } }, { status: 401 });
 
 export async function GET() {
+  const permissionDenied = await portalPermissionError("rooms.view");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requirePortalAdmin(); if (!admin) return unauthorized();
   const [rooms,bans,logs] = await Promise.all([
     prisma.audioRoom.findMany({ include: { owner:{select:{publicId:true,name:true,profileImage:true}}, members:{where:{socketCount:{gt:0}},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{joinedAt:"asc"}}, seats:{include:{occupant:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{seatId:"asc"}}, roles:{include:{user:{select:{publicId:true,name:true}},grantedBy:{select:{publicId:true,name:true}}},orderBy:{grantedAt:"asc"}}, messages:{orderBy:{createdAt:"desc"},take:20}, entertainmentState:true, musicTracks:{select:{publicId:true,name:true,mimeType:true,active:true},orderBy:{createdAt:"desc"}}, pkAsLeft:{where:{status:{in:["PENDING","LIVE"]}},include:{rightRoom:{select:{roomId:true,title:true}}}}, pkAsRight:{where:{status:{in:["PENDING","LIVE"]}},include:{leftRoom:{select:{roomId:true,title:true}}}} },orderBy:{updatedAt:"desc"},take:200}),
@@ -17,10 +21,16 @@ export async function GET() {
 }
 
 export async function PATCH(request) {
+  const permissionDenied = await portalPermissionError("rooms.manage");
+  if (permissionDenied) return permissionDenied;
+
   const admin=await requirePortalAdmin();if(!admin)return unauthorized();const body=await request.json();const room=await prisma.audioRoom.findUnique({where:{roomId:String(body?.roomId??"")}});if(!room)return Response.json({success:false,error:{code:"ROOM_NOT_FOUND",message:"Room not found."}},{status:404});const action=String(body?.action??"").toUpperCase();let data={revision:{increment:1}};
   if(action==="UPDATE_SETTINGS"){const privacy=String(body.privacyMode??room.privacyMode).toUpperCase();if(!["PUBLIC","HIDDEN","PASSWORD","PAID"].includes(privacy))return Response.json({success:false,error:{code:"VALIDATION_ERROR",message:"Invalid privacy mode."}},{status:422});data={...data,announcement:String(body.announcement??"").trim().slice(0,500)||null,language:String(body.language??"").trim().slice(0,40)||null,tags:Array.isArray(body.tags)?body.tags.map(x=>String(x).trim()).filter(Boolean).slice(0,8):room.tags,privacyMode:privacy,paidEntryCoins:privacy==="PAID"?BigInt(Math.max(0,Number(body.paidEntryCoins)||0)):null,joiningDisabled:Boolean(body.joiningDisabled),joiningDisabledUntil:body.joiningDisabledUntil?new Date(body.joiningDisabledUntil):null};}
   else if(action==="LOCK_CHAT")data={...data,chatLocked:Boolean(body.locked)};else if(action==="CLEAR_CHAT")data={...data,chatRevision:{increment:1},chatClearedAt:new Date()};else return Response.json({success:false,error:{code:"VALIDATION_ERROR",message:"Unsupported room action."}},{status:422});
   const updated=await prisma.$transaction(async tx=>{const result=await tx.audioRoom.update({where:{id:room.id},data});await tx.auditLog.create({data:{adminId:admin.id,action:`ROOM_${action}`,category:"CONTENT_MANAGEMENT",entityType:"AudioRoom",entityId:room.roomId,description:`${admin.name} performed ${action} on ${room.roomId}.`}});return result});const payload={roomId:room.roomId,revision:updated.revision,chatRevision:updated.chatRevision,chatLocked:updated.chatLocked,announcement:updated.announcement,language:updated.language,tags:updated.tags,privacyMode:updated.privacyMode,paidEntryCoins:updated.paidEntryCoins?.toString()??null,joiningDisabled:updated.joiningDisabled,joiningDisabledUntil:updated.joiningDisabledUntil?.toISOString()??null};emitToAudioRoom(room.roomId,action==="CLEAR_CHAT"?"audio-room:chat-cleared":"audio-room:settings-changed",{success:true,data:payload});return Response.json({success:true,data:payload});
 }
 
-export async function DELETE(request){const admin=await requirePortalAdmin();if(!admin)return unauthorized();const id=new URL(request.url).searchParams.get("banId");const ban=await prisma.audioRoomBan.findUnique({where:{publicId:id},include:{audioRoom:true,user:true}});if(!ban)return Response.json({success:false,error:{code:"NOT_FOUND",message:"Ban not found."}},{status:404});await prisma.$transaction(async tx=>{await tx.audioRoomBan.update({where:{id:ban.id},data:{revokedAt:new Date()}});await tx.auditLog.create({data:{adminId:admin.id,action:"ROOM_BAN_REVOKED",category:"USER_MANAGEMENT",entityType:"AudioRoomBan",entityId:ban.publicId,description:`${admin.name} revoked ${ban.user.publicId}'s ban from ${ban.audioRoom.roomId}.`}})});return Response.json({success:true,data:{id}})}
+export async function DELETE(request){
+  const permissionDenied = await portalPermissionError("rooms.manage");
+  if (permissionDenied) return permissionDenied;
+const admin=await requirePortalAdmin();if(!admin)return unauthorized();const id=new URL(request.url).searchParams.get("banId");const ban=await prisma.audioRoomBan.findUnique({where:{publicId:id},include:{audioRoom:true,user:true}});if(!ban)return Response.json({success:false,error:{code:"NOT_FOUND",message:"Ban not found."}},{status:404});await prisma.$transaction(async tx=>{await tx.audioRoomBan.update({where:{id:ban.id},data:{revokedAt:new Date()}});await tx.auditLog.create({data:{adminId:admin.id,action:"ROOM_BAN_REVOKED",category:"USER_MANAGEMENT",entityType:"AudioRoomBan",entityId:ban.publicId,description:`${admin.name} revoked ${ban.user.publicId}'s ban from ${ban.audioRoom.roomId}.`}})});return Response.json({success:true,data:{id}})}

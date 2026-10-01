@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
@@ -7,6 +8,7 @@ import MessageHistory from "./message-history";
 import PortalSidebar from "../../components/portal-sidebar";
 
 export default async function UserProfilePage({ params }) {
+  await requirePagePermission("users.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const { userId } = await params;

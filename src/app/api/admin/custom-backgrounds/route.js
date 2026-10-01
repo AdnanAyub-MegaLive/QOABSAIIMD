@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
 import { getCustomBackgroundConfiguration } from "@/lib/custom-room-backgrounds";
@@ -9,6 +10,9 @@ const coins = (value) => { const text = String(value ?? ""); if (!/^\d+$/.test(t
 async function admin() { const value = await requirePortalAdmin(); if (!value) throw Object.assign(new Error("Administrator access is required."), { status: 401 }); return value; }
 
 export async function GET() {
+  const permissionDenied = await portalPermissionError("appearance.view");
+  if (permissionDenied) return permissionDenied;
+
   try {
     await admin();
     const [configuration, requests] = await Promise.all([getCustomBackgroundConfiguration({ includeInactive: true }), prisma.customRoomBackgroundRequest.findMany({ include: { user: { select: { publicId: true, name: true, profileImage: true } }, reviewedBy: { select: { name: true } }, approvedAsset: { select: { publicId: true } } }, orderBy: { submittedAt: "desc" }, take: 200 })]);
@@ -17,6 +21,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError("appearance.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     const actor = await admin(); const body = await request.json();
     const name = String(body.name ?? "").trim(); if (!name || name.length > 60) throw Object.assign(new Error("Package name must contain 1 to 60 characters."), { status: 422 });
@@ -28,6 +35,9 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
+  const permissionDenied = await portalPermissionError("appearance.manage");
+  if (permissionDenied) return permissionDenied;
+
   try {
     const actor = await admin(); const body = await request.json();
     if (body.entity === "settings") {

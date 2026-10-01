@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../auth";
 import { prisma } from "../../../lib/prisma";
 import {
@@ -47,6 +48,9 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError("notifications.manage");
+  if (permissionDenied) return permissionDenied;
+
   const session = await auth();
   if (!session?.user)
     return mobileJson(

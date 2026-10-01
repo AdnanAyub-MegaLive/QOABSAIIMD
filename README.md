@@ -11,6 +11,43 @@ seats, and real-time Socket.IO activity.
 - Socket.IO for real-time portal and mobile events
 - LiveKit for Android audio and video rooms
 
+## Portal staff accounts and permissions
+
+Open **Accounts & Permissions** in the sidebar to create portal staff logins.
+Managers can choose permissions using module/action checkboxes, or start with
+the Read only, Room moderator, Content manager, or Finance officer templates.
+Only permissions the manager currently holds can be granted. Actions require
+their corresponding module's View permission.
+
+- `SUPER_ADMIN` retains full access and cannot be edited through this screen.
+- `MANAGER` can delegate account administration when explicitly permitted.
+- `STAFF` receives selected operational permissions without account administration.
+- Managers manage only accounts created beneath them, not peers or themselves.
+- Parent suspension or permission removal restricts descendant accounts too.
+- Account changes, password resets and session revocation invalidate the affected
+  account's existing portal sessions. Permission checks run on the server, not
+  only through sidebar visibility. Attempts at forbidden operations return 403.
+- Account changes are recorded in the access-management audit history.
+
+Permission groups cover dashboard, users, hosts, agencies, finance, platform
+rules, uploads, room management, daily tasks, red envelopes, room appearance,
+room games, games, live video, notifications, content moderation, rankings,
+messages, audit logs and account administration. Wallet adjustments, password
+resets, private messages and account deletion have separate permissions.
+The independent Events module retains its own authentication/authorization;
+these checkboxes do not grant Events accounts or permissions.
+
+Deployment: run `npx prisma migrate deploy`, regenerate Prisma Client, and
+restart the portal. Existing portal sessions must sign in again. The seeded
+Manager's legacy environment password is migrated to a database bcrypt hash
+on its first successful login; subsequent authentication uses that hash.
+New staff passwords are stored as bcrypt hashes, never in environment variables.
+
+Verification: `npm test` includes the permission-policy tests. With the local
+portal running, `node scripts/test-portal-staff-http.mjs` exercises real login,
+delegation, forbidden access and session invalidation using temporary accounts
+and removes those fixtures afterwards.
+
 ## Configure
 
 Create `.env.local` with the database, authentication, and LiveKit values required

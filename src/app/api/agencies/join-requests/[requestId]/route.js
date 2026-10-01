@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../../auth";
 import { prisma } from "@/lib/prisma";
 import { talentPublicIdForApprovedHost } from "@/lib/host-public-id";
@@ -7,6 +8,9 @@ import { primaryLegacyRole } from "@/lib/user-roles";
 const json = (body, status = 200) => Response.json(body, { status });
 
 export async function PATCH(request, { params }) {
+  const permissionDenied = await portalPermissionError("agencies.manage");
+  if (permissionDenied) return permissionDenied;
+
   const session = await auth();
   if (!session?.user?.email) return json({ success: false, error: { code: "UNAUTHORIZED", message: "Administrator authentication is required." } }, 401);
   const admin = await prisma.admin.findUnique({ where: { email: session.user.email.toLowerCase() }, select: { id: true, name: true, email: true, active: true } });

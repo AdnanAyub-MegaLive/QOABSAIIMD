@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePortalAccess } from "./portal-access";
+import { canAccessPage } from "@/lib/portal-permissions";
 import { usePathname } from "next/navigation";
 
 const sections = [
@@ -16,10 +18,11 @@ const sections = [
 
 export default function RoomManagementTabs() {
   const pathname = usePathname();
+  const admin = usePortalAccess();
   return (
     <nav className="mb-7 max-w-full overflow-x-auto border-b border-[#dce7e4]" aria-label="Room management sections">
       <div className="flex min-w-max gap-1">
-        {sections.map(([label, href]) => {
+        {sections.filter(([, href]) => canAccessPage(admin, href)).map(([label, href]) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link

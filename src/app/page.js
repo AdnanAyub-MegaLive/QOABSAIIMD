@@ -9,7 +9,7 @@ function Brand({ mobile = false }) {
 
 export default async function Home() {
   const session = await auth();
-  if (session?.user) redirect("/home");
+  if (session?.user) redirect("/portal");
 
   return (
     <main className="grid min-h-screen grid-cols-[minmax(420px,1.05fr)_minmax(540px,.95fr)] max-[900px]:block">

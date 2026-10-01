@@ -1,3 +1,4 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requireFinanceAdmin } from "@/lib/portal-admin";
 import { reconcileWalletBalances } from "@/lib/wallet-reconciliation";
@@ -13,6 +14,9 @@ function json(body, status = 200) {
 }
 
 export async function GET(request) {
+  const permissionDenied = await portalPermissionError("finance.view");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requireFinanceAdmin();
   if (!admin)
     return json({ success: false, error: { code: "UNAUTHORIZED", message: "Finance administrator access is required." } }, 401);

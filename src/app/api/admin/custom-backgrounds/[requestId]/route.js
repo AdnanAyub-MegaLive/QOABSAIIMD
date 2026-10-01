@@ -1,7 +1,11 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
 
 export async function PATCH(request, { params }) {
+  const permissionDenied = await portalPermissionError("appearance.manage");
+  if (permissionDenied) return permissionDenied;
+
   const actor = await requirePortalAdmin();
   if (!actor) return Response.json({ success: false, error: { code: "UNAUTHORIZED", message: "Administrator access is required." } }, { status: 401 });
   try {

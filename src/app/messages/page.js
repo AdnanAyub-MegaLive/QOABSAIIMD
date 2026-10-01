@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
@@ -10,6 +11,7 @@ const pageSize = 50;
 const allowedTypes = new Set(["ALL", "WORLD", "DIRECT", "ROOM"]);
 
 export default async function MessagesPage({ searchParams }) {
+  await requirePagePermission("messages.view");
   const session = await auth();
   if (!session?.user) redirect("/");
 

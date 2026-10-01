@@ -1,8 +1,12 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
 
 export async function GET() {
+  const permissionDenied = await portalPermissionError("notifications.view");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requirePortalAdmin();
   if (!admin) return Response.json({ success: false, error: { code: "UNAUTHORIZED", message: "Administrator access is required." } }, { status: 401 });
   const rows = await prisma.notification.findMany({ include: { user: { select: { publicId: true, name: true } }, _count: { select: { reads: true } } }, orderBy: { createdAt: "desc" }, take: 200 });
@@ -10,6 +14,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError("notifications.manage");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requirePortalAdmin();
   if (!admin) return Response.json({ success: false, error: { code: "UNAUTHORIZED", message: "Administrator access is required." } }, { status: 401 });
   const body = await request.json();

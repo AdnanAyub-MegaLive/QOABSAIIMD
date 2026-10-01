@@ -1,8 +1,12 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
 import { emitToVideoLive } from "@/lib/realtime";
 
 export async function GET() {
+  const permissionDenied = await portalPermissionError("video.view");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requirePortalAdmin();
   if (!admin) return Response.json({ success: false, error: { code: "UNAUTHORIZED", message: "Administrator access is required." } }, { status: 401 });
   const sessions = await prisma.videoLiveSession.findMany({
@@ -19,6 +23,9 @@ export async function GET() {
 }
 
 export async function PATCH(request) {
+  const permissionDenied = await portalPermissionError("video.manage");
+  if (permissionDenied) return permissionDenied;
+
   const admin = await requirePortalAdmin();
   if (!admin) return Response.json({ success: false, error: { code: "UNAUTHORIZED", message: "Administrator access is required." } }, { status: 401 });
   const body = await request.json();

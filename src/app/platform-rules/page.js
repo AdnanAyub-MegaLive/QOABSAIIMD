@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import { prisma } from "../../lib/prisma";
@@ -7,6 +8,7 @@ import FeatureSearch from "../components/feature-search";
 import RulesManager from "./rules-manager";
 
 export default async function PlatformRulesPage() {
+  await requirePagePermission("rules.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const [rule, agencies, talents, userCandidates, totals] = await Promise.all([

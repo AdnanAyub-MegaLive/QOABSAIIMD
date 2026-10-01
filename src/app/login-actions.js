@@ -8,7 +8,7 @@ export async function authenticate(_previousState, formData) {
     await signIn("credentials", {
       email: formData.get("email"),
       password: formData.get("password"),
-      redirectTo: "/home",
+      redirectTo: "/portal",
     });
   } catch (error) {
     if (error instanceof AuthError) {

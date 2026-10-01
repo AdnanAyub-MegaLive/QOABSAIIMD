@@ -1,9 +1,13 @@
+import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../auth.js";
 import { prisma } from "@/lib/prisma";
 import { ensureGames, saveGame, serializeGame, GameError } from "@/lib/game-control/service";
 import { sameOrigin, jsonBody, failure, gameJson } from "@/lib/game-control/http";
 export const runtime = "nodejs";
 export async function POST(request) {
+  const permissionDenied = await portalPermissionError((await request.clone().json().catch(() => ({})))?.action === "saveGame" ? "games.manage" : "games.view");
+  if (permissionDenied) return permissionDenied;
+
   try {
     sameOrigin(request);
     const session = await auth();

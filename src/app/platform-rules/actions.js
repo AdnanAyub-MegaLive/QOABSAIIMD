@@ -1,22 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "../../../auth";
+import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "../../lib/prisma";
 import { getProfitSplitRule, validateProfitSplit } from "../../lib/profit-rules";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("UNAUTHORIZED");
-  const admin = await prisma.admin.findUnique({
-    where: { email: session.user.email },
-  });
-  if (!admin?.active) throw new Error("UNAUTHORIZED");
-  return admin;
-}
 
 export async function updateProfitSplit(input) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("rules.manage");
   const values = validateProfitSplit(input);
   const previous = await getProfitSplitRule();
   const rule = await prisma.$transaction(async (tx) => {
@@ -58,7 +49,7 @@ export async function updateProfitSplit(input) {
 }
 
 export async function assignHostToAgency({ subject, agencyId, reason }) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("agencies.manage");
   const [kind, publicId] = String(subject ?? "").split(":");
   const note = String(reason ?? "").trim().slice(0, 500);
   if (!publicId || !["USER", "TALENT"].includes(kind) || !agencyId || !note)

@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import { prisma } from "../../lib/prisma";
@@ -8,6 +9,7 @@ import PortalSidebar from "../components/portal-sidebar";
 const pageSize = 50;
 
 export default async function AuditLogsPage({ searchParams }) {
+  await requirePagePermission("audit.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const params = await searchParams;

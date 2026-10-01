@@ -1,3 +1,4 @@
+import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import ManagementTabs from "./management-tabs";
@@ -10,6 +11,7 @@ import { reconcileExpiredSpecialIds } from "../../lib/special-id";
 import { reconcileExpiredAudioRoomRestrictions } from "../../lib/audio-room-maintenance";
 
 export default async function UsersPage() {
+  await requirePagePermission("users.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   await reconcileExpiredBans();

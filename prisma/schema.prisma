@@ -139,6 +139,12 @@ model Admin {
   passwordHash               String
   role                       String                        @default("ADMIN")
   active                     Boolean                       @default(true)
+  permissions                String[]                      @default([])
+  sessionVersion             Int                           @default(0)
+  createdById                String?
+  createdBy                  Admin?                        @relation("StaffCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdStaff               Admin[]                       @relation("StaffCreator")
+  lastLoginAt                DateTime?
   createdAt                  DateTime                      @default(now())
   updatedAt                  DateTime                      @updatedAt
   bans                       Ban[]
