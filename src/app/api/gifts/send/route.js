@@ -14,6 +14,7 @@ import { ledgerData } from "@/lib/wallet";
 import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { randomInt } from "node:crypto";
+import { parseGiftBatchId } from "@/lib/gift-batch";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -23,6 +24,7 @@ export async function POST(request) {
   try {
     const sessionUser = await requireMobileUser(request);
     const body = await request.json();
+    const giftBatchId = parseGiftBatchId(body?.giftBatchId);
     const recipientId = String(body?.recipientId ?? "").trim();
     const giftId = String(body?.giftId ?? "").trim();
     const roomId = String(body?.roomId ?? "").trim().slice(0, 120) || null;
@@ -158,6 +160,7 @@ export async function POST(request) {
       const gift = await tx.giftTransaction.create({
         data: {
           senderId: sessionUser.id,
+          giftBatchId,
           talentId: talent?.id ?? null,
           recipientUserId: recipientUser?.id ?? null,
           giftAssetId: giftAsset.id,
@@ -296,6 +299,7 @@ export async function POST(request) {
       success: true,
       data: {
         transactionId: result.gift.id,
+        giftBatchId: result.gift.giftBatchId,
         roomId,
         liveId,
         sender: giftSender,
@@ -341,6 +345,7 @@ export async function POST(request) {
         success: true,
         data: {
           transactionId: result.gift.id,
+          giftBatchId: result.gift.giftBatchId,
           giftId: giftAsset.publicId,
           giftName: giftAsset.name,
           giftCategory: giftAsset.giftTier,

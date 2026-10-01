@@ -8,12 +8,14 @@ import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
 import { resolveGiftSender } from "@/lib/gift-sender";
+import { parseGiftBatchId } from "@/lib/gift-batch";
 
 export function OPTIONS() { return mobileOptions(); }
 
 export async function POST(request) {
   try {
     const sender = await requireMobileUser(request), body = await request.json();
+    const giftBatchId = parseGiftBatchId(body?.giftBatchId);
     const giftId = String(body?.giftId ?? ""), recipientId = String(body?.recipientId ?? ""), roomId = String(body?.roomId ?? ""), quantity = Number(body?.quantity ?? 1);
     if (!giftId || !recipientId || !roomId || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) throw Object.assign(new Error("Valid gift, recipient, room and quantity are required."), { code: "VALIDATION_ERROR" });
     const [gift, recipient, room, policy, participants] = await Promise.all([
@@ -31,7 +33,7 @@ export async function POST(request) {
       const used = await tx.userGiftInventory.updateMany({ where: { userId: sender.id, giftAssetId: gift.id, quantity: { gte: quantity } }, data: { quantity: { decrement: quantity } } });
       if (!used.count) throw new Error("BACKPACK_INSUFFICIENT");
       const hostCoins = host ? coinsForShare(gross, policy.hostShareBps) : 0n, agencyCoins = host ? coinsForShare(gross, policy.agencyShareBps) : 0n, reusable = host ? 0n : coinsForShare(gross, policy.normalUserReusableShareBps), company = gross - hostCoins - agencyCoins - reusable;
-      const giftTx = await tx.giftTransaction.create({ data: { senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: gross, roomId } });
+      const giftTx = await tx.giftTransaction.create({ data: { giftBatchId, senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: gross, roomId } });
       await tx.giftSettlement.create({ data: { giftTransactionId: giftTx.id, agencyId: recipient.agencyId, recipientType: host ? "HOST" : "NORMAL_USER", grossCoins: gross, hostSalaryCoins: hostCoins, agencyCoins, companyCoins: company, reusableCoins: reusable, hostShareBps: host ? policy.hostShareBps : 0, agencyShareBps: host ? policy.agencyShareBps : 0, companyShareBps: host ? policy.companyShareBps : 10000 - policy.normalUserReusableShareBps, reusableShareBps: policy.normalUserReusableShareBps, policyVersion: policy.version } });
       await tx.user.update({ where: { id: recipient.id }, data: host ? { hostSalaryCoinBalance: { increment: hostCoins } } : { coinBalance: { increment: reusable } } });
       const credit = host ? hostCoins : reusable;
@@ -41,6 +43,7 @@ export async function POST(request) {
       return giftTx;
     });
     const origin = requestOrigin(request), giftSender = await resolveGiftSender(sender, origin), data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, mimeType: gift.mimeType, mediaUrl: createPublicDisplayAssetUrl(origin, gift.publicId) } };
+    data.giftBatchId = result.giftBatchId;
     emitToAudioRoom(roomId, "gift:received", { success: true, data });
     const pk = await prisma.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: true, rightRoom: true } });
     if (pk) { const side = pk.leftRoomId === room.id ? "leftScore" : "rightScore", updated = await prisma.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: gross }, revision: { increment: 1 } } }), payload = { id: pk.id, leftRoomId: pk.leftRoom.roomId, rightRoomId: pk.rightRoom.roomId, leftScore: updated.leftScore.toString(), rightScore: updated.rightScore.toString(), revision: updated.revision }; emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); }

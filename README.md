@@ -79,6 +79,11 @@ legacy users or balances.
 
 ## Mobile messaging
 
+Gift animation grouping supports optional per-action `giftBatchId` on standard,
+backpack and lucky sends. See [the gift batch contract](docs/gift-batch-contract.md)
+for validation, event fields and rollout requirements. Each recipient still has
+an independent transaction and event.
+
 Portal Socket.IO messaging replaces Tencent IM for direct conversations,
 user-created groups, and the fixed `CONV-WORLD` World Chat.
 Clients authenticate the Socket.IO handshake with their opaque portal session
