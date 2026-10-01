@@ -41,7 +41,7 @@ function validImageSignature(bytes, mime) {
 
 export async function GET(request) {
   try {
-    await requireMobileUser(request);
+    const viewer = await requireMobileUser(request);
     const cursor = new URL(request.url).searchParams.get("cursor")?.trim() || null;
     if (cursor) {
       const exists = await prisma.post.findUnique({ where: { publicId: cursor }, select: { id: true } });
@@ -50,6 +50,8 @@ export async function GET(request) {
     const records = await prisma.post.findMany({
       ...(cursor ? { cursor: { publicId: cursor }, skip: 1 } : {}),
       select: {
+        _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
+        likes: { where: { userId: viewer.id }, select: { userId: true } },
         publicId: true,
         description: true,
         imageUrl: true,
@@ -80,6 +82,9 @@ export async function GET(request) {
       data: {
         posts: page.map((post) => ({
           id: post.publicId,
+          likeCount: post._count.likes,
+          commentCount: post._count.comments,
+          liked: post.likes.length > 0,
           description: post.description,
           imageUrl: post.imageUrl ? new URL(post.imageUrl, origin).toString() : null,
           createdAt: post.createdAt.toISOString(),

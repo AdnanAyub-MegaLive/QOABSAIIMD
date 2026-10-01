@@ -79,6 +79,10 @@ legacy users or balances.
 
 ## Mobile messaging
 
+Discover posts now support persistent likes, paginated comments and database
+counters. See [Discover social endpoints](docs/discover-social.md) for request
+formats, permissions, block handling and rollout instructions.
+
 Gift animation grouping supports optional per-action `giftBatchId` on standard,
 backpack and lucky sends. See [the gift batch contract](docs/gift-batch-contract.md)
 for validation, event fields and rollout requirements. Each recipient still has
