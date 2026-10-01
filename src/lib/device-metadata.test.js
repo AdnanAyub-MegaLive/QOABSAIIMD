@@ -21,24 +21,25 @@ beforeEach(() => {
 });
 const input = body => deviceMetadataInput({ deviceId: "phone", ...body }, new Headers({ "x-forwarded-for": " 2.2.2.2, 3.3.3.3" }));
 describe("device metadata sync", () => {
-  it("changes metadata once without modifying login time or ban state", async () => {
+  it("changes metadata once while refreshing the existing timestamp on every sync", async () => {
     const data = input({ deviceName: " New ", userId: "attacker", lastLoginIp: "fake", isBanned: false });
     expect(await syncDeviceMetadata(db, payload, data)).toEqual({ updated: true, seenAt: expect.any(String) });
     expect(await syncDeviceMetadata(db, payload, data)).toEqual({ updated: false, seenAt: expect.any(String) });
-    expect(record.lastLoginAt).toEqual(new Date(0));
+    expect(record.lastLoginAt.getTime()).toBeGreaterThan(0);
     expect(record.lastLoginIp).toBe("2.2.2.2");
     expect(record.location).toBe("Old city");
     expect(db.device.update).toHaveBeenCalledTimes(2);
-    expect(record.lastActiveAt).toBeInstanceOf(Date);
+    expect(record).not.toHaveProperty("lastActiveAt");
     expect(db.auditLog.create).toHaveBeenCalledTimes(1);
-    expect(db.device.update.mock.calls[0][0].data).toEqual({ deviceName: "New", lastLoginIp: "2.2.2.2", lastActiveAt: expect.any(Date) });
+    expect(db.device.update.mock.calls[0][0].data).toEqual({ deviceName: "New", lastLoginIp: "2.2.2.2", lastLoginAt: expect.any(Date) });
+    expect(db.device.update.mock.calls[1][0].data).toEqual({ lastLoginAt: expect.any(Date) });
     expect(db.device.update.mock.calls[0][0].where.userId_macAddress.userId).toBe("internal");
   });
-  it("creates missing devices without inventing a login timestamp", async () => {
+  it("creates missing devices with the server timestamp", async () => {
     record = null;
     await syncDeviceMetadata(db, payload, input({}));
     expect(db.device.create).toHaveBeenCalledTimes(1);
-    expect(record).not.toHaveProperty("lastLoginAt");
+    expect(record.lastLoginAt).toBeInstanceOf(Date);
     expect(record).not.toHaveProperty("isBanned");
   });
   it("rejects mismatched devices", async () => {

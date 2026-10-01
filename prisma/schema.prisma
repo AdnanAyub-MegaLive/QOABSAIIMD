@@ -980,7 +980,6 @@ model Device {
   platform    String?
   deviceName  String?
   lastLoginAt DateTime?
-  lastActiveAt DateTime?
   isBanned    Boolean   @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

@@ -147,7 +147,6 @@ export async function POST(request) {
                   platform: cleanOptional(body.device.platform),
                   deviceName: cleanOptional(body.device.deviceName),
                   lastLoginAt: new Date(),
-                  lastActiveAt: new Date(),
                 },
               }
             : undefined,

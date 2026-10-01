@@ -38,8 +38,8 @@ export async function syncDeviceMetadata(db, payload, input) {
         const now = new Date();
         const updated = !device || Object.keys(changed).length > 0;
         const record = device
-          ? await tx.device.update({ where, data: { ...changed, lastActiveAt: now } })
-          : await tx.device.create({ data: { userId: user.id, macAddress: input.deviceId, ...changed, lastActiveAt: now } });
+          ? await tx.device.update({ where, data: { ...changed, lastLoginAt: now } })
+          : await tx.device.create({ data: { userId: user.id, macAddress: input.deviceId, ...changed, lastLoginAt: now } });
         if (Object.keys(changed).length) await tx.auditLog.create({ data: {
           action: "DEVICE_METADATA_UPDATED", category: "AUTHENTICATION", entityType: "Device", entityId: record.id,
           description: `Device metadata refreshed for ${user.publicId}.`,

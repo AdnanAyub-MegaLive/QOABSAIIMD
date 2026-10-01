@@ -7,9 +7,10 @@
 ```
 
 Returns `{ "success": true, "data": { "updated": true, "seenAt": "2026-10-01T12:00:00.000Z" } }`, or `updated: false`
-when metadata is unchanged. Every successful call writes server-clock `Device.lastActiveAt`
-and returns it as `seenAt`; the Devices table shows this as Last active separately
-from Last login (falling back to actual login time for older rows).
+when metadata is unchanged. Every successful call refreshes the existing
+`Device.lastLoginAt` using the server clock and returns that value as `seenAt`.
+The Devices table retains one login-time display; no separate activity field exists.
+The app triggers the refresh but does not supply or control the timestamp.
 Account identity comes exclusively from the verified token.
 Bound device IDs must match. Older unbound tokens retain session-status behavior.
 
@@ -19,8 +20,8 @@ them. IP comes only from the first `x-forwarded-for` entry, then `x-real-ip`;
 missing headers preserve an existing IP. Configure the trusted ingress proxy to
 overwrite these headers: arbitrary public forwarding headers are not trustworthy.
 
-Existing rows preserve `lastLoginAt` and `isBanned`. New rows have no fabricated
-login timestamp. Active account/device bans and existing device ban flags deny
+Existing rows preserve `isBanned`; both new and existing rows receive the current
+server timestamp in `lastLoginAt`. Active account/device bans and existing device ban flags deny
 sync. This endpoint never clears ban flags, including expired flags awaiting
 the existing ban-maintenance process. Each changed row has one audit entry;
 unchanged metadata requests only update activity time and do not audit. Serializable transactions retry
@@ -31,7 +32,9 @@ Errors: 400 `INVALID_JSON`; 401 `INVALID_SESSION`, `SESSION_REVOKED`, or
 429 `RATE_LIMITED` with `Retry-After: 60`; 500 `DEVICE_SYNC_FAILED`.
 Rate limit is 10 calls/minute/user using the existing process-local limiter;
 multi-instance production deployments need a shared ingress/distributed limit.
-Apply migration `20261001130000_device_last_active` and regenerate Prisma; no mobile token rotation is required.
+Apply all migrations through `20261001140000_device_single_timestamp` and regenerate
+Prisma; no mobile token rotation is required. The corrective migration preserves
+the newest recorded time in `lastLoginAt` before dropping the redundant activity column.
 
 The custom server overwrites both IP headers using the socket peer for direct
 connections. `TRUSTED_PROXY_IPS` is an optional exact-IP allowlist for immediate

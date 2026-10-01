@@ -102,7 +102,6 @@ export default async function UsersPage() {
     ip: device.lastLoginIp ?? "—",
     mac: device.macAddress,
     location: device.location ?? "Unknown",
-    lastActive: (device.lastActiveAt ?? device.lastLoginAt)?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "medium" }) ?? "Never",
     loginTime:
       device.lastLoginAt?.toLocaleString("en-US", {
         dateStyle: "medium",
