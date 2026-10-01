@@ -35,17 +35,18 @@ export async function syncDeviceMetadata(db, payload, input) {
         const deviceBan = device && await tx.ban.findFirst({ where: { ...active, deviceId: device.id, target: "DEVICE" } });
         if (device?.isBanned || deviceBan) throw fail("DEVICE_BANNED", "This device has been banned.", 403);
         const changed = Object.fromEntries(Object.entries(input.changes).filter(([key, value]) => !device || device[key] !== value));
-        if (device && !Object.keys(changed).length) return { updated: false };
+        const now = new Date();
+        const updated = !device || Object.keys(changed).length > 0;
         const record = device
-          ? await tx.device.update({ where, data: changed })
-          : await tx.device.create({ data: { userId: user.id, macAddress: input.deviceId, ...changed } });
-        await tx.auditLog.create({ data: {
+          ? await tx.device.update({ where, data: { ...changed, lastActiveAt: now } })
+          : await tx.device.create({ data: { userId: user.id, macAddress: input.deviceId, ...changed, lastActiveAt: now } });
+        if (Object.keys(changed).length) await tx.auditLog.create({ data: {
           action: "DEVICE_METADATA_UPDATED", category: "AUTHENTICATION", entityType: "Device", entityId: record.id,
           description: `Device metadata refreshed for ${user.publicId}.`,
           ipAddress: input.changes.lastLoginIp ?? null,
           metadata: { source: "MOBILE_APP", userId: user.publicId, deviceId: input.deviceId, created: !device, changedFields: Object.keys(changed) },
         } });
-        return { updated: true };
+        return { updated, seenAt: now.toISOString() };
       }, { isolationLevel: "Serializable" });
     } catch (error) {
       if (attempt < 2 && ["P2034", "P2002"].includes(error.code)) continue;

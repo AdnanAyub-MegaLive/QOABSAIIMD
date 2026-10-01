@@ -31,7 +31,14 @@ export async function GET(request) {
     const token = request.headers
       .get("authorization")
       ?.replace(/^Bearer\s+/i, "");
-    const payload = mobileSession.verifyMobileSessionToken(token);
+    let payload;
+    try {
+      payload = mobileSession.verifyMobileSessionToken(token);
+    } catch (error) {
+      if (error instanceof SyntaxError || ["INVALID_SESSION_TOKEN", "EXPIRED_SESSION_TOKEN"].includes(error.message))
+        return Response.json(mobileSessionError(), { status: 401 });
+      throw error;
+    }
     const user = await prisma.user.findUnique({
       where: { publicId: payload.userId },
     });
@@ -101,9 +108,9 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    return Response.json(
-      mobileSessionError(error?.message),
-      { status: 401 },
-    );
+    if (["INVALID_SESSION", "SESSION_REVOKED"].includes(error?.message))
+      return Response.json(mobileSessionError(error.message), { status: 401 });
+    console.error("Mobile session status failed", error);
+    return Response.json({ success: false, error: { code: "SESSION_STATUS_FAILED", message: "Unable to check session status right now." } }, { status: 500 });
   }
 }

@@ -133,7 +133,7 @@ export default function DeviceInformationTable({
                         <circle cx="12" cy="12" r="8" />
                         <path d="M12 7v5l3 2" />
                       </svg>
-                      <span>{record.loginTime ?? "Never"}</span>
+                      <span>{record.loginTime ?? "Never"}<span className="block text-xs text-[#82938f]">Last active: {record.lastActive ?? record.loginTime ?? "Never"}</span></span>
                     </div>
                   </td>
                   <td className="py-4">

@@ -142,12 +142,12 @@ export async function POST(request) {
             ? {
                 create: {
                   macAddress: String(body.device.deviceId ?? body.device.macAddress).trim(),
-                  lastLoginIp:
-                    cleanOptional(body.device.lastLoginIp) || ipAddress,
+                  lastLoginIp: ipAddress,
                   location: cleanOptional(body.device.location),
                   platform: cleanOptional(body.device.platform),
                   deviceName: cleanOptional(body.device.deviceName),
                   lastLoginAt: new Date(),
+                  lastActiveAt: new Date(),
                 },
               }
             : undefined,

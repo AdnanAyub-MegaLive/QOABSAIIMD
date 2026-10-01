@@ -23,14 +23,15 @@ const input = body => deviceMetadataInput({ deviceId: "phone", ...body }, new He
 describe("device metadata sync", () => {
   it("changes metadata once without modifying login time or ban state", async () => {
     const data = input({ deviceName: " New ", userId: "attacker", lastLoginIp: "fake", isBanned: false });
-    expect(await syncDeviceMetadata(db, payload, data)).toEqual({ updated: true });
-    expect(await syncDeviceMetadata(db, payload, data)).toEqual({ updated: false });
+    expect(await syncDeviceMetadata(db, payload, data)).toEqual({ updated: true, seenAt: expect.any(String) });
+    expect(await syncDeviceMetadata(db, payload, data)).toEqual({ updated: false, seenAt: expect.any(String) });
     expect(record.lastLoginAt).toEqual(new Date(0));
     expect(record.lastLoginIp).toBe("2.2.2.2");
     expect(record.location).toBe("Old city");
-    expect(db.device.update).toHaveBeenCalledTimes(1);
+    expect(db.device.update).toHaveBeenCalledTimes(2);
+    expect(record.lastActiveAt).toBeInstanceOf(Date);
     expect(db.auditLog.create).toHaveBeenCalledTimes(1);
-    expect(db.device.update.mock.calls[0][0].data).toEqual({ deviceName: "New", lastLoginIp: "2.2.2.2" });
+    expect(db.device.update.mock.calls[0][0].data).toEqual({ deviceName: "New", lastLoginIp: "2.2.2.2", lastActiveAt: expect.any(Date) });
     expect(db.device.update.mock.calls[0][0].where.userId_macAddress.userId).toBe("internal");
   });
   it("creates missing devices without inventing a login timestamp", async () => {
@@ -66,7 +67,7 @@ describe("device metadata sync", () => {
   });
   it("retries serialization conflicts", async () => {
     db.$transaction.mockRejectedValueOnce({ code: "P2034" });
-    expect(await syncDeviceMetadata(db, payload, input({}))).toEqual({ updated: true });
+    expect(await syncDeviceMetadata(db, payload, input({}))).toEqual({ updated: true, seenAt: expect.any(String) });
     expect(db.auditLog.create).toHaveBeenCalledTimes(1);
   });
 });

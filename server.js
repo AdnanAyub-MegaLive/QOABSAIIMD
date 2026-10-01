@@ -1,4 +1,5 @@
 const { createServer } = require("node:http");
+const { setRequestClientIp } = require("./src/lib/request-ip.cjs");
 const { randomUUID } = require("node:crypto");
 const next = require("next");
 const { Server } = require("socket.io");
@@ -36,7 +37,7 @@ app.prepare().then(async()=>{
   const {resolveCatalogTrack}=await import("./src/lib/music-catalog.js");
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileExpiredAudioRoomControls,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
-  const httpServer=createServer((request,response)=>handle(request,response));
+  const httpServer=createServer((request,response)=>{setRequestClientIp(request);return handle(request,response)});
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;

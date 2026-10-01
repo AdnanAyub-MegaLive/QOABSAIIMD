@@ -158,6 +158,7 @@ export async function POST(request) {
               platform: clean(device.platform, 100),
               deviceName: clean(device.deviceName),
               lastLoginAt: loginAt,
+              lastActiveAt: loginAt,
             },
             create: {
               userId: user.id,
@@ -167,6 +168,7 @@ export async function POST(request) {
               platform: clean(device.platform, 100),
               deviceName: clean(device.deviceName),
               lastLoginAt: loginAt,
+              lastActiveAt: loginAt,
             },
           });
           await tx.user.update({ where: { id: user.id }, data: { lastLoginAt: loginAt } });
