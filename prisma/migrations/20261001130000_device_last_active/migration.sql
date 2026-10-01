@@ -1,0 +1,1 @@
+ALTER TABLE "Device" ADD COLUMN "lastActiveAt" TIMESTAMP(3);

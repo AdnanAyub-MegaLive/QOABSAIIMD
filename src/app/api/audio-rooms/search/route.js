@@ -1,0 +1,150 @@
+import { prisma } from "../../../../lib/prisma";
+import { requireMobileUser } from "../../../../lib/mobile-api";
+import { reconcileExpiredAudioRoomRestrictions } from "../../../../lib/audio-room-maintenance";
+import {
+  requestOrigin,
+  resolveUserPerks,
+} from "../../../../lib/user-perks";
+import { formatDateOnly } from "../../../../lib/date-only";
+import { serializeRoomBackground } from "../../../../lib/room-background";
+import { serializeRoomSeatStyle } from "../../../../lib/room-seat-style";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+function json(body, status = 200) {
+  return Response.json(body, { status, headers: corsHeaders });
+}
+
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
+async function authenticatedUser(request) {
+  return requireMobileUser(request);
+}
+
+export async function GET(request) {
+  try {
+    const user = await authenticatedUser(request);
+    const searchParams = new URL(request.url).searchParams;
+    const q = searchParams.get("q")?.trim();
+    const includeIdle = searchParams.get("includeIdle") === "true";
+
+    if (!q) {
+      return json({ success: true, data: { rooms: [] } });
+    }
+
+    await reconcileExpiredAudioRoomRestrictions();
+
+    const rooms = await prisma.audioRoom.findMany({
+      where: {
+        ownerId: { not: user.id },
+        status: includeIdle ? { in: ["LIVE", "IDLE"] } : "LIVE",
+        isBlocked: false,
+        joiningDisabled: false,
+        privacyMode: { not: "HIDDEN" },
+        owner: {
+          deletedAt: null,
+          status: "ACTIVE",
+        },
+        OR: [
+          { roomId: { contains: q, mode: "insensitive" } },
+          { title: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        roomId: true,
+        ownerId: true,
+        announcement: true,
+        language: true,
+        tags: true,
+        privacyMode: true,
+        paidEntryCoins: true,
+        revision: true,
+        title: true,
+        country: true,
+        coverImageUrl: true,
+        participantCount: true,
+        passwordHash: true,
+        roomBackgroundVersion: true,
+        roomBackgroundAsset: { select: { publicId: true, mimeType: true, active: true, isGlobal: true, assignments: { select: { userId: true, expiresAt: true } } } },
+        seatStyleVersion: true,
+        seatStyleAsset: { select: { publicId: true, mimeType: true, active: true, isGlobal: true, assignments: { select: { userId: true, expiresAt: true } } } },
+        status: true,
+        startedAt: true,
+        owner: {
+          select: {
+            id: true,
+            publicId: true,
+            name: true,
+            profileImage: true,
+            gender: true,
+            dob: true,
+            isVerified: true,
+            isOfficial: true,
+          },
+        },
+      },
+      orderBy: [{ participantCount: "desc" }, { startedAt: "desc" }],
+      take: 20,
+    });
+    const origin = requestOrigin(request);
+    const perks = await resolveUserPerks(
+      rooms.map((room) => room.owner),
+      origin,
+      ["FRAMES", "BADGES"],
+    );
+
+    return json({
+      success: true,
+      data: {
+        rooms: rooms.map((room) => ({
+          roomId: room.roomId,
+          title: room.title,
+          country: room.country ?? null,
+          coverImageUrl: room.coverImageUrl
+            ? new URL(room.coverImageUrl, origin).toString()
+            : null,
+          participantCount: room.participantCount,
+          isLocked: Boolean(room.passwordHash),
+          status: room.status,
+          startedAt: room.startedAt,
+          roomBackground: serializeRoomBackground(room, origin),
+          announcement: room.announcement,
+          language: room.language,
+          tags: room.tags,
+          privacyMode: room.privacyMode,
+          paidEntryCoins: room.paidEntryCoins?.toString() ?? null,
+          revision: room.revision,
+          seatStyle: serializeRoomSeatStyle(room, origin),
+          owner: {
+            id: room.owner.publicId,
+            name: room.owner.name,
+            profileImage: room.owner.profileImage,
+            gender: room.owner.gender ?? null,
+            dob: formatDateOnly(room.owner.dob),
+            isVerified: Boolean(room.owner.isVerified),
+            isOfficial: Boolean(room.owner.isOfficial),
+            frameUrl: perks.get(room.owner.publicId)?.frameUrl ?? null,
+            badgeUrl: perks.get(room.owner.publicId)?.badgeUrl ?? null,
+          },
+        })),
+      },
+    });
+  } catch {
+    return json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_SESSION",
+          message: "The mobile session is invalid or expired.",
+        },
+      },
+      401,
+    );
+  }
+}

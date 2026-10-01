@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+.portal-navigation { scrollbar-width: thin; scrollbar-color: #365c56 transparent; }
+
+/* Shared management controls retain the portal's teal focus and muted borders. */
+.portal-shell :where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid #16877d;
+  outline-offset: 3px;
+}
+.portal-shell :where(button):disabled { cursor: not-allowed; opacity: .55; }
+.portal-shell :where(input, select, textarea) { accent-color: #087f74; }
+.portal-shell :where(input:not([type="checkbox"]):not([type="radio"]), select) { min-height: 2.5rem; }
+.portal-shell :where(table) { font-variant-numeric: tabular-nums; }
+.portal-shell :where(th) { white-space: nowrap; }
+.portal-shell :where(pre) { max-width: 100%; }

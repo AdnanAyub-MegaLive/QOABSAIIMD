@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Streamline Administration Portal — Development Report</title>
+  <style>
+    @page { size: A4; margin: 15mm 15mm 17mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #18322f; font-family: "Segoe UI", Arial, sans-serif; font-size: 10.2pt; line-height: 1.52; background: white; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 10px; font-size: 29pt; line-height: 1.08; letter-spacing: -.6px; color: #083b37; }
+    h2 { margin: 0 0 12px; padding-bottom: 7px; border-bottom: 2px solid #1aa596; font-size: 18pt; line-height: 1.2; color: #0a4e48; }
+    h3 { margin: 18px 0 7px; font-size: 12.5pt; color: #126d64; }
+    p { margin-bottom: 9px; }
+    ul, ol { margin: 6px 0 11px; padding-left: 20px; }
+    li { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 8.7pt; }
+    th { background: #0c5b54; color: white; text-align: left; font-weight: 650; }
+    th, td { padding: 7px 8px; border: 1px solid #cfe0dc; vertical-align: top; }
+    tbody tr:nth-child(even) td { background: #f4f9f8; }
+    .cover { height: 260mm; display: flex; flex-direction: column; page-break-after: always; }
+    .brand { display: flex; align-items: center; gap: 12px; color: #087f74; font-weight: 750; font-size: 14pt; letter-spacing: .2px; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: #0c5b54; color: #63e2d2; }
+    .cover-main { margin-top: 46mm; max-width: 160mm; }
+    .eyebrow { margin-bottom: 14px; color: #16877d; font-size: 9pt; font-weight: 750; letter-spacing: 1.8px; text-transform: uppercase; }
+    .subtitle { max-width: 145mm; font-size: 14pt; color: #54736f; }
+    .cover-meta { margin-top: auto; padding: 18px 20px; border-left: 5px solid #1aa596; background: #eef8f6; }
+    .cover-meta p { margin: 2px 0; }
+    .page { page-break-before: always; }
+    .section { page-break-inside: avoid; }
+    .summary-box { padding: 15px 17px; border: 1px solid #bcdad5; border-radius: 8px; background: #f2faf8; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 18px; }
+    .metric { padding: 12px 10px; border: 1px solid #cee1dd; border-radius: 8px; background: #f8fbfa; }
+    .metric strong { display: block; font-size: 19pt; line-height: 1; color: #087f74; }
+    .metric span { display: block; margin-top: 5px; font-size: 8pt; color: #607d78; }
+    .status { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 7.5pt; font-weight: 750; white-space: nowrap; }
+    .complete { background: #dff5ed; color: #08734f; }
+    .ready { background: #fff0ce; color: #8a5900; }
+    .planned { background: #e8edf2; color: #536474; }
+    .callout { margin: 12px 0; padding: 11px 13px; border-left: 4px solid #d99725; background: #fff8e9; }
+    .timeline { border-left: 3px solid #8ccfc6; margin-left: 7px; padding-left: 18px; }
+    .timeline-item { position: relative; margin: 0 0 15px; }
+    .timeline-item::before { content: ""; position: absolute; left: -25px; top: 4px; width: 11px; height: 11px; border: 2px solid white; border-radius: 50%; background: #15988b; box-shadow: 0 0 0 1px #15988b; }
+    .timeline-item strong { color: #0b5f57; }
+    .small { font-size: 8.3pt; color: #607d78; }
+    .footer-note { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cfdfdc; font-size: 8pt; color: #6f8581; }
+    .signature { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .signature div { padding-top: 22px; border-top: 1px solid #78918d; color: #607570; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="brand"><span class="brand-mark">▶</span> STREAMLINE</div>
+    <div class="cover-main">
+      <div class="eyebrow">Management Development Report</div>
+      <h1>Streaming Administration Portal</h1>
+      <p class="subtitle">A consolidated backend control centre for video streaming, audio rooms, users/senders, hosts, agencies, digital assets, security and operational oversight.</p>
+    </div>
+    <div class="cover-meta">
+      <p><strong>Reporting period:</strong> 14 July 2026 – 27 July 2026</p>
+      <p><strong>Prepared for:</strong> Management Review</p>
+      <p><strong>Project:</strong> Streamline Administration Portal</p>
+      <p><strong>Document date:</strong> 27 July 2026</p>
+      <p><strong>Status:</strong> Active development / functional backend foundation</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>1. Executive Summary</h2>
+    <div class="summary-box">
+      <p>The Streamline Administration Portal was started as a new administrative backend for a combined video and audio streaming application, comparable in operating model to platforms such as StreamKar and OyeTalk. The mobile application is being developed separately in React Native CLI; this portal provides the operational interface, persistent data layer, mobile APIs and real-time controls required by administrators.</p>
+      <p>The work progressed from an initial administrator login screen into a multi-module system covering users/senders, hosts, audio rooms, agencies, content uploads, bans, devices, virtual currency, special IDs and audit logs. PostgreSQL and Prisma now store the principal records, NextAuth protects administrative access, and Socket.IO communicates immediate account and room events to the mobile application.</p>
+      <p>At the end of this reporting period, the portal has a working technical foundation and several operationally functional modules. Some business modules—particularly the deeper agency workflows, live-stream operations and reporting—remain UI-ready or planned and require final rules, integrations and production data.</p>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><strong>23</strong><span>Recorded development commits</span></div>
+      <div class="metric"><strong>20</strong><span>Prisma/PostgreSQL models</span></div>
+      <div class="metric"><strong>10</strong><span>API route files</span></div>
+      <div class="metric"><strong>8</strong><span>Upload/content categories</span></div>
+    </div>
+
+    <h3>Primary outcomes</h3>
+    <ul>
+      <li>A responsive Tailwind-based administration interface with dashboard navigation and global feature search.</li>
+      <li>Database-backed user, host, device, transaction, ban, room, special-ID, upload and audit records.</li>
+      <li>Mobile registration, login, profile, session-status, audio-room and downloadable asset APIs.</li>
+      <li>Real-time Socket.IO events for bans, forced logout, device restrictions, room seats and room control.</li>
+      <li>Time-based controls that automatically expire bans, room restrictions, special IDs and uploaded-asset grants.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>2. Project Scope and Technical Foundation</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Implementation</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Web framework</td><td>Next.js 16 App Router, React 19</td><td>Server-rendered portal pages, client-side management interfaces and route handlers.</td></tr>
+        <tr><td>Design system</td><td>Tailwind CSS 4</td><td>Responsive portal UI without page-specific custom CSS.</td></tr>
+        <tr><td>Database</td><td>PostgreSQL with Prisma 7.8 and PostgreSQL adapter</td><td>Persistent operational records, relationships, indexes and transactional updates.</td></tr>
+        <tr><td>Admin authentication</td><td>NextAuth</td><td>Protected administrative pages and actions.</td></tr>
+        <tr><td>Mobile authentication</td><td>Bearer session tokens with session-version checks</td><td>Registration, login and protected mobile endpoints.</td></tr>
+        <tr><td>Real-time communication</td><td>Custom Node server and Socket.IO</td><td>Immediate security events, room updates and seat coordination.</td></tr>
+        <tr><td>Media storage</td><td>Database-backed upload assets with signed file URLs</td><td>Controlled delivery of images, GIFs, WebP and supported video assets to the app.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Core database coverage</h3>
+    <p>The schema contains 20 models, including administrators, audit logs, users, hosts, devices, gifts, coin adjustments, bans, verification, salaries, albums, special IDs, game logs, live sessions, performance, violations, audio rooms and upload assignments. Relationships and indexes were added for common searches such as user status, VIP level, device MAC address, ban expiry, room state and assignment expiry.</p>
+
+    <h3>Security approach</h3>
+    <ul>
+      <li>Passwords are stored as hashes rather than recoverable plain text.</li>
+      <li>Administrators can reset a user password and receive a generated temporary password; the reset increments the session version and forces active sessions to log out.</li>
+      <li>Soft deletion preserves operational history while removing login capability and personal account identifiers.</li>
+      <li>Administrative actions are recorded with administrator, entity, reason, metadata and timestamp.</li>
+      <li>Signed upload URLs are bound to the user and session version and expire after a limited period.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>3. Delivered Portal Features</h2>
+    <table>
+      <thead><tr><th>Module</th><th>Delivered functionality</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Admin access</td><td>Admin login, protected pages, sign-out and initial authenticated layout.</td><td><span class="status complete">Functional</span></td></tr>
+        <tr><td>Dashboard</td><td>Platform summary cards, activity presentation, management shortcuts and global navigation search.</td><td><span class="status complete">Functional</span></td></tr>
+        <tr><td>Users / Senders</td><td>User list, phone-first identity, VIP filter, add user, roles, five VIP levels, special IDs, password reset, soft deletion and clickable detail pages.</td><td><span class="status complete">Functional</span></td></tr>
+        <tr><td>User finance</td><td>Gift/spending history, total spending, balance, total top-up and audited add/remove coin adjustments.</td><td><span class="status complete">Functional</span></td></tr>
+        <tr><td>User supporting records</td><td>Levels, albums, top history, games, device information and audio-room records.</td><td><span class="status ready">Mixed: functional + seeded/UI data</span></td></tr>
+        <tr><td>Host management</td><td>Host list, filters, add host, profile pages, gifts received, salary history, devices, verification, live history, performance and violations.</td><td><span class="status ready">Core structure functional</span></td></tr>
+        <tr><td>Security controls</td><td>User/device ban, unban, proof attachment reference, predefined/custom duration, force logout and automatic expiry reconciliation.</td><td><span class="status complete">Functional</span></td></tr>
+        <tr><td>Audit logs</td><td>Portal-wide administrative activity records with search by administrator, user/entity ID or activity.</td><td><span class="status complete">Functional</span></td></tr>
+        <tr><td>Special IDs</td><td>4–7 character definitions, VIP/top-up eligibility, admin assignment, 3/7/15/30-day or custom duration, automatic expiry and normal-ID restoration.</td><td><span class="status complete">Functional</span></td></tr>
+        <tr><td>Audio rooms</td><td>Persistent owner-bound room IDs, room discovery, room moderation, timed joining/block/termination controls and real-time seat relay.</td><td><span class="status complete">Functional foundation</span></td></tr>
+        <tr><td>Agency management</td><td>Agency home, ranking, top hosts, total agency recharge, tasks, monthly salary, host salary and applications tabs.</td><td><span class="status ready">UI/prototype data</span></td></tr>
+        <tr><td>Uploads</td><td>Banners, frames, entrances, tail-lights, gifts, badges, chat boxes and room backgrounds, including preview, details, tags and user grants.</td><td><span class="status complete">Functional</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Automatic refresh</h3>
+    <p>A portal-wide refresh component was added so administrators no longer need to manually reload pages to see newly created or modified database records. Refresh also occurs when the browser regains focus or visibility.</p>
+  </section>
+
+  <section class="page">
+    <h2>4. Mobile Application Integration</h2>
+    <p>The backend was designed to support the separately developed React Native CLI application. Current mobile-facing endpoints and real-time behaviours include:</p>
+    <table>
+      <thead><tr><th>Integration</th><th>Capability</th></tr></thead>
+      <tbody>
+        <tr><td>User registration</td><td>Phone number required and unique; email optional but unique when supplied; password hashing; optional profile attributes.</td></tr>
+        <tr><td>User login</td><td>Phone/password login, session token issuance, IP/MAC/location/device capture, user-ban and device-ban enforcement.</td></tr>
+        <tr><td>Profile update</td><td>Name, contact details, country, profile image, gender and date of birth; gender and DOB are locked after first set.</td></tr>
+        <tr><td>Session status</td><td>Session version, forced logout, account ban, device ban, special ID, gender and DOB status.</td></tr>
+        <tr><td>Audio rooms</td><td>Create/reopen the owner’s persistent room ID, retrieve own room, discover other live rooms and apply moderation restrictions.</td></tr>
+        <tr><td>Room discovery</td><td>Returns up to 50 live, joinable, unblocked rooms excluding the caller’s own room.</td></tr>
+        <tr><td>Upload catalogue</td><td>Returns global assets and assets actively assigned to the caller, with signed URLs suitable for React Native media rendering.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Real-time Socket.IO events</h3>
+    <ul>
+      <li>Immediate account ban/unban and device ban/unban notification.</li>
+      <li>Forced logout after administrative action, password reset or account deletion.</li>
+      <li>Special-ID assignment, revocation and automatic-expiry notification.</li>
+      <li>Audio-room join/leave, participant updates and automatic resource release when a room becomes empty.</li>
+      <li>Owner-authorized seat updates, seat requests and accept/reject responses; requester name and profile image are included.</li>
+      <li>Timed room-control expiry events for joining, block and termination restrictions.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>5. Key Business Workflows</h2>
+    <h3>User lifecycle</h3>
+    <ol>
+      <li>A user registers through the mobile API using a unique phone number; email is optional and cannot be duplicated.</li>
+      <li>Login validates credentials, account status and the current device before issuing a session.</li>
+      <li>Administrators can manage roles, VIP status, coins, special IDs, bans, password reset and account deletion.</li>
+      <li>Every sensitive administrative action is written to the audit log and relevant real-time events are sent to the app.</li>
+    </ol>
+
+    <h3>Time-based control model</h3>
+    <p>A common minute-based duration system is used throughout the portal. Administrators can select predefined periods or enter custom minutes, while the UI displays the calculated human-readable value. The approach is used for bans, special IDs, room controls and uploaded-asset grants.</p>
+
+    <h3>Upload and entitlement workflow</h3>
+    <ol>
+      <li>An administrator uploads an image, GIF, WebP or supported video into one of eight content categories.</li>
+      <li>The asset stores a title, details, tags, file metadata, media bytes and room-background eligibility.</li>
+      <li>The asset may be global or granted to multiple users. Each user grant has an independent duration and expiry.</li>
+      <li>Only global or actively granted assets appear in the mobile catalogue. Expired access is also rejected by the file endpoint.</li>
+      <li>Assigned items are displayed in the relevant user’s dedicated portal profile.</li>
+    </ol>
+
+    <h3>Audio-room lifecycle</h3>
+    <ol>
+      <li>The system assigns a persistent room ID to a room owner.</li>
+      <li>When the room becomes empty, live resources are released and the room becomes idle, but its ID remains attached to the owner.</li>
+      <li>When the owner starts again, the same ID is reactivated.</li>
+      <li>Administrators can disable joining, block or terminate the room for a set time, then manually restore it or allow automatic expiry.</li>
+    </ol>
+  </section>
+
+  <section class="page">
+    <h2>6. Issues Encountered and Resolutions</h2>
+    <table>
+      <thead><tr><th>Issue</th><th>Impact</th><th>Resolution</th></tr></thead>
+      <tbody>
+        <tr><td>Next.js initially searched for a legacy <code>pages</code> directory.</td><td>Development server could not start with the App Router structure.</td><td>Project configuration/dependencies were aligned with the App Router and current Next.js conventions.</td></tr>
+        <tr><td>Prisma schema was initially missing and database authentication/sync failed.</td><td>No reliable persistent data layer.</td><td>A complete PostgreSQL schema and Prisma configuration were created, then pushed and generated successfully.</td></tr>
+        <tr><td>UI dummy-data assumptions conflicted with database types (VIP values, null devices and missing exports).</td><td>Runtime crashes on user and host pages.</td><td>Data mapping was normalized, null handling added and hard-linked data moved into database-backed structures or safe seed data.</td></tr>
+        <tr><td>New fields such as audit logs, deleted account state and supporting relations were queried before the client/schema matched.</td><td>Prisma validation errors including unknown fields.</td><td>Schema updates, client regeneration, startup generation and runtime schema-version checks were introduced.</td></tr>
+        <tr><td>Force logout queried fields absent from the generated Prisma client.</td><td>Administrative force logout returned a server error.</td><td><code>sessionVersion</code> and <code>forcedLogoutAt</code> were added and session validation was wired end-to-end.</td></tr>
+        <tr><td>Timed bans did not release users automatically.</td><td>Users remained blocked after the selected duration.</td><td>Active-ban queries, expiry reconciliation and scheduled Socket.IO unban events were implemented.</td></tr>
+        <tr><td>Device bans were stored but not enforced by login/status routes.</td><td>Banned devices could continue or re-establish access.</td><td>Device lookup, login rejection, session-status fields and immediate device socket events were added.</td></tr>
+        <tr><td>Room records were deleted or lost when the host left.</td><td>Owners did not retain a stable room identity.</td><td>Owner-bound unique room IDs and an IDLE resource-release lifecycle were implemented.</td></tr>
+        <tr><td>Assigned room backgrounds appeared white in the mobile app.</td><td>App received a value but could not render the media reliably.</td><td>Database media delivery, signed absolute URLs, correct MIME responses and LAN/external-origin handling were implemented.</td></tr>
+        <tr><td>Room discovery returned 401 or did not expose suitable rooms.</td><td>Trending Parties could not load.</td><td>Bearer-token validation and a dedicated filtered discover endpoint were completed.</td></tr>
+        <tr><td>Special IDs and upload grants did not expire safely.</td><td>Temporary benefits could remain active or accidentally become global.</td><td>Explicit expiry fields, active-only queries, scheduled/reconciled expiry and a separate global-asset flag were added.</td></tr>
+        <tr><td>Prisma Fast Refresh reused a client that lacked new assignment fields.</td><td>User profile failed on <code>expiresAt</code>.</td><td>The cached client now validates required model fields and replaces stale instances when the schema version changes.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page">
+    <h2>7. Development Timeline</h2>
+    <div class="timeline">
+      <div class="timeline-item"><strong>14 July — Project foundation</strong><br><span class="small">Next.js project initialization and initial portal direction.</span></div>
+      <div class="timeline-item"><strong>15–16 July — User/host management and audit foundation</strong><br><span class="small">Management pages, profiles, bans, gift history, initial database/API configuration and audit logs.</span></div>
+      <div class="timeline-item"><strong>17 July — Sessions and real-time server</strong><br><span class="small">Session versioning, force-logout foundation, Socket.IO installation and expanded management tabs.</span></div>
+      <div class="timeline-item"><strong>20 July — Audio rooms and Special IDs</strong><br><span class="small">Room moderation records, user-management improvements and temporary Special-ID model.</span></div>
+      <div class="timeline-item"><strong>21 July — Login and persistent rooms</strong><br><span class="small">Mobile login fixes, device/security improvements, room ID persistence and dedicated user profile pages.</span></div>
+      <div class="timeline-item"><strong>22 July — Room controls and agencies</strong><br><span class="small">Audio-room restriction refinements, agency management UI and mobile/backend coordination updates.</span></div>
+      <div class="timeline-item"><strong>23 July — Room lifecycle refinement</strong><br><span class="small">Resource release while retaining persistent owner room IDs.</span></div>
+      <div class="timeline-item"><strong>24 July — Upload platform and onboarding data</strong><br><span class="small">Upload categories, database media storage, mobile catalogue, gender/DOB support and background delivery fixes.</span></div>
+      <div class="timeline-item"><strong>25–27 July — Multi-user and timed entitlements</strong><br><span class="small">Asset detail management, multiple recipients, per-user expiry, safe access control and Prisma cache hardening.</span></div>
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>8. Current Status, Gaps and Risks</h2>
+    <h3>Operationally functional</h3>
+    <ul>
+      <li>Admin authentication, navigation and global feature search.</li>
+      <li>Core user records, mobile registration/login/profile/session APIs and device capture.</li>
+      <li>Security actions, automated expiry, force logout and audit logging.</li>
+      <li>Persistent audio-room identity, discovery and Socket.IO coordination.</li>
+      <li>Database-backed upload catalogue, signed media delivery and timed multi-user entitlements.</li>
+    </ul>
+
+    <h3>UI-ready or partially populated</h3>
+    <ul>
+      <li>Several supporting user/host tables use representative or seed data until the mobile application sends all corresponding records.</li>
+      <li>Agency ranking, tasks, salary and application tabs are designed but require final database entities, business rules and workflows.</li>
+      <li>Audio recording and permanent room deletion code are intentionally not exposed in the interface.</li>
+      <li>Live-stream management and formal reporting navigation are placeholders for a later phase.</li>
+    </ul>
+
+    <h3>Risks requiring management decisions</h3>
+    <div class="callout">
+      <strong>Infrastructure:</strong> Media is currently stored inside PostgreSQL. This is suitable for controlled development and early testing, but object storage/CDN should be adopted before high-volume production use.
+    </div>
+    <div class="callout">
+      <strong>Mobile media origins:</strong> Physical devices cannot use the backend’s <code>localhost</code> address. Production requires a stable HTTPS API/media hostname and configured mobile CORS origin.
+    </div>
+    <div class="callout">
+      <strong>Permissions:</strong> The portal currently has administrator authentication, but granular role-based access control should be finalized for Super Admin, finance, moderation, content and support teams.
+    </div>
+    <div class="callout">
+      <strong>Testing:</strong> Lint and production builds pass, but automated integration, end-to-end, load and security testing should be added before production launch.
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>9. Recommended Next Phase</h2>
+    <ol>
+      <li><strong>Finalize business requirements:</strong> confirm agency commission formulas, host salary calculations, moderation policies, reporting KPIs and admin permission levels.</li>
+      <li><strong>Complete remaining database modules:</strong> convert remaining representative tables and agency workflows to live database records and mobile event ingestion.</li>
+      <li><strong>Production media architecture:</strong> move uploaded media to S3-compatible object storage with CDN delivery, virus/type validation and image/video processing.</li>
+      <li><strong>Production security:</strong> add granular RBAC, rate limiting, login throttling, secret rotation, HTTPS-only cookies/tokens and formal audit retention.</li>
+      <li><strong>Quality assurance:</strong> create API contract tests, database integration tests, Socket.IO tests and browser/mobile end-to-end scenarios.</li>
+      <li><strong>Deployment and monitoring:</strong> establish staging/production environments, managed PostgreSQL, backups, error monitoring, uptime alerts and structured logs.</li>
+      <li><strong>Mobile integration sign-off:</strong> jointly validate registration, login, bans, force logout, room discovery, seats and assigned media on physical Android/iOS devices.</li>
+    </ol>
+
+    <h3>Management conclusion</h3>
+    <p>The portal has moved well beyond a visual prototype. It now provides a connected administrative foundation with persistent data, secure session control, mobile APIs and real-time operational actions. The most important next step is to convert the remaining business placeholders into approved production workflows, strengthen infrastructure and security, and execute formal end-to-end testing with the React Native application.</p>
+
+    <div class="signature">
+      <div>Prepared by / Development Team</div>
+      <div>Reviewed by / Management</div>
+    </div>
+    <p class="footer-note">This report reflects the repository and implemented functionality available as of 27 July 2026. Status labels distinguish fully wired features from UI-ready or planned work.</p>
+  </section>
+</body>
+</html>

@@ -1,0 +1,2 @@
+ALTER TABLE "Agency"
+ADD COLUMN "monthlyTargetCoins" BIGINT NOT NULL DEFAULT 0;

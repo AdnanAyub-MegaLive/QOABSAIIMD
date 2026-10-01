@@ -1,0 +1,10 @@
+ALTER TABLE "User" ADD COLUMN "profilePrivate" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN "showDateOfBirth" BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE "UserProfileVisit" ("targetId" TEXT NOT NULL,"visitorId" TEXT NOT NULL,"visitCount" INTEGER NOT NULL DEFAULT 1,"firstVisitedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"lastVisitedAt" TIMESTAMP(3) NOT NULL,CONSTRAINT "UserProfileVisit_pkey" PRIMARY KEY ("targetId","visitorId"));
+CREATE TABLE "UserProfileLike" ("targetId" TEXT NOT NULL,"userId" TEXT NOT NULL,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "UserProfileLike_pkey" PRIMARY KEY ("targetId","userId"));
+CREATE INDEX "UserProfileVisit_targetId_lastVisitedAt_idx" ON "UserProfileVisit"("targetId","lastVisitedAt");
+CREATE INDEX "UserProfileLike_targetId_createdAt_idx" ON "UserProfileLike"("targetId","createdAt");
+ALTER TABLE "UserProfileVisit" ADD CONSTRAINT "UserProfileVisit_targetId_fkey" FOREIGN KEY ("targetId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "UserProfileVisit" ADD CONSTRAINT "UserProfileVisit_visitorId_fkey" FOREIGN KEY ("visitorId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "UserProfileLike" ADD CONSTRAINT "UserProfileLike_targetId_fkey" FOREIGN KEY ("targetId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "UserProfileLike" ADD CONSTRAINT "UserProfileLike_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
