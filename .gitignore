@@ -1,0 +1,8 @@
+node_modules
+
+# Local environment credentials
+.env*
+!.env.example
+
+# Local PostgreSQL cluster
+.local/

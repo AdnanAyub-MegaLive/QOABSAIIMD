@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/admin/agencies/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"/Users/apple/Downloads/Mega-Work/QOABSAIIMD/src/app/api/admin/agencies/route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};

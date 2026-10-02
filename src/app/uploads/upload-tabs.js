@@ -1166,6 +1166,7 @@ function DistributionSettings({
           <option value="STORE">Buy from Store</option>
           <option value="VIP">VIP level reward</option>
           <option value="SVIP">SVIP / recharge reward</option>
+          <option value="RESELLER">Reseller role reward</option>
           <option value="ACTIVITY">Activity or event only</option>
           <option value="MANUAL">Super Admin grant only</option>
         </select>
@@ -1225,7 +1226,7 @@ function DistributionSettings({
         <span>
           <strong className="block text-xs">Show in Store catalog</strong>
           <span className="mt-0.5 block text-[9px] text-[#748681]">
-            VIP, SVIP, and activity items appear locked until earned.
+            Reseller rewards unlock while the user holds the Reseller role. VIP, SVIP, and activity items appear locked until earned.
           </span>
         </span>
       </label>
@@ -1348,6 +1349,7 @@ function distributionLabel(item) {
     return `VIP ${item.minimumVipLevel ?? ""}`.trim();
   if (item.distribution === "SVIP")
     return `SVIP · recharge ${item.minimumRecharge ?? ""}`.trim();
+  if (item.distribution === "RESELLER") return "Reseller role reward";
   if (item.distribution === "ACTIVITY") return "Activity reward";
   return "Super Admin grant";
 }

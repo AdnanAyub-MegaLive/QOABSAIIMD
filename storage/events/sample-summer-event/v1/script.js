@@ -1,0 +1,1 @@
+document.querySelector('#join').addEventListener('click',()=>alert('Welcome to Streamline!'));

@@ -5,7 +5,7 @@
   "scripts": {
     "predev": "prisma generate",
     "postinstall": "prisma generate",
-    "dev": "node server.js --dev --webpack",
+    "dev": "NODE_ENV=development node server.js --dev --webpack",
     "build": "next build",
     "start": "node server.js",
     "lint": "eslint",
@@ -15,12 +15,16 @@
     "db:seed": "prisma db seed && node prisma/seed-events.mjs",
     "events:seed": "node prisma/seed-events.mjs",
     "wallet:setup": "node scripts/setup-wallet-db.mjs",
-    "legacy-ids:import": "node scripts/import-legacy-id-mappings.mjs"
+    "legacy-ids:import": "node scripts/import-legacy-id-mappings.mjs",
+    "db:local:start": "/Library/PostgreSQL/18/bin/pg_ctl -D .local/postgres/data -l .local/postgres/server.log -o \"-h 127.0.0.1 -p 5433\" start",
+    "db:local:stop": "/Library/PostgreSQL/18/bin/pg_ctl -D .local/postgres/data stop -m fast",
+    "db:local:status": "/Library/PostgreSQL/18/bin/pg_ctl -D .local/postgres/data status"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "bcrypt": "^6.0.0",
+    "dotenv": "^18.0.5",
     "file-type": "^22.0.1",
     "google-auth-library": "^11.0.2",
     "jsonwebtoken": "^9.0.3",

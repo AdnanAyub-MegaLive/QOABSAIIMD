@@ -9,6 +9,7 @@ export function OPTIONS() {
 export async function POST(request) {
   try {
     const sender = await requireMobileUser(request);
+    if (!sender.appRoles?.includes("RESELLER")) throw new Error("RESELLER_REQUIRED");
     const body = await request.json();
     const recipientPublicId = String(body?.recipientPublicId ?? "").trim();
     const coins = parsePositiveCoins(body?.coins);
@@ -18,6 +19,8 @@ export async function POST(request) {
     if (coins < minimum || coins > maximum) throw new Error("TRANSFER_LIMIT");
     const result = await prisma.$transaction(
       async (tx) => {
+        const currentSender = await tx.user.findUniqueOrThrow({ where: { id: sender.id }, select: { appRoles: true, status: true, deletedAt: true } });
+        if (!currentSender.appRoles.includes("RESELLER") || currentSender.status !== "ACTIVE" || currentSender.deletedAt) throw new Error("RESELLER_REQUIRED");
         const recipient = await tx.user.findFirst({
           where: { publicId: recipientPublicId, deletedAt: null },
           select: { id: true, publicId: true, name: true, status: true },

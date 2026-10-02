@@ -50,6 +50,27 @@ and removes those fixtures afterwards.
 
 ## Configure
 
+### Local PostgreSQL on this Mac
+
+The development database uses the installed PostgreSQL 18 binaries in
+`/Library/PostgreSQL/18/bin`, listens on `127.0.0.1:5433`, and stores its data
+in the ignored `.local/postgres/data` directory. Its connection URL and generated
+administrator credentials are in `.env.local`.
+
+```sh
+npm run db:local:start   # Start after a reboot or manual stop
+npm run db:local:status
+npm run dev
+# When finished:
+npm run db:local:stop
+```
+
+This fresh local database was initialized with `prisma db push` and `npm run
+db:seed`. The checked-in migrations lack the original base schema, so this
+database does not have migration history. Do not run `prisma migrate deploy`
+against it until a migration baseline is established. Do not use this local
+bootstrap procedure for an existing database.
+
 Create `.env.local` with the database, authentication, and LiveKit values required
 by your deployment. Do not commit this file.
 

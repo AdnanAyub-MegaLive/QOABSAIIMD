@@ -13,6 +13,7 @@ export async function GET(request) {
       where: { id: sessionUser.id },
       select: {
         coinBalance: true,
+        appRoles: true,
         hostSalaryCoinBalance: true,
         couponBalance: true,
         totalTopUp: true,
@@ -23,6 +24,7 @@ export async function GET(request) {
       success: true,
       data: {
         coins: user.coinBalance.toString(),
+        canTransferCoins: user.appRoles.includes("RESELLER"),
         diamonds: user.hostSalaryCoinBalance.toString(),
         coupons: user.couponBalance,
         totalRecharge: user.totalTopUp.toString(),

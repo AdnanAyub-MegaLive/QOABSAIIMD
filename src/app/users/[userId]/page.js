@@ -345,6 +345,7 @@ export default async function UserProfilePage({ params }) {
 }
 
 function display(value) {
+  if (value === "BD") return "BD";
   return value
     .toLowerCase()
     .replaceAll("_", " ")
