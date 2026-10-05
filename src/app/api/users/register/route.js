@@ -3,7 +3,7 @@ import { hashPassword } from "../../../../lib/password";
 import mobileSession from "../../../../lib/mobile-session.cjs";
 import { formatDateOnly, parseDateOnly } from "../../../../lib/date-only";
 import { generateNumericPublicId } from "../../../../lib/public-id";
-import { requiresSignupGeolocation, resolveSignupCountry } from "../../../../lib/geo-country";
+import { clientSignupCountry, resolveSignupCountry } from "../../../../lib/geo-country";
 import { requestOrigin,resolveUserPerks } from "../../../../lib/user-perks";
 
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
@@ -48,6 +48,9 @@ function validateRegistration(body) {
       "Profile image must be a URL no longer than 2048 characters.";
   if (body?.dob != null && !parseDateOnly(body.dob))
     errors.dob = "Date of birth must use the YYYY-MM-DD format.";
+  const selectedCountry = clientSignupCountry(body?.country);
+  if (selectedCountry.provided && !selectedCountry.country)
+    errors.country = "Select a valid country name or ISO alpha-2 code.";
 
   const device = body?.device;
   if (device != null && (typeof device !== "object" || Array.isArray(device)))
@@ -59,7 +62,7 @@ function validateRegistration(body) {
     errors["device.deviceId"] =
       "A stable Android installation identifier is required when device information is supplied.";
 
-  return { errors, values: { name, email: email || null, phone, password } };
+  return { errors, values: { name, email: email || null, phone, password, selectedCountry } };
 }
 
 export function OPTIONS() {
@@ -71,7 +74,6 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch {
-    const perks=(await resolveUserPerks([user],requestOrigin(request),["FRAMES","BADGES","BUSINESS_CARD"])).get(user.publicId);
     return json(
       {
         success: false,
@@ -99,19 +101,9 @@ export async function POST(request) {
     );
   }
 
-  const signupGeo = resolveSignupCountry(request);
-  if (!signupGeo.country && requiresSignupGeolocation()) {
-    return json(
-      {
-        success: false,
-        error: {
-          code: "GEOLOCATION_UNAVAILABLE",
-          message: "Signup country could not be determined from the connection location.",
-        },
-      },
-      503,
-    );
-  }
+  const connectionCountry = resolveSignupCountry(request);
+  const signupCountry = values.selectedCountry.country ?? connectionCountry.country;
+  const countrySource = values.selectedCountry.country ? "client" : connectionCountry.source;
 
   const forwardedFor = request.headers.get("x-forwarded-for");
   const ipAddress =
@@ -132,7 +124,7 @@ export async function POST(request) {
           email: values.email,
           phone: values.phone,
           passwordHash,
-          country: signupGeo.country,
+          country: signupCountry,
           profileImage: cleanOptional(body.profileImage),
           gender: body.gender === null ? null : cleanOptional(body.gender),
           dob: body.dob == null ? null : parseDateOnly(body.dob),
@@ -166,7 +158,7 @@ export async function POST(request) {
             phone: created.phone,
             email: created.email,
             country: created.country,
-            countrySource: signupGeo.source,
+            countrySource,
           },
         },
       });
@@ -178,6 +170,7 @@ export async function POST(request) {
         ? String(body.device.deviceId ?? body.device.macAddress).trim()
         : undefined,
     });
+    const perks=(await resolveUserPerks([user],requestOrigin(request),["FRAMES","BADGES","BUSINESS_CARD"])).get(user.publicId);
     return json(
       {
         success: true,

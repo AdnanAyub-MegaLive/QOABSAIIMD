@@ -114,8 +114,9 @@ Both events include `success: true`. The ban event also includes `reason` and `b
 
 `PATCH /api/users/profile` requires `Authorization: Bearer <sessionToken>`.
 Send any combination of `name`, `phone`, `email`, `profileImage`, `gender`, and
-`dob`. Fields that are omitted remain unchanged. Country is assigned from signup
-geolocation and cannot be edited by mobile clients. Nullable fields
+`dob`. Fields that are omitted remain unchanged. Country is assigned from the
+user's signup selection (or connection fallback) and cannot be edited later by
+this profile endpoint. Nullable fields
 can be cleared with `null`, except gender and DOB after their first assignment.
 
 ```json

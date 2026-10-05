@@ -124,14 +124,14 @@ For backward compatibility, the portal also accepts `macAddress` as an alias.
 The database column retains that old name internally, but all new mobile code
 must use `deviceId`.
 
-Country is assigned once, at registration, from the portal edge/proxy
-geolocation header and returned as an ISO alpha-2 code (for example `PK`). The
-Android request must not send or edit country. The production reverse proxy must
-strip inbound `CF-IPCountry`, `X-Vercel-IP-Country`, and `X-Geo-Country` headers
-and write its own trusted country header. If no trusted ISO-2 value is available
-(including a client location value such as `"unknown"`), registration returns
-`503 GEOLOCATION_UNAVAILABLE`; the portal never silently creates a new account
-with a null country.
+Country is assigned once at registration. Android sends the user's picker
+selection as an English country name or ISO alpha-2 code; the portal stores the
+canonical ISO-2 value. A trusted edge/proxy country header is fallback-only when
+the client omits country. Missing client and edge values do not block signup and
+produce a null country. An explicitly invalid client value returns 422 and is
+never replaced by the connection country. The two values are never compared.
+The production proxy must still strip inbound geo headers before writing trusted
+fallback headers.
 
 ## Released endpoints
 

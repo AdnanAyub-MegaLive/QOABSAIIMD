@@ -3,7 +3,7 @@ import mobileSession from "@/lib/mobile-session.cjs";
 import { generateNumericPublicId } from "@/lib/public-id";
 import { getEffectiveUserId, reconcileExpiredSpecialIds } from "@/lib/special-id";
 import { reconcileExpiredBans } from "@/lib/ban-maintenance";
-import { resolveSignupCountry, requiresSignupGeolocation } from "@/lib/geo-country";
+import { clientSignupCountry, resolveSignupCountry } from "@/lib/geo-country";
 import { formatDateOnly } from "@/lib/date-only";
 import { normalizeGooglePhone, verifyGoogleIdToken } from "@/lib/google-sso";
 import { bannedAccountLoginResponse } from "@/lib/mobile-login-response";
@@ -31,7 +31,7 @@ function validationError(request, requestId, fields) {
   }, 422, methods);
 }
 
-async function findOrCreateGoogleUser(profile, phone, request, requestId) {
+async function findOrCreateGoogleUser(profile, phone, selectedCountry, request, requestId) {
   const existingGoogleUser = await prisma.user.findUnique({
     where: { googleSubject: profile.subject },
   });
@@ -51,12 +51,9 @@ async function findOrCreateGoogleUser(profile, phone, request, requestId) {
     return { user, created: false };
   }
 
-  const signupGeo = resolveSignupCountry(request);
-  if (!signupGeo.country && requiresSignupGeolocation()) {
-    const error = new Error("GEOLOCATION_UNAVAILABLE");
-    error.code = "GEOLOCATION_UNAVAILABLE";
-    throw error;
-  }
+  const connectionCountry = resolveSignupCountry(request);
+  const country = selectedCountry.country ?? connectionCountry.country;
+  const countrySource = selectedCountry.country ? "client" : connectionCountry.source;
 
   const user = await prisma.$transaction(async (tx) => {
     const publicId = await generateNumericPublicId("USR", async (candidate) =>
@@ -69,7 +66,7 @@ async function findOrCreateGoogleUser(profile, phone, request, requestId) {
         name: profile.name,
         email: profile.email,
         phone,
-        country: signupGeo.country,
+        country,
         profileImage: profile.profileImage,
         role: "LISTENER",
         status: "ACTIVE",
@@ -86,8 +83,8 @@ async function findOrCreateGoogleUser(profile, phone, request, requestId) {
         metadata: {
           source: "MOBILE_API_V1",
           googleSubject: profile.subject,
-          country: signupGeo.country,
-          countrySource: signupGeo.source,
+          country,
+          countrySource,
           requestId,
         },
       },
@@ -113,12 +110,14 @@ export async function POST(request) {
       }
 
       const device = body?.device;
+      const selectedCountry = clientSignupCountry(body?.country);
       const deviceId = clean(device?.deviceId);
       const location = clean(device?.location, 500);
-      if (!device || typeof device !== "object" || Array.isArray(device) || !deviceId || !location) {
+      if (!device || typeof device !== "object" || Array.isArray(device) || !deviceId || !location || (selectedCountry.provided && !selectedCountry.country)) {
         return validationError(request, requestId, {
           ...(!deviceId ? { "device.deviceId": "A stable Android installation identifier is required." } : {}),
           ...(!location ? { "device.location": "The user's current login location is required." } : {}),
+          ...(selectedCountry.provided && !selectedCountry.country ? { country: "Select a valid country name or ISO alpha-2 code." } : {}),
         });
       }
 
@@ -127,6 +126,7 @@ export async function POST(request) {
         const { user, created } = await findOrCreateGoogleUser(
           profile,
           normalizeGooglePhone(body?.phone),
+          selectedCountry,
           request,
           requestId,
         );
@@ -250,7 +250,6 @@ export async function POST(request) {
           GOOGLE_EMAIL_UNVERIFIED: [403, "Google must verify the email address before it can be used to sign in."],
           GOOGLE_ACCOUNT_LINK_REQUIRED: [409, "Sign in with your existing account before linking this Google account."],
           PHONE_INVALID: [422, "Enter a valid phone number containing 7 to 15 digits."],
-          GEOLOCATION_UNAVAILABLE: [503, "Signup country could not be determined from the connection location."],
         };
         const [status, message] = known[error?.code] ?? [500, "Unable to sign in with Google right now."];
         if (error?.code === "P2002") {

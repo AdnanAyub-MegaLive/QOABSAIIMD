@@ -90,7 +90,7 @@ export async function PATCH(request) {
           success: false,
           error: {
             code: "COUNTRY_MANAGED_BY_GEOLOCATION",
-            message: "Country is assigned from signup geolocation and cannot be edited in the mobile profile.",
+            message: "Country is assigned at signup and cannot be edited in the mobile profile.",
           },
         },
         403,

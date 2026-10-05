@@ -17,6 +17,7 @@ Send the request with `Content-Type: application/json`. The endpoint is public a
   "profileImage": "https://cdn.example.com/profiles/aisha.jpg",
   "gender": "female",
   "dob": "2001-07-24",
+  "country": "Pakistan",
   "device": {
     "deviceId": "stable-device-identifier",
     "lastLoginIp": "192.0.2.10",
@@ -29,9 +30,12 @@ Send the request with `Content-Type: application/json`. The endpoint is public a
 
 `name`, `phone`, and a password of at least 8 characters are required. Email is optional. Passwords are stored only as salted scrypt hashes and are never returned by the API. Phone numbers and email addresses must be unique across users. The complete `device` object is optional on the legacy endpoint; v1 requires `device.deviceId`, a stable Android installation identifier.
 
-The portal assigns `country` from trusted edge geolocation at signup and stores
-an ISO alpha-2 code such as `PK`. Do not send country from Android; it is not
-accepted as a client-controlled profile field.
+Send the country selected by the user as an English country name or ISO alpha-2
+code. The portal validates and stores its canonical ISO-2 code (`Pakistan` and
+`pk` both become `PK`). If omitted, a trusted connection-country header is used
+as fallback. If both are unavailable, registration still succeeds with null.
+An explicitly invalid country returns `422 VALIDATION_ERROR`; it is never
+silently replaced by connection geography or compared with it.
 
 `gender` and `dob` are nullable and returned in the registered user object.
 Dates of birth use the date-only `YYYY-MM-DD` format. `profileImage`
