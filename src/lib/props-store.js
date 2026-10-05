@@ -1,3 +1,4 @@
+import { syncResellerProps } from "./reseller-props.js";
 import { prisma } from "./prisma.js";
 import { createSignedAssetUrl } from "./upload-assets.js";
 import { requestOrigin } from "./user-perks.js";
@@ -21,6 +22,7 @@ export function entitlementExpiry(asset, from = new Date()) {
 }
 
 export async function syncProgressionProps(userId, client = prisma) {
+  await syncResellerProps(userId, client);
   const user = await client.user.findUnique({
     where: { id: userId },
     select: { id: true, vipLevel: true, totalTopUp: true, deletedAt: true },
@@ -100,7 +102,9 @@ export function mobileAssetUrl(request, asset, user) {
 export function storeAssetPayload(asset, user, entitlement, equipped) {
   const lockedReason = entitlement
     ? null
-    : asset.distribution === "VIP"
+    : asset.distribution === "RESELLER"
+      ? "Requires the Reseller role."
+      : asset.distribution === "VIP"
       ? `Requires VIP ${asset.minimumVipLevel}`
       : asset.distribution === "SVIP"
         ? `Requires total recharge of ${asset.minimumRecharge ?? 0n}`

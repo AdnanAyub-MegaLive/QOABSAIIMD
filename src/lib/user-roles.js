@@ -1,4 +1,5 @@
 export const APPLICATION_ROLES = [
+  "RESELLER",
   "LISTENER",
   "SENDER",
   "CREATOR",
@@ -29,6 +30,7 @@ export function primaryLegacyRole(roles, currentRole = "LISTENER") {
 }
 
 export function displayApplicationRole(role) {
+  if (role === "BD") return "BD";
   return role
     .toLowerCase()
     .replaceAll("_", " ")

@@ -47,3 +47,6 @@ next-env.d.ts
 /storage/tmp/*
 !/storage/events/.gitkeep
 !/storage/tmp/.gitkeep
+
+# Local PostgreSQL cluster
+/.local/

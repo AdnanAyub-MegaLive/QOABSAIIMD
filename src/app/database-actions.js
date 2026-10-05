@@ -13,6 +13,7 @@ import {
 } from "../lib/special-id";
 import { reconcileExpiredAudioRoomRestrictions } from "../lib/audio-room-maintenance";
 import { syncProgressionProps } from "../lib/props-store";
+import { syncResellerProps } from "../lib/reseller-props";
 import { normalizeApplicationRoles, primaryLegacyRole } from "../lib/user-roles";
 import {
   shouldAssignTalentPublicId,
@@ -130,6 +131,7 @@ export async function updateUserAccount(publicId, changes) {
   }
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: currentUser.id }, data });
+    if (data.appRoles) await syncResellerProps(currentUser.id, tx);
     if (nextPublicId !== currentUser.publicId) {
       await tx.legacyIdMapping.updateMany({
         where: { userId: currentUser.id, entityType: "USER", publicId: currentUser.publicId },
@@ -412,23 +414,25 @@ export async function managePortalHost(publicId, changes) {
 
 export async function adjustUserCoins(publicId, operation, amount, reason) {
   const admin = await requirePermission("finance.adjust");
-  const user = await prisma.user.findUniqueOrThrow({ where: { publicId } });
+  if (!["add", "remove"].includes(operation) || !/^\d+$/.test(String(amount))) throw new Error("INVALID_COIN_ADJUSTMENT");
   const value = BigInt(amount);
-  const after =
-    operation === "add"
-      ? user.coinBalance + value
-      : user.coinBalance > value
-        ? user.coinBalance - value
-        : 0n;
-  await prisma.$transaction([
-    prisma.user.update({
+  if (value <= 0n) throw new Error("INVALID_COIN_ADJUSTMENT");
+  const { user, after } = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUniqueOrThrow({ where: { publicId } });
+    const after =
+      operation === "add"
+        ? user.coinBalance + value
+        : user.coinBalance > value
+          ? user.coinBalance - value
+          : 0n;
+    await tx.user.update({
       where: { id: user.id },
       data: {
         coinBalance: after,
         ...(operation === "add" ? { totalTopUp: { increment: value } } : {}),
       },
-    }),
-    prisma.coinAdjustment.create({
+    });
+    await tx.coinAdjustment.create({
       data: {
         userId: user.id,
         adminId: admin.id,
@@ -438,8 +442,8 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
         balanceAfter: after,
         reason,
       },
-    }),
-    prisma.walletTransaction.create({
+    });
+    await tx.walletTransaction.create({
       data: ledgerData({
         userId: user.id,
         type: "ADMIN_ADJUSTMENT",
@@ -450,8 +454,9 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
         referenceId: `COIN-ADJUSTMENT:${user.publicId}:${Date.now()}`,
         metadata: { adminId: admin.id, operation },
       }),
-    }),
-  ]);
+    });
+    return { user, after };
+  }, { isolationLevel: "Serializable" });
   await logActivity(admin, {
     action: operation === "add" ? "ADD_COINS" : "REMOVE_COINS",
     category: "FINANCE",

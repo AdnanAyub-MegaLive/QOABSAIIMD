@@ -1,3 +1,5 @@
+import CreateAgency from "./create-agency";
+import { hasPermission } from "@/lib/portal-permissions";
 import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
@@ -7,7 +9,7 @@ import PortalSidebar from "../components/portal-sidebar";
 import { prisma } from "../../lib/prisma";
 
 export default async function AgenciesPage() {
-  await requirePagePermission("agencies.view");
+  const admin = await requirePagePermission("agencies.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const monthStart=new Date(Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),1));
@@ -28,6 +30,7 @@ export default async function AgenciesPage() {
       reviewNote:true,
       rejectionReason:true,
       reviewedBy:{select:{name:true,email:true}},
+      reviewedByUser:{select:{name:true,publicId:true}},
       user:{select:{publicId:true,name:true,phone:true,profileImage:true}},
     },
     orderBy:{createdAt:"desc"},
@@ -46,7 +49,7 @@ export default async function AgenciesPage() {
     reviewedAt:application.reviewedAt?.toISOString()??null,
     reviewNote:application.reviewNote,
     rejectionReason:application.rejectionReason,
-    reviewedBy:application.reviewedBy?{name:application.reviewedBy.name,email:application.reviewedBy.email}:null,
+    reviewedBy:application.reviewedBy?{name:application.reviewedBy.name,email:application.reviewedBy.email}:application.reviewedByUser?{name:application.reviewedByUser.name,email:`BD · ${application.reviewedByUser.publicId}`}:null,
     applicant:{
       id:application.user.publicId,
       name:application.user.name,
@@ -102,6 +105,7 @@ export default async function AgenciesPage() {
               salary activity.
             </p>
           </div>
+          {hasPermission(admin, "agencies.manage") && <CreateAgency />}
           <AgencyTabs applications={applications} joinRequests={joinRequests} overview={overview} modules={agencyModules}/>
         </div>
       </section>

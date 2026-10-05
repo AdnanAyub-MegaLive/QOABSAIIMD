@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Search, Crown, ChevronDown, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   assignSpecialId,
@@ -12,9 +13,11 @@ import usePortalData from "../hooks/use-portal-data";
 import DurationPicker from "../components/duration-picker";
 
 const userRoleChoices = [
-  "Listener", "Sender", "Creator", "Host", "Moderator", "Official",
+  "Listener", "Sender", "Creator", "Host", "Moderator", "Official", "Reseller",
   "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head",
 ];
+
+const roleFilters = ["Reseller", "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head"];
 
 const statusStyles = {
   Active: "bg-emerald-50 text-emerald-700",
@@ -28,6 +31,7 @@ export default function UsersTable({ initialData, specialIdCatalog }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
   const [vipOnly, setVipOnly] = useState(false);
+  const [roleFilter, setRoleFilter] = useState(null);
   const [menu, setMenu] = useState(null);
   const [modal, setModal] = useState(null);
   const filtered = useMemo(
@@ -38,9 +42,12 @@ export default function UsersTable({ initialData, specialIdCatalog }) {
             .toLowerCase()
             .includes(query.toLowerCase()) &&
           (status === "All" || user.status === status) &&
-          (!vipOnly || user.vipLevel > 0),
+          (!vipOnly || user.vipLevel > 0) &&
+          (!roleFilter || (user.roles?.length ? user.roles : [user.role]).some(
+            (role) => String(role).replaceAll("_", " ").toUpperCase() === roleFilter.toUpperCase(),
+          )),
       ),
-    [users, query, status, vipOnly],
+    [users, query, status, vipOnly, roleFilter],
   );
   const saveUser = (id, changes) =>
     setUsers((current) =>
@@ -48,31 +55,66 @@ export default function UsersTable({ initialData, specialIdCatalog }) {
     );
   return (
     <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
-      <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:justify-between">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-10 w-full rounded-lg border border-[#dce6e4] bg-[#fafcfc] px-4 text-xs outline-none sm:max-w-xs"
-          placeholder="Search users, phone, email or ID..."
-        />
-        <div className="flex gap-2">
+      <div className="space-y-4 border-b border-[#e5ecea] p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative min-w-0 flex-1">
+            <Search aria-hidden="true" size={17} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-[#829792]" />
+            <input
+              aria-label="Search users"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-11 w-full rounded-xl border border-[#dce6e4] bg-[#f8fbfa] pr-4 pl-10 text-sm text-[#294a45] outline-none transition placeholder:text-[#8a9d98] focus:border-[#16877d] focus:bg-white focus:ring-2 focus:ring-[#16877d]/10"
+              placeholder="Search by name, phone, email or ID"
+            />
+          </div>
+          <div className="relative w-full shrink-0 sm:w-44">
+            <select
+              aria-label="Account status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="h-11 w-full appearance-none rounded-xl border border-[#dce6e4] bg-white pr-10 pl-3.5 text-xs font-medium text-[#536863] outline-none transition focus:border-[#16877d] focus:ring-2 focus:ring-[#16877d]/10"
+            >
+              <option value="All">All statuses</option>
+              <option>Active</option>
+              <option>Pending</option>
+              <option>Suspended</option>
+              <option>Banned</option>
+            </select>
+            <ChevronDown aria-hidden="true" size={15} className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[#829792]" />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="User filters">
+          <span className="mr-1 text-[10px] font-semibold tracking-wider text-[#829792] uppercase">Quick filters</span>
           <button
+            type="button"
             onClick={() => setVipOnly(!vipOnly)}
-            className={`h-10 rounded-lg border px-3 text-xs ${vipOnly ? "bg-amber-50 text-amber-700" : "text-[#536863]"}`}
+            aria-pressed={vipOnly}
+            className={`inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 ${vipOnly ? "border-amber-300 bg-amber-100 text-amber-800" : "border-amber-200/70 bg-amber-50/60 text-amber-700 hover:border-amber-300 hover:bg-amber-50"}`}
           >
+            <Crown aria-hidden="true" size={13} />
             VIP users
           </button>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="h-10 rounded-lg border bg-white px-3 text-xs"
-          >
-            <option>All</option>
-            <option>Active</option>
-            <option>Pending</option>
-            <option>Suspended</option>
-            <option>Banned</option>
-          </select>
+          {roleFilters.map((role) => (
+            <button
+              type="button"
+              key={role}
+              onClick={() => setRoleFilter((current) => current === role ? null : role)}
+              aria-pressed={roleFilter === role}
+              className={`h-8 whitespace-nowrap rounded-full border px-3 text-xs font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-[#16877d] focus-visible:ring-offset-2 ${roleFilter === role ? "border-[#087f74] bg-[#087f74] text-white shadow-sm" : "border-[#e0eae7] bg-[#f6f9f8] text-[#5e756f] hover:border-[#b5d4cb] hover:bg-[#eef6f3] hover:text-[#087f74]"}`}
+            >
+              {role}
+            </button>
+          ))}
+          {(query || status !== "All" || vipOnly || roleFilter) && (
+            <button
+              type="button"
+              onClick={() => { setQuery(""); setStatus("All"); setVipOnly(false); setRoleFilter(null); }}
+              className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-xs text-[#71847f] transition hover:bg-[#f6f9f8] hover:text-[#294a45] focus-visible:outline-2 focus-visible:outline-[#16877d] sm:ml-auto"
+            >
+              <X aria-hidden="true" size={13} />
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -387,7 +429,7 @@ function RoleModal({ title, user, onClose, onSave }) {
         }}
       >
         <p className="mb-3 text-[11px] text-[#68807b]">
-          Select every role this user holds. Permissions will be connected to these roles later.
+          Select every role this user holds. Resellers can send coins to other users and receive uploaded items configured as Reseller role rewards. BDs can grant agencies and approve applications submitted under them.
         </p>
         <div className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
           {userRoleChoices.map((role) => (

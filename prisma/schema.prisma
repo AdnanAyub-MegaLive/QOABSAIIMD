@@ -22,6 +22,7 @@ enum UserRole {
 }
 
 enum ApplicationRole {
+  RESELLER
   LISTENER
   SENDER
   CREATOR
@@ -243,7 +244,7 @@ model User {
   equippedProps              UserEquippedProp[]
   propPurchases              PropPurchase[]
   giftInventory              UserGiftInventory[]
-  agencyApplications         AgencyApplication[]
+  agencyApplications         AgencyApplication[] @relation("AgencyApplicant")
   agencyJoinRequests         AgencyJoinRequest[]
   posts                      Post[]
   postLikes                  PostLike[]
@@ -274,6 +275,9 @@ model User {
   legacyIdMappings           LegacyIdMapping[]
   totalTopUp                 BigInt                        @default(0)
   agency                     Agency?                       @relation("UserAgency", fields: [agencyId], references: [id], onDelete: SetNull)
+  bdAgencies                 Agency[] @relation("AgencyBD")
+  bdApplications             AgencyApplication[] @relation("ApplicationBD")
+  bdReviewedApplications     AgencyApplication[] @relation("ApplicationBDReviewer")
   ownedAgency                Agency?                       @relation("AgencyOwner")
 
   @@index([status])
@@ -433,6 +437,8 @@ model Agency {
   publicId              String              @unique
   name                  String
   ownerUserId           String?             @unique
+  bdUserId              String?
+  bd                    User? @relation("AgencyBD", fields: [bdUserId], references: [id], onDelete: SetNull)
   status                String              @default("ACTIVE")
   commissionCoinBalance BigInt              @default(0)
   monthlyTargetCoins    BigInt              @default(0)
@@ -870,6 +876,10 @@ model PropPurchase {
 }
 
 model AgencyApplication {
+  bdUserId        String?
+  reviewedByUserId String?
+  bd              User? @relation("ApplicationBD", fields: [bdUserId], references: [id], onDelete: SetNull)
+  reviewedByUser  User? @relation("ApplicationBDReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   id              String    @id @default(cuid())
   publicId        String    @unique
   userId          String
@@ -890,13 +900,14 @@ model AgencyApplication {
   rejectionReason String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation("AgencyApplicant", fields: [userId], references: [id], onDelete: Cascade)
   reviewedBy      Admin?    @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
   agency          Agency?   @relation(fields: [agencyId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([userId])
   @@index([userId, bdCode, status])
+  @@index([bdUserId, status, createdAt])
   @@index([reviewedById, reviewedAt])
 }
 

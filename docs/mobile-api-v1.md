@@ -153,7 +153,7 @@ fallback headers.
 | Coin packages | `GET /api/v1/wallet/coin-packages` | Active provider-neutral packages and prices |
 | Wallet ledger | `GET /api/v1/wallet/transactions?limit=20&cursor=...` | Cursor-paginated, immutable financial history |
 | Start a top-up | `POST /api/v1/wallet/top-ups` | Requires an `Idempotency-Key` header in production |
-| Transfer coins | `POST /api/v1/wallet/transfers` | Coin-only, server-enforced transfer limits |
+| Transfer coins | `POST /api/v1/wallet/transfers` | Reseller-only coin transfers, server-enforced transfer limits |
 | Withdraw host earnings | `GET`/`POST /api/v1/wallet/withdrawals` | KYC-verified, agency-linked hosts only |
 | Gift catalog | `GET /api/v1/gifts/catalog` | Existing uploaded gift assets only; no media is generated |
 | Send a gift | `POST /api/v1/gifts/send` | Atomically settles sender, host, agency, and company shares |
@@ -419,3 +419,67 @@ server only. Before scaling the portal to multiple instances, replace it with a
 shared atomic limiter (for example Redis) and make the reverse proxy overwrite
 client-supplied forwarding headers. This is a deployment requirement, not an
 Android change.
+
+## Reseller accounts
+
+Managers with user-role management permissions can assign `RESELLER` through
+Users → Adjust role. This is a mobile application role, not a portal staff role.
+Managers with `finance.adjust` can fund the user through the existing Add Coins
+action; both funding and transfers write wallet ledger entries.
+
+`GET /api/v1/wallet` includes `canTransferCoins`. Mobile clients should show the
+send-coins action only when this flag is true. `POST /api/v1/wallet/transfers`
+(and the legacy endpoint) requires an active Reseller, otherwise returns HTTP 403
+with `RESELLER_REQUIRED`. The request remains `{ "recipientPublicId": "USR-…",
+"coins": "100" }`. Transfers debit the Reseller and credit an active recipient
+atomically, subject to balance and configured transfer limits.
+
+In Uploads, select **Reseller role reward** under **How users obtain it** for each
+item to grant. Existing configured items are granted when the role is assigned;
+newly configured rewards are synchronized when the user loads props or the store.
+The configured ownership duration applies and is not restarted by reads. Removing
+the role removes only role-sourced rewards, preserving purchased or manually
+granted ownership. Reassigning the role grants its rewards again. These items can
+be equipped through the existing props API. No arbitrary uploaded items are granted.
+
+## BD agency management
+
+`BD` is an application role assigned through Users → Adjust role. It does not
+provide portal staff access. Applicants supply the active BD's user public ID in
+`bdCode`; free-text codes that do not identify an active BD are rejected.
+
+| Action | Endpoint | Access |
+| --- | --- | --- |
+| Find a BD | `GET /api/v1/bds?q=...` | Signed-in mobile users; up to 100 matches |
+| Apply under a BD | `POST /api/v1/agencies/apply` | Signed-in mobile users |
+| List assigned applications | `GET /api/v1/bd/applications?status=PENDING` | BD; only their applications, up to 100 newest |
+| Approve or reject | `PATCH /api/v1/bd/applications/{applicationId}` | The application's BD only |
+| Grant an agency directly | `POST /api/v1/bd/agencies` | Active BD |
+| List granted/approved agencies | `GET /api/v1/bd/agencies` | BD; only their agencies, up to 100 newest |
+
+Application request: `{ "agencyName": "Example", "whatsapp": "+923001234567",
+"bdCode": "USR-123456" }`. The existing `/api/agencies/apply` route uses the same
+validation and ownership links. Three rejections under the same BD retain the
+existing application limit.
+
+Review request: `{ "decision": "APPROVED", "note": "Optional note" }`, or
+`{ "decision": "REJECTED", "note": "Required reason" }`. Another BD's application
+returns 404; an already reviewed application returns 409. Approval creates an
+agency owned by the applicant and linked to the supervising BD.
+
+Direct grant request: `{ "agencyName": "Example", "ownerPublicId": "USR-123456" }`.
+The server links the agency to the authenticated BD. Owners must be active and
+cannot already own/belong to an agency or have a pending/approved application.
+A direct grant creates an approved application record for existing owner flows.
+Removing the BD role blocks their BD actions without deleting existing agencies.
+
+Portal managers with `agencies.manage` can use **Agency Management → Create
+agency**, backed by `POST /api/admin/agencies`. It accepts the same direct-grant
+fields plus optional `bdCode`; omitting it creates an agency without a BD. The
+portal can still review applications, including legacy applications whose BD
+codes could not be matched. Reviewer identity and agency actions are audited.
+
+Apply migration `20261002110000_bd_agencies` and regenerate Prisma Client when
+deploying. Legacy applications are linked only where the code matches an existing
+BD user ID. Run `node scripts/test-bd-agencies.mjs` against a running local portal
+to check grants, approval ownership, role revocation, and portal permissions.

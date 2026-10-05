@@ -1,6 +1,6 @@
+import { submitAgencyApplication } from "@/lib/agency-management";
+import { mobileApiError, requireMobileUser } from "@/lib/mobile-api";
 import { prisma } from "../../../../lib/prisma";
-import mobileSession from "../../../../lib/mobile-session.cjs";
-import { assertMobileSession, mobileSessionError } from "../../../../lib/mobile-session-state";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -27,38 +27,13 @@ function text(payload, key, maxLength) {
   return value && value.length <= maxLength ? value : null;
 }
 
-async function authenticatedUser(request) {
-  const token = request.headers
-    .get("authorization")
-    ?.replace(/^Bearer\s+/i, "");
-  const payload = mobileSession.verifyMobileSessionToken(token);
-  const user = await prisma.user.findUnique({
-    where: { publicId: payload.userId },
-    select: {
-      id: true,
-      publicId: true,
-      email: true,
-      country: true,
-      deletedAt: true,
-      status: true,
-      sessionVersion: true,
-      forcedLogoutAt: true,
-    },
-  });
-  return assertMobileSession(user, payload);
-}
-
 export async function POST(request) {
   let user;
   try {
-    user = await authenticatedUser(request);
+    const sessionUser = await requireMobileUser(request);
+    user = await prisma.user.findUniqueOrThrow({ where: { id: sessionUser.id } });
   } catch (exception) {
-    const sessionError = mobileSessionError(exception?.message).error;
-    return error(
-      sessionError.code,
-      sessionError.message,
-      401,
-    );
+    return mobileApiError(exception);
   }
 
   let payload;
@@ -77,7 +52,6 @@ export async function POST(request) {
   const agencyName = text(payload, "agencyName", 120);
   const whatsapp = text(payload, "whatsapp", 40);
   const bdCode = text(payload, "bdCode", 50);
-  const email = user.email?.trim().toLowerCase() || null;
   const fields = {};
   if (!agencyName)
     fields.agencyName =
@@ -96,83 +70,12 @@ export async function POST(request) {
     );
 
   try {
-    const existing = await prisma.agencyApplication.findFirst({
-      where: { userId: user.id, status: { in: ["PENDING", "APPROVED"] } },
-      select: { publicId: true, status: true },
-    });
-    if (existing)
-      return error(
-        existing.status === "APPROVED" ? "ALREADY_HAS_AGENCY" : "ALREADY_APPLIED",
-        existing.status === "APPROVED"
-          ? "You already have an approved agency application."
-          : "You already have a pending application.",
-        409,
-      );
-
-    const rejectedAttempts = await prisma.agencyApplication.count({
-      where: {
-        userId: user.id,
-        status: "REJECTED",
-        bdCode: { equals: bdCode, mode: "insensitive" },
-      },
-    });
-    if (rejectedAttempts >= 3)
-      return error(
-        "ADMIN_ID_ATTEMPT_LIMIT_REACHED",
-        "You cannot apply again with this Admin ID after three rejected applications. Use a different Admin ID.",
-        409,
-        { bdCode: "The three-application limit for this Admin ID has been reached." },
-      );
-
-    const publicId = `AGA-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-    const application = await prisma.$transaction(async (tx) => {
-      const created = await tx.agencyApplication.create({
-        data: {
-          publicId,
-          userId: user.id,
-          agencyName,
-          email,
-          whatsapp,
-          bdCode,
-          country: user.country,
-        },
-        select: { publicId: true, status: true },
-      });
-      await tx.auditLog.create({
-        data: {
-          action: "AGENCY_APPLICATION_SUBMITTED",
-          category: "AGENCY_MANAGEMENT",
-          entityType: "AgencyApplication",
-          entityId: created.publicId,
-          description: `User ${user.publicId} submitted an agency application for ${agencyName}.`,
-          metadata: {
-            userId: user.publicId,
-            agencyName,
-            bdCode,
-            country: user.country,
-          },
-        },
-      });
-      return created;
-    });
-
-    return json(
-      {
-        success: true,
-        data: {
-          applicationId: application.publicId,
-          status: application.status,
-          attemptsRemainingForAdminId: Math.max(0, 2 - rejectedAttempts),
-        },
-      },
-      201,
+    const data = await prisma.$transaction(
+      tx => submitAgencyApplication(tx, user, { agencyName, whatsapp, bdCode }),
+      { isolationLevel: "Serializable" },
     );
-  } catch (errorValue) {
-    console.error("Agency application submission failed", errorValue);
-    return error(
-      "SUBMISSION_FAILED",
-      "Unable to submit the agency application right now.",
-      500,
-    );
+    return json({ success: true, data }, 201);
+  } catch (exception) {
+    return mobileApiError(exception, "SUBMISSION_FAILED");
   }
 }

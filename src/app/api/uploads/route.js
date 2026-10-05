@@ -25,7 +25,7 @@ const allowedTypes = new Set([
 ]);
 const maxFileSize = 15 * 1024 * 1024;
 const maxMusicFileSize = 50 * 1024 * 1024;
-const distributions = new Set(["FREE", "MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY"]);
+const distributions = new Set(["FREE", "MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY", "RESELLER"]);
 const giftTiers = new Set(["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"]);
 const assignmentInclude = {
   assignments: {
