@@ -1,0 +1,17 @@
+{
+  "node": {
+    "00d4430c28527f542d6a4b954d3d50fda16e7a7102": {
+      "workers": {
+        "app/rankings/page": {
+          "moduleId": 45352,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/rankings/page.js"
+        }
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/app/rankings/page.js"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/events/layout,_N_T_/events/agency-drive/layout,_N_T_/events/agency-drive/page,_N_T_/events/agency-drive"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/events/agency-drive/__PAGE__",
+    "/events/agency-drive",
+    "/events",
+    "/_index",
+    "/_head"
+  ]
+}

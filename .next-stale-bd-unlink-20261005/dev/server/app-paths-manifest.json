@@ -1,0 +1,10 @@
+{
+  "/api/audio-rooms/discover/route": "app/api/audio-rooms/discover/route.js",
+  "/api/v1/live-video/route": "app/api/v1/live-video/route.js",
+  "/api/users/session/status/route": "app/api/users/session/status/route.js",
+  "/api/conversations/route": "app/api/conversations/route.js",
+  "/api/notifications/route": "app/api/notifications/route.js",
+  "/api/v1/agencies/apply/route": "app/api/v1/agencies/apply/route.js",
+  "/api/friends/route": "app/api/friends/route.js",
+  "/api/friends/requests/route": "app/api/friends/requests/route.js"
+}

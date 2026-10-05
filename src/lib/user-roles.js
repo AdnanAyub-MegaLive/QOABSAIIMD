@@ -16,6 +16,17 @@ export const APPLICATION_ROLES = [
 
 const LEGACY_ROLES = ["HOST", "MODERATOR", "CREATOR", "SENDER", "LISTENER"];
 
+export const APPLICATION_ROLE_PERMISSIONS = {
+  BD: ["agencies.reference"], JUNIOR_ADMIN: ["agencies.reference"],
+  SENIOR_ADMIN: ["agencies.reference"], SUPER_ADMIN: ["agencies.reference"], COUNTRY_HEAD: ["agencies.reference"],
+};
+export function applicationRolesWithPermission(permission) {
+  return APPLICATION_ROLES.filter(role => APPLICATION_ROLE_PERMISSIONS[role]?.includes(permission));
+}
+export function agencyReferenceRole(user) {
+  return applicationRolesWithPermission("agencies.reference").find(role => user?.appRoles?.includes(role)) ?? null;
+}
+
 export function normalizeApplicationRoles(values) {
   const supplied = Array.isArray(values) ? values : [values];
   const normalized = supplied

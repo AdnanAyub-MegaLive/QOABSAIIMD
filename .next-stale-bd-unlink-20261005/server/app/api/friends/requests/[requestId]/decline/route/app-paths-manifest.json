@@ -1,0 +1,3 @@
+{
+  "/api/friends/requests/[requestId]/decline/route": "app/api/friends/requests/[requestId]/decline/route.js"
+}

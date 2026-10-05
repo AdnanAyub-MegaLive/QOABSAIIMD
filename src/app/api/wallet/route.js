@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { exchangeSettings } from "@/lib/diamond-exchange";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { WALLET_CURRENCY } from "@/lib/wallet";
 
@@ -13,6 +14,7 @@ export async function GET(request) {
       where: { id: sessionUser.id },
       select: {
         coinBalance: true,
+        diamondExchangeEnabled: true,
         appRoles: true,
         hostSalaryCoinBalance: true,
         couponBalance: true,
@@ -20,10 +22,12 @@ export async function GET(request) {
         updatedAt: true,
       },
     });
+    const settings = await exchangeSettings();
     return mobileJson({
       success: true,
       data: {
         coins: user.coinBalance.toString(),
+        diamondExchange: { enabled: settings.enabled && user.diamondExchangeEnabled, diamondsPerCoin: settings.diamondsPerCoin.toString(), minDiamonds: settings.minDiamonds.toString() },
         canTransferCoins: user.appRoles.includes("RESELLER"),
         diamonds: user.hostSalaryCoinBalance.toString(),
         coupons: user.couponBalance,

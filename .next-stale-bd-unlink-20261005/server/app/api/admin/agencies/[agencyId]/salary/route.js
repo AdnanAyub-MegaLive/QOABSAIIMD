@@ -1,0 +1,11 @@
+var R=require("../../../../../../chunks/[turbopack]_runtime.js")("server/app/api/admin/agencies/[agencyId]/salary/route.js")
+R.c("server/chunks/_1_tcb7n._.js")
+R.c("server/chunks/node_modules_next_1_14bcs._.js")
+R.c("server/chunks/[root-of-the-server]__02t5vzl._.js")
+R.c("server/chunks/node_modules_next_1zdbrne._.js")
+R.c("server/chunks/_1-7w55a._.js")
+R.c("server/chunks/[root-of-the-server]__1y_g68p._.js")
+R.c("server/chunks/node_modules_next_dist_13kw1hb._.js")
+R.c("server/chunks/1oeh_server_app_api_admin_agencies_[agencyId]_salary_route_actions_1z7erat.js")
+R.m(80780)
+module.exports=R.m(80780).exports

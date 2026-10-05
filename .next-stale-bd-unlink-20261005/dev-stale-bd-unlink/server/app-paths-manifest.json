@@ -1,0 +1,7 @@
+{
+  "/api/users/session/status/route": "app/api/users/session/status/route.js",
+  "/api/v1/route": "app/api/v1/route.js",
+  "/api/audio-rooms/discover/route": "app/api/audio-rooms/discover/route.js",
+  "/api/v1/live-video/route": "app/api/v1/live-video/route.js",
+  "/api/v1/agencies/apply/route": "app/api/v1/agencies/apply/route.js"
+}

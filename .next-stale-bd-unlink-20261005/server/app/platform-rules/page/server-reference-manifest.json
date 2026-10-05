@@ -1,0 +1,53 @@
+{
+  "node": {
+    "40de12e8415fc1219a0e564da7ff27e639bd056f97": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "assignHostToAgency",
+          "filename": "src/app/platform-rules/actions.js"
+        }
+      },
+      "exportedName": "assignHostToAgency",
+      "filename": "src/app/platform-rules/actions.js"
+    },
+    "404f68e3a277a57515fd306f30215fcd2845223dbf": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "updateProfitSplit",
+          "filename": "src/app/platform-rules/actions.js"
+        }
+      },
+      "exportedName": "updateProfitSplit",
+      "filename": "src/app/platform-rules/actions.js"
+    },
+    "407512041e09ccda05f91ddd3c025b3c62a6d1f38d": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "saveExchangeSettings",
+          "filename": "src/app/platform-rules/exchange-actions.js"
+        }
+      },
+      "exportedName": "saveExchangeSettings",
+      "filename": "src/app/platform-rules/exchange-actions.js"
+    },
+    "40a58ef9d7a7bf42d54a3989f926ec3fa3afad26e9": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "setUserExchangeAccess",
+          "filename": "src/app/platform-rules/exchange-actions.js"
+        }
+      },
+      "exportedName": "setUserExchangeAccess",
+      "filename": "src/app/platform-rules/exchange-actions.js"
+    }
+  },
+  "edge": {}
+}

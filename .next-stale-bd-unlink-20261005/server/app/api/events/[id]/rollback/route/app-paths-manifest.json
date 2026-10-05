@@ -1,0 +1,3 @@
+{
+  "/api/events/[id]/rollback/route": "app/api/events/[id]/rollback/route.js"
+}

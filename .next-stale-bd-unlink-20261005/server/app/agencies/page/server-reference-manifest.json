@@ -1,0 +1,17 @@
+{
+  "node": {
+    "00b3d0ba9046f303f08896d5fd63c4cb010efd7e44": {
+      "workers": {
+        "app/agencies/page": {
+          "moduleId": 17851,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/agencies/page.js"
+        }
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/app/agencies/page.js"
+    }
+  },
+  "edge": {}
+}

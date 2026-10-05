@@ -1,0 +1,17 @@
+{
+  "node": {
+    "005eae372fe031da13fb655d8843161013b0210254": {
+      "workers": {
+        "app/audit-logs/page": {
+          "moduleId": 1068,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/audit-logs/page.js"
+        }
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/app/audit-logs/page.js"
+    }
+  },
+  "edge": {}
+}

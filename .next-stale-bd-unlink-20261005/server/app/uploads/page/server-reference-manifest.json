@@ -1,0 +1,17 @@
+{
+  "node": {
+    "009dde1e64c1bf76af4a0f072f9610aab390159973": {
+      "workers": {
+        "app/uploads/page": {
+          "moduleId": 14738,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/uploads/page.js"
+        }
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/app/uploads/page.js"
+    }
+  },
+  "edge": {}
+}

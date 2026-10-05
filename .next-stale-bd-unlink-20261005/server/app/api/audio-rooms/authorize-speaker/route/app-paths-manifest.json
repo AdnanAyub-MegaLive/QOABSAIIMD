@@ -1,0 +1,3 @@
+{
+  "/api/audio-rooms/authorize-speaker/route": "app/api/audio-rooms/authorize-speaker/route.js"
+}

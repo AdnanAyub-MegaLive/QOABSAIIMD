@@ -56,6 +56,8 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  DIAMOND_EXCHANGE_DEBIT
+  DIAMOND_EXCHANGE_CREDIT
   COIN_TOP_UP
   DIAMOND_TOP_UP
   GIFT_SENT
@@ -178,6 +180,7 @@ model AuditLog {
 }
 
 model User {
+  diamondExchangeEnabled Boolean @default(true)
   id                         String                        @id @default(cuid())
   publicId                   String                        @unique
   googleSubject              String?                       @unique
@@ -284,6 +287,14 @@ model User {
   @@index([vipLevel])
   @@index([deletedAt])
   @@index([agencyId])
+}
+
+model DiamondExchangeSettings {
+  id String @id @default("GLOBAL")
+  enabled Boolean @default(false)
+  diamondsPerCoin BigInt @default(1)
+  minDiamonds BigInt @default(10000)
+  updatedAt DateTime @updatedAt
 }
 
 model VideoLiveSession {
@@ -433,6 +444,7 @@ model UserProfileLike {
 }
 
 model Agency {
+  country String?
   id                    String              @id @default(cuid())
   publicId              String              @unique
   name                  String

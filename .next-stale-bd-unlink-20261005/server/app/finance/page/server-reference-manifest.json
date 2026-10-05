@@ -1,0 +1,17 @@
+{
+  "node": {
+    "0036260a3a176993b33558d2af9f18a577f01cfac3": {
+      "workers": {
+        "app/finance/page": {
+          "moduleId": 88934,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/finance/page.js"
+        }
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/app/finance/page.js"
+    }
+  },
+  "edge": {}
+}

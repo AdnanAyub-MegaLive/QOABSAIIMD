@@ -1,0 +1,3 @@
+{
+  "/api/room-red-envelopes/[id]/route": "app/api/room-red-envelopes/[id]/route.js"
+}

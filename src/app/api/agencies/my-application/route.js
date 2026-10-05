@@ -1,46 +1,16 @@
-import { prisma } from "../../../../lib/prisma";
-import mobileSession from "../../../../lib/mobile-session.cjs";
-import { assertMobileSession, mobileSessionError } from "../../../../lib/mobile-session-state";
-
-export const dynamic="force-dynamic";
-
-const corsHeaders={
-  "Access-Control-Allow-Origin":process.env.MOBILE_APP_ORIGIN||"*",
-  "Access-Control-Allow-Methods":"GET, OPTIONS",
-  "Access-Control-Allow-Headers":"Content-Type, Authorization",
-  "Cache-Control":"no-store, max-age=0",
-};
-const json=(body,status=200)=>Response.json(body,{status,headers:corsHeaders});
-
-export function OPTIONS(){
-  return new Response(null,{status:204,headers:corsHeaders});
-}
-
-export async function GET(request){
-  try{
-    const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"");
-    const payload=mobileSession.verifyMobileSessionToken(token);
-    const user=await prisma.user.findUnique({
-      where:{publicId:payload.userId},
-      select:{id:true,deletedAt:true,status:true,sessionVersion:true,forcedLogoutAt:true},
-    });
-    assertMobileSession(user,payload);
-
-    const latest=await prisma.agencyApplication.findFirst({
-      where:{userId:user.id},
-      select:{publicId:true,status:true,agencyName:true,createdAt:true},
-      orderBy:{createdAt:"desc"},
-    });
-    const application=!latest||latest.status==="REJECTED"
-      ?null
-      :{
-        applicationId:latest.publicId,
-        status:latest.status,
-        agencyName:latest.agencyName,
-        createdAt:latest.createdAt.toISOString(),
-      };
-    return json({success:true,data:{application}});
-  }catch(error){
-    return json(mobileSessionError(error?.message),401);
-  }
+import { prisma } from "@/lib/prisma";
+import { requireMobileUser, mobileApiError, mobileJson, mobileOptions } from "@/lib/mobile-api";
+import { referenceDto } from "@/lib/agency-reference";
+import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
+export const dynamic = "force-dynamic";
+export const OPTIONS = mobileOptions;
+export async function GET(request) {
+  try {
+    const user = await requireMobileUser(request);
+    const latest = await prisma.agencyApplication.findFirst({ where: { userId: user.id },
+      select: { publicId: true, status: true, agencyName: true, createdAt: true, bd: { select: { id: true, publicId: true, name: true, profileImage: true, appRoles: true, country: true } } }, orderBy: { createdAt: "desc" } });
+    const perks = await resolveUserPerks(latest?.bd ? [latest.bd] : [], requestOrigin(request), ["FRAMES"]);
+    const application = !latest || latest.status === "REJECTED" ? null : { applicationId: latest.publicId, status: latest.status, agencyName: latest.agencyName, createdAt: latest.createdAt.toISOString(), bdReference: referenceDto(latest.bd, perks) };
+    return mobileJson({ success: true, data: { application } });
+  } catch (error) { return mobileApiError(error, "APPLICATION_READ_FAILED"); }
 }

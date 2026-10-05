@@ -1,0 +1,3 @@
+module.exports=[57833,a=>{"use strict";function b(a){let b=Number(a);if(!Number.isFinite(b)||b<=0)return"";let c=Math.floor(b),d=[];for(let[a,b]of[[518400,"year"],[43200,"month"],[1440,"day"],[60,"hour"],[1,"minute"]]){let e=Math.floor(c/a);e&&(d.push(`${e} ${b}${1===e?"":"s"}`),c%=a)}return d.join(" ")}a.s(["durationCalculation",0,function(a){let c=Number(a);return!Number.isFinite(c)||c<=0?"Enter a duration to see its calculated time.":`${Math.floor(c).toLocaleString()} minutes = ${b(c)}`},"formatDurationMinutes",0,b])}];
+
+//# sourceMappingURL=src_app_utils_duration_1x_yq2g.js.map

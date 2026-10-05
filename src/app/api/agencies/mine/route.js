@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { referenceDto } from "@/lib/agency-reference";
+import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 import {
   mobileApiError,
   mobileJson,
@@ -19,6 +21,8 @@ export async function GET(request) {
       where: { ownerUserId: user.id },
       select: {
         id: true,
+        country: true,
+        bd: { select: { id: true, publicId: true, name: true, profileImage: true, appRoles: true, country: true } },
         publicId: true,
         name: true,
         status: true,
@@ -52,10 +56,11 @@ export async function GET(request) {
         },
       },
     });
+    const referencePerks = await resolveUserPerks(agency?.bd ? [agency.bd] : [], requestOrigin(request), ["FRAMES"]);
     const monthStart = new Date(
       Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
     );
-    const [lifetimeGifting, monthlySalary] = agency
+    const [lifetimeGifting, monthlySalary, recharge] = agency
       ? await Promise.all([
           prisma.giftSettlement.aggregate({
             where: { agencyId: agency.id },
@@ -65,6 +70,7 @@ export async function GET(request) {
             where: { agencyId: agency.id, createdAt: { gte: monthStart } },
             _sum: { hostSalaryCoins: true },
           }),
+          prisma.user.aggregate({ where: { agencyId: agency.id }, _sum: { totalTopUp: true } }),
         ])
       : [{ _sum: { grossCoins: null } }, { _sum: { hostSalaryCoins: null } }];
 
@@ -74,6 +80,8 @@ export async function GET(request) {
         agency: agency
           ? {
               id: agency.publicId,
+              country: agency.country,
+              bdReference: referenceDto(agency.bd, referencePerks),
               name: agency.name,
               status: agency.status,
               createdAt: agency.createdAt.toISOString(),
@@ -82,7 +90,10 @@ export async function GET(request) {
               monthlySalaryCoins: String(
                 monthlySalary._sum.hostSalaryCoins ?? 0n,
               ),
-              totalRechargeCoins: "0",
+              totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n),
+              rechargeBasis: "CURRENT_HOSTS_LIFETIME",
+              agencyLevel: null,
+              nextLevelThreshold: null,
               totalGiftingCoins: String(
                 lifetimeGifting._sum.grossCoins ?? 0n,
               ),

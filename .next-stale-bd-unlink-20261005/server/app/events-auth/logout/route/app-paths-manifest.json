@@ -1,0 +1,3 @@
+{
+  "/events-auth/logout/route": "app/events-auth/logout/route.js"
+}

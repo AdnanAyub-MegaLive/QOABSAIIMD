@@ -1,0 +1,504 @@
+{
+  "node": {
+    "60238effc4435bbe57581d1c725da2ec18afac8a89": {
+      "workers": {
+        "app/page": {
+          "moduleId": 35780,
+          "async": true,
+          "exportedName": "authenticate",
+          "filename": "src/app/login-actions.js"
+        }
+      },
+      "filename": "src/app/login-actions.js",
+      "exportedName": "authenticate"
+    },
+    "003786ed7eed089a592b2fd6db3541536ee2e099aa": {
+      "workers": {
+        "app/access-denied/page": {
+          "moduleId": 18958,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/access-denied/page.js"
+        }
+      },
+      "filename": "src/app/access-denied/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "00b3d0ba9046f303f08896d5fd63c4cb010efd7e44": {
+      "workers": {
+        "app/agencies/page": {
+          "moduleId": 17851,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/agencies/page.js"
+        }
+      },
+      "filename": "src/app/agencies/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "005eae372fe031da13fb655d8843161013b0210254": {
+      "workers": {
+        "app/audit-logs/page": {
+          "moduleId": 1068,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/audit-logs/page.js"
+        }
+      },
+      "filename": "src/app/audit-logs/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "0036260a3a176993b33558d2af9f18a577f01cfac3": {
+      "workers": {
+        "app/finance/page": {
+          "moduleId": 88934,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/finance/page.js"
+        }
+      },
+      "filename": "src/app/finance/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "00272d8c9e3c449b5743fb5402432bbbd687322524": {
+      "workers": {
+        "app/home/page": {
+          "moduleId": 51104,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/home/page.js"
+        }
+      },
+      "filename": "src/app/home/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "40de12e8415fc1219a0e564da7ff27e639bd056f97": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "assignHostToAgency",
+          "filename": "src/app/platform-rules/actions.js"
+        }
+      },
+      "filename": "src/app/platform-rules/actions.js",
+      "exportedName": "assignHostToAgency"
+    },
+    "404f68e3a277a57515fd306f30215fcd2845223dbf": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "updateProfitSplit",
+          "filename": "src/app/platform-rules/actions.js"
+        }
+      },
+      "filename": "src/app/platform-rules/actions.js",
+      "exportedName": "updateProfitSplit"
+    },
+    "407512041e09ccda05f91ddd3c025b3c62a6d1f38d": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "saveExchangeSettings",
+          "filename": "src/app/platform-rules/exchange-actions.js"
+        }
+      },
+      "filename": "src/app/platform-rules/exchange-actions.js",
+      "exportedName": "saveExchangeSettings"
+    },
+    "40a58ef9d7a7bf42d54a3989f926ec3fa3afad26e9": {
+      "workers": {
+        "app/platform-rules/page": {
+          "moduleId": 45886,
+          "async": true,
+          "exportedName": "setUserExchangeAccess",
+          "filename": "src/app/platform-rules/exchange-actions.js"
+        }
+      },
+      "filename": "src/app/platform-rules/exchange-actions.js",
+      "exportedName": "setUserExchangeAccess"
+    },
+    "00d4430c28527f542d6a4b954d3d50fda16e7a7102": {
+      "workers": {
+        "app/rankings/page": {
+          "moduleId": 45352,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/rankings/page.js"
+        }
+      },
+      "filename": "src/app/rankings/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "008cea2ebd9e367adc2d48251a3fd49b8987e9e097": {
+      "workers": {
+        "app/talents/page": {
+          "moduleId": 76428,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/talents/page.js"
+        }
+      },
+      "filename": "src/app/talents/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "406bbef80d88ea8edc785c9a0f2d421b9328a9ce8c": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "createBan",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/talents/page": {
+          "moduleId": 76428,
+          "async": true,
+          "exportedName": "createBan",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "createBan",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "createBan",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "createBan"
+    },
+    "6051d7e740ad99b41daa9e2e76b43d962528a1559d": {
+      "workers": {
+        "app/talents/page": {
+          "moduleId": 76428,
+          "async": true,
+          "exportedName": "managePortalHost",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "managePortalHost"
+    },
+    "7829d122f694eb93afb71cbf6c7b9c3a33538e99ce": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "adjustUserCoins",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "adjustUserCoins",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "adjustUserCoins",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "adjustUserCoins"
+    },
+    "78a4e3740670c0f8c5990db1240855ef7325b3186d": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "assignSpecialId",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "assignSpecialId",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "assignSpecialId",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "assignSpecialId"
+    },
+    "60d204d80ccfb4c56d566bcad102f4fd8d15a10d7a": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "deleteUserAccount",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "deleteUserAccount",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "deleteUserAccount",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "deleteUserAccount"
+    },
+    "60ae814389c353e96c4c24d48fb7a2094696628ab6": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "forceLogoutUser",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "forceLogoutUser",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "forceLogoutUser",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "forceLogoutUser"
+    },
+    "70f98b16d827def5a1695f89bc2f7b46e178c50657": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "manageUserAssetGrant",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "manageUserAssetGrant",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "manageUserAssetGrant"
+    },
+    "604e56d93400d8cf142d96158b1f74c4a5b919791a": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "resetUserPassword",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "resetUserPassword",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "resetUserPassword",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "resetUserPassword"
+    },
+    "60bc45286369141224498a0a8612f0f7c6420e4277": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "revokeSpecialId",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "revokeSpecialId",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "revokeSpecialId",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "revokeSpecialId"
+    },
+    "602e074602acad683ebb1bf2b1235974024264a471": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "unbanUser",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "unbanUser",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "unbanUser",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "unbanUser"
+    },
+    "60924670ab419cd184c93d0b3b9742fd3c011e35e9": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "updateTalentAccount",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "updateTalentAccount",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "updateTalentAccount"
+    },
+    "60a9e62050efb5d1f07a40bfc51d851d3057288bdb": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "updateUserAccount",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/[userId]/page": {
+          "moduleId": 16482,
+          "async": true,
+          "exportedName": "updateUserAccount",
+          "filename": "src/app/database-actions.js"
+        },
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "updateUserAccount",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "updateUserAccount"
+    },
+    "009dde1e64c1bf76af4a0f072f9610aab390159973": {
+      "workers": {
+        "app/uploads/page": {
+          "moduleId": 14738,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/uploads/page.js"
+        }
+      },
+      "filename": "src/app/uploads/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "001352d01978b25c65dcb13bd61a703d26e9db1d25": {
+      "workers": {
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/users/page.js"
+        }
+      },
+      "filename": "src/app/users/page.js",
+      "exportedName": "$$RSC_SERVER_ACTION_0"
+    },
+    "701a1f605eb11554442be3d2188053855b63a365ef": {
+      "workers": {
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "unbanDevice",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "unbanDevice"
+    },
+    "78b0854431c4e78eff33f65d899c8e11d4aebb24ef": {
+      "workers": {
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "controlAudioRoom",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "controlAudioRoom"
+    },
+    "40c9073d8cd832b2f9a15a940940c74d0f28887040": {
+      "workers": {
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "createSpecialIdDefinition",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "createSpecialIdDefinition"
+    },
+    "703a63a9ec3c7eeb1c8397ca72580496af037fe088": {
+      "workers": {
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "deleteSpecialIdDefinition",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "deleteSpecialIdDefinition"
+    },
+    "60b55bef66f2250bc8330de7a397042cde4553053a": {
+      "workers": {
+        "app/users/page": {
+          "moduleId": 26619,
+          "async": true,
+          "exportedName": "createAccount",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "filename": "src/app/database-actions.js",
+      "exportedName": "createAccount"
+    }
+  },
+  "edge": {},
+  "encryptionKey": "b4pJg1udj5LxJpF3Ndl1/Oz2wp3DYPIV1cKe2FJdDwQ="
+}

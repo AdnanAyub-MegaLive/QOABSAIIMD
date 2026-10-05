@@ -1,0 +1,17 @@
+{
+  "node": {
+    "60238effc4435bbe57581d1c725da2ec18afac8a89": {
+      "workers": {
+        "app/page": {
+          "moduleId": 35780,
+          "async": true,
+          "exportedName": "authenticate",
+          "filename": "src/app/login-actions.js"
+        }
+      },
+      "exportedName": "authenticate",
+      "filename": "src/app/login-actions.js"
+    }
+  },
+  "edge": {}
+}

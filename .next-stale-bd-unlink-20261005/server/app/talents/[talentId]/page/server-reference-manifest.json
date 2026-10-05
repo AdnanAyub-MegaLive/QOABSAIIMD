@@ -1,0 +1,137 @@
+{
+  "node": {
+    "7829d122f694eb93afb71cbf6c7b9c3a33538e99ce": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "adjustUserCoins",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "adjustUserCoins",
+      "filename": "src/app/database-actions.js"
+    },
+    "78a4e3740670c0f8c5990db1240855ef7325b3186d": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "assignSpecialId",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "assignSpecialId",
+      "filename": "src/app/database-actions.js"
+    },
+    "406bbef80d88ea8edc785c9a0f2d421b9328a9ce8c": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "createBan",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "createBan",
+      "filename": "src/app/database-actions.js"
+    },
+    "60d204d80ccfb4c56d566bcad102f4fd8d15a10d7a": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "deleteUserAccount",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "deleteUserAccount",
+      "filename": "src/app/database-actions.js"
+    },
+    "60ae814389c353e96c4c24d48fb7a2094696628ab6": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "forceLogoutUser",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "forceLogoutUser",
+      "filename": "src/app/database-actions.js"
+    },
+    "70f98b16d827def5a1695f89bc2f7b46e178c50657": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "manageUserAssetGrant",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "manageUserAssetGrant",
+      "filename": "src/app/database-actions.js"
+    },
+    "604e56d93400d8cf142d96158b1f74c4a5b919791a": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "resetUserPassword",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "resetUserPassword",
+      "filename": "src/app/database-actions.js"
+    },
+    "60bc45286369141224498a0a8612f0f7c6420e4277": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "revokeSpecialId",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "revokeSpecialId",
+      "filename": "src/app/database-actions.js"
+    },
+    "602e074602acad683ebb1bf2b1235974024264a471": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "unbanUser",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "unbanUser",
+      "filename": "src/app/database-actions.js"
+    },
+    "60924670ab419cd184c93d0b3b9742fd3c011e35e9": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "updateTalentAccount",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "updateTalentAccount",
+      "filename": "src/app/database-actions.js"
+    },
+    "60a9e62050efb5d1f07a40bfc51d851d3057288bdb": {
+      "workers": {
+        "app/talents/[talentId]/page": {
+          "moduleId": 46648,
+          "async": true,
+          "exportedName": "updateUserAccount",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "updateUserAccount",
+      "filename": "src/app/database-actions.js"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,17 @@
+{
+  "node": {
+    "003786ed7eed089a592b2fd6db3541536ee2e099aa": {
+      "workers": {
+        "app/access-denied/page": {
+          "moduleId": 18958,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/access-denied/page.js"
+        }
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/app/access-denied/page.js"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,3 @@
+{
+  "/api/tasks/sign-in/route": "app/api/tasks/sign-in/route.js"
+}

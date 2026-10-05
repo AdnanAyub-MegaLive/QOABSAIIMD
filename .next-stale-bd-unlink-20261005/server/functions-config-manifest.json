@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "functions": {
+    "/_middleware": {
+      "runtime": "nodejs",
+      "matchers": [
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/events-management(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json|\\.rsc|\\.segments\\/.+\\.segment\\.rsc)?[\\/#\\?]?$",
+          "originalSource": "/events-management/:path*"
+        }
+      ]
+    },
+    "/api/admin/wallet/reconciliation": {},
+    "/api/admin/wallet/withdrawals/[withdrawalId]": {},
+    "/api/audio-rooms/authorize-speaker": {},
+    "/api/audio-rooms/livekit-token": {},
+    "/api/games/admin": {},
+    "/api/games/player": {},
+    "/api/health": {},
+    "/api/users/session/device": {},
+    "/api/v1": {},
+    "/api/v1/audio-rooms": {},
+    "/api/v1/audio-rooms/discover": {},
+    "/api/v1/audio-rooms/livekit-token": {},
+    "/api/v1/audio-rooms/search": {},
+    "/api/v1/auth/google": {},
+    "/api/v1/auth/login": {},
+    "/api/v1/auth/logout": {},
+    "/api/v1/auth/password": {},
+    "/api/v1/auth/refresh": {},
+    "/api/v1/auth/register": {},
+    "/api/v1/auth/session": {},
+    "/api/v1/blocks": {},
+    "/api/v1/blocks/[userId]": {},
+    "/api/v1/conversations": {},
+    "/api/v1/conversations/[conversationId]/members": {},
+    "/api/v1/conversations/[conversationId]/members/[userId]": {},
+    "/api/v1/conversations/[conversationId]/messages": {},
+    "/api/v1/conversations/[conversationId]/messages/[messageId]": {},
+    "/api/v1/conversations/[conversationId]/messages/[messageId]/delivered": {},
+    "/api/v1/conversations/[conversationId]/read": {},
+    "/api/v1/conversations/groups": {},
+    "/api/v1/conversations/sync": {},
+    "/api/v1/games": {},
+    "/api/v1/gifts/catalog": {},
+    "/api/v1/gifts/lucky/send": {},
+    "/api/v1/gifts/send": {},
+    "/api/v1/users/me": {},
+    "/api/v1/wallet": {},
+    "/api/v1/wallet/coin-packages": {},
+    "/api/v1/wallet/top-ups": {},
+    "/api/v1/wallet/transactions": {},
+    "/api/v1/wallet/transfers": {},
+    "/api/v1/wallet/withdrawals": {}
+  }
+}

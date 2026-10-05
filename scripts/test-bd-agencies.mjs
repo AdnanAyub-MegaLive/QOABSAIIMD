@@ -6,12 +6,12 @@ import bcrypt from "bcrypt";
 import sessions from "../src/lib/mobile-session.cjs";
 config({ path: ".env.local", quiet: true });
 const { prisma } = await import("../src/lib/prisma.js");
-const origin = "http://localhost:3000";
+const origin = `http://localhost:${process.env.PORT || 3000}`;
 assert.ok(["localhost", "127.0.0.1"].includes(new URL(process.env.DATABASE_URL).hostname), "Use a local development database.");
 const suffix = randomUUID().slice(0, 8);
 const users = [], admins = [];
 async function user(role = "LISTENER") {
-  const record = await prisma.user.create({ data: { publicId: `TEST-BD-${suffix}-${users.length}`, name: `BD test ${users.length}`, appRoles: [role], status: "ACTIVE" } });
+  const record = await prisma.user.create({ data: { publicId: `TEST-BD-${suffix}-${users.length}`, name: `BD test ${users.length}`, country: "PK", appRoles: [role], status: "ACTIVE" } });
   users.push(record);
   return record;
 }
@@ -63,6 +63,23 @@ try {
   assert.equal(result.status, 422);
   result = await mobile(bd, `/api/v1/bd/applications/${rejectedId}`, "PATCH", { decision: "REJECTED", note: "Test rejection" });
   assert.equal(result.status, 200);
+  const linkedAgency = await prisma.agency.findUniqueOrThrow({ where: { ownerUserId: directOwner.id } });
+  result = await mobile(otherBD, `/api/v1/bd/agencies/${linkedAgency.publicId}`, "DELETE");
+  assert.equal(result.status, 404);
+  result = await mobile(directOwner, `/api/v1/bd/agencies/${linkedAgency.publicId}`, "DELETE");
+  assert.equal(result.status, 403);
+  result = await mobile(bd, `/api/v1/bd/agencies/${linkedAgency.publicId}`, "DELETE");
+  assert.equal(result.status, 200, JSON.stringify(result));
+  assert.deepEqual(result.data, { agencyId: linkedAgency.publicId, unlinked: true });
+  const unlinkedAgency = await prisma.agency.findUniqueOrThrow({ where: { id: linkedAgency.id } });
+  assert.equal(unlinkedAgency.bdUserId, null);
+  assert.equal(unlinkedAgency.ownerUserId, directOwner.id);
+  assert.equal(unlinkedAgency.status, linkedAgency.status);
+  assert.equal(unlinkedAgency.commissionCoinBalance, linkedAgency.commissionCoinBalance);
+  assert.equal((await prisma.agencyApplication.findFirst({ where: { agencyId: linkedAgency.id } })).bdUserId, bd.id);
+  result = await mobile(bd, `/api/v1/bd/agencies/${linkedAgency.publicId}`, "DELETE");
+  assert.equal(result.status, 404);
+  assert.equal(await prisma.auditLog.count({ where: { entityId: linkedAgency.publicId, action: "BD_AGENCY_UNLINKED" } }), 1);
   await prisma.user.update({ where: { id: bd.id }, data: { appRoles: ["LISTENER"] } });
   result = await mobile(bd, "/api/v1/bd/agencies");
   assert.equal(result.status, 403);
@@ -78,6 +95,8 @@ try {
 } finally {
   const ids = users.map(u => u.id);
   const applications = await prisma.agencyApplication.findMany({ where: { userId: { in: ids } }, select: { publicId: true } });
+  const fixtureAgencies = await prisma.agency.findMany({ where: { ownerUserId: { in: ids } }, select: { publicId: true } });
+  await prisma.auditLog.deleteMany({ where: { action: "BD_AGENCY_UNLINKED", entityId: { in: fixtureAgencies.map(a => a.publicId) } } });
   await prisma.auditLog.deleteMany({ where: { OR: [{ entityId: { in: applications.map(a => a.publicId) } }, { adminId: { in: admins.map(a => a.id) } }] } });
   await prisma.agencyApplication.deleteMany({ where: { userId: { in: ids } } });
   await prisma.agency.deleteMany({ where: { ownerUserId: { in: ids } } });

@@ -1,0 +1,11 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/admin/custom-backgrounds/[requestId]/route.js")
+R.c("server/chunks/[root-of-the-server]__1vqcdx1._.js")
+R.c("server/chunks/node_modules_next_1zdbrne._.js")
+R.c("server/chunks/_1_tcb7n._.js")
+R.c("server/chunks/[root-of-the-server]__1y_g68p._.js")
+R.c("server/chunks/node_modules_next_dist_13kw1hb._.js")
+R.c("server/chunks/_1-7w55a._.js")
+R.c("server/chunks/node_modules_next_1_14bcs._.js")
+R.c("server/chunks/1oeh_server_app_api_admin_custom-backgrounds_[requestId]_route_actions_0si_oji.js")
+R.m(447)
+module.exports=R.m(447).exports

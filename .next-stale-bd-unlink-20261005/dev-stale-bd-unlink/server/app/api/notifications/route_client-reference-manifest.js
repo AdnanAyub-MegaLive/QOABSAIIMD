@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/notifications/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"C:\\Mega-Work\\MegaLive-Portal\\src\\app\\api\\notifications\\route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};

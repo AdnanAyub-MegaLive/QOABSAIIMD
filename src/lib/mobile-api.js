@@ -66,6 +66,7 @@ export async function requireMobileRole(request, allowedRoles) {
 }
 
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
+  if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {
     INVALID_SESSION: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
     SESSION_REVOKED: [401, "SESSION_REVOKED", "This mobile session has been revoked. Please sign in again."],
@@ -74,6 +75,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     DEVICE_NOT_REGISTERED: [401, "DEVICE_NOT_REGISTERED", "This session is not associated with an active device."],
     DEVICE_BANNED: [403, "DEVICE_BANNED", "This device has been banned."],
     BD_REQUIRED: [403, "BD_REQUIRED", "An active BD role is required."],
+    BD_AGENCY_NOT_FOUND: [404, "BD_AGENCY_NOT_FOUND", "This agency is not assigned to you."],
     BD_NOT_FOUND: [422, "BD_NOT_FOUND", "Choose an active BD using their user ID."],
     AGENCY_INPUT_INVALID: [422, "AGENCY_INPUT_INVALID", "Agency name and owner user ID are required (maximum 120 and 50 characters)."],
     AGENCY_OWNER_UNAVAILABLE: [409, "AGENCY_OWNER_UNAVAILABLE", "The owner must be an active user."],
@@ -185,6 +187,10 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
       "VALIDATION_ERROR",
       error.validationMessage ?? error.message,
     ],
+    EXCHANGE_DISABLED: [403, "EXCHANGE_DISABLED", "Diamond exchange is disabled for this account."],
+    EXCHANGE_BELOW_MINIMUM: [422, "EXCHANGE_BELOW_MINIMUM", "The amount is below the exchange minimum or cannot purchase one coin."],
+    INSUFFICIENT_DIAMONDS: [409, "INSUFFICIENT_DIAMONDS", "Your diamond balance is insufficient."],
+    IDEMPOTENCY_CONFLICT: [409, "IDEMPOTENCY_CONFLICT", "This idempotency key was already used with a different amount."],
   };
   const [status, code, message] = known[error?.code ?? error?.message] ?? [
     500,

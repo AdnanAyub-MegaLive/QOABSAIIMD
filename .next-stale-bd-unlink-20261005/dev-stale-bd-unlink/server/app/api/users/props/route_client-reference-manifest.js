@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/users/props/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"C:\\Mega-Work\\MegaLive-Portal\\src\\app\\api\\users\\props\\route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};

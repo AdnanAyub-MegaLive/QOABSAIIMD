@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import RecordTable from "../components/record-table";
+import SalaryPanel from "./salary-panel";
 
 const tabs = [
   "Agency Home",
@@ -174,7 +175,7 @@ function Module({ tab, applications, joinRequests, modules }) {
   if (tab === "Agency Tasks")
     return <RecordTable title="Agency Targets" description="Live progress against owner-configured monthly targets." rows={modules.tasks} columns={[{key:"agencyId",label:"Agency ID",mono:true},{key:"agency",label:"Agency"},{key:"target",label:"Target coins"},{key:"achieved",label:"Gift coins"},{key:"progress",label:"Progress"},{key:"status",label:"Status",badge:true}]}/>;
   if (tab === "Monthly Salary")
-    return <RecordTable title="Monthly Agency Salary" description="Current-month salary and commission amounts derived from gift settlements." rows={modules.monthlySalaries} columns={[{key:"agencyId",label:"Agency ID",mono:true},{key:"agency",label:"Agency"},{key:"hostSalary",label:"Host salary coins"},{key:"agencyCommission",label:"Agency commission"},{key:"status",label:"Status",badge:true}]}/>;
+    return <SalaryPanel agencies={modules.monthlySalaries}/>;
   if (tab === "Host Salaries")
     return <RecordTable title="Host Salaries" description="Current salary balances for every database-linked agency host." rows={modules.hostSalaries} columns={[{key:"hostId",label:"Host ID",mono:true},{key:"host",label:"Host"},{key:"agency",label:"Agency"},{key:"type",label:"Host type"},{key:"salaryBalance",label:"Salary balance"}]}/>;
   return null;

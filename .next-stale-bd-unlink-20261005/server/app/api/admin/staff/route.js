@@ -1,0 +1,12 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/admin/staff/route.js")
+R.c("server/chunks/src_lib_game-control_0mfa02c._.js")
+R.c("server/chunks/[root-of-the-server]__0801e4k._.js")
+R.c("server/chunks/_1_tcb7n._.js")
+R.c("server/chunks/node_modules_next_1_14bcs._.js")
+R.c("server/chunks/[root-of-the-server]__1y_g68p._.js")
+R.c("server/chunks/_1-7w55a._.js")
+R.c("server/chunks/node_modules_next_dist_13kw1hb._.js")
+R.c("server/chunks/node_modules_next_1zdbrne._.js")
+R.c("server/chunks/_next-internal_server_app_api_admin_staff_route_actions_0hosnnz.js")
+R.m(82176)
+module.exports=R.m(82176).exports

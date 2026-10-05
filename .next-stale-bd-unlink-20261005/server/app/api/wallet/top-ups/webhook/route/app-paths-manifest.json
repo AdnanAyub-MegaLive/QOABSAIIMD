@@ -1,0 +1,3 @@
+{
+  "/api/wallet/top-ups/webhook/route": "app/api/wallet/top-ups/webhook/route.js"
+}

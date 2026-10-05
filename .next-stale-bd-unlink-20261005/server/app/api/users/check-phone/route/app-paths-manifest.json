@@ -1,0 +1,3 @@
+{
+  "/api/users/check-phone/route": "app/api/users/check-phone/route.js"
+}

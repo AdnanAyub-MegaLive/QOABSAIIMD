@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { generateNumericPublicId } from "./public-id.js";
+import { findAgencyReference, validateAgencyReference } from "./agency-reference.js";
+import { normalizeSignupCountry } from "./geo-country.js";
 
 export function agencyError(code) { throw new Error(code); }
 
@@ -17,12 +19,23 @@ export async function requireActiveBD(client, id) {
   return user;
 }
 
-export async function findBD(client, code) {
-  const user = await client.user.findFirst({
-    where: { publicId: { equals: code, mode: "insensitive" }, deletedAt: null, status: "ACTIVE", appRoles: { has: "BD" } },
-  });
-  if (!user) agencyError("BD_NOT_FOUND");
-  return user;
+// Run in a Serializable transaction: role validation, unlink and audit commit together.
+export async function unlinkBDAgency(client, bdUserId, agencyPublicId) {
+  const bd = await requireActiveBD(client, bdUserId);
+  const agency = await client.agency.findFirst({ where: { publicId: agencyPublicId, bdUserId: bd.id }, select: { id: true, publicId: true } });
+  if (!agency) agencyError("BD_AGENCY_NOT_FOUND");
+  const changed = await client.agency.updateMany({ where: { id: agency.id, bdUserId: bd.id }, data: { bdUserId: null } });
+  if (!changed.count) agencyError("BD_AGENCY_NOT_FOUND");
+  await client.auditLog.create({ data: {
+    action: "BD_AGENCY_UNLINKED", category: "AGENCY_MANAGEMENT", entityType: "Agency", entityId: agency.publicId,
+    description: `${bd.publicId} unlinked their agency assignment.`,
+    metadata: { actorBdUserId: bd.id, actorPublicId: bd.publicId, previousBdUserId: bd.id, bdUserId: null },
+  } });
+  return { agencyId: agency.publicId, unlinked: true };
+}
+
+export async function findBD(client, code, country) {
+  return findAgencyReference(client, code, country);
 }
 
 async function eligibleOwner(client, publicId, applicationId) {
@@ -38,7 +51,7 @@ async function eligibleOwner(client, publicId, applicationId) {
 
 async function newAgency(client, user, name, bdUserId) {
   const publicId = await generateNumericPublicId("AGN", candidate => client.agency.findUnique({ where: { publicId: candidate }, select: { id: true } }));
-  return client.agency.create({ data: { publicId, name, ownerUserId: user.id, bdUserId } });
+  return client.agency.create({ data: { publicId, name, ownerUserId: user.id, country: normalizeSignupCountry(user.country), bdUserId } });
 }
 
 async function audit(client, actor, action, entityId, metadata) {
@@ -53,9 +66,9 @@ async function audit(client, actor, action, entityId, metadata) {
 // Call mutations inside a Serializable transaction to protect competing grants/reviews.
 export async function grantAgency(client, body, actor) {
   const { agencyName, ownerPublicId } = agencyInput(body);
-  const bd = actor.bdUserId ? await requireActiveBD(client, actor.bdUserId)
-    : body.bdCode ? await findBD(client, String(body.bdCode).trim()) : null;
   const user = await eligibleOwner(client, ownerPublicId);
+  const bd = actor.bdUserId ? validateAgencyReference(await requireActiveBD(client, actor.bdUserId), user.country)
+    : await findBD(client, body.bdCode, user.country);
   const agency = await newAgency(client, user, agencyName, bd?.id ?? null);
   const application = await client.agencyApplication.create({ data: {
     publicId: `AGA-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`,
@@ -81,6 +94,7 @@ export async function reviewAgency(client, applicationId, body, actor) {
   if (!current) agencyError("APPLICATION_NOT_FOUND");
   if (current.status !== "PENDING") agencyError("ALREADY_REVIEWED");
   const user = decision === "APPROVED" ? await eligibleOwner(client, current.user.publicId, current.id) : null;
+  if (user) validateAgencyReference(current.bdUserId ? await client.user.findUnique({ where: { id: current.bdUserId } }) : null, user.country);
   const reviewedAt = new Date();
   const changed = await client.agencyApplication.updateMany({
     where: { id: current.id, status: "PENDING" },
@@ -98,8 +112,8 @@ export async function reviewAgency(client, applicationId, body, actor) {
 }
 
 export async function submitAgencyApplication(client, user, input) {
-  const bd = await findBD(client, input.bdCode);
-  await eligibleOwner(client, user.publicId);
+  user = await eligibleOwner(client, user.publicId);
+  const bd = await findBD(client, input.bdCode, user.country);
   const rejected = await client.agencyApplication.count({ where: { userId: user.id, bdUserId: bd.id, status: "REJECTED" } });
   if (rejected >= 3) agencyError("ADMIN_ID_ATTEMPT_LIMIT_REACHED");
   const application = await client.agencyApplication.create({ data: {

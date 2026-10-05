@@ -1,0 +1,11 @@
+ALTER TYPE "WalletTransactionType" ADD VALUE 'DIAMOND_EXCHANGE_DEBIT';
+ALTER TYPE "WalletTransactionType" ADD VALUE 'DIAMOND_EXCHANGE_CREDIT';
+ALTER TABLE "User" ADD COLUMN "diamondExchangeEnabled" BOOLEAN NOT NULL DEFAULT true;
+CREATE TABLE "DiamondExchangeSettings" (
+  "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'GLOBAL',
+  "enabled" BOOLEAN NOT NULL DEFAULT false,
+  "diamondsPerCoin" BIGINT NOT NULL DEFAULT 1 CHECK ("diamondsPerCoin" > 0),
+  "minDiamonds" BIGINT NOT NULL DEFAULT 10000 CHECK ("minDiamonds" > 0),
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO "DiamondExchangeSettings" ("id") VALUES ('GLOBAL');

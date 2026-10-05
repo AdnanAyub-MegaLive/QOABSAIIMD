@@ -1,0 +1,41 @@
+{
+  "node": {
+    "008cea2ebd9e367adc2d48251a3fd49b8987e9e097": {
+      "workers": {
+        "app/talents/page": {
+          "moduleId": 76428,
+          "async": true,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/app/talents/page.js"
+        }
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/app/talents/page.js"
+    },
+    "406bbef80d88ea8edc785c9a0f2d421b9328a9ce8c": {
+      "workers": {
+        "app/talents/page": {
+          "moduleId": 76428,
+          "async": true,
+          "exportedName": "createBan",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "createBan",
+      "filename": "src/app/database-actions.js"
+    },
+    "6051d7e740ad99b41daa9e2e76b43d962528a1559d": {
+      "workers": {
+        "app/talents/page": {
+          "moduleId": 76428,
+          "async": true,
+          "exportedName": "managePortalHost",
+          "filename": "src/app/database-actions.js"
+        }
+      },
+      "exportedName": "managePortalHost",
+      "filename": "src/app/database-actions.js"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,3 @@
+{
+  "/api/agencies/join-requests/[requestId]/route": "app/api/agencies/join-requests/[requestId]/route.js"
+}
