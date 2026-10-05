@@ -14,10 +14,10 @@ import DurationPicker from "../components/duration-picker";
 
 const userRoleChoices = [
   "Listener", "Sender", "Creator", "Host", "Moderator", "Official", "Reseller",
-  "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head",
+  "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head", "Manager",
 ];
 
-const roleFilters = ["Reseller", "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head"];
+const roleFilters = ["Reseller", "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head", "Manager"];
 
 const statusStyles = {
   Active: "bg-emerald-50 text-emerald-700",

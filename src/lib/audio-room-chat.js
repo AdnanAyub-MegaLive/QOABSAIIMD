@@ -36,6 +36,7 @@ export async function serializeRoomChatMessages(messages, origin) {
       body: message.body,
       createdAt: message.createdAt.toISOString(),
       sender: {
+        ...senderPerks?.progression,
         publicId: message.senderPublicId,
         name: message.sender?.name ?? message.senderName,
         profileImage: message.sender?.profileImage ?? null,

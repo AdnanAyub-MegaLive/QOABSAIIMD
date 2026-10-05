@@ -11,6 +11,11 @@ function liveKitConfiguration() {
   const apiKey = String(process.env.LIVEKIT_API_KEY ?? "").trim();
   const apiSecret = String(process.env.LIVEKIT_API_SECRET ?? "").trim();
   const secureUrl = /^wss:\/\//i.test(url);
+  if (process.env.NODE_ENV === "production") {
+    let host;
+    try { const parsed = new URL(url); host = parsed.hostname; if (parsed.username || parsed.password) throw new Error(); } catch { throw new Error("LIVEKIT_NOT_CONFIGURED"); }
+    if (!secureUrl || !host.includes(".") || /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(host) || host.endsWith(".local") || host.endsWith(".internal") || host.includes(":")) throw new Error("LIVEKIT_NOT_CONFIGURED");
+  }
   const privateDevelopmentUrl = process.env.NODE_ENV !== "production" && /^ws:\/\/(localhost|127\.0\.0\.1|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(:\d+)?$/i.test(url);
   if ((!secureUrl && !privateDevelopmentUrl) || !apiKey || !apiSecret) {
     throw new Error("LIVEKIT_NOT_CONFIGURED");

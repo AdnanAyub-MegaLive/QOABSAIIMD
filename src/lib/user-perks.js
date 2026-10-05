@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { publicProgression } from "./progression.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 import { formatDateOnly } from "./date-only.js";
 
@@ -79,6 +80,8 @@ export async function resolveUserPerks(
     ]),
   );
   if (!uniqueUsers.length) return result;
+  const progression = await publicProgression(uniqueUsers, origin);
+  for (const user of uniqueUsers) result.get(user.publicId).progression = progression.get(user.publicId);
 
   const now = new Date();
   const userIds = uniqueUsers.map((user) => user.id);
@@ -162,6 +165,7 @@ export async function resolveUserPerks(
 
 export function publicUserWithPerks(user, perks) {
   return {
+    ...perks?.progression,
     publicId: user.publicId,
     name: user.name,
     profileImage: user.profileImage,

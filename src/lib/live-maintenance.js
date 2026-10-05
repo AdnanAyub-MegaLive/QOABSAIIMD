@@ -65,6 +65,7 @@ export async function finalizeExpiredPkSessions(now = new Date()) {
 }
 
 export async function reconcileStaleVideoPresence(now = new Date(), staleMs = 90_000) {
+  await endStaleVideoLives(now, staleMs);
   const cutoff = new Date(now.getTime() - staleMs);
   await prisma.videoLiveViewer.updateMany({ where: { active: true, socketCount: 0, lastSeenAt: { lt: cutoff } }, data: { active: false } });
   const lives = await prisma.videoLiveSession.findMany({ where: { status: "LIVE" }, select: { id: true, publicId: true, viewerCount: true } });
@@ -75,7 +76,28 @@ export async function reconcileStaleVideoPresence(now = new Date(), staleMs = 90
 }
 
 export async function expireGuestRequests(now = new Date()) {
-  return prisma.videoLiveGuestRequest.updateMany({ where: { status: "PENDING", expiresAt: { lte: now } }, data: { status: "EXPIRED", respondedAt: now } });
+  return prisma.videoLiveGuestRequest.updateMany({ where: { status: { in: ["PENDING", "INVITED"] }, expiresAt: { lte: now } }, data: { status: "EXPIRED", respondedAt: now } });
+}
+
+export async function endStaleVideoLives(now = new Date(), staleMs = 90000, db = prisma) {
+  const cutoff = new Date(+now - staleMs);
+  const rows = await db.videoLiveSession.findMany({ where: { status: "LIVE", hostLastSeenAt: { lte: cutoff } }, select: { id: true, publicId: true } });
+  let ended = 0;
+  for (const live of rows) {
+    const updated = await db.$transaction(async tx => {
+      const changed = await tx.videoLiveSession.updateMany({ where: { id: live.id, status: "LIVE", hostLastSeenAt: { lte: cutoff } }, data: { status: "ENDED", endedAt: now, viewerCount: 0, revision: { increment: 1 } } });
+      if (!changed.count) return null;
+      await tx.videoLiveViewer.updateMany({ where: { sessionId: live.id }, data: { active: false, socketCount: 0 } });
+      await tx.videoLiveGuestRequest.updateMany({ where: { sessionId: live.id, status: { in: ["PENDING", "INVITED", "APPROVED"] } }, data: { status: "EXPIRED", respondedAt: now } });
+      await tx.videoLivePkSession.updateMany({ where: { status: { in: ["PENDING", "LIVE"] }, OR: [{ leftSessionId: live.id }, { rightSessionId: live.id }] }, data: { status: "ENDED", endedAt: now, revision: { increment: 1 } } });
+      return tx.videoLiveSession.findUnique({ where: { id: live.id }, select: { revision: true } });
+    });
+    if (updated) {
+      ended++;
+      emitToVideoLive(live.publicId, "live-video:ended", { success: true, data: { liveId: live.publicId, status: "ENDED", reason: "HOST_HEARTBEAT_TIMEOUT", endedAt: now.toISOString(), revision: updated.revision, session: { id: live.publicId, status: "ENDED", viewerCount: 0, endedAt: now.toISOString(), revision: updated.revision } } });
+    }
+  }
+  return { ended };
 }
 
 export async function reconcileExpiredAudioRoomControls(now = new Date()) {

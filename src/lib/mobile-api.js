@@ -36,6 +36,7 @@ export async function requireMobileUser(request) {
       isOfficial: true,
       role: true,
       appRoles: true,
+      vipLevel: true,
       status: true,
       deletedAt: true,
       sessionVersion: true,

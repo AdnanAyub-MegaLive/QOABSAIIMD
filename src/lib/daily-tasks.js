@@ -196,11 +196,11 @@ function serializeStreak(currentStreak) {
   };
 }
 
-export async function addDailyTaskProgress(userId, type, amount, now = new Date()) {
-  const definition = await prisma.dailyTaskDefinition.findUnique({ where: { type } });
+export async function addDailyTaskProgress(userId, type, amount, now = new Date(), db = prisma) {
+  const definition = await db.dailyTaskDefinition.findUnique({ where: { type } });
   if (!definition?.active || !Number.isSafeInteger(amount) || amount <= 0) return;
   const start = periodStart(definition, now);
-  await prisma.dailyTaskInstance.upsert({
+  await db.dailyTaskInstance.upsert({
     where: { userId_definitionId_periodStart: { userId, definitionId: definition.id, periodStart: start } },
     create: {
       userId,
@@ -212,7 +212,7 @@ export async function addDailyTaskProgress(userId, type, amount, now = new Date(
     },
     update: { progressValue: { increment: amount } },
   });
-  await prisma.dailyTaskInstance.updateMany({
+  await db.dailyTaskInstance.updateMany({
     where: { userId, definitionId: definition.id, periodStart: start, progressValue: { gte: definition.targetValue }, claimedAt: null },
     data: { progressValue: definition.targetValue, state: "CLAIM", completedAt: now },
   });

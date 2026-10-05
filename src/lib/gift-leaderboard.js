@@ -14,19 +14,19 @@ export function leaderboardEntry(total, user, perks) {
   };
 }
 
-export async function getRoomGiftLeaderboard(roomId, origin) {
+export async function getRoomGiftLeaderboard(roomId, origin, db = prisma) {
   const normalizedRoomId = String(roomId ?? "").trim();
   if (!normalizedRoomId) return emptyLeaderboard();
 
   const [gifterTotals, receiverTotals] = await Promise.all([
-    prisma.giftTransaction.groupBy({
+    db.giftTransaction.groupBy({
       by: ["senderId"],
       where: { roomId: normalizedRoomId },
       _sum: { coinValue: true },
       orderBy: { _sum: { coinValue: "desc" } },
       take: 3,
     }),
-    prisma.giftTransaction.groupBy({
+    db.giftTransaction.groupBy({
       by: ["recipientUserId"],
       where: { roomId: normalizedRoomId, recipientUserId: { not: null } },
       _sum: { coinValue: true },
@@ -42,7 +42,7 @@ export async function getRoomGiftLeaderboard(roomId, origin) {
     ]),
   ];
   const users = userIds.length
-    ? await prisma.user.findMany({
+    ? await db.user.findMany({
         where: { id: { in: userIds } },
         select: { id: true, publicId: true, name: true, profileImage: true },
       })

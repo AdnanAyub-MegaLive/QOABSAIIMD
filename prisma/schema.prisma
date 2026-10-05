@@ -22,6 +22,7 @@ enum UserRole {
 }
 
 enum ApplicationRole {
+  MANAGER
   RESELLER
   LISTENER
   SENDER
@@ -56,6 +57,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  LUCKY_GIFT_REWARD
   DIAMOND_EXCHANGE_DEBIT
   DIAMOND_EXCHANGE_CREDIT
   COIN_TOP_UP
@@ -180,6 +182,16 @@ model AuditLog {
 }
 
 model User {
+  progress UserProgress[]
+  progressLedger ProgressLedger[]
+  giftRequests GiftRequest[]
+  supervisorUserId String?
+  supervisor User? @relation("ManagementTeam", fields: [supervisorUserId], references: [id], onDelete: SetNull)
+  teamMembers User[] @relation("ManagementTeam")
+  teamRole ApplicationRole?
+  countryHeadDesignation String?
+  @@index([supervisorUserId])
+  liveCovers VideoLiveCover[]
   diamondExchangeEnabled Boolean @default(true)
   id                         String                        @id @default(cuid())
   publicId                   String                        @unique
@@ -289,6 +301,97 @@ model User {
   @@index([agencyId])
 }
 
+model ProgressionConfiguration {
+  version Int @id @default(autoincrement())
+  enabled Boolean @default(false)
+  active Boolean @default(false)
+  rules Json
+  createdAt DateTime @default(now())
+  levels LevelDefinition[]
+  users UserProgress[]
+}
+
+model LevelDefinition {
+  id String @id @default(cuid())
+  track String
+  configurationVersion Int
+  level Int
+  thresholdPoints BigInt
+  badgeAssetId String?
+  benefits Json
+  configuration ProgressionConfiguration @relation(fields: [configurationVersion], references: [version], onDelete: Restrict)
+  @@unique([track, configurationVersion, level])
+}
+
+model UserProgress {
+  userId String
+  track String
+  configurationVersion Int
+  lifetimePoints BigInt @default(0)
+  currentLevel Int @default(0)
+  revision Int @default(0)
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  configuration ProgressionConfiguration @relation(fields: [configurationVersion], references: [version], onDelete: Restrict)
+  @@id([userId, track])
+}
+
+model ProgressLedger {
+  id String @id @default(cuid())
+  userId String
+  track String
+  deltaPoints BigInt
+  sourceType String
+  sourceId String
+  sourceLineId String @default("")
+  ruleVersion Int
+  eligibleAmount BigInt
+  numerator BigInt
+  denominator BigInt
+  basis String
+  reversalOfId String? @unique
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@unique([userId, track, sourceType, sourceId, sourceLineId])
+  @@index([userId, track, createdAt, id])
+}
+
+model GiftRequest {
+  id String @id @default(cuid())
+  senderId String
+  key String
+  fingerprint String
+  result Json?
+  createdAt DateTime @default(now())
+  sender User @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  @@unique([senderId, key])
+}
+
+model RealtimeOutbox {
+  id String @id @default(cuid())
+  channel String
+  event String
+  payload Json
+  createdAt DateTime @default(now())
+  deliveredAt DateTime?
+  attempts Int @default(0)
+  @@index([deliveredAt, createdAt])
+}
+
+model RoleTeamLimit {
+  supervisorRole String
+  memberRole String
+  max Int?
+  @@id([supervisorRole, memberRole])
+}
+
+model TeamPolicy {
+  id String @id @default("GLOBAL")
+  limitScope String @default("DIRECT")
+  allowAncestorRemoval Boolean @default(false)
+  updatedAt DateTime @updatedAt
+}
+
 model DiamondExchangeSettings {
   id String @id @default("GLOBAL")
   enabled Boolean @default(false)
@@ -297,7 +400,17 @@ model DiamondExchangeSettings {
   updatedAt DateTime @updatedAt
 }
 
+model VideoLiveCover {
+  id String @id
+  userId String
+  data Bytes
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
 model VideoLiveSession {
+  hostLastSeenAt DateTime @default(now())
   id            String                  @id @default(cuid())
   publicId      String                  @unique
   hostId        String
@@ -415,7 +528,7 @@ model VideoLiveGuestRequest {
   session     VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([sessionId, userId, status])
+  @@index([sessionId, userId, status])
   @@index([sessionId, status, requestedAt])
 }
 

@@ -14,7 +14,7 @@ import {
 import { reconcileExpiredAudioRoomRestrictions } from "../lib/audio-room-maintenance";
 import { syncProgressionProps } from "../lib/props-store";
 import { syncResellerProps } from "../lib/reseller-props";
-import { normalizeApplicationRoles, primaryLegacyRole } from "../lib/user-roles";
+import { normalizeApplicationRoles, primaryLegacyRole, managementIdentity } from "../lib/user-roles";
 import {
   shouldAssignTalentPublicId,
   talentPublicIdForApprovedHost,
@@ -144,6 +144,10 @@ export async function updateUserAccount(publicId, changes) {
     }
   });
   let action = "UPDATE_USER";
+  if (data.appRoles) {
+    const refreshed = await prisma.user.findUnique({ where: { id: currentUser.id } });
+    emitToUser(nextPublicId, "user:roles-changed", { success: true, data: { publicId: nextPublicId, roles: refreshed.appRoles, ...managementIdentity(refreshed) } });
+  }
   let description = `${admin.name} updated user ${nextPublicId}`;
   if (changes.vipLevel !== undefined) {
     action = Number(changes.vipLevel) > 0 ? "GRANT_VIP" : "REMOVE_VIP";

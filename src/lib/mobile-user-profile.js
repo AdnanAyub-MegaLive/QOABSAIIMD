@@ -2,6 +2,7 @@ import { prisma } from "./prisma.js";
 import { formatDateOnly } from "./date-only.js";
 import { getEffectiveUserId, reconcileExpiredSpecialIds } from "./special-id.js";
 import { resolveUserPerks } from "./user-perks.js";
+import { managementIdentity } from "./user-roles.js";
 
 const profileSelect = {
   id: true,
@@ -18,6 +19,7 @@ const profileSelect = {
   isOfficial: true,
   role: true,
   appRoles: true,
+  countryHeadDesignation: true,
   status: true,
   vipLevel: true,
   createdAt: true,
@@ -33,6 +35,7 @@ export async function mobileUserProfile(userId, origin = null) {
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const perks = origin ? (await resolveUserPerks([user], origin, ["FRAMES", "BADGES", "BUSINESS_CARD"])).get(user.publicId) : null;
   return {
+    ...perks?.progression,
     id: identity.effectiveId,
     normalId: identity.normalId,
     specialId: identity.specialId,
@@ -56,6 +59,7 @@ export async function mobileUserProfile(userId, origin = null) {
     isOfficial: Boolean(user.isOfficial),
     role: user.role,
     roles: user.appRoles,
+    ...managementIdentity(user),
     status: user.status,
     vipLevel: user.vipLevel,
     createdAt: user.createdAt.toISOString(),

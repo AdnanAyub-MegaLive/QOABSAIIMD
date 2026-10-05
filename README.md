@@ -13,6 +13,13 @@ seats, and real-time Socket.IO activity.
 
 ## Portal staff accounts and permissions
 
+Application management teams are separate from portal staff access. Configure
+team quotas and Country Head designations under **Rules & Profit Split →
+Management hierarchy**. Mobile team endpoints, role-refresh events and defaults
+are documented in [Management team contract](docs/management-team.md).
+See [Live video release notes](docs/live-video-release.md) for covers, invitations,
+heartbeat cleanup and remaining public LiveKit TLS deployment requirements.
+
 Open **Accounts & Permissions** in the sidebar to create portal staff logins.
 Managers can choose permissions using module/action checkboxes, or start with
 the Read only, Room moderator, Content manager, or Finance officer templates.

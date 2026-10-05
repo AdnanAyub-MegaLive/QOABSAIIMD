@@ -1,4 +1,5 @@
 import { prisma } from "../../../../lib/prisma";
+import { managementIdentity } from "@/lib/user-roles";
 import { verifyPassword } from "../../../../lib/password";
 import mobileSession from "../../../../lib/mobile-session.cjs";
 import {
@@ -235,6 +236,7 @@ export async function POST(request) {
         isOfficial: Boolean(user.isOfficial),
         role: user.role,
         roles: user.appRoles,
+        ...managementIdentity(user),
         status: user.status,
         vipLevel: user.vipLevel,
         createdAt: user.createdAt.toISOString(),

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { managementIdentity } from "@/lib/user-roles";
 import mobileSession from "@/lib/mobile-session.cjs";
 import { generateNumericPublicId } from "@/lib/public-id";
 import { getEffectiveUserId, reconcileExpiredSpecialIds } from "@/lib/special-id";
@@ -236,6 +237,7 @@ export async function POST(request) {
               isOfficial: Boolean(account.isOfficial),
               role: account.role,
               roles: account.appRoles,
+              ...managementIdentity(account),
               status: account.status,
               vipLevel: account.vipLevel,
               createdAt: account.createdAt.toISOString(),

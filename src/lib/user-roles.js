@@ -12,9 +12,16 @@ export const APPLICATION_ROLES = [
   "SENIOR_ADMIN",
   "SUPER_ADMIN",
   "COUNTRY_HEAD",
+  "MANAGER",
 ];
 
 const LEGACY_ROLES = ["HOST", "MODERATOR", "CREATOR", "SENDER", "LISTENER"];
+export const MANAGEMENT_ROLE_ORDER = ["MANAGER", "COUNTRY_HEAD", "SUPER_ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "ADMIN", "BD"];
+export function managementRole(user) { return MANAGEMENT_ROLE_ORDER.find(role => user?.appRoles?.includes(role)) ?? null; }
+export function managementIdentity(user) {
+  const role = managementRole(user);
+  return { management: { enabled: Boolean(role && role !== "BD"), role, roleLabel: role ? displayApplicationRole(role) : null, countryHeadDesignation: user?.countryHeadDesignation ?? null, permissions: role && role !== "BD" ? ["team.view", "team.assign", "team.remove"] : [] } };
+}
 
 export const APPLICATION_ROLE_PERMISSIONS = {
   BD: ["agencies.reference"], JUNIOR_ADMIN: ["agencies.reference"],

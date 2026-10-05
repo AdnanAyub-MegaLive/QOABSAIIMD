@@ -1,3 +1,5 @@
+// Set mode before Next imports its environment-dependent server modules.
+process.env.NODE_ENV = process.argv.includes("--dev") ? "development" : (process.env.NODE_ENV || "production");
 const { createServer } = require("node:http");
 const { setRequestClientIp } = require("./src/lib/request-ip.cjs");
 const { randomUUID } = require("node:crypto");
@@ -7,7 +9,7 @@ const bcrypt = require("bcrypt");
 const { loadEnvConfig } = require("@next/env");
 const { verifyMobileSessionToken } = require("./src/lib/mobile-session.cjs");
 
-loadEnvConfig(process.cwd());
+loadEnvConfig(process.cwd(), process.env.NODE_ENV === "development");
 const dev=process.argv.includes("--dev");
 const webpack=process.argv.includes("--webpack");
 const hostname=process.env.HOSTNAME||"0.0.0.0";
@@ -41,6 +43,9 @@ app.prepare().then(async()=>{
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
+  const {flushRealtimeOutbox}=await import("./src/lib/gift-operation.js");
+  const outboxTimer=setInterval(()=>void flushRealtimeOutbox(io).catch(error=>console.error("Outbox delivery failed",error.message)),2000);
+  outboxTimer.unref?.();
   const runRealtimeMaintenance=async()=>{try{const[, , , ,controls]=await Promise.all([finalizeExpiredPkSessions(),reconcileAudioRoomPresence(io),reconcileStaleVideoPresence(),expireGuestRequests(),reconcileExpiredAudioRoomControls()]);const changedRooms=new Map();for(const seat of controls.seats){await updateLiveKitPublishPermission(seat.audioRoom.roomId,seat.occupant.publicId,true);changedRooms.set(seat.audioRoom.roomId,seat.audioRoom);io.to(`user:${seat.occupant.publicId}`).emit("audio-room:seat-force-muted",{success:true,data:{roomId:seat.audioRoom.roomId,userId:seat.occupant.publicId,muted:false,expiresAt:null,expired:true}})}for(const member of controls.members)io.to(`user:${member.user.publicId}`).emit("audio-room:member-force-deafened",{success:true,data:{roomId:member.audioRoom.roomId,userId:member.user.publicId,deafened:false,expiresAt:null,expired:true}});for(const room of changedRooms.values())await broadcastAudioRoomSeatState(room,"",undefined,true)}catch(error){console.error("Realtime maintenance failed",error)}};
   setImmediate(runRealtimeMaintenance);
   const maintenanceTimer=setInterval(runRealtimeMaintenance,15000);

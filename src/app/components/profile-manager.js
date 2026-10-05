@@ -797,7 +797,7 @@ function Action({ text, onClick, disabled = false }) {
 }
 
 function ManageModal({ type, profile, isTalent, onClose, onSave }) {
-  const roleChoices = ["Listener", "Sender", "Creator", "Host", "Moderator", "Official", "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head"];
+  const roleChoices = ["Listener", "Sender", "Creator", "Host", "Moderator", "Official", "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head", "Manager"];
   const [roles, setRoles] = useState(profile.roles?.length ? profile.roles : [profile.role]);
   const [value, setValue] = useState(
     type === "vip"
