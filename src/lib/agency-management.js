@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { generateNumericPublicId } from "./public-id.js";
 import { findAgencyReference, validateAgencyReference } from "./agency-reference.js";
 import { normalizeSignupCountry } from "./geo-country.js";
+import { agencyReferenceRole } from "./user-roles.js";
 
 export function agencyError(code) { throw new Error(code); }
 
@@ -15,7 +16,7 @@ export function agencyInput(body) {
 
 export async function requireActiveBD(client, id) {
   const user = await client.user.findUnique({ where: { id } });
-  if (!user || user.deletedAt || user.status !== "ACTIVE" || !user.appRoles.includes("BD")) agencyError("BD_REQUIRED");
+  if (!user || user.deletedAt || user.status !== "ACTIVE" || !agencyReferenceRole(user)) agencyError("BD_REQUIRED");
   return user;
 }
 

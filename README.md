@@ -13,6 +13,11 @@ seats, and real-time Socket.IO activity.
 
 ## Portal staff accounts and permissions
 
+Super Admin and Country Head application accounts now have a separate,
+country-scoped management portal with one-use app login links. This does not
+grant platform staff access. See [Management portal handoff](docs/management-portal.md)
+for mobile integration, permissions, deployment and remaining work.
+
 Application management teams are separate from portal staff access. Configure
 team quotas and Country Head designations under **Rules & Profit Split →
 Management hierarchy**. Mobile team endpoints, role-refresh events and defaults

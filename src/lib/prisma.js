@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-05-progression";
+const prismaSchemaVersion = "2026-10-06-management-portal";
 const requiredUserFields = [
   "sessionVersion",
   "forcedLogoutAt",

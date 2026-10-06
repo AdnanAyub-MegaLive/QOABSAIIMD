@@ -20,11 +20,12 @@ export const MANAGEMENT_ROLE_ORDER = ["MANAGER", "COUNTRY_HEAD", "SUPER_ADMIN", 
 export function managementRole(user) { return MANAGEMENT_ROLE_ORDER.find(role => user?.appRoles?.includes(role)) ?? null; }
 export function managementIdentity(user) {
   const role = managementRole(user);
-  return { management: { enabled: Boolean(role && role !== "BD"), role, roleLabel: role ? displayApplicationRole(role) : null, countryHeadDesignation: user?.countryHeadDesignation ?? null, permissions: role && role !== "BD" ? ["team.view", "team.assign", "team.remove"] : [] } };
+  const enabled=Boolean(role&&role!=="BD"),portalEnabled=["SUPER_ADMIN","COUNTRY_HEAD"].includes(role);
+  return { management: { enabled, role, roleLabel: role ? displayApplicationRole(role) : null, countryHeadDesignation: user?.countryHeadDesignation ?? null, portal: {enabled:portalEnabled,sessionEndpoint:portalEnabled?"/api/v1/management/portal-session":null}, permissions: enabled ? ["team.view", "team.assign", "team.remove","agencies.assign","performance.view",...(role==="SUPER_ADMIN"?["country.users.moderate","country.rooms.moderate"]:[])] : [] } };
 }
 
 export const APPLICATION_ROLE_PERMISSIONS = {
-  BD: ["agencies.reference"], JUNIOR_ADMIN: ["agencies.reference"],
+  BD: ["agencies.reference"], ADMIN: ["agencies.reference"], JUNIOR_ADMIN: ["agencies.reference"],
   SENIOR_ADMIN: ["agencies.reference"], SUPER_ADMIN: ["agencies.reference"], COUNTRY_HEAD: ["agencies.reference"],
 };
 export function applicationRolesWithPermission(permission) {

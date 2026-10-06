@@ -10,7 +10,7 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export async function GET(request) {
   return withV1Request(request, { path, methods }, async () => {
     try {
-      const bd = await requireMobileRole(request, ["BD"]);
+      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD"]);
       const status = new URL(request.url).searchParams.get("status") || "PENDING";
       if (!["PENDING", "APPROVED", "REJECTED"].includes(status)) throw new Error("AGENCY_REVIEW_INVALID");
       const applications = await prisma.agencyApplication.findMany({ where: { bdUserId: bd.id, status },

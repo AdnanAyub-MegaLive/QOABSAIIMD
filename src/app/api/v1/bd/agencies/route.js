@@ -11,7 +11,7 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export async function GET(request) {
   return withV1Request(request, { path, methods }, async () => {
     try {
-      const bd = await requireMobileRole(request, ["BD"]);
+      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD"]);
       const agencies = await prisma.agency.findMany({ where: { bdUserId: bd.id },
         select: { publicId: true, name: true, status: true, owner: { select: { publicId: true, name: true } } },
         orderBy: { createdAt: "desc" }, take: 100 });
@@ -22,7 +22,7 @@ export async function GET(request) {
 export async function POST(request) {
   return withV1Request(request, { path, methods }, async () => {
     try {
-      const bd = await requireMobileRole(request, ["BD"]);
+      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD"]);
       const body = await request.json();
       const agency = await prisma.$transaction(tx => grantAgency(tx, body, { bdUserId: bd.id, name: bd.name }), { isolationLevel: "Serializable" });
       return mobileJson({ success: true, data: { agency } }, 201);

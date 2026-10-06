@@ -182,6 +182,7 @@ model AuditLog {
 }
 
 model User {
+  managementWebSessions ManagementWebSession[]
   progress UserProgress[]
   progressLedger ProgressLedger[]
   giftRequests GiftRequest[]
@@ -1322,7 +1323,8 @@ model Ban {
   userId          String?
   talentId        String?
   deviceId        String?
-  adminId         String
+  adminId         String?
+  actorUserId     String?
   reason          String
   proofImage      String?
   durationMinutes Int?
@@ -1333,11 +1335,27 @@ model Ban {
   user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   talent          Talent?   @relation(fields: [talentId], references: [id], onDelete: Cascade)
   device          Device?   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  admin           Admin     @relation(fields: [adminId], references: [id], onDelete: Restrict)
+  admin           Admin?    @relation(fields: [adminId], references: [id], onDelete: Restrict)
 
   @@index([userId, expiresAt])
   @@index([talentId, expiresAt])
   @@index([deviceId, expiresAt])
+}
+
+model ManagementWebSession {
+  id String @id @default(cuid())
+  tokenHash String @unique
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionVersion Int
+  deviceId String?
+  mobileIssuedAt BigInt
+  mobileExpiresAt DateTime
+  expiresAt DateTime
+  kind String
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, expiresAt])
 }
 
 model TalentVerification {

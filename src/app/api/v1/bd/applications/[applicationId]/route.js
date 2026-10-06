@@ -11,7 +11,7 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export async function PATCH(request, { params }) {
   return withV1Request(request, { path, methods }, async () => {
     try {
-      const bd = await requireMobileRole(request, ["BD"]);
+      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD"]);
       const { applicationId } = await params;
       const body = await request.json();
       const data = await prisma.$transaction(tx => reviewAgency(tx, applicationId, body, { bdUserId: bd.id, name: bd.name }), { isolationLevel: "Serializable" });

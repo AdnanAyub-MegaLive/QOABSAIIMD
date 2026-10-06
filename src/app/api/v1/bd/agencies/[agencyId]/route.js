@@ -9,7 +9,7 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export async function DELETE(request, context) {
   return withV1Request(request, { path, methods, rateLimit: { limit: 20, windowMs: 60000 } }, async () => {
     try {
-      const bd = await requireMobileRole(request, ["BD"]);
+      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD"]);
       const { agencyId } = await context.params;
       const data = await prisma.$transaction(tx => unlinkBDAgency(tx, bd.id, agencyId), { isolationLevel: "Serializable" });
       return mobileJson({ success: true, data });
