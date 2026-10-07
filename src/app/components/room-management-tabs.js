@@ -11,7 +11,7 @@ const sections = [
   ["Red Envelopes", "/red-envelopes"],
   ["Appearance", "/room-appearance"],
   ["Games", "/room-games"],
-  ["Live Video", "/live-video-management"],
+
   ["Notifications", "/notifications-management"],
   ["Content Safety", "/content-moderation"],
 ];

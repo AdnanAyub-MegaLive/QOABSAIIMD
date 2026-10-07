@@ -21,7 +21,7 @@ export function validateProgressionConfig(input) {
   const keys = new Set();
   const rules = input.rules.map(r => {
     const key = `${r.track}:${r.source}:${r.recipientType}`;
-    if (!TRACKS.includes(r.track) || !["PAID","BACKPACK","LUCKY","BLIND_BOX"].includes(r.source) || !["ANY","HOST","NORMAL_USER"].includes(r.recipientType) || !["COST","CREDIT","REVEALED","REWARD"].includes(r.basis) || typeof r.allowSelf !== "boolean" || keys.has(key)) throw progressionError("Invalid or duplicate earning rule.");
+    if (!TRACKS.includes(r.track) || !["PAID","BACKPACK","LUCKY","BLIND_BOX"].includes(r.source) || !["ANY","HOST","NORMAL_USER"].includes(r.recipientType) || !["COST","CREDIT","REVEALED","REWARD","GIFT_XP"].includes(r.basis) || typeof r.allowSelf !== "boolean" || keys.has(key)) throw progressionError("Invalid or duplicate earning rule.");
     if (r.track === "USER" && r.recipientType !== "ANY" || r.track === "CHARM" && r.recipientType === "ANY") throw progressionError("User rules use ANY; Charm rules must specify HOST or NORMAL_USER.");
     if (r.basis === "REVEALED" && r.source !== "BLIND_BOX" || r.basis === "REWARD" && r.source !== "LUCKY") throw progressionError("This earning basis does not apply to the source.");
     keys.add(key); const numerator = unsigned(r.numerator), denominator = unsigned(r.denominator);
@@ -52,14 +52,16 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
   const active=await currentConfiguration(tx);
   if (!active?.enabled) return null;
   let senderSnapshot=null;
+  const asset = gift.giftAssetId ? await tx.uploadAsset.findUnique({where:{id:gift.giftAssetId},select:{senderXp:true,receiverXp:true}}) : null;
   for(const [track,user] of [["USER",sender],["CHARM",recipient]]) {
     if(!user) continue; // Talent-only recipients require an explicit account mapping; never guess it.
     let row=await tx.userProgress.findUnique({where:{userId_track:{userId:user.id,track}},include:{configuration:{include:{levels:true}}}});
     const config=row?.configuration??active;
     const rule=config.rules.find(r=>r.track===track&&r.source===source&&r.recipientType===(track==="USER"?"ANY":recipientType));
     if(!config.enabled || !rule || (recipient?.id===sender.id&&!rule.allowSelf)) continue;
-    const amount={COST:gross,CREDIT:credit,REVEALED:revealed,REWARD:reward}[rule.basis];
+    const amount=rule.basis === "GIFT_XP" ? BigInt((track === "USER" ? asset?.senderXp : asset?.receiverXp) ?? 0) * BigInt(gift.quantity) : {COST:gross,CREDIT:credit,REVEALED:revealed,REWARD:reward}[rule.basis];
     const points=amount*BigInt(rule.numerator)/BigInt(rule.denominator);
+    if(points===0n) continue;
     const sourceType=track==="USER"?"GIFT_SENT":"GIFT_RECEIVED";
     const key={userId:user.id,track,sourceType,sourceId:gift.id,sourceLineId:gift.id};
     if(await tx.progressLedger.findUnique({where:{userId_track_sourceType_sourceId_sourceLineId:key}})) continue;

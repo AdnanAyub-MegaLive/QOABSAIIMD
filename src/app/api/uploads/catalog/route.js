@@ -83,7 +83,7 @@ export async function GET(request) {
     const active = { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
     const assets = await prisma.uploadAsset.findMany({
       where: {
-        ...(category ? { category } : { category: { not: "BANNERS" } }),
+        ...(category ? { category } : { category: { notIn: ["BANNERS", "LIVE_GIFTS"] } }),
         ...(category === "BANNERS"
           ? bannerCatalogWhere(placement)
           : {}),

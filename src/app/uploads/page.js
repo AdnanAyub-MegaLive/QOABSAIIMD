@@ -13,6 +13,7 @@ export default async function UploadsPage() {
   if (!session?.user) redirect("/");
   const [assets, users] = await Promise.all([
     prisma.uploadAsset.findMany({
+      where: { category: { not: "LIVE_GIFTS" } },
       select: {
         publicId: true,
         name: true,
@@ -33,6 +34,8 @@ export default async function UploadsPage() {
         distribution: true,
         storeVisible: true,
         coinPrice: true,
+        senderXp: true,
+        receiverXp: true,
         giftTier: true,
         minimumVipLevel: true,
         minimumRecharge: true,

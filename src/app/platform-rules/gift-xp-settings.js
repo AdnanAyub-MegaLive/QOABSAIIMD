@@ -1,0 +1,8 @@
+"use client";
+import { useEffect,useState } from "react";
+export default function GiftXpSettings() {
+  const [gifts,setGifts]=useState([]),[message,setMessage]=useState("");
+  useEffect(()=>{let active=true;fetch("/api/admin/gift-xp").then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error?.message);return j.data;}).then(rows=>{if(active)setGifts(rows);}).catch(e=>{if(active)setMessage(e.message);});return()=>{active=false;};},[]);
+
+  return <section className="mt-6 rounded-2xl border border-[#dce8e5] bg-white p-6"><h3 className="text-lg font-bold">Gift experience points</h3><p className="my-3 text-sm text-[#71847f]">Read-only reference. Edit XP in the gift upload/edit form (Live Management for live gifts). XP per gift × quantity. Sender XP increases User Level; receiver XP increases Charm only for Hosts/Talents with a linked user account. Coin price is independent. Changes affect future sends only; zero disables XP for that side. Live and audio gifts share these account levels.</p>{message&&<p role="status" className="my-3 text-sm">{message}</p>}{gifts.map(g=><div key={g.publicId} className="flex flex-wrap items-end gap-4 border-t py-4"><div className="min-w-48 flex-1"><b>{g.name}</b><p className="text-xs text-[#71847f]">{g.category==="LIVE_GIFTS"?"Live":"Audio / general"} · {g.coinPrice} coins</p></div>{[["senderXp","Sender XP"],["receiverXp","Receiver XP"]].map(([key,label])=><label key={key} className="grid gap-1 text-xs">{label}<input className="w-36 rounded-lg border p-2" type="number" min="0" max="1000000000000" step="1" name={key} defaultValue={g[key]} readOnly/></label>)}</div>)}</section>;
+}

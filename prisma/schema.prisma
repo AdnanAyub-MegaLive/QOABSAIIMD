@@ -57,6 +57,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  LIVE_TARGET_REWARD
   LUCKY_GIFT_REWARD
   DIAMOND_EXCHANGE_DEBIT
   DIAMOND_EXCHANGE_CREDIT
@@ -411,6 +412,11 @@ model VideoLiveCover {
 }
 
 model VideoLiveSession {
+  liveRuleVersion Int @default(0)
+  rewardTargetCoins BigInt @default(0)
+  targetRewardCoins BigInt @default(0)
+  eligibleGiftCoins BigInt @default(0)
+  targetRewardPaid Boolean @default(false)
   hostLastSeenAt DateTime @default(now())
   id            String                  @id @default(cuid())
   publicId      String                  @unique
@@ -592,6 +598,18 @@ model ProfitSplitRule {
   updatedAt                  DateTime @updatedAt
 
   @@index([updatedAt])
+}
+
+model LiveCommerceRule {
+  id String @id @default("LIVE")
+  version Int @default(1)
+  hostShareBps Int @default(4000)
+  agencyShareBps Int @default(2000)
+  companyShareBps Int @default(4000)
+  rewardsEnabled Boolean @default(false)
+  targetCoins BigInt @default(0)
+  rewardCoins BigInt @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 model FriendRequest {
@@ -854,6 +872,8 @@ model EventAuditLog {
 }
 
 model UploadAsset {
+  senderXp BigInt @default(0)
+  receiverXp BigInt @default(0)
   id                          String                       @id @default(cuid())
   publicId                    String                       @unique
   name                        String

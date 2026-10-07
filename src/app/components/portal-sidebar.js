@@ -14,6 +14,7 @@ export const portalNavigation = [
   ["Rules & Profit Split", "/platform-rules"],
   ["Uploads", "/uploads"],
   ["Room Management", "/room-management"],
+  ["Live Management", "/live-management"],
   ["Rankings", "/rankings"],
   ["Message History", "/messages"],
   ["Audit Logs", "/audit-logs"],
@@ -34,7 +35,7 @@ function isActiveRoute(pathname, href) {
       "/red-envelopes",
       "/room-appearance",
       "/room-games",
-      "/live-video-management",
+
       "/notifications-management",
       "/content-moderation",
     ].some((route) => pathname === route || pathname.startsWith(`${route}/`));

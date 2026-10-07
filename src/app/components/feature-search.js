@@ -9,7 +9,7 @@ const features = [
   ["Accounts & Permissions", "Staff accounts and feature access", "/accounts-permissions"],
   ["Room Games", "Game links, mobile visibility and display order", "/room-games"],
   ["Daily Tasks", "Task categories, rewards and progress targets", "/daily-tasks"],
-  ["Live Video", "Review live sessions, guests and moderation", "/live-video-management"],
+  ["Live Management", "Live sessions, KYC, gifts, rewards and PK", "/live-management"],
   ["Notification Center", "Manage application announcements and notifications", "/notifications-management"],
   ["Content Safety", "Review posts and social activity", "/content-moderation"],
   ["Events Management", "Host and publish web events for the mobile application", "/events-login"],

@@ -16,6 +16,7 @@ import { ledgerData } from "@/lib/wallet";
 import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { randomInt } from "node:crypto";
+import { getLiveCommerceRule, applyLiveGiftReward } from "@/lib/live-commerce";
 import { parseGiftBatchId } from "@/lib/gift-batch";
 
 export function OPTIONS() {
@@ -60,7 +61,7 @@ export async function POST(request) {
       prisma.uploadAsset.findFirst({
         where: {
           publicId: giftId,
-          category: "GIFTS",
+          category: liveId ? "LIVE_GIFTS" : "GIFTS",
           active: true,
           giftTier: { in: ["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"] },
           coinPrice: { gt: 0n },
@@ -85,7 +86,7 @@ export async function POST(request) {
         where: { publicId: recipientId },
         select: { id: true, publicId: true, displayName: true, agencyId: true },
       }),
-      getProfitSplitRule(),
+      liveId ? getLiveCommerceRule() : getProfitSplitRule(),
       roomId
         ? prisma.audioRoom.findFirst({
             where: { roomId, status: "LIVE" },
@@ -140,6 +141,7 @@ export async function POST(request) {
     }
 
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
+      if (live && !(await tx.videoLiveSession.findFirst({ where: { id: live.id, status: "LIVE" } }))) throw Object.assign(new Error("Live session has ended."), { code: "LIVE_NOT_FOUND" });
       const emitToUser = (id,event,payload) => appendOutbox(tx,`user:${id}`,event,payload.data);
       const emitToAudioRoom = (id,event,payload) => appendOutbox(tx,`audio-room:${id}`,event,payload.data);
       const emitToVideoLive = (id,event,payload) => appendOutbox(tx,`live-video:${id}`,event,payload.data);
@@ -248,7 +250,7 @@ export async function POST(request) {
           companyShareBps: isHost
             ? policy.companyShareBps
             : 10000 - policy.normalUserReusableShareBps,
-          reusableShareBps: policy.normalUserReusableShareBps,
+          reusableShareBps: live ? 0 : policy.normalUserReusableShareBps,
           policyVersion: policy.version,
         },
       });
@@ -282,6 +284,7 @@ export async function POST(request) {
         select: { coinBalance: true },
       });
       const liveTotals = live ? await tx.videoLiveSession.update({ where: { id: live.id }, data: { giftIncome: { increment: grossCoins }, revision: { increment: 1 } }, select: { giftIncome: true, revision: true } }) : null;
+      if (live) await applyLiveGiftReward(tx, live, sessionUser.id, grossCoins);
       const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:talent ? null : recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:hostSalaryCoins+reusableCoins,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request)});
       const result = { gift, settlement, sender, luckyRewardCoins, liveTotals, progression };
 
@@ -304,8 +307,8 @@ export async function POST(request) {
       }
     }
 
-    await addDailyTaskProgress(sessionUser.id, "SEND_GIFTS", quantity, new Date(), tx);
-    await addDailyTaskProgress(sessionUser.id, "TOP_SUPPORTER", quantity, new Date(), tx);
+    if (!live) await addDailyTaskProgress(sessionUser.id, "SEND_GIFTS", quantity, new Date(), tx);
+    if (!live) await addDailyTaskProgress(sessionUser.id, "TOP_SUPPORTER", quantity, new Date(), tx);
     const realtimePayload = {
       success: true,
       data: {

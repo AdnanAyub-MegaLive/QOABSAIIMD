@@ -412,6 +412,7 @@ export async function POST(request) {
           giftTier,
           giftRewardMinBps,
           giftRewardMaxBps,
+          ...(isGift ? giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")}) : {}),
           isGlobal: isBanner || distribution.distribution === "FREE",
           isRoomBackground,
           ...distribution,
@@ -573,6 +574,7 @@ export async function PATCH(request) {
         },
       });
       const isBanner = current.category === "BANNERS";
+      if (current.category === "LIVE_GIFTS") throw new Error("Live gifts can only be managed in Live Management.");
       const isGift = current.category === "GIFTS";
       const isMusic = current.category === "MUSIC_TRACKS";
       const changesDistribution =
@@ -666,7 +668,7 @@ export async function PATCH(request) {
           ...(Array.isArray(body?.tags) ? { tags: cleanTags(body.tags) } : {}),
           ...(actionUrl !== undefined ? { actionUrl } : {}),
           ...(isBanner ? { placement, sortOrder } : {}),
-          ...(isGift ? { giftTier } : {}),
+          ...(isGift ? { giftTier, ...giftXpInput(body) } : {}),
           ...(updatesAssignments ? { isGlobal: false } : {}),
           ...(typeof body?.isRoomBackground === "boolean"
             ? { isRoomBackground: body.isRoomBackground }
@@ -822,6 +824,7 @@ export async function DELETE(request) {
           _count: { select: { assignments: true } },
         },
       });
+      if (asset.category === "LIVE_GIFTS") throw new Error("Live gifts can only be managed in Live Management.");
       await tx.auditLog.create({
         data: {
           action: "UPLOAD_ASSET_DELETED",
@@ -864,3 +867,4 @@ export async function DELETE(request) {
     );
   }
 }
+import { giftXpInput } from "@/lib/gift-xp-input";

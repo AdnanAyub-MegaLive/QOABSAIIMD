@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ db: {}, emit: vi.fn(), rows: [], ledger: [] }));
+vi.mock("@/lib/live-commerce", () => ({ getLiveCommerceRule: async () => ({ hostShareBps: 4000, agencyShareBps: 2000, companyShareBps: 4000, version: 1 }), applyLiveGiftReward: async () => {} }));
 vi.mock("@/lib/gift-operation", () => ({ giftOperation: () => ({}), priorGiftOperation: async () => null, runGiftOperation: async (_id,_operation,work) => work(mocks.db), flushRealtimeOutbox: async () => {} }));
 vi.mock("@/lib/progression", () => ({ awardGiftProgress: async () => null, publicProgression: async () => new Map(), appendOutbox: async (_tx,_channel,event,data) => mocks.emit(_channel,event,{success:true,data}) }));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.db }));

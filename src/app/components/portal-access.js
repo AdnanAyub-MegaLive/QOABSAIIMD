@@ -31,7 +31,7 @@ export function PermissionButton({ permission, children, ...props }) {
 export function allowedNavigation(admin, navigation) {
   return navigation.flatMap(([label, href]) => {
     if (href === "/room-management") {
-      const sections = [href, "/daily-tasks", "/red-envelopes", "/room-appearance", "/room-games", "/live-video-management", "/notifications-management", "/content-moderation"];
+      const sections = [href, "/daily-tasks", "/red-envelopes", "/room-appearance", "/room-games", "/notifications-management", "/content-moderation"];
       const destination = sections.find(path => canAccessPage(admin, path));
       return destination ? [[label, destination]] : [];
     }

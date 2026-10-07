@@ -353,6 +353,8 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
   const [storeVisible, setStoreVisible] = useState(asset.storeVisible ?? false);
   const [coinPrice, setCoinPrice] = useState(asset.coinPrice ?? "0");
   const [giftTier, setGiftTier] = useState(asset.giftTier ?? "CLASSIC");
+  const [senderXp,setSenderXp]=useState(asset.senderXp ?? "0");
+  const [receiverXp,setReceiverXp]=useState(asset.receiverXp ?? "0");
   const [minimumVipLevel, setMinimumVipLevel] = useState(
     asset.minimumVipLevel ?? 1,
   );
@@ -398,7 +400,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
       ...(isBanner
         ? { actionUrl: actionUrl.trim(), placement, sortOrder: Number(sortOrder) }
         : isGift
-          ? { giftTier, coinPrice, distribution: "STORE", storeVisible: false }
+          ? { giftTier, coinPrice, senderXp, receiverXp, distribution: "STORE", storeVisible: false }
         : isMusic
           ? { distribution: "FREE", storeVisible: false, isRoomBackground: false }
         : {
@@ -502,7 +504,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
             )}
           </div>
           {isGift && (
-            <GiftCatalogSettings
+            <GiftCatalogSettings senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
@@ -705,6 +707,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
   const [storeVisible, setStoreVisible] = useState(true);
   const [coinPrice, setCoinPrice] = useState("0");
   const [giftTier, setGiftTier] = useState("CLASSIC");
+  const [senderXp,setSenderXp]=useState("");
+  const [receiverXp,setReceiverXp]=useState("");
   const [giftRewardMinBps, setGiftRewardMinBps] = useState("0");
   const [giftRewardMaxBps, setGiftRewardMaxBps] = useState("20000");
   const [minimumVipLevel, setMinimumVipLevel] = useState(1);
@@ -762,6 +766,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
     }
     if (isGift) {
       form.set("giftTier", giftTier);
+      form.set("senderXp",senderXp);
+      form.set("receiverXp",receiverXp);
       form.set("giftRewardMinBps", giftRewardMinBps);
       form.set("giftRewardMaxBps", giftRewardMaxBps);
       form.set("coinPrice", String(coinPrice));
@@ -916,7 +922,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
             </Field>
           )}
           {isGift && (
-            <GiftCatalogSettings
+            <GiftCatalogSettings senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
@@ -1095,12 +1101,13 @@ function AssignmentPeriod({ value, onChange }) {
   );
 }
 
-function GiftCatalogSettings({ giftTier, onGiftTier, coinPrice, onCoinPrice, giftRewardMinBps, onGiftRewardMinBps, giftRewardMaxBps, onGiftRewardMaxBps }) {
+function GiftCatalogSettings({ senderXp, onSenderXp, receiverXp, onReceiverXp, giftTier, onGiftTier, coinPrice, onCoinPrice, giftRewardMinBps, onGiftRewardMinBps, giftRewardMaxBps, onGiftRewardMaxBps }) {
   return (
     <fieldset className="rounded-xl border border-[#cadbd7] bg-[#f8fbfa] p-4">
       <legend className="px-2 text-xs font-bold text-[#294a45]">
         Gift catalog settings
       </legend>
+      <div className="mb-4 grid gap-4 sm:grid-cols-2">{[["Sender XP",senderXp,onSenderXp],["Receiver XP",receiverXp,onReceiverXp]].map(([label,value,setValue])=><Field key={label} label={`${label} (required)`}><input type="number" min="0" max="1000000000000" step="1" required value={value} onChange={e=>setValue(e.target.value)} className={inputClass}/></Field>)}</div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Gift category">
           <select

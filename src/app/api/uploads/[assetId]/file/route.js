@@ -16,6 +16,7 @@ const publicDisplayCategories = new Set([
   "TAIL_LIGHTS",
   "RIDES",
   "GIFTS",
+  "LIVE_GIFTS",
   "CHAT_BOXES",
   "BUSINESS_CARD",
   "VIP_STICKERS",

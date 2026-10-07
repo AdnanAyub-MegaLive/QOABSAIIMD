@@ -69,6 +69,8 @@ export async function requireMobileRole(request, allowedRoles) {
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {
+    LIVE_HOST_REQUIRED: [403, "LIVE_HOST_REQUIRED", "Only an active approved host can go live."],
+    LIVE_KYC_REQUIRED: [403, "LIVE_KYC_REQUIRED", "Complete KYC verification before going live."],
     INVALID_SESSION: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
     SESSION_REVOKED: [401, "SESSION_REVOKED", "This mobile session has been revoked. Please sign in again."],
     INVALID_SESSION_TOKEN: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
