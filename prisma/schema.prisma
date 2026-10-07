@@ -695,6 +695,7 @@ model Message {
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
   @@index([conversationId, deletedAt])
+  @@index([createdAt])
 }
 
 model MessageReceipt {

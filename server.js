@@ -43,6 +43,8 @@ app.prepare().then(async()=>{
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
+  const {startMessageRetention}=await import("./src/lib/message-retention.js");
+  startMessageRetention(prisma);
   const {flushRealtimeOutbox}=await import("./src/lib/gift-operation.js");
   const outboxTimer=setInterval(()=>void flushRealtimeOutbox(io).catch(error=>console.error("Outbox delivery failed",error.message)),2000);
   outboxTimer.unref?.();
