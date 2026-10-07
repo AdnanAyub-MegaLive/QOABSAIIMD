@@ -8,7 +8,7 @@ export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
     const latest = await prisma.agencyJoinRequest.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, direction: "USER_REQUEST" },
       select: { publicId: true, status: true, createdAt: true, agency: { select: { publicId: true, name: true } } },
       orderBy: { createdAt: "desc" },
     });

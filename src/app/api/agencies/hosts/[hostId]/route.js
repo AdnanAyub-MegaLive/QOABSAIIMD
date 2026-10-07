@@ -47,7 +47,7 @@ export async function DELETE(request, { params }) {
           agencyId: null,
           appRoles: { set: remainingRoles },
           role: primaryLegacyRole(remainingRoles, host.role),
-          isVerified: false,
+
         },
       });
       if (!removed.count) {

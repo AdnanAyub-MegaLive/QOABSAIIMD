@@ -15,7 +15,7 @@ describe("approved host public IDs", () => {
 
   it("only assigns a TLN ID after active host approval and verification", () => {
     expect(shouldAssignTalentPublicId({ hostEnabled: true, isVerified: true, status: "ACTIVE" })).toBe(true);
-    expect(shouldAssignTalentPublicId({ hostEnabled: true, isVerified: false, status: "ACTIVE" })).toBe(false);
+    expect(shouldAssignTalentPublicId({ hostEnabled: true, isVerified: false, status: "ACTIVE" })).toBe(true);
     expect(shouldAssignTalentPublicId({ hostEnabled: true, isVerified: true, status: "PENDING" })).toBe(false);
   });
 });

@@ -6,6 +6,6 @@ export function talentPublicIdForApprovedHost(publicId) {
   return `TLN-${match[1]}`;
 }
 
-export function shouldAssignTalentPublicId({ hostEnabled, isVerified, status }) {
-  return Boolean(hostEnabled) && Boolean(isVerified) && String(status).toUpperCase() === "ACTIVE";
+export function shouldAssignTalentPublicId({ hostEnabled, status }) {
+  return Boolean(hostEnabled) && String(status).toUpperCase() === "ACTIVE";
 }

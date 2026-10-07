@@ -40,7 +40,7 @@ export async function GET(request) {
           orderBy: { name: "asc" },
         },
         joinRequests: {
-          where: { status: "PENDING", user: { deletedAt: null } },
+          where: { status: "PENDING", direction: "USER_REQUEST", user: { deletedAt: null } },
           select: {
             publicId: true,
             createdAt: true,

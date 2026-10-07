@@ -1058,6 +1058,7 @@ model AgencyApplication {
 }
 
 model AgencyJoinRequest {
+  direction String @default("USER_REQUEST")
   id           String    @id @default(cuid())
   publicId     String    @unique
   userId       String
