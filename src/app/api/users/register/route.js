@@ -7,6 +7,8 @@ import { generateNumericPublicId } from "../../../../lib/public-id";
 import { clientSignupCountry, resolveSignupCountry } from "../../../../lib/geo-country";
 import { requestOrigin,resolveUserPerks } from "../../../../lib/user-perks";
 
+import { assertDeviceAccount } from "@/lib/device-account-policy";
+
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
@@ -57,11 +59,11 @@ function validateRegistration(body) {
   if (device != null && (typeof device !== "object" || Array.isArray(device)))
     errors.device = "Device must be an object.";
   if (
-    device &&
-    (typeof (device.deviceId ?? device.macAddress) !== "string" || !(device.deviceId ?? device.macAddress).trim())
+    (!device ||
+    (typeof (device.deviceId ?? device.macAddress) !== "string" || !(device.deviceId ?? device.macAddress).trim() || (device.deviceId ?? device.macAddress).trim().length > 255))
   )
     errors["device.deviceId"] =
-      "A stable Android installation identifier is required when device information is supplied.";
+      "A stable device identifier of 1–255 characters is required.";
 
   return { errors, values: { name, email: email || null, phone, password, selectedCountry } };
 }
@@ -114,6 +116,7 @@ export async function POST(request) {
 
   try {
     const user = await prisma.$transaction(async (tx) => {
+      await assertDeviceAccount(tx, String(body.device.deviceId ?? body.device.macAddress).trim());
       const publicId = await generateNumericPublicId("USR", async (candidate) =>
         tx.user.findUnique({ where: { publicId: candidate }, select: { id: true } }),
       );
@@ -121,6 +124,7 @@ export async function POST(request) {
       const created = await tx.user.create({
         data: {
           publicId,
+          signupDeviceId: String(body.device.deviceId ?? body.device.macAddress).trim(),
           name: values.name,
           email: values.email,
           phone: values.phone,
@@ -211,6 +215,7 @@ export async function POST(request) {
       201,
     );
   } catch (error) {
+    if (error.status) return json({ success: false, error: { code: error.code, message: error.message } }, error.status);
     if (error?.code === "P2002") {
       const fields = Array.isArray(error.meta?.target)
         ? error.meta.target.join(" ")

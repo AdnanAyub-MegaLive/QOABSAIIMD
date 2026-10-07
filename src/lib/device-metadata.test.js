@@ -8,9 +8,11 @@ beforeEach(() => {
   user = { id: "internal", publicId: "USR-1", status: "ACTIVE", sessionVersion: 0 };
   ban = null;
   db = {
+    $queryRaw: vi.fn(async () => []),
     user: { findUnique: vi.fn(async () => user) },
     ban: { findFirst: vi.fn(async ({ where }) => ban?.target === where.target ? ban : null) },
     device: {
+      findMany: vi.fn(async () => record ? [{ ...record, userId: user.id }] : []),
       findUnique: vi.fn(async () => record),
       update: vi.fn(async ({ data }) => (record = { ...record, ...data })),
       create: vi.fn(async ({ data }) => (record = { id: "new", ...data })),

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { publicUserWithPerks, requestOrigin, resolveUserPerks } from "@/lib/user-perks";
+import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
+import { avatarDisplayUrl } from "@/lib/avatar-history";
 
 export function OPTIONS() { return mobileOptions(); }
 
@@ -31,7 +33,18 @@ export async function GET(request, { params }) {
       resolveUserPerks([target], requestOrigin(request), ["FRAMES", "BADGES", "BUSINESS_CARD"]),
     ]);
     const base = publicUserWithPerks(target, perks.get(target.publicId));
-    return mobileJson({ success: true, data: { user: { ...base, bio: target.bio, country: target.country, dob: target.showDateOfBirth || friendship ? target.dob?.toISOString().slice(0, 10) ?? null : null, vipLevel: target.vipLevel, agency: target.agency, room: target.audioRooms[0] ?? null, counters: { friends, followers, following, likes, visitors }, relationship: { isSelf: viewer.id === target.id, isFriend: friendship, isFollowing: Boolean(isFollowing), followsYou: Boolean(followsYou) }, album: { items: album, nextCursor: album.length === 20 ? album[19].id : null }, giftWall: { items: gifts.map((gift) => ({ giftId: gift.giftAssetId, name: gift.giftName, quantity: gift._sum.quantity ?? 0, totalCoins: (gift._sum.coinValue ?? 0n).toString() })), nextCursor: null } } } });
+    const origin = requestOrigin(request);
+    base.profileImage = avatarDisplayUrl(base.profileImage, origin);
+    // These separate domains have no awarded/equipped records in this portal.
+    // Do not misrepresent Business Cards as Home Dress or badges as medals.
+    Object.assign(base, { homeDressUrl: null, homeDressPosterUrl: null, homeDressMimeType: null, relationships: [], medalWall: { items: [] } });
+    const assets = await prisma.uploadAsset.findMany({ where: { id: { in: gifts.map(g => g.giftAssetId).filter(Boolean) }, active: true }, select: { id: true, publicId: true, mimeType: true } });
+    const byId = new Map(assets.map(asset => [asset.id, asset]));
+    const giftItems = gifts.map(gift => {
+      const asset = byId.get(gift.giftAssetId);
+      return { giftId: asset?.publicId ?? gift.giftAssetId, name: gift.giftName, quantity: gift._sum.quantity ?? 0, totalCoins: (gift._sum.coinValue ?? 0n).toString(), mediaUrl: asset ? createPublicDisplayAssetUrl(origin, asset.publicId) : null, mimeType: asset?.mimeType ?? null };
+    });
+    return mobileJson({ success: true, data: { user: { ...base, bio: target.bio, country: target.country, dob: target.showDateOfBirth || friendship ? target.dob?.toISOString().slice(0, 10) ?? null : null, vipLevel: target.vipLevel, agency: target.agency, room: target.audioRooms[0] ?? null, counters: { friends, followers, following, likes, visitors }, relationship: { isSelf: viewer.id === target.id, isFriend: viewer.id !== target.id && friendship, isFollowing: Boolean(isFollowing), followsYou: Boolean(followsYou) }, album: { items: album, nextCursor: album.length === 20 ? album[19].id : null }, giftWall: { items: giftItems, nextCursor: null } } } });
   } catch (error) { return mobileApiError(error, "PUBLIC_PROFILE_FAILED"); }
 }
 

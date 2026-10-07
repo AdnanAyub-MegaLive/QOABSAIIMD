@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 
 const sections = [
   ["Control Center", "/room-management"],
+  ["Message History", "/messages"],
   ["Daily Tasks", "/daily-tasks"],
   ["Red Envelopes", "/red-envelopes"],
   ["Appearance", "/room-appearance"],

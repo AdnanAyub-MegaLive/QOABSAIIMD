@@ -7,9 +7,11 @@ import {
 import { formatDateOnly, parseDateOnly } from "../../../../lib/date-only";
 import {
   assertMobileSession,
-  mobileSessionError,
 } from "../../../../lib/mobile-session-state";
 import { normalizeProfileBio } from "../../../../lib/profile-bio";
+import { avatarDisplayUrl, updateProfileWithHistory } from "@/lib/avatar-history";
+import { requireMobileUser, mobileApiError } from "@/lib/mobile-api";
+import { requestOrigin } from "@/lib/user-perks";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -55,6 +57,7 @@ export async function PATCH(request) {
   }
 
   try {
+    await requireMobileUser(request);
     const token = request.headers
       .get("authorization")
       ?.replace(/^Bearer\s+/i, "");
@@ -99,6 +102,9 @@ export async function PATCH(request) {
     const phone = optionalString(body, "phone", { normalizePhone: true });
     const email = optionalString(body, "email", { lowercase: true });
     const profileImage = optionalString(body, "profileImage");
+    if (Object.hasOwn(body, "profileImage") && body.profileImage !== null &&
+        (typeof body.profileImage !== "string" || body.profileImage.length > 2048 || (profileImage && !avatarDisplayUrl(profileImage, requestOrigin(request)))))
+      return json({ success: false, error: { code: "VALIDATION_ERROR", message: "Provide a display URL or avatar preset.", fields: { profileImage: "Invalid profile picture." } } }, 422);
     const bio = Object.hasOwn(body, "bio") ? normalizeProfileBio(body.bio) : undefined;
     const gender = optionalString(body, "gender");
     const dob = Object.hasOwn(body, "dob")
@@ -163,7 +169,7 @@ export async function PATCH(request) {
         422,
       );
 
-    const user = await prisma.user.update({ where: { id: current.id }, data });
+    const user = await updateProfileWithHistory(prisma, current.id, data);
     await reconcileExpiredSpecialIds();
     const identity = await getEffectiveUserId(user.id, user.publicId);
     return json({
@@ -217,6 +223,6 @@ export async function PATCH(request) {
         409,
       );
     }
-    return json(mobileSessionError(error?.message), 401);
+    return mobileApiError(error, "PROFILE_UPDATE_FAILED");
   }
 }

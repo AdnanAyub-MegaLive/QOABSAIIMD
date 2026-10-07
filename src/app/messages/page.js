@@ -3,15 +3,17 @@ import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import { prisma } from "../../lib/prisma";
-import FeatureSearch from "../components/feature-search";
-import PortalSidebar from "../components/portal-sidebar";
+import RoomManagementShell from "../components/room-management-shell";
+import { hasPermission } from "@/lib/portal-permissions";
+
 import MessageHistoryTable from "./message-history-table";
 
 const pageSize = 50;
-const allowedTypes = new Set(["ALL", "WORLD", "DIRECT", "ROOM"]);
+const allowedTypes = new Set(["ALL", "WORLD", "DIRECT", "ROOM", "GROUP", "SYSTEM"]);
 
 export default async function MessagesPage({ searchParams }) {
-  await requirePagePermission("messages.view");
+  const admin = await requirePagePermission("messages.view");
+  const canViewNotifications = hasPermission(admin, "notifications.view");
   const session = await auth();
   if (!session?.user) redirect("/");
 
@@ -21,7 +23,9 @@ export default async function MessagesPage({ searchParams }) {
   const type = allowedTypes.has(requestedType) ? requestedType : "ALL";
   const requestedPage = Number.parseInt(String(params?.page ?? "1"), 10);
   const currentPage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  if (type === "SYSTEM") await requirePagePermission("notifications.view");
   const filters = [Prisma.sql`1 = 1`];
+  if (!canViewNotifications) filters.push(Prisma.sql`"messageType" <> 'SYSTEM'`);
   if (type !== "ALL") filters.push(Prisma.sql`"messageType" = ${type}`);
   if (query) {
     const pattern = `%${query}%`;
@@ -37,7 +41,7 @@ export default async function MessagesPage({ searchParams }) {
   const whereSql = Prisma.join(filters, " AND ");
   const combinedSql = Prisma.sql`
     SELECT
-      CASE WHEN c."kind" = 'WORLD' THEN 'WORLD' ELSE 'DIRECT' END AS "messageType",
+      c."kind"::text AS "messageType",
       m."publicId",
       m."body",
       m."createdAt",
@@ -61,11 +65,15 @@ export default async function MessagesPage({ searchParams }) {
       arm."roomPublicId" AS "destinationId",
       arm."roomTitle" AS "destinationName"
     FROM "AudioRoomMessage" arm
+    UNION ALL
+    SELECT 'SYSTEM', n."publicId", n.title || E'\\n' || n.body, n."createdAt",
+      u."publicId", COALESCE(u.name, 'All users'), NULL, n."publicId", 'System notification'
+    FROM "Notification" n LEFT JOIN "User" u ON u.id = n."userId"
   `;
 
   const [countRows, totalMessages, worldMessages, directMessages, roomMessages] = await Promise.all([
     prisma.$queryRaw(Prisma.sql`SELECT COUNT(*)::bigint AS "count" FROM (${combinedSql}) combined WHERE ${whereSql}`),
-    prisma.message.count().then(async (conversationCount) => conversationCount + await prisma.audioRoomMessage.count()),
+    prisma.message.count().then(async (conversationCount) => conversationCount + await prisma.audioRoomMessage.count() + (canViewNotifications ? await prisma.notification.count() : 0)),
     prisma.message.count({ where: { conversation: { kind: "WORLD" } } }),
     prisma.message.count({ where: { conversation: { kind: "DIRECT" } } }),
     prisma.audioRoomMessage.count(),
@@ -105,17 +113,8 @@ export default async function MessagesPage({ searchParams }) {
   }));
 
   return (
-    <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
-      <PortalSidebar />
-      <section className="lg:pl-64">
-        <header className="flex h-20 items-center gap-6 border-b border-[#dfe9e7] bg-white px-6 md:px-10">
-          <div className="shrink-0">
-            <p className="text-xs font-semibold tracking-widest text-[#16877d] uppercase">Communication</p>
-            <h1 className="text-xl font-bold">Message History</h1>
-          </div>
-          <FeatureSearch />
-        </header>
-        <div className="mx-auto max-w-7xl p-6 md:p-10">
+    <RoomManagementShell title="Message History">
+      <div>
           <div className="mb-7">
             <h2 className="text-2xl font-bold">Platform message trace</h2>
             <p className="mt-1.5 text-sm text-[#71847f]">Search stored messages by sender, text, conversation, room name, room ID, or message ID.</p>
@@ -128,9 +127,8 @@ export default async function MessagesPage({ searchParams }) {
               </div>
             ))}
           </div>
-          <MessageHistoryTable records={records} query={query} type={type} page={page} pageSize={pageSize} total={filteredTotal} totalPages={totalPages} />
+          <MessageHistoryTable records={records} query={query} type={type} canViewNotifications={canViewNotifications} page={page} pageSize={pageSize} total={filteredTotal} totalPages={totalPages} />
         </div>
-      </section>
-    </main>
+    </RoomManagementShell>
   );
 }

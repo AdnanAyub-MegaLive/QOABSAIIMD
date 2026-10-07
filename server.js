@@ -51,6 +51,13 @@ app.prepare().then(async()=>{
   const maintenanceTimer=setInterval(runRealtimeMaintenance,15000);
   maintenanceTimer.unref?.();
   const liveKitAccessFor=(targetUser,roomId,canPublish)=>isLiveKitConfigured()?issueLiveKitAccess(targetUser,roomId,canPublish):Promise.resolve(null);
+  globalThis.portalRevokeOlderSessions=(publicId,version)=>{
+    for(const socket of io.sockets.sockets.values())if(socket.data.userId===publicId && socket.data.sessionVersion<version){
+      socket.emit("session:force-logout",{success:true,data:{sessionVersion:version,forcedLogoutAt:new Date().toISOString(),isBanned:false,banReason:null,banExpiresAt:null,reason:"Your account was signed in again."}});
+      socket.emit("session:revoked",{success:false,error:{code:"SESSION_REVOKED",message:"Your account was signed in again."}});
+      socket.disconnect(true);
+    }
+  };
   globalThis.portalDisconnectUser=(publicId)=>setTimeout(()=>io.in(`user:${publicId}`).disconnectSockets(true),100);
   globalThis.portalRemoveFromAudioRoom=async(publicId,roomId,error={})=>{
     const sockets=await io.in(`user:${publicId}`).fetchSockets();
@@ -195,6 +202,7 @@ app.prepare().then(async()=>{
       const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});
       if(ban){const error=new Error("ACCOUNT_BANNED");error.data={banReason:ban.reason,banExpiresAt:ban.expiresAt?.toISOString()??null};return nextSocket(error);}
       socket.data.userId=user.publicId;
+      socket.data.sessionVersion=payload.sessionVersion;
       nextSocket();
     }catch(error){nextSocket(new Error(error.message||"UNAUTHORIZED"));}
   });
@@ -203,6 +211,19 @@ app.prepare().then(async()=>{
     const userId=socket.data.userId;
     socket.join(`user:${userId}`);
     const user=await prisma.user.findUnique({where:{publicId:userId}});
+    if(!user || user.sessionVersion!==socket.data.sessionVersion){socket.disconnect(true);return;}
+    socket.use(async(packet,nextPacket)=>{
+      try{
+        const payload=verifyMobileSessionToken(socket.handshake.auth?.token);
+        const current=await prisma.user.findUnique({where:{publicId:userId},select:{sessionVersion:true,status:true,deletedAt:true}});
+        if(!current || current.deletedAt || current.status!=="ACTIVE" || current.sessionVersion!==payload.sessionVersion){
+          const response={success:false,error:{code:"SESSION_REVOKED",message:"Your session has been revoked. Please sign in again."}};
+          const ack=packet[packet.length-1];if(typeof ack==="function")ack(response);
+          socket.emit("session:revoked",response);socket.disconnect(true);return;
+        }
+        nextPacket();
+      }catch(error){nextPacket(new Error("SESSION_VALIDATION_FAILED"));}
+    });
     const connectionOrigin=socketOrigin(socket);
     socket.data.audioRoomTaskTimers=new Map();
     const recordAudioRoomTaskTime=async(roomId)=>{

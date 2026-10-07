@@ -1,12 +1,9 @@
 import Link from "next/link";
 
-const typeStyles = {
-  WORLD: "bg-sky-50 text-sky-700",
-  DIRECT: "bg-violet-50 text-violet-700",
-  ROOM: "bg-emerald-50 text-emerald-700",
-};
 
-export default function MessageHistoryTable({ records, query, type, page, pageSize, total, totalPages }) {
+export default function MessageHistoryTable({ records, query, type, page, pageSize, total, totalPages, canViewNotifications }) {
+  const tabs = [["ALL", "All messages"], ["WORLD", "World Chat"], ...(canViewNotifications ? [["SYSTEM", "System Notifications"]] : []), ["DIRECT", "Personal Messages"], ["ROOM", "Room Chats"], ["GROUP", "Group Chats"]];
+  const groups = Map.groupBy(records, record => record.type === "SYSTEM" ? `notification:${record.senderId ?? "global"}` : (record.senderId ?? "deleted"));
   const pageHref = (target) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
@@ -21,6 +18,7 @@ export default function MessageHistoryTable({ records, query, type, page, pageSi
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
+      <nav aria-label="Message categories" className="flex gap-1 overflow-x-auto border-b p-3">{tabs.map(([key, label]) => <Link key={key} href={`/messages?type=${key}`} aria-current={type === key ? "page" : undefined} className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold ${type === key ? "bg-[#e8f5f1] text-[#087f74]" : "text-[#71847f]"}`}>{label}</Link>)}</nav>
       <form method="GET" className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full lg:max-w-xl">
           <svg className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 fill-none stroke-[#80938f] stroke-2" viewBox="0 0 24 24" aria-hidden="true">
@@ -36,53 +34,24 @@ export default function MessageHistoryTable({ records, query, type, page, pageSi
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <select name="type" defaultValue={type} className="h-10 rounded-lg border border-[#dce6e4] bg-white px-3 text-xs text-[#536863]" aria-label="Filter message type">
-            <option value="ALL">All messages</option>
-            <option value="WORLD">World Chat</option>
-            <option value="DIRECT">Private conversations</option>
-            <option value="ROOM">Audio rooms</option>
-          </select>
+          <input type="hidden" name="type" value={type} />
           <button className="rounded-lg bg-[#087f74] px-4 text-xs font-bold text-white">Search</button>
           {(query || type !== "ALL") && <Link href="/messages" className="grid h-10 place-items-center rounded-lg border border-[#dce6e4] px-3 text-xs font-bold">Clear</Link>}
         </div>
       </form>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] text-left text-xs">
-          <thead className="bg-[#f8fbfa] text-[10px] tracking-wider text-[#748883] uppercase">
-            <tr>
-              <th className="px-5 py-3.5">Date & time</th>
-              <th>Type</th>
-              <th>Sender</th>
-              <th>Destination</th>
-              <th className="px-5">Message</th>
-              <th className="px-5">Message ID</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#edf2f1]">
-            {records.map((record) => (
-              <tr key={`${record.type}-${record.id}`} className="align-top hover:bg-[#f9fcfb]">
-                <td className="whitespace-nowrap px-5 py-4 text-[#687c77]">{record.createdAt}</td>
-                <td className="py-4"><span className={`rounded-full px-2.5 py-1 text-[9px] font-bold ${typeStyles[record.type]}`}>{typeLabel(record.type)}</span></td>
-                <td className="py-4">
-                  {record.senderId ? (
-                    <Link href={`/users/${encodeURIComponent(record.senderId)}`} target="_blank" className="font-bold text-[#087f74] hover:underline">
-                      {record.senderName}<span className="mt-0.5 block font-mono text-[9px] font-normal text-[#71847f]">{record.senderId}</span>
-                    </Link>
-                  ) : <span className="text-[#7d8f8b]">Deleted user</span>}
-                </td>
-                <td className="max-w-xs py-4 pr-4">
-                  <p className="font-semibold text-[#334d49]">{record.destinationName}</p>
-                  <p className="mt-0.5 font-mono text-[9px] text-[#71847f]">{record.destinationId}</p>
-                  {record.participants.length > 0 && <p className="mt-1 text-[9px] text-[#80918d]">With {record.participants.map((participant, index) => <span key={participant.id}>{index ? ", " : ""}<Link href={`/users/${encodeURIComponent(participant.id)}`} target="_blank" className="text-[#087f74] hover:underline">{participant.name} ({participant.id})</Link></span>)}</p>}
-                </td>
-                <td className="max-w-xl px-5 py-4"><p className="whitespace-pre-wrap break-words leading-5 text-[#405853]">{record.body}</p></td>
-                <td className="px-5 py-4 font-mono text-[9px] text-[#71847f]">{record.id}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!records.length && <div className="py-16 text-center text-sm text-[#788b87]">No stored messages match this search.</div>}
+      <div className="space-y-4 p-5">
+        <p className="text-xs text-[#71847f]">Grouped by sender; system notifications are grouped by recipient. Groups show matching records on this page.</p>
+        {[...groups].map(([key, items]) => <details key={key} open className="overflow-hidden rounded-xl border border-[#e1ebe8]">
+          <summary className="cursor-pointer bg-[#f6faf8] px-4 py-3 text-sm font-semibold">{items[0].senderName} <span className="ml-2 font-mono text-xs text-[#71847f]">{items[0].senderId || "System / deleted account"}</span><span className="float-right text-xs text-[#71847f]">{items.length} records</span></summary>
+          <div className="divide-y divide-[#edf2f1]">{items.map(record => <article key={record.type + record.id} className="p-4">
+            <div className="flex flex-wrap justify-between gap-2 text-xs text-[#71847f]"><span>{typeLabel(record.type)} · {record.destinationName} · {record.destinationId}</span><time>{record.createdAt}</time></div>
+            {record.participants.length > 0 && <p className="mt-1 text-xs text-[#71847f]">With {record.participants.map(p => p.name + " (" + p.id + ")").join(", ")}</p>}
+            <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[#334d49]">{record.body}</p>
+            <div className="mt-3 flex gap-3 text-[10px] text-[#71847f]"><span>{record.id}</span>{record.senderId && <Link href={`/users/${encodeURIComponent(record.senderId)}`} className="font-semibold text-[#087f74]">View user profile →</Link>}</div>
+          </article>)}</div>
+        </details>)}
+        {!records.length && <p className="py-12 text-center text-sm text-[#71847f]">No records match this category and search.</p>}
       </div>
 
       <div className="flex flex-col gap-3 border-t border-[#e8efed] px-5 py-4 text-[10px] text-[#849691] sm:flex-row sm:items-center sm:justify-between">
@@ -103,5 +72,5 @@ function PageLink({ href, disabled, active, children }) {
 }
 
 function typeLabel(type) {
-  return type === "WORLD" ? "World Chat" : type === "DIRECT" ? "Private" : "Audio Room";
+  return { WORLD: "World Chat", DIRECT: "Personal Message", ROOM: "Room Chat", SYSTEM: "System Notification", GROUP: "Group Chat" }[type] || type;
 }

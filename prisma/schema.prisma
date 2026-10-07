@@ -183,6 +183,8 @@ model AuditLog {
 }
 
 model User {
+  avatarHistory UserAvatarHistory[]
+  signupDeviceId String? @unique
   managementWebSessions ManagementWebSession[]
   progress UserProgress[]
   progressLedger ProgressLedger[]
@@ -537,6 +539,20 @@ model VideoLiveGuestRequest {
 
   @@index([sessionId, userId, status])
   @@index([sessionId, status, requestedAt])
+}
+
+model UserAvatarHistory {
+  id String @id @default(cuid())
+  userId String
+  imageUrl String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
+
+model UserProfileSettings {
+  id String @id @default("default")
+  avatarHistoryLimit Int @default(20)
 }
 
 model UserProfileVisit {

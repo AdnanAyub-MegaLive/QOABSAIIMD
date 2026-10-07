@@ -11,6 +11,8 @@ import { formatDateOnly } from "../../../../lib/date-only";
 import { bannedAccountLoginResponse } from "../../../../lib/mobile-login-response";
 import { requestOrigin,resolveUserPerks } from "../../../../lib/user-perks";
 
+import { assertDeviceAccount, replaceMobileSession, disconnectReplacedSessions } from "@/lib/device-account-policy";
+
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
@@ -27,6 +29,14 @@ export function OPTIONS() {
 }
 
 export async function POST(request) {
+  try { return await login(request); } catch (error) {
+    if (error.status) return json({ success: false, error: { code: error.code, message: error.message } }, error.status);
+    console.error("Mobile login failed", error);
+    return json({ success: false, error: { code: "LOGIN_FAILED", message: "Unable to sign in right now." } }, 500);
+  }
+}
+
+async function login(request) {
   let body;
   try {
     body = await request.json();
@@ -80,7 +90,7 @@ export async function POST(request) {
       },
       422,
     );
-  const user = await prisma.user.findUnique({ where: { phone } });
+  let user = await prisma.user.findUnique({ where: { phone } });
   if (
     !user ||
     user.deletedAt ||
@@ -113,6 +123,7 @@ export async function POST(request) {
     orderBy: { createdAt: "desc" },
   });
   const storedDevice = await prisma.$transaction(async (tx) => {
+    await assertDeviceAccount(tx, deviceId, user.id);
     const record = await tx.device.upsert({
       where: { userId_macAddress: { userId: user.id, macAddress: deviceId } },
       update: {
@@ -198,6 +209,8 @@ export async function POST(request) {
       403,
     );
   }
+  user = await replaceMobileSession(prisma, user.id, deviceId);
+  disconnectReplacedSessions(user);
   await reconcileExpiredSpecialIds();
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const data = {

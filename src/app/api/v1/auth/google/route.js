@@ -11,6 +11,8 @@ import { bannedAccountLoginResponse } from "@/lib/mobile-login-response";
 import { clientIp, v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
 import { requestOrigin,resolveUserPerks } from "@/lib/user-perks";
 
+import { assertDeviceAccount, replaceMobileSession, disconnectReplacedSessions } from "@/lib/device-account-policy";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const path = "/api/v1/auth/google";
@@ -32,7 +34,7 @@ function validationError(request, requestId, fields) {
   }, 422, methods);
 }
 
-async function findOrCreateGoogleUser(profile, phone, selectedCountry, request, requestId) {
+async function findOrCreateGoogleUser(profile, phone, selectedCountry, request, requestId, deviceId) {
   const existingGoogleUser = await prisma.user.findUnique({
     where: { googleSubject: profile.subject },
   });
@@ -57,12 +59,15 @@ async function findOrCreateGoogleUser(profile, phone, selectedCountry, request, 
   const countrySource = selectedCountry.country ? "client" : connectionCountry.source;
 
   const user = await prisma.$transaction(async (tx) => {
+    await assertDeviceAccount(tx, deviceId);
     const publicId = await generateNumericPublicId("USR", async (candidate) =>
       tx.user.findUnique({ where: { publicId: candidate }, select: { id: true } }),
     );
     const created = await tx.user.create({
       data: {
         publicId,
+        signupDeviceId: deviceId,
+        devices: { create: { macAddress: deviceId } },
         googleSubject: profile.subject,
         name: profile.name,
         email: profile.email,
@@ -130,10 +135,11 @@ export async function POST(request) {
           selectedCountry,
           request,
           requestId,
+          deviceId,
         );
 
         await reconcileExpiredBans();
-        const account = await prisma.user.findUnique({ where: { id: user.id } });
+        let account = await prisma.user.findUnique({ where: { id: user.id } });
         if (!account) {
           return v1Json(request, requestId, {
             success: false,
@@ -151,6 +157,7 @@ export async function POST(request) {
         });
         const loginAt = new Date();
         const deviceRecord = await prisma.$transaction(async (tx) => {
+          await assertDeviceAccount(tx, deviceId, user.id);
           const record = await tx.device.upsert({
             where: { userId_macAddress: { userId: user.id, macAddress: deviceId } },
             update: {
@@ -207,6 +214,8 @@ export async function POST(request) {
           }, 403, methods);
         }
 
+        account = await replaceMobileSession(prisma, account.id, deviceId);
+        disconnectReplacedSessions(account);
         await reconcileExpiredSpecialIds();
         const identity = await getEffectiveUserId(account.id, account.publicId);
         const session = mobileSession.createMobileSession(account, { deviceId });
@@ -245,6 +254,7 @@ export async function POST(request) {
           },
         }, created ? 201 : 200, methods);
       } catch (error) {
+        if (error.status) return v1Json(request, requestId, { success: false, error: { code: error.code, message: error.message } }, error.status, methods);
         const known = {
           GOOGLE_SSO_NOT_CONFIGURED: [503, "Google sign-in is not configured on this server."],
           GOOGLE_ID_TOKEN_REQUIRED: [422, "A Google ID token is required."],

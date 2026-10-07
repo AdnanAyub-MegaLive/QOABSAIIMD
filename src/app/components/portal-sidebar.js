@@ -16,7 +16,6 @@ export const portalNavigation = [
   ["Room Management", "/room-management"],
   ["Live Management", "/live-management"],
   ["Rankings", "/rankings"],
-  ["Message History", "/messages"],
   ["Audit Logs", "/audit-logs"],
   ["Accounts & Permissions", "/accounts-permissions"],
   ["Events Management", "/events-login"],
@@ -31,6 +30,7 @@ function isActiveRoute(pathname, href) {
   if (href === "/room-management") {
     return [
       "/room-management",
+      "/messages",
       "/daily-tasks",
       "/red-envelopes",
       "/room-appearance",

@@ -1,3 +1,4 @@
+import { assertDeviceAccount } from "./device-account-policy.js";
 import { assertMobileSession } from "./mobile-session-state.js";
 
 const clean = (value, n) => typeof value === "string" && value.trim() ? value.trim().slice(0, n) : null;
@@ -30,6 +31,7 @@ export async function syncDeviceMetadata(db, payload, input) {
         const active = { revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
         const ban = await tx.ban.findFirst({ where: { ...active, userId: user.id, target: "USER" } });
         if (ban) throw fail("ACCOUNT_BANNED", "This account has been banned.", 403);
+        await assertDeviceAccount(tx, input.deviceId, user.id);
         const where = { userId_macAddress: { userId: user.id, macAddress: input.deviceId } };
         const device = await tx.device.findUnique({ where });
         const deviceBan = device && await tx.ban.findFirst({ where: { ...active, deviceId: device.id, target: "DEVICE" } });
