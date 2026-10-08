@@ -183,6 +183,9 @@ model AuditLog {
 }
 
 model User {
+  medals UserMedal[]
+  profileRelationshipsLeft ProfileRelationship[] @relation("ProfileRelationshipLeft")
+  profileRelationshipsRight ProfileRelationship[] @relation("ProfileRelationshipRight")
   avatarHistory UserAvatarHistory[]
   signupDeviceId String? @unique
   managementWebSessions ManagementWebSession[]
@@ -541,6 +544,46 @@ model VideoLiveGuestRequest {
   @@index([sessionId, status, requestedAt])
 }
 
+model RoleBadge {
+  code String @id
+  label String
+  assetPublicId String?
+  updatedAt DateTime @updatedAt
+}
+
+model UserMedal {
+  id String @id @default(cuid())
+  publicId String @unique
+  userId String
+  assetPublicId String
+  name String
+  earnedAt DateTime @default(now())
+  expiresAt DateTime?
+  revokedAt DateTime?
+  pinned Boolean @default(false)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, pinned, earnedAt, id])
+}
+
+model ProfileRelationship {
+  id String @id @default(cuid())
+  publicId String @unique
+  leftUserId String
+  rightUserId String
+  type String
+  status String @default("PENDING")
+  leftAcceptedAt DateTime?
+  rightAcceptedAt DateTime?
+  startedAt DateTime?
+  expiresAt DateTime?
+  level Int @default(0)
+  left User @relation("ProfileRelationshipLeft", fields: [leftUserId], references: [id], onDelete: Cascade)
+  right User @relation("ProfileRelationshipRight", fields: [rightUserId], references: [id], onDelete: Cascade)
+  @@unique([leftUserId, rightUserId, type])
+  @@index([leftUserId, status])
+  @@index([rightUserId, status])
+}
+
 model UserAvatarHistory {
   id String @id @default(cuid())
   userId String
@@ -580,6 +623,9 @@ model UserProfileLike {
 }
 
 model Agency {
+  logoAssetPublicId String?
+  badgeAssetPublicId String?
+  level Int @default(0)
   country String?
   id                    String              @id @default(cuid())
   publicId              String              @unique
@@ -1195,6 +1241,7 @@ model Device {
 }
 
 model GiftTransaction {
+  reversedAt DateTime?
   id              String            @id @default(cuid())
   giftBatchId     String?           @db.VarChar(64)
   senderId        String

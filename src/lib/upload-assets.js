@@ -1,4 +1,8 @@
 export const uploadCategories = {
+  "Profile Dresses": "PROFILE_DRESS",
+  Medals: "MEDALS",
+  "Role Artwork": "ROLE_ARTWORK",
+  "Agency Artwork": "AGENCY_ARTWORK",
   Banners: "BANNERS",
   Frames: "FRAMES",
   "Entrance Strip": "ENTRANCES",
@@ -106,6 +110,7 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (category === "SEAT_STYLES" && mimeType && !seatStyleMimeTypes.has(mimeType)) {
     throw validationError("Seat styles must be PNG, JPEG, or WebP images.");
   }
+  if (["PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category) && mimeType && !["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(mimeType)) throw validationError("Profile artwork must be PNG, JPEG, WebP, GIF or MP4.");
   if (category === "BUSINESS_CARD" && mimeType && !businessCardMimeTypes.has(mimeType)) {
     throw validationError("Business cards must be PNG, JPEG, WebP, or MP4.");
   }

@@ -46,6 +46,7 @@ export const pagePermissions = {
   "/daily-tasks": "tasks.view", "/red-envelopes": "envelopes.view", "/room-appearance": "appearance.view", "/room-games": "roomGames.view",
   "/games-management": "games.view", "/games/preview": "games.view", "/live-video-management": "video.view", "/live-management": "video.view",
   "/notifications-management": "notifications.view", "/content-moderation": "content.view", "/rankings": "rankings.view",
+  "/profile-display": "users.edit",
   "/messages": "messages.view", "/audit-logs": "audit.view", "/accounts-permissions": "accounts.view",
 };
 export function permissionForPage(href) {

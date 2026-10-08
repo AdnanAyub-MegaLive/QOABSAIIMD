@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { durationCalculation } from "../utils/duration";
 
 const tabs = [
+  "Profile Dresses", "Medals", "Role Artwork", "Agency Artwork",
   "Banners",
   "Frames",
   "Entrance Strip",
@@ -21,6 +22,7 @@ const tabs = [
   "Music",
 ];
 const categories = {
+  "Profile Dresses": "PROFILE_DRESS", Medals: "MEDALS", "Role Artwork": "ROLE_ARTWORK", "Agency Artwork": "AGENCY_ARTWORK",
   Banners: "BANNERS",
   Frames: "FRAMES",
   "Entrance Strip": "ENTRANCES",
@@ -695,7 +697,7 @@ function UserRow({ user, meta, action, tone, onAction }) {
 function UploadModal({ active, users, onClose, onCreated }) {
   const isBanner = active === "Banners";
   const isGift = active === "Gifts";
-  const isBusinessCard = active === "Business Cards";
+  const isBusinessCard = ["Business Cards", "Profile Dresses"].includes(active);
   const isMusic = active === "Music";
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");

@@ -1,2 +1,21 @@
-import { prisma } from "@/lib/prisma";import { mobileApiError,mobileJson,mobileOptions,requireMobileUser } from "@/lib/mobile-api";import { requestOrigin } from "@/lib/user-perks";import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
-export function OPTIONS(){return mobileOptions()}export async function GET(request,{params}){try{const viewer=await requireMobileUser(request),{publicId}=await params,target=await prisma.user.findUnique({where:{publicId:decodeURIComponent(publicId)}});if(!target||target.deletedAt||target.status!=="ACTIVE")throw new Error("USER_NOT_FOUND");const blocked=await prisma.userBlock.findFirst({where:{OR:[{blockerId:viewer.id,blockedId:target.id},{blockerId:target.id,blockedId:viewer.id}]}});if(blocked)throw new Error("PROFILE_BLOCKED");const url=new URL(request.url),type=String(url.searchParams.get("type")??"photos").toLowerCase(),limit=Math.min(50,Math.max(1,Number(url.searchParams.get("limit"))||20)),offset=Math.max(0,Number(url.searchParams.get("cursor"))||0),origin=requestOrigin(request);if(type==="photos"){const [total,rows]=await Promise.all([prisma.userAlbumItem.count({where:{userId:target.id,status:"APPROVED"}}),prisma.userAlbumItem.findMany({where:{userId:target.id,status:"APPROVED"},orderBy:{createdAt:"desc"},skip:offset,take:limit})]);return mobileJson({success:true,data:{type,total,nextCursor:offset+rows.length<total?String(offset+rows.length):null,items:rows}})}if(type==="badges"){const rows=await prisma.uploadAssetAssignment.findMany({where:{userId:target.id,asset:{category:"BADGES",active:true},OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},include:{asset:true},orderBy:{assignedAt:"desc"},skip:offset,take:limit+1});const page=rows.slice(0,limit);return mobileJson({success:true,data:{type,nextCursor:rows.length>limit?String(offset+limit):null,items:page.map(x=>({id:x.asset.publicId,name:x.asset.name,mimeType:x.asset.mimeType,url:createPublicDisplayAssetUrl(origin,x.asset.publicId),expiresAt:x.expiresAt?.toISOString()??null}))}})}if(type==="gifts"){const rows=await prisma.giftTransaction.groupBy({by:["giftAssetId","giftName"],where:{recipientUserId:target.id},_sum:{quantity:true,coinValue:true},orderBy:{_sum:{coinValue:"desc"}},skip:offset,take:limit+1}),page=rows.slice(0,limit);return mobileJson({success:true,data:{type,nextCursor:rows.length>limit?String(offset+limit):null,items:page.map(x=>({giftId:x.giftAssetId,name:x.giftName,quantity:x._sum.quantity??0,totalCoins:(x._sum.coinValue??0n).toString()}))}})}throw Object.assign(new Error("Wall type must be photos, gifts, or badges."),{code:"VALIDATION_ERROR"})}catch(e){return mobileApiError(e,"PROFILE_WALL_FAILED")}}
+import { prisma } from "@/lib/prisma";
+import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
+import { requestOrigin } from "@/lib/user-perks";
+import { profileAccess, medalWall, receivedGiftWall, wallOffset, wallCursor } from "@/lib/public-profile";
+import { avatarDisplayUrl } from "@/lib/avatar-history";
+export function OPTIONS() { return mobileOptions(); }
+export async function GET(request, { params }) {
+  try {
+    const viewer = await requireMobileUser(request), { publicId } = await params;
+    const { target } = await profileAccess(viewer, publicId);
+    const query = new URL(request.url).searchParams, type = query.get("type") ?? "photos";
+    const limit = Number(query.get("limit") ?? 20), cursor = query.get("cursor"), origin = requestOrigin(request);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new Error("VALIDATION_ERROR");
+    if (type === "badges") return mobileJson({ success: true, data: { type, ...await medalWall(target.id, origin, { limit, cursor }) } });
+    if (type === "gifts") return mobileJson({ success: true, data: { type, ...await receivedGiftWall(target.id, origin, { limit, cursor }) } });
+    if (type !== "photos") throw new Error("VALIDATION_ERROR");
+    const offset = wallOffset(cursor);
+    const rows = await prisma.userAlbumItem.findMany({ where: { userId: target.id, status: "APPROVED" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: offset, take: limit + 1 });
+    return mobileJson({ success: true, data: { type, items: rows.slice(0, limit).map(row => ({ id: row.id, mediaUrl: avatarDisplayUrl(row.mediaUrl, origin), mediaType: row.mediaType, caption: row.caption, createdAt: row.createdAt })), nextCursor: rows.length > limit ? wallCursor(offset + limit) : null } });
+  } catch (error) { return mobileApiError(error, "PROFILE_WALL_FAILED"); }
+}

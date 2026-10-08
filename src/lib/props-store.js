@@ -4,6 +4,7 @@ import { createSignedAssetUrl } from "./upload-assets.js";
 import { requestOrigin } from "./user-perks.js";
 
 export const equippablePropCategories = new Set([
+  "PROFILE_DRESS",
   "FRAMES",
   "ENTRANCES",
   "RIDES",

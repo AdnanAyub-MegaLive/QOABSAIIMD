@@ -78,11 +78,11 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
   return senderSnapshot;
 }
 
-export async function publicProgression(users,origin,db=prisma) {
+export async function publicProgression(users,origin,db=prisma,includeTotals=false) {
   const rows=await db.userProgress.findMany({where:{userId:{in:users.map(u=>u.id).filter(Boolean)}},include:{configuration:{include:{levels:true}}}});
   return new Map(users.map(user=>{
     const tracks=rows.filter(r=>r.userId===user.id).map(r=>levelSnapshot(r,r.configuration.levels,origin));
     const u=tracks.find(t=>t.type==="USER"),c=tracks.find(t=>t.type==="CHARM");
-    return [user.publicId,{level:u?.level??0,userLevel:u?.level??0,charmLevel:c?.level??0,anchorLevel:c?.level??0,userLevelBadgeUrl:u?.badgeUrl??null,charmLevelBadgeUrl:c?.badgeUrl??null}];
+    return [user.publicId,{level:u?.level??0,userLevel:u?.level??0,charmLevel:c?.level??0,anchorLevel:c?.level??0,userLevelBadgeUrl:u?.badgeUrl??null,charmLevelBadgeUrl:c?.badgeUrl??null,...(includeTotals?{progression:{user:{level:u?.level??0,lifetimePoints:u?.lifetimePoints??"0",badgeUrl:u?.badgeUrl??null},charm:{level:c?.level??0,lifetimePoints:c?.lifetimePoints??"0",badgeUrl:c?.badgeUrl??null}}}:{})}];
   }));
 }

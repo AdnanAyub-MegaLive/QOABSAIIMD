@@ -382,9 +382,9 @@ export async function POST(request) {
       return Response.json({ success: false, error: { code: "UNSUPPORTED_POSTER_TYPE", message: "Poster images must be PNG, JPEG, or WebP." } }, { status: 415 });
     if (hasPoster && posterFile.size > 5 * 1024 * 1024)
       return Response.json({ success: false, error: { code: "POSTER_TOO_LARGE", message: "Poster images cannot exceed 5 MB." } }, { status: 413 });
-    if (hasPoster && category !== "BUSINESS_CARD")
+    if (hasPoster && !["BUSINESS_CARD", "PROFILE_DRESS", "FRAMES", "BADGES", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category))
       return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Poster images are currently supported only for Business Cards." } }, { status: 422 });
-    if (category === "BUSINESS_CARD" && file.type === "video/mp4" && !hasPoster)
+    if (["BUSINESS_CARD", "PROFILE_DRESS"].includes(category) && file.type === "video/mp4" && !hasPoster)
       return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Video Business Cards require a poster image." } }, { status: 422 });
     const users = await resolveUsers(prisma, selectedIds);
     const publicId = `AST-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;

@@ -8,6 +8,7 @@ import { allowedNavigation, usePortalAccess } from "./portal-access";
 export const portalNavigation = [
   ["Overview", "/home"],
   ["Users / Senders", "/users"],
+  ["Profile Display", "/profile-display"],
   ["Host Management", "/talents"],
   ["Agency Management", "/agencies"],
   ["Finance & Wallet", "/finance"],
