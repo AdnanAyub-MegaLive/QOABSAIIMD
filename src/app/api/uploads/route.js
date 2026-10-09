@@ -85,7 +85,7 @@ function distributionFields(input, isBanner) {
   const minimumVipLevel = optionalWholeNumber(
     input.minimumVipLevel,
     "Minimum VIP level",
-    { min: 1, max: 5 },
+    { min: 1, max: 2147483647 },
   );
   const minimumRecharge = optionalWholeNumber(
     input.minimumRecharge,

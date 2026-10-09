@@ -183,6 +183,7 @@ model AuditLog {
 }
 
 model User {
+  vipMembership VipMembership?
   medals UserMedal[]
   profileRelationshipsLeft ProfileRelationship[] @relation("ProfileRelationshipLeft")
   profileRelationshipsRight ProfileRelationship[] @relation("ProfileRelationshipRight")
@@ -593,6 +594,39 @@ model UserAvatarHistory {
   @@index([userId, createdAt])
 }
 
+model VipTier {
+  id String @id @default(cuid())
+  name String
+  level Int @unique
+  validDays Int
+  active Boolean @default(true)
+  privileges String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  assets VipBenefitAsset[]
+  members VipMembership[]
+}
+
+model VipBenefitAsset {
+  tierId String
+  privilege String
+  assetId String
+  tier VipTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  asset UploadAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  @@id([tierId, privilege, assetId])
+}
+
+model VipMembership {
+  userId String @id
+  tierId String
+  startsAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier VipTier @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  @@index([expiresAt])
+}
+
 model UserProfileSettings {
   id String @id @default("default")
   avatarHistoryLimit Int @default(20)
@@ -935,6 +969,7 @@ model EventAuditLog {
 }
 
 model UploadAsset {
+  vipBenefits VipBenefitAsset[]
   senderXp BigInt @default(0)
   receiverXp BigInt @default(0)
   id                          String                       @id @default(cuid())

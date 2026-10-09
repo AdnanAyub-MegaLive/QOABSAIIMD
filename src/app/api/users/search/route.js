@@ -28,6 +28,8 @@ export async function GET(request) {
     const users = await prisma.user.findMany({
       where: {
         deletedAt: null,
+        status: "ACTIVE",
+        bans: { none: { target: "USER", revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } },
         id: { not: user.id },
         OR: [
           { publicId: { contains: query, mode: "insensitive" } },

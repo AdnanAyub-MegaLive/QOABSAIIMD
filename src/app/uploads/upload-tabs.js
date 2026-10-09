@@ -1196,19 +1196,11 @@ function DistributionSettings({
         )}
         {distribution === "VIP" && (
           <Field label="Minimum VIP level">
-            <select
+            <input type="number" min="1" max="2147483647" step="1"
               value={minimumVipLevel}
-              onChange={(event) =>
-                onMinimumVipLevel(Number(event.target.value))
-              }
+              onChange={(event) => onMinimumVipLevel(Number(event.target.value))}
               className={inputClass}
-            >
-              {[1, 2, 3, 4, 5].map((level) => (
-                <option key={level} value={level}>
-                  VIP {level}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
         )}
         {distribution === "SVIP" && (

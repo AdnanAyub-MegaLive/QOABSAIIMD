@@ -1,5 +1,6 @@
 // Shared vocabulary: every assignable key must have a server enforcement point.
 export const permissionGroups = [
+  ["vip", "VIP Management", [["view", "View VIP tiers and memberships"], ["manage", "Create tiers and grant or revoke timed VIP memberships"]]],
   ["dashboard", "Dashboard", [["view", "View platform overview and statistics"]]],
   ["users", "Users / Senders", [["view", "View user profiles and records"], ["edit", "Edit user profiles and application roles"], ["create", "Create application accounts"], ["verify", "Verify users / official status"], ["ban", "Ban or unban accounts"], ["devices", "Ban or unban devices"], ["logout", "Force user logout"], ["password", "Reset user passwords"], ["delete", "Delete user accounts"], ["specialIds", "Manage special IDs"], ["props", "Grant or revoke user props"]]],
   ["hosts", "Host Management", [["view", "View hosts, earnings and records"], ["manage", "Edit hosts, approvals and agency membership"], ["salary", "Change host salary"]]],
@@ -41,12 +42,12 @@ export function validatePermissions(value, actor) {
 }
 
 export const pagePermissions = {
+  "/vip-management": "vip.view",
   "/home": "dashboard.view", "/users": "users.view", "/talents": "hosts.view", "/agencies": "agencies.view",
   "/finance": "finance.view", "/platform-rules": "rules.view", "/uploads": "uploads.view", "/room-management": "rooms.view",
   "/daily-tasks": "tasks.view", "/red-envelopes": "envelopes.view", "/room-appearance": "appearance.view", "/room-games": "roomGames.view",
   "/games-management": "games.view", "/games/preview": "games.view", "/live-video-management": "video.view", "/live-management": "video.view",
   "/notifications-management": "notifications.view", "/content-moderation": "content.view", "/rankings": "rankings.view",
-  "/profile-display": "users.edit",
   "/messages": "messages.view", "/audit-logs": "audit.view", "/accounts-permissions": "accounts.view",
 };
 export function permissionForPage(href) {

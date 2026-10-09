@@ -1,5 +1,5 @@
 import crypto from "node:crypto";import { prisma } from "@/lib/prisma";import { mobileApiError,mobileJson,mobileOptions,requireMobileUser } from "@/lib/mobile-api";import { emitToVideoLive,emitToUser } from "@/lib/realtime";
-import { updateLiveKitPublishPermission } from "@/lib/livekit-authorization";
+import { updateRtcPublishPermission as updateLiveKitPublishPermission } from "@/lib/rtc-moderation";
 import { reviewVideoGuest } from "@/lib/video-guests";
 export function OPTIONS(){return mobileOptions()}
 export async function GET(request,{params}){try{const user=await requireMobileUser(request),{liveId}=await params,row=await prisma.videoLiveSession.findUnique({where:{publicId:decodeURIComponent(liveId)},include:{guestRequests:{where:{status:{in:["PENDING","APPROVED"]}},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{requestedAt:"asc"}}}});if(!row)throw Object.assign(new Error("Live video not found."),{code:"LIVE_NOT_FOUND"});if(row.hostId!==user.id)throw Object.assign(new Error("Only the host can view guest requests."),{code:"LIVE_HOST_REQUIRED"});return mobileJson({success:true,data:{requests:row.guestRequests}})}catch(e){return mobileApiError(e,"LIVE_GUESTS_FAILED")}}

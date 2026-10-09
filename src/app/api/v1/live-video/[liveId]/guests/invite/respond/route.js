@@ -1,7 +1,7 @@
 import { requireMobileUser, mobileJson, mobileApiError } from "@/lib/mobile-api";
 import { respondVideoInvite } from "@/lib/video-guests";
 import { emitToVideoLive, emitToUser } from "@/lib/realtime";
-import { updateLiveKitPublishPermission } from "@/lib/livekit-authorization";
+import { updateRtcPublishPermission as updateLiveKitPublishPermission } from "@/lib/rtc-moderation";
 export async function POST(request, { params }) {
   try {
     const user = await requireMobileUser(request), { liveId } = await params, body = await request.json();

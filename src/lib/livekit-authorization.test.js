@@ -8,6 +8,7 @@ const apiSecret = "test-api-secret-with-enough-entropy";
 afterEach(() => vi.unstubAllEnvs());
 
 function configure() {
+  vi.stubEnv("RTC_PROVIDER", "LIVEKIT");
   vi.stubEnv("LIVEKIT_URL", "wss://mega-live.example");
   vi.stubEnv("LIVEKIT_API_KEY", apiKey);
   vi.stubEnv("LIVEKIT_API_SECRET", apiSecret);

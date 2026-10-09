@@ -35,6 +35,8 @@
     "react-dom": "19.2.4",
     "sharp": "^0.35.5",
     "socket.io": "^4.8.3",
+    "tencentcloud-sdk-nodejs-trtc": "4.1.315",
+    "tls-sig-api-v2": "1.0.2",
     "unzipper": "^0.12.5",
     "zod": "^4.4.3"
   },

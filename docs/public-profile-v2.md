@@ -4,10 +4,15 @@ GET `/api/v1/users/{publicId}/profile` requires Bearer authentication. Returns t
 
 - `equippedAssets.avatarFrame`, `profileBadge`, `profileDress`: explicit equipped, active, entitled assets only. Null after unequip. Categories FRAMES, BADGES and PROFILE_DRESS respectively. Descriptor fields: assetId, url, posterUrl, mimeType. Compatibility frameUrl/badgeUrl/homeDress fields match the canonical descriptors.
 - `progression.user/charm`: backend level, decimal-string lifetimePoints, badgeUrl. Counters wealth/charm use these points, not wallet balances.
-- `roleBadges`: active application-role codes with backend labels and optional artwork. Portal **Profile Display → Role badges** configures artwork; it does not grant roles.
-- `agency`: active membership only, publicId/name/status/level/logoUrl/badgeUrl. Configure under **Profile Display → Agency identity** with users.edit and agencies.manage permissions.
+- `roleBadges`: active application-role codes with backend labels and optional artwork. Existing records remain readable; replacement configuration workflow is pending.
+- `agency`: active membership only, publicId/name/status/level/logoUrl/badgeUrl. Existing identity records remain readable; replacement artwork/level configuration workflow is pending.
 - `topSupporters`: up to three active senders, sum of committed GiftTransaction.coinValue, excluding reversedAt records. Financial refund implementations must set reversedAt in their refund transaction; this change does not implement financial refunds.
-- `medalWall`: earned non-revoked/non-expired MEDALS awards, pinned first, first four. Grant/revoke under **Profile Display**. These are not equipped badges or progression badges.
+- `medalWall`: earned non-revoked/non-expired MEDALS awards, pinned first, first four. These are not equipped badges or progression badges. Replacement grant/revoke workflow is pending.
+
+The Profile Display portal section and its `/api/admin/profile-display` API were
+removed on 2026-10-09 at product request. Database records, upload assets and
+mobile profile read responses are preserved. No replacement editor is introduced
+by this removal.
 - `giftWall`: aggregate by gift asset, descending value/quantity with a stable tie-breaker. Monetary values are strings.
 - `relationship`: isSelf/isFriend/isFollowing/followsYou/isBlocked and friendRequest status/id. Blocked profiles return PROFILE_BLOCKED rather than leaking the target profile.
 - DOB and calculated age are null for viewers not permitted to see DOB. Walls use the same private/block checks as the profile.

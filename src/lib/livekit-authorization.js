@@ -1,4 +1,5 @@
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
+import { rtcProvider } from "./rtc-provider.js";
 
 const DEFAULT_TTL_SECONDS = 10 * 60;
 const MIN_TTL_SECONDS = 5 * 60;
@@ -6,6 +7,7 @@ const MAX_TTL_SECONDS = 60 * 60;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 function liveKitConfiguration() {
+  if (rtcProvider() !== "LIVEKIT") throw new Error("RTC_PROVIDER_DISABLED");
   const configuredUrl = String(process.env.LIVEKIT_URL ?? "").trim().replace(/\/$/, "");
   const url = configuredUrl.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
   const apiKey = String(process.env.LIVEKIT_API_KEY ?? "").trim();

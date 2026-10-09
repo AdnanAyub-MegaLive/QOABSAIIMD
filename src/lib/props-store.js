@@ -29,13 +29,14 @@ export async function syncProgressionProps(userId, client = prisma) {
     select: { id: true, vipLevel: true, totalTopUp: true, deletedAt: true },
   });
   if (!user || user.deletedAt) return;
+  const vipMembership = await client.vipMembership.findUnique({ where: { userId } });
   const eligible = await client.uploadAsset.findMany({
     where: {
       active: true,
       OR: [
         {
           distribution: "VIP",
-          minimumVipLevel: { not: null, lte: user.vipLevel },
+          minimumVipLevel: { not: null, lte: vipMembership ? 0 : user.vipLevel },
         },
         {
           distribution: "SVIP",

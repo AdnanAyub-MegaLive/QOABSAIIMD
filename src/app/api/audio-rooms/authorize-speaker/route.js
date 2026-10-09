@@ -5,7 +5,9 @@ import {
   mobileOptions,
   requireMobileUser,
 } from "@/lib/mobile-api";
-import { issueLiveKitAccess, updateLiveKitPublishPermission } from "@/lib/livekit-authorization";
+import { issueLiveKitAccess } from "@/lib/livekit-authorization";
+import { updateRtcPublishPermission as updateLiveKitPublishPermission } from "@/lib/rtc-moderation";
+import { rtcProvider } from "@/lib/rtc-provider";
 import { readAudioRoomSeatState } from "@/lib/audio-room-seats";
 import { requestOrigin } from "@/lib/user-perks";
 
@@ -174,7 +176,8 @@ async function changeAuthorization(request, forcedAuthorization) {
         authorized,
         seatId: occupiedSeat?.seatId ?? null,
         seatState,
-        liveKit: await issueLiveKitAccess(speaker, roomId, authorized),
+        rtcProvider: rtcProvider(),
+        liveKit: rtcProvider() === "LIVEKIT" ? await issueLiveKitAccess(speaker, roomId, authorized) : null,
       },
     });
   } catch (error) {

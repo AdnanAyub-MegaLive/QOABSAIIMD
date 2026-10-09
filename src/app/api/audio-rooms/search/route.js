@@ -89,7 +89,7 @@ export async function GET(request) {
           },
         },
       },
-      orderBy: [{ participantCount: "desc" }, { startedAt: "desc" }],
+      orderBy: [{ title: "asc" }, { roomId: "asc" }],
       take: 20,
     });
     const origin = requestOrigin(request);

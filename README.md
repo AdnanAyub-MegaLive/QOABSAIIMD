@@ -9,7 +9,19 @@ seats, and real-time Socket.IO activity.
 - Next.js 16 and React 19
 - PostgreSQL with Prisma
 - Socket.IO for real-time portal and mobile events
-- LiveKit for Android audio and video rooms
+- Selectable Tencent TRTC / LiveKit audio and video transport
+
+## RTC provider switch (2026-10-09)
+
+Local configuration selects `RTC_PROVIDER=TRTC` (SDKAppID `20044231`). LiveKit
+code and credentials are retained for rollback, but new LiveKit tokens are
+disabled in TRTC mode. Tencent signing secrets stay in ignored `.env.local`.
+TRTC issuance requires console Advanced Permission Control confirmation and
+Tencent Cloud moderation credentials. Restart the custom server after setup.
+See [TRTC mobile handoff](docs/trtc-mobile-handoff.md) for the new `rtc-token`
+routes, socket fields, mobile implementation steps and remaining release gates.
+This configuration change does not migrate mobile SDKs or stop an existing
+LiveKit deployment. Test cloud removal, stale tickets and teardown before release.
 
 ## Portal staff accounts and permissions
 

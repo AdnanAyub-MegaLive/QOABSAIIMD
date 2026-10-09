@@ -130,8 +130,8 @@ export default function ProfileManager({ profile, type }) {
               <>
                 <Action text="Adjust role" onClick={() => setModal("role")} />
                 <Action
-                  text="Manage VIP level"
-                  onClick={() => setModal("vip")}
+                  text="Manage VIP membership"
+                  onClick={() => window.location.assign("/vip-management")}
                 />
                 <Action
                   text="Add / Remove coins"

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { synchronizeVip } from "./vip-membership.js";
 import mobileSession from "./mobile-session.cjs";
 import { assertMobileSession, mobileSessionError } from "./mobile-session-state";
 
@@ -54,6 +55,8 @@ export async function requireMobileUser(request) {
     if (!device) throw new Error("DEVICE_NOT_REGISTERED");
     if (device.isBanned) throw new Error("DEVICE_BANNED");
   }
+  const vipLevel = await synchronizeVip(user.id);
+  if (vipLevel !== null) user.vipLevel = vipLevel;
   return user;
 }
 
@@ -121,6 +124,14 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     GUEST_REQUEST_UNAVAILABLE: [409, "GUEST_REQUEST_UNAVAILABLE", "This guest request is no longer available."],
     GUEST_SLOTS_FULL: [409, "GUEST_SLOTS_FULL", "All four guest publisher slots are occupied."],
     LIVEKIT_NOT_CONFIGURED: [503, "LIVEKIT_NOT_CONFIGURED", "LiveKit is not configured on this server."],
+    RTC_PROVIDER_DISABLED: [409, "RTC_PROVIDER_DISABLED", "Use the active provider through the rtc-token endpoint."],
+    RTC_PROVIDER_INVALID: [503, "RTC_PROVIDER_INVALID", "The RTC provider configuration is invalid."],
+    RTC_ROOM_JOIN_REQUIRED: [403, "RTC_ROOM_JOIN_REQUIRED", "Join the room through authenticated Socket.IO before requesting RTC credentials."],
+    RTC_INVALID_IDENTITY: [422, "RTC_INVALID_IDENTITY", "Unsupported RTC identity."],
+    TRTC_NOT_CONFIGURED: [503, "TRTC_NOT_CONFIGURED", "Tencent RTC is not configured."],
+    TRTC_PERMISSION_SETUP_REQUIRED: [503, "TRTC_PERMISSION_SETUP_REQUIRED", "Tencent advanced permission configuration must be confirmed."],
+    TRTC_CLOUD_NOT_CONFIGURED: [503, "TRTC_CLOUD_NOT_CONFIGURED", "Tencent cloud moderation credentials are required."],
+    RTC_MODERATION_FAILED: [503, "RTC_MODERATION_FAILED", "RTC moderation failed. Retry the operation."],
     PK_CONFLICT: [409, "PK_CONFLICT", "One of these rooms is already participating in PK."],
     PK_NOT_FOUND: [404, "PK_NOT_FOUND", "This PK session was not found."],
     PK_STATE_INVALID: [409, "PK_STATE_INVALID", "That action is unavailable in the current PK state."],
