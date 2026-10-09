@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { adminProfileFields } from "../lib/admin-profile-input";
 import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "../lib/prisma";
 import { generateTemporaryPassword, hashPassword } from "../lib/password";
@@ -76,12 +77,8 @@ export async function updateUserAccount(publicId, changes) {
       status: true,
     },
   });
-  const data = {};
+  const data = adminProfileFields(changes);
   let nextRoles = normalizeApplicationRoles(currentUser.appRoles);
-  if (changes.name !== undefined) data.name = changes.name;
-  if (changes.email !== undefined) data.email = normalizeEmail(changes.email);
-  if (changes.phone !== undefined) data.phone = normalizePhone(changes.phone);
-  if (changes.country !== undefined) data.country = changes.country;
   if (changes.role !== undefined) {
     data.role = enumValue(changes.role);
     if (data.role === "HOST" && !currentUser.agencyId)

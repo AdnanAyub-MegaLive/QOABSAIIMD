@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import CountrySelect from "./country-select";
 import {
   adjustUserCoins,
   assignSpecialId,
@@ -797,6 +798,16 @@ function Action({ text, onClick, disabled = false }) {
 }
 
 function ManageModal({ type, profile, isTalent, onClose, onSave }) {
+  const [pending, setPending] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  async function save(updates) {
+    if (pending) return;
+    setPending(true);
+    setSaveError("");
+    try { await onSave(updates); }
+    catch { setSaveError("Unable to save changes. Check the email/phone is not already used and that your account has permission to edit this profile."); }
+    finally { setPending(false); }
+  }
   const roleChoices = ["Listener", "Sender", "Creator", "Host", "Moderator", "Official", "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head", "Manager"];
   const [roles, setRoles] = useState(profile.roles?.length ? profile.roles : [profile.role]);
   const [value, setValue] = useState(
@@ -814,17 +825,17 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const auditReason = String(form.get("reason") || "");
-    if (type === "vip") onSave({ vipLevel: Number(value), auditReason });
+    if (type === "vip") save({ vipLevel: Number(value), auditReason });
     else if (type === "role") {
       if (!roles.length) return;
-      onSave({ roles, isOfficial: roles.includes("Official"), auditReason });
+      save({ roles, isOfficial: roles.includes("Official"), auditReason });
     }
-    else if (type === "status") onSave({ status: value, auditReason });
+    else if (type === "status") save({ status: value, auditReason });
     else if (type === "verification")
-      onSave({ verification: value, auditReason });
-    else if (type === "salary") onSave({ salary: Number(value), auditReason });
+      save({ verification: value, auditReason });
+    else if (type === "salary") save({ salary: Number(value), auditReason });
     else if (type === "coins")
-      onSave({
+      save({
         coinAdjustment: {
           operation: form.get("operation"),
           amount: Number(form.get("amount")),
@@ -832,7 +843,7 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
         },
       });
     else if (type === "edit")
-      onSave({
+      save({
         name: form.get("name"),
         email: form.get("email"),
         phone: form.get("phone"),
@@ -881,7 +892,7 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
                 type="email"
               />
               <Input name="phone" label="Phone" value={profile.phone} />
-              <Input name="country" label="Country" value={profile.country} />
+              <CountrySelect value={profile.country} />
             </div>
           ) : type === "coins" ? (
             <>
@@ -945,6 +956,7 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
               <Reason />
             </>
           )}
+          {saveError && <p role="alert" className="mt-4 text-xs text-red-600">{saveError}</p>}
           <div className="mt-6 flex justify-end gap-2 border-t border-[#e8efed] pt-5">
             <button
               type="button"
@@ -953,8 +965,8 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
             >
               Cancel
             </button>
-            <button className="h-10 rounded-lg bg-[#087f74] px-5 text-xs font-bold text-white">
-              Save changes
+            <button disabled={pending} className="h-10 rounded-lg bg-[#087f74] px-5 text-xs font-bold text-white disabled:opacity-50">
+              {pending ? "Saving…" : "Save changes"}
             </button>
           </div>
         </form>
@@ -970,7 +982,7 @@ function Input({ label, name, value, type = "text" }) {
         name={name}
         type={type}
         defaultValue={value ?? ""}
-        required={name !== "email" || Boolean(value)}
+        required={!["email", "phone"].includes(name)}
         min={type === "number" ? 1 : undefined}
         className="mt-2 h-11 w-full rounded-lg border border-[#dce6e4] px-3 text-xs font-normal"
       />

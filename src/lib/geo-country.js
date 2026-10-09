@@ -12,6 +12,7 @@ const COUNTRY_CODES = new Set((
 const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
 const normalizeName = value => String(value ?? "").trim().toLocaleLowerCase("en").normalize("NFKD").replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 const COUNTRY_NAMES = new Map([...COUNTRY_CODES].map(code => [normalizeName(displayNames.of(code)), code]));
+export const countryOptions = [...COUNTRY_CODES].map(code => ({ code, name: displayNames.of(code) })).sort((a, b) => a.name.localeCompare(b.name, "en"));
 for (const [name, code] of Object.entries({
   "united states of america": "US", usa: "US", uk: "GB", "great britain": "GB",
   "south korea": "KR", "north korea": "KP", russia: "RU", vietnam: "VN",

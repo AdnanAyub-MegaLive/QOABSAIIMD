@@ -9,7 +9,7 @@ export function avatarDisplayUrl(value, origin) {
   } catch { return null; }
 }
 
-export async function updateProfileWithHistory(db, userId, data) {
+export async function updateProfileWithHistory(db, userId, data, beforeUpdate = async () => {}) {
   return db.$transaction(async tx => {
     // Serialize all profile changes for this user so simultaneous edits cannot
     // lose the picture immediately preceding them.
@@ -26,6 +26,7 @@ export async function updateProfileWithHistory(db, userId, data) {
       const oldest = await tx.userAvatarHistory.findMany({ where: { userId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: limit, select: { id: true } });
       if (oldest.length) await tx.userAvatarHistory.deleteMany({ where: { userId, id: { in: oldest.map(row => row.id) } } });
     }
+    await beforeUpdate(tx);
     return tx.user.update({ where: { id: userId }, data });
   });
 }

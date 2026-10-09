@@ -8,6 +8,7 @@ import {
 import { sessionInvalidation, mobileSessionError } from "../../../../../lib/mobile-session-state";
 
 const publicDisplayCategories = new Set([
+  "AVATARS",
   "FRAMES",
   "BADGES",
   "ROOM_BACKGROUNDS",
