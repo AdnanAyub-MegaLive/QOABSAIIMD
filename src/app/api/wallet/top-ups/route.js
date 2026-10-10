@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { currencyPolicy,rechargePrice } from "@/lib/currency-policy";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { packageAmounts, walletPublicId } from "@/lib/wallet";
 
@@ -41,7 +42,7 @@ export async function POST(request) {
     const checkoutBase = String(process.env.PAYMENT_CHECKOUT_BASE_URL ?? "").trim();
     if (!checkoutBase) throw new Error("PAYMENT_PROVIDER_NOT_CONFIGURED");
     const coinPackage = await prisma.walletCoinPackage.findFirst({
-      where: { id: packageId, active: true },
+      where: { id: packageId, active: true, currency: "USD" },
     });
     if (!coinPackage) throw new Error("COIN_PACKAGE_NOT_FOUND");
     if (idempotencyKey) {
@@ -54,22 +55,27 @@ export async function POST(request) {
       }
     }
     const { bonusCoins, totalCoins } = packageAmounts(coinPackage);
+    const policy=await currencyPolicy(prisma);
     const publicId = walletPublicId("TOPUP");
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const order = await prisma.walletTopUpOrder.create({
+    const order = await prisma.$transaction(async tx => {
+    const created = await tx.walletTopUpOrder.create({
       data: {
         publicId,
         userId: user.id,
         packageId: coinPackage.id,
         paymentMethod,
-        amount: coinPackage.price,
-        currency: coinPackage.currency,
+        amount: rechargePrice(coinPackage.coins,policy),
+        currency: "USD",
         baseCoins: coinPackage.coins,
         bonusCoins,
         totalCoins,
         idempotencyKey,
         expiresAt,
       },
+    });
+    await tx.auditLog.create({data:{action:"RECHARGE_QUOTED",category:"FINANCE",entityType:"WalletTopUpOrder",entityId:created.publicId,description:"USD coin recharge quote",metadata:{policyVersion:policy.version,coinsPerUsd:policy.rules.rechargeCoinsPerUsd,baseCoins:created.baseCoins.toString(),bonusCoins:created.bonusCoins.toString(),amount:created.amount.toString(),currency:"USD"}}});
+    return created;
     });
     return mobileJson(
       {

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { currencyPolicy,rechargePrice } from "@/lib/currency-policy";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
-import { serializePackage, WALLET_CURRENCY } from "@/lib/wallet";
+import { serializePackage } from "@/lib/wallet";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -10,12 +11,13 @@ export async function GET(request) {
   try {
     await requireMobileUser(request);
     const packages = await prisma.walletCoinPackage.findMany({
-      where: { active: true, currency: WALLET_CURRENCY },
+      where: { active: true, currency: "USD" },
       orderBy: [{ sortOrder: "asc" }, { coins: "asc" }],
     });
+    const policy=await currencyPolicy(prisma);
     return mobileJson({
       success: true,
-      data: { currency: WALLET_CURRENCY, packages: packages.map(serializePackage) },
+      data: { currency: "USD", policyVersion:policy.version, packages: packages.map(item=>({...serializePackage(item),price:rechargePrice(item.coins,policy)})) },
     });
   } catch (error) {
     console.error("Coin package catalog failed", error);

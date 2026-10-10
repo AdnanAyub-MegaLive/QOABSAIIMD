@@ -1,4 +1,5 @@
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
+import { currencyPolicy, giftDiamonds } from "@/lib/currency-policy";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
 import {
@@ -169,6 +170,8 @@ export async function POST(request) {
       const luckyRewardCoins = requestedLuckyReward > companyCoins ? companyCoins : requestedLuckyReward;
       companyCoins -= luckyRewardCoins;
 
+      const currency=await currencyPolicy(tx);
+      const receivedDiamonds=giftDiamonds(grossCoins,hostSalaryCoins+reusableCoins,currency);
       const gift = await tx.giftTransaction.create({
         data: {
           senderId: sessionUser.id,
@@ -200,17 +203,15 @@ export async function POST(request) {
           where: { id: talent.id },
           data: {
             totalGiftsValue: { increment: grossCoins },
-            hostSalaryCoinBalance: { increment: hostSalaryCoins },
+            hostSalaryCoinBalance: { increment: receivedDiamonds },
           },
         });
       else if (recipientUser)
         await tx.user.update({
           where: { id: recipientUser.id },
-          data: isHost
-            ? { hostSalaryCoinBalance: { increment: hostSalaryCoins } }
-            : { coinBalance: { increment: reusableCoins } },
+          data: { hostSalaryCoinBalance: { increment: receivedDiamonds } },
         });
-      if (recipientUser && (isHost ? hostSalaryCoins : reusableCoins) > 0n)
+      if (recipientUser && receivedDiamonds > 0n)
         await tx.walletTransaction.create({
           data: ledgerData({
             userId: recipientUser.id,
@@ -218,9 +219,7 @@ export async function POST(request) {
             direction: "CREDIT",
             title: "Received from Gift",
             description: `From ${sessionUser.name} (${sessionUser.publicId})`,
-            ...(isHost
-              ? { diamonds: hostSalaryCoins }
-              : { coins: reusableCoins }),
+            diamonds: receivedDiamonds,
             referenceId: gift.id,
             metadata: {
               giftId: giftAsset.publicId,
@@ -238,6 +237,8 @@ export async function POST(request) {
       const settlement = await tx.giftSettlement.create({
         data: {
           giftTransactionId: gift.id,
+          recipientDiamonds: receivedDiamonds,
+          currencyPolicyVersion: currency.version,
           agencyId,
           recipientType: isHost ? "HOST" : "NORMAL_USER",
           grossCoins,
@@ -285,7 +286,7 @@ export async function POST(request) {
       });
       const liveTotals = live ? await tx.videoLiveSession.update({ where: { id: live.id }, data: { giftIncome: { increment: grossCoins }, revision: { increment: 1 } }, select: { giftIncome: true, revision: true } }) : null;
       if (live) await applyLiveGiftReward(tx, live, sessionUser.id, grossCoins);
-      const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:talent ? null : recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:hostSalaryCoins+reusableCoins,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request)});
+      const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:talent ? null : recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:receivedDiamonds,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request)});
       const result = { gift, settlement, sender, luckyRewardCoins, liveTotals, progression };
 
     const origin = requestOrigin(request);
@@ -371,6 +372,8 @@ export async function POST(request) {
           recipientId,
           recipientType: result.settlement.recipientType,
           grossCoins: result.settlement.grossCoins.toString(),
+          recipientDiamonds: result.settlement.recipientDiamonds?.toString() ?? null,
+          currencyPolicyVersion: result.settlement.currencyPolicyVersion,
           hostSalaryCoins: result.settlement.hostSalaryCoins.toString(),
           agencyCoins: result.settlement.agencyCoins.toString(),
           companyCoins: result.settlement.companyCoins.toString(),

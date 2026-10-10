@@ -1,3 +1,4 @@
+import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { giftXpInput } from "@/lib/gift-xp-input";
 import crypto from "node:crypto";
 import sharp from "sharp";
@@ -29,10 +30,12 @@ export async function POST(request) {
       try { bytes = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 16000000 }).webp().toBuffer(); } catch { throw Object.assign(new Error("Invalid image artwork."), { status: 422 }); }
       const coinPrice = amount(form.get("coinPrice"), true);
       const xp=giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")});
-      await prisma.$transaction(async tx => {
+      const createdAsset = await prisma.$transaction(async tx => {
         const asset = await tx.uploadAsset.create({ data: { publicId: `AST-${crypto.randomUUID()}`, name, category: "LIVE_GIFTS", fileName: "live-gift.webp", mimeType: "image/webp", fileSize: bytes.length, fileData: bytes, coinPrice, ...xp, giftTier: "CLASSIC", active: true, isGlobal: true } });
         await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_GIFT_CREATED", category: "LIVE_MANAGEMENT", entityType: "UploadAsset", entityId: asset.publicId, description: "Created a live-only gift." } });
+        return asset;
       });
+      await mirrorAssetBestEffort(prisma, createdAsset);
     } else {
       const body = await request.json();
       if (body.action === "gift") {

@@ -1,3 +1,4 @@
+import { currencyPolicy, giftDiamonds } from "@/lib/currency-policy";
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
@@ -38,11 +39,12 @@ export async function POST(request) {
       const used = await tx.userGiftInventory.updateMany({ where: { userId: sender.id, giftAssetId: gift.id, quantity: { gte: quantity } }, data: { quantity: { decrement: quantity } } });
       if (!used.count) throw new Error("BACKPACK_INSUFFICIENT");
       const hostCoins = host ? coinsForShare(gross, policy.hostShareBps) : 0n, agencyCoins = host ? coinsForShare(gross, policy.agencyShareBps) : 0n, reusable = host ? 0n : coinsForShare(gross, policy.normalUserReusableShareBps), company = gross - hostCoins - agencyCoins - reusable;
+      const currency=await currencyPolicy(tx),credit=giftDiamonds(gross,hostCoins+reusable,currency);
       const giftTx = await tx.giftTransaction.create({ data: { giftBatchId, senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: gross, roomId } });
-      await tx.giftSettlement.create({ data: { giftTransactionId: giftTx.id, agencyId: recipient.agencyId, recipientType: host ? "HOST" : "NORMAL_USER", grossCoins: gross, hostSalaryCoins: hostCoins, agencyCoins, companyCoins: company, reusableCoins: reusable, hostShareBps: host ? policy.hostShareBps : 0, agencyShareBps: host ? policy.agencyShareBps : 0, companyShareBps: host ? policy.companyShareBps : 10000 - policy.normalUserReusableShareBps, reusableShareBps: policy.normalUserReusableShareBps, policyVersion: policy.version } });
-      await tx.user.update({ where: { id: recipient.id }, data: host ? { hostSalaryCoinBalance: { increment: hostCoins } } : { coinBalance: { increment: reusable } } });
-      const credit = host ? hostCoins : reusable;
-      if (credit > 0n) await tx.walletTransaction.create({ data: ledgerData({ userId: recipient.id, type: "BACKPACK_GIFT_RECEIVED", direction: "CREDIT", title: `Received ${gift.name}`, ...(host ? { diamonds: credit } : { coins: credit }), referenceId: giftTx.id, metadata: { senderId: sender.publicId, roomId, giftId, quantity, source: "BACKPACK" } }) });
+      await tx.giftSettlement.create({ data: { giftTransactionId: giftTx.id, recipientDiamonds:credit,currencyPolicyVersion:currency.version, agencyId: recipient.agencyId, recipientType: host ? "HOST" : "NORMAL_USER", grossCoins: gross, hostSalaryCoins: hostCoins, agencyCoins, companyCoins: company, reusableCoins: reusable, hostShareBps: host ? policy.hostShareBps : 0, agencyShareBps: host ? policy.agencyShareBps : 0, companyShareBps: host ? policy.companyShareBps : 10000 - policy.normalUserReusableShareBps, reusableShareBps: policy.normalUserReusableShareBps, policyVersion: policy.version } });
+      await tx.user.update({ where: { id: recipient.id }, data: { hostSalaryCoinBalance: { increment: credit } } });
+
+      if (credit > 0n) await tx.walletTransaction.create({ data: ledgerData({ userId: recipient.id, type: "GIFT_RECEIVED", direction: "CREDIT", title: `Received ${gift.name}`, diamonds: credit, referenceId: giftTx.id, metadata: { senderId: sender.publicId, roomId, giftId, quantity, source: "BACKPACK" } }) });
       if (recipient.agencyId) await tx.agency.update({ where: { id: recipient.agencyId }, data: { commissionCoinBalance: { increment: agencyCoins } } });
       await tx.auditLog.create({ data: { action: "BACKPACK_GIFT_SENT", category: "FINANCE", entityType: "GiftTransaction", entityId: giftTx.id, description: `${sender.publicId} sent backpack gift ${gift.publicId} to ${recipient.publicId}.`, metadata: { roomId, quantity, grossCoins: gross.toString() } } });
       const progression=await awardGiftProgress(tx,{sender,recipient,gift:giftTx,source:"BACKPACK",gross,credit,recipientType:host?"HOST":"NORMAL_USER",origin:requestOrigin(request)});

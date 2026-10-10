@@ -1,3 +1,4 @@
+import { publicCdnUrl } from "./media-cdn-policy.js";
 export const uploadCategories = {
   "Profile Dresses": "PROFILE_DRESS",
   Medals: "MEDALS",
@@ -145,8 +146,9 @@ export function serializeUploadAsset(asset,url) {
     fileName:asset.fileName,
     mimeType:asset.mimeType,
     fileSize:asset.fileSize,
-    url,
-    posterUrl:asset.posterFileData?`${url}${url.includes("?")?"&":"?"}poster=1`:null,
+    url: publicCdnUrl(asset) || url,
+    cacheKey: publicCdnUrl(asset) || `${asset.publicId}:${(asset.updatedAt??asset.createdAt).toISOString()}`,
+    posterUrl:publicCdnUrl(asset, true) || (asset.posterFileData?`${url}${url.includes("?")?"&":"?"}poster=1`:null),
     posterMimeType:asset.posterMimeType??null,
     posterFileSize:asset.posterFileSize??null,
     actionUrl:asset.category==="BANNERS"

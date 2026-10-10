@@ -1,3 +1,4 @@
+import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../auth";
 import { prisma } from "../../../lib/prisma";
@@ -463,12 +464,13 @@ export async function POST(request) {
         include: assignmentInclude,
       });
     });
+    const mirroredAsset = await mirrorAssetBestEffort(prisma, asset);
     return Response.json(
       {
         success: true,
         data: {
           asset: serializeUploadAsset(
-            asset,
+            mirroredAsset,
             `/api/uploads/${asset.publicId}/file`,
           ),
         },

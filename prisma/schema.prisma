@@ -183,6 +183,7 @@ model AuditLog {
 }
 
 model User {
+  currencyRequests CurrencyRequest[]
   vipMembership VipMembership?
   medals UserMedal[]
   profileRelationshipsLeft ProfileRelationship[] @relation("ProfileRelationshipLeft")
@@ -406,6 +407,41 @@ model DiamondExchangeSettings {
   diamondsPerCoin BigInt @default(1)
   minDiamonds BigInt @default(10000)
   updatedAt DateTime @updatedAt
+}
+
+model CurrencyPolicy {
+  id String @id @default("GLOBAL")
+  version Int @default(1)
+  rules Json
+  updatedAt DateTime @updatedAt
+}
+
+model CurrencyRequest {
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  cancelledAt DateTime?
+  paidAt DateTime?
+  paymentVerifiedAt DateTime?
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  kind String
+  idempotencyKey String
+  fingerprint String
+  diamonds BigInt
+  quotedCoins BigInt @default(0)
+  netUsdtMicros BigInt @default(0)
+  recipientPublicId String?
+  destination String?
+  status String @default("PENDING")
+  policySnapshot Json
+  reviewNote String?
+  reviewedBy String?
+  payoutHash String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId, idempotencyKey])
+  @@index([status, createdAt])
 }
 
 model VideoLiveCover {
@@ -969,6 +1005,8 @@ model EventAuditLog {
 }
 
 model UploadAsset {
+  cdnUrl String?
+  posterCdnUrl String?
   vipBenefits VipBenefitAsset[]
   senderXp BigInt @default(0)
   receiverXp BigInt @default(0)
@@ -1306,6 +1344,8 @@ model GiftTransaction {
 }
 
 model GiftSettlement {
+  recipientDiamonds BigInt?
+  currencyPolicyVersion Int?
   id                String          @id @default(cuid())
   giftTransactionId String          @unique
   agencyId          String?

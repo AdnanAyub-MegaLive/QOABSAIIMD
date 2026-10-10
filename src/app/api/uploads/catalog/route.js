@@ -142,7 +142,7 @@ export async function GET(request) {
       (host ? `${protocol}://${host}` : url.origin)
     ).replace(/\/$/, "");
     const etag = `"${createHash("sha256")
-      .update(assets.map((asset) => `${asset.publicId}:${asset.updatedAt.toISOString()}`).join("|"))
+      .update(assets.map((asset) => `${asset.publicId}:${asset.updatedAt.toISOString()}:${asset.cdnUrl??""}:${asset.posterCdnUrl??""}:${process.env.MEDIA_CDN_ENABLED??""}`).join("|"))
       .digest("base64url")}"`;
     const cacheHeaders = {
       ETag: etag,

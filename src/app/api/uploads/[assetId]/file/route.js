@@ -1,3 +1,4 @@
+import { publicCdnUrl } from "@/lib/media-cdn-policy";
 import { auth } from "../../../../../../auth";
 import { prisma } from "../../../../../lib/prisma";
 import mobileSession from "../../../../../lib/mobile-session.cjs";
@@ -31,10 +32,13 @@ export async function GET(request, { params }) {
   const asset = await prisma.uploadAsset.findUnique({
     where: { publicId: assetId },
     select: {
-      fileData: true,
+      publicId: true,
+      cdnUrl: true,
+      posterCdnUrl: true,
+      audioRoomId: true,
       fileName: true,
       mimeType: true,
-      posterFileData: true,
+      posterFileSize: true,
       posterFileName: true,
       posterMimeType: true,
       category: true,
@@ -114,8 +118,13 @@ export async function GET(request, { params }) {
   return mediaResponse(asset, request);
 }
 
-function mediaResponse(asset, request) {
+async function mediaResponse(asset, request) {
   const wantsPoster = new URL(request.url).searchParams.get("poster") === "1";
+  const cdn = publicCdnUrl(asset, wantsPoster);
+  if (cdn) return new Response(null, { status: 307, headers: { Location: cdn, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
+  const bytes = await prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { fileData: true, posterFileData: true } });
+  if (!bytes) return new Response(null, { status: 404 });
+  asset = { ...asset, ...bytes };
   if (wantsPoster && asset.posterFileData) asset = { ...asset, fileData: asset.posterFileData, fileName: asset.posterFileName, mimeType: asset.posterMimeType };
   const total = asset.fileData.byteLength;
   const range = (asset.mimeType === "video/mp4" || asset.mimeType.startsWith("audio/"))

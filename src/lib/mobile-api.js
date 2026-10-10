@@ -72,6 +72,10 @@ export async function requireMobileRole(request, allowedRoles) {
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {
+    PAYOUT_CONFIGURATION_INCOMPLETE: [403, "PAYOUT_CONFIGURATION_INCOMPLETE", "The platform has not completed payout configuration."],
+    CURRENCY_QUOTE_EXPIRED: [409,"CURRENCY_QUOTE_EXPIRED","Rates changed. Request a new quote before submitting."],
+    WITHDRAWAL_DISABLED: [403,"WITHDRAWAL_DISABLED","Official USDT withdrawals are not configured or enabled."],
+    REDEMPTION_DISABLED: [403,"REDEMPTION_DISABLED","Reseller Diamond redemption is not configured or enabled."],
     LIVE_HOST_REQUIRED: [403, "LIVE_HOST_REQUIRED", "Only an active approved host can go live."],
     LIVE_KYC_REQUIRED: [403, "LIVE_KYC_REQUIRED", "Complete KYC verification before going live."],
     INVALID_SESSION: [401, "INVALID_SESSION", "The mobile session is invalid or expired."],
@@ -152,7 +156,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     SELF_TRANSFER: [422, "SELF_TRANSFER", "You cannot transfer coins to yourself."],
     TRANSFER_LIMIT: [422, "TRANSFER_LIMIT", "The transfer amount is outside the allowed limits."],
     WITHDRAWAL_LIMIT: [422, "WITHDRAWAL_LIMIT", "The withdrawal amount is outside the allowed limits."],
-    WITHDRAWAL_NOT_ALLOWED: [403, "WITHDRAWAL_NOT_ALLOWED", "Only an agency-linked host can withdraw salary coins."],
+    WITHDRAWAL_NOT_ALLOWED: [403, "WITHDRAWAL_NOT_ALLOWED", "Only an agency-linked host can withdraw Diamonds."],
     KYC_REQUIRED: [403, "KYC_REQUIRED", "Complete account verification before requesting a withdrawal."],
     INSUFFICIENT_SALARY: [409, "INSUFFICIENT_SALARY", "Your host salary balance is too low for this withdrawal."],
     COIN_PACKAGE_NOT_FOUND: [404, "COIN_PACKAGE_NOT_FOUND", "The selected coin package is unavailable."],

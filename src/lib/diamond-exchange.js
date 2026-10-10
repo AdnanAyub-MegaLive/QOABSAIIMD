@@ -1,8 +1,11 @@
 import { prisma } from "./prisma.js";
+import { currencyPolicy } from "./currency-policy.js";
 import { ledgerData, parsePositiveCoins, validationError, walletPublicId } from "./wallet.js";
 
-export async function exchangeSettings(db = prisma) {
-  return await db.diamondExchangeSettings.findUnique({ where: { id: "GLOBAL" } }) ?? { enabled: false, diamondsPerCoin: 1n, minDiamonds: 10000n };
+export async function exchangeSettings(db = prisma, user = {}) {
+  const policy=await currencyPolicy(db),r=policy.rules;
+  const host=user.role==="HOST"||user.appRoles?.includes("HOST");
+  return {enabled:!user.appRoles?.includes("RESELLER")&&(host?r.hostExchangeEnabled:r.userExchangeEnabled),diamondsPerCoin:BigInt((host?r.hostDiamondsPerCoin:r.userDiamondsPerCoin)||1),minDiamonds:BigInt(r.exchangeMinDiamonds),version:policy.version};
 }
 
 export function exchangeQuote(value, settings) {
@@ -27,14 +30,14 @@ export async function exchangeDiamonds(userId, value, key, db = prisma) {
           return previous.metadata.result;
         }
         const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-        const settings = await exchangeSettings(tx);
+        const settings = await exchangeSettings(tx,user);
         if (!settings.enabled || !user.diamondExchangeEnabled || user.status !== "ACTIVE" || user.deletedAt) throw new Error("EXCHANGE_DISABLED");
         const quote = exchangeQuote(value, settings);
         if (quote.requested > user.hostSalaryCoinBalance) throw new Error("INSUFFICIENT_DIAMONDS");
         if (user.coinBalance + quote.coins > 9223372036854775807n) throw validationError("Coin balance would exceed the supported amount.");
         const updated = await tx.user.update({ where: { id: userId }, data: { hostSalaryCoinBalance: { decrement: quote.used }, coinBalance: { increment: quote.coins } } });
         const result = { diamonds: updated.hostSalaryCoinBalance.toString(), coins: updated.coinBalance.toString(), exchangedDiamonds: quote.used.toString(), receivedCoins: quote.coins.toString() };
-        const metadata = { requested: requested.toString(), diamondsPerCoin: settings.diamondsPerCoin.toString(), result };
+        const metadata = { requested: requested.toString(), diamondsPerCoin: settings.diamondsPerCoin.toString(), policyVersion:settings.version, result };
         await tx.walletTransaction.createMany({ data: [
           ledgerData({ userId, type: "DIAMOND_EXCHANGE_DEBIT", direction: "DEBIT", title: "Diamonds exchanged", diamonds: quote.used, referenceId, metadata }),
           ledgerData({ userId, type: "DIAMOND_EXCHANGE_CREDIT", direction: "CREDIT", title: "Coins from diamonds", coins: quote.coins, referenceId, metadata }),
