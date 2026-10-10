@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(()=>({remove:vi.fn(),emit:vi.fn()}));
+vi.mock("./prisma.js",()=>({prisma:{audioRoom:{findUnique:async()=>null}}}));
+vi.mock("./audio-room-management.js",()=>({activeRoomBan:async()=>null}));
 vi.mock("tencentcloud-sdk-nodejs-trtc",()=>({trtc:{v20190722:{Client:class { RemoveUserByStrRoomId(input){return mocks.remove(input);} }}}}));
 import { removeRtcParticipant, updateRtcPublishPermission } from "./rtc-moderation.js";
 beforeEach(()=>{

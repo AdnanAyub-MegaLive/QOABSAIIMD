@@ -3,6 +3,8 @@ import { activeRoomBan } from "./audio-room-management.js";
 import { issueTrtcAccess } from "./trtc-authorization.js";
 import { issueLiveKitAccess } from "./livekit-authorization.js";
 import { rtcProvider } from "./rtc-provider.js";
+import { createRtcTicketCache } from "./rtc-ticket-cache.js";
+const cachedTicket=createRtcTicketCache();
 
 // Membership must come from a live authenticated socket, not stale database presence.
 export async function requireRtcMembership(user, channel) {
@@ -17,6 +19,7 @@ export async function audioRtcAccess(user, roomId, publishCeiling = true) {
   if (await activeRoomBan(room.id, user.id)) throw new Error("ROOM_BANNED");
   await requireRtcMembership(user, `audio-room:${roomId}`);
   const seat = room.seats[0];
-  const canPublish = publishCeiling && (room.ownerId === user.id || Boolean(seat && !seat.isForceMuted && !seat.isMuted));
-  return rtcProvider() === "TRTC" ? issueTrtcAccess(user, roomId, canPublish) : issueLiveKitAccess(user, roomId, canPublish);
+  const canPublish = publishCeiling && (seat ? !seat.isForceMuted && !seat.isMuted : room.ownerId === user.id);
+  if(rtcProvider()!=="TRTC")return issueLiveKitAccess(user, roomId, canPublish);
+  return cachedTicket(`${process.env.TRTC_SDK_APP_ID}:${user.id}:${user.sessionVersion}:${roomId}:${room.startedAt?.getTime?.()??""}:${canPublish}`,()=>issueTrtcAccess(user, roomId, canPublish));
 }
