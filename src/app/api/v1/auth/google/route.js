@@ -1,3 +1,4 @@
+import { observedDeviceIp, observedDeviceLocation } from "@/lib/device-observation";
 import { prisma } from "@/lib/prisma";
 import { managementIdentity } from "@/lib/user-roles";
 import mobileSession from "@/lib/mobile-session.cjs";
@@ -161,8 +162,8 @@ export async function POST(request) {
           const record = await tx.device.upsert({
             where: { userId_macAddress: { userId: user.id, macAddress: deviceId } },
             update: {
-              lastLoginIp: clientIp(request),
-              location,
+              ...(observedDeviceIp(clientIp(request)) ? {lastLoginIp:observedDeviceIp(clientIp(request))} : {}),
+              ...(observedDeviceLocation(location) ? {location:observedDeviceLocation(location)} : {}),
               platform: clean(device.platform, 100),
               deviceName: clean(device.deviceName),
               lastLoginAt: loginAt,

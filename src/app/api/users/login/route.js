@@ -1,3 +1,4 @@
+import { observedDeviceIp, observedDeviceLocation } from "@/lib/device-observation";
 import { prisma } from "../../../../lib/prisma";
 import { managementIdentity } from "@/lib/user-roles";
 import { verifyPassword } from "../../../../lib/password";
@@ -127,8 +128,8 @@ async function login(request) {
     const record = await tx.device.upsert({
       where: { userId_macAddress: { userId: user.id, macAddress: deviceId } },
       update: {
-        lastLoginIp: loginIp,
-        location,
+        ...(observedDeviceIp(loginIp) ? {lastLoginIp:observedDeviceIp(loginIp)} : {}),
+        ...(observedDeviceLocation(location) ? {location:observedDeviceLocation(location)} : {}),
         platform: clean(device.platform, 100),
         deviceName: clean(device.deviceName, 255),
         lastLoginAt: loginAt,

@@ -1,5 +1,6 @@
 import { assertDeviceAccount } from "./device-account-policy.js";
 import { assertMobileSession } from "./mobile-session-state.js";
+import { observedDeviceIp, observedDeviceLocation } from "./device-observation.js";
 
 const clean = (value, n) => typeof value === "string" && value.trim() ? value.trim().slice(0, n) : null;
 const fail = (code, message, status) => Object.assign(new Error(message), { code, status });
@@ -9,11 +10,14 @@ export function deviceMetadataInput(body, headers) {
   if (!deviceId) throw fail("VALIDATION_ERROR", "A non-blank deviceId is required.", 422);
   const changes = {};
   for (const [key, limit] of [["location", 500], ["platform", 100], ["deviceName", 255]]) {
-    if (Object.hasOwn(body, key)) changes[key] = clean(body[key], limit);
+    if (Object.hasOwn(body, key)) {
+      if (key === "location") { const location = observedDeviceLocation(body[key]); if (location) changes.location = location; }
+      else changes[key] = clean(body[key], limit);
+    }
   }
   const ip = clean(headers.get("x-forwarded-for")?.split(",")[0], 255) || clean(headers.get("x-real-ip"), 255);
   // No proxy header is not evidence that an existing IP should be erased.
-  if (ip) changes.lastLoginIp = ip;
+  if (observedDeviceIp(ip)) changes.lastLoginIp = observedDeviceIp(ip);
   return { deviceId, changes };
 }
 
