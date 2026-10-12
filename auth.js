@@ -5,6 +5,7 @@ import { timingSafeEqual } from "node:crypto";
 import { prisma } from "./src/lib/prisma.js";
 import { effectiveAdmin, staffDto } from "./src/lib/portal-staff-state.js";
 import { isRateLimited } from "./src/lib/rate-limit.js";
+import { PORTAL_IDLE_SECONDS, updatePortalActivity } from "./src/lib/portal-idle-session.js";
 
 function equalsSecret(a, b) {
   const left = Buffer.from(a || ""), right = Buffer.from(b || "");
@@ -13,9 +14,11 @@ function equalsSecret(a, b) {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: { signIn: "/" },
-  session: { strategy: "jwt", maxAge: 60 * 30 },
+  session: { strategy: "jwt", maxAge: PORTAL_IDLE_SECONDS },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      token = updatePortalActivity(token, { signedIn: Boolean(user), activity: trigger === "update" && session?.portalActivity === true });
+      if (!token) return null;
       if (user) { token.sub = user.id; token.staffVersion = user.sessionVersion; }
       if (!token.sub || !Number.isInteger(token.staffVersion)) return null;
       const admin = await effectiveAdmin(prisma, token.sub);

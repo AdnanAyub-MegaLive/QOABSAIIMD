@@ -1,6 +1,7 @@
 import "./globals.css";
 import PortalAutoRefresh from "./components/portal-auto-refresh";
 import PortalAccessProvider from "./components/portal-access";
+import PortalIdleSession from "./components/portal-idle-session";
 
 export const metadata = {
   title: "Admin Sign In | Mega Live Portal",
@@ -10,7 +11,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body><PortalAccessProvider>{children}<PortalAutoRefresh /></PortalAccessProvider></body>
+      <body><PortalAccessProvider>{children}<PortalAutoRefresh /><PortalIdleSession /></PortalAccessProvider></body>
     </html>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  assignSpecialId,
   createSpecialIdDefinition,
   deleteSpecialIdDefinition,
   revokeSpecialId,
@@ -10,7 +12,7 @@ import usePortalData from "../hooks/use-portal-data";
 import DurationPicker from "../components/duration-picker";
 import { formatDurationMinutes } from "../utils/duration";
 
-export default function SpecialIdAssignments({ initialAssignments }) {
+export default function SpecialIdAssignments({ initialAssignments, canManage = true, onChanged = () => {} }) {
   const [rows, setRows] = usePortalData(initialAssignments);
   const [selected, setSelected] = useState(null);
   const active = rows.filter((row) => row.status === "ACTIVE").length;
@@ -78,7 +80,7 @@ export default function SpecialIdAssignments({ initialAssignments }) {
                 <td>{row.starts}</td>
                 <td>{row.expires}</td>
                 <td className="px-5 text-right">
-                  {row.status === "ACTIVE" && (
+                  {canManage && row.status === "ACTIVE" && (
                     <button
                       onClick={() => setSelected(row)}
                       className="rounded-lg border border-red-200 px-3 py-2 text-[10px] font-bold text-red-600 hover:bg-red-50"
@@ -106,6 +108,7 @@ export default function SpecialIdAssignments({ initialAssignments }) {
               ),
             );
             setSelected(null);
+            onChanged();
           }}
         />
       )}
@@ -113,7 +116,7 @@ export default function SpecialIdAssignments({ initialAssignments }) {
   );
 }
 
-export function SpecialIdCatalog({ initialCatalog }) {
+export function SpecialIdCatalog({ initialCatalog, canManage = true, onAssign, onChanged = () => {} }) {
   const [catalog, setCatalog] = usePortalData(initialCatalog);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(null);
@@ -121,13 +124,14 @@ export function SpecialIdCatalog({ initialCatalog }) {
     <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
       <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-bold">VIP &amp; SVIP Special IDs</h2>
+          <h2 className="text-base font-bold">Standard, VIP &amp; SVIP IDs</h2>
           <p className="mt-1 text-xs text-[#748782]">
             Create 4–7 character IDs and define automatic VIP or top-up
             eligibility.
           </p>
         </div>
         <button
+          disabled={!canManage}
           onClick={() => setCreating(true)}
           className="h-10 rounded-lg bg-[#087f74] px-4 text-xs font-bold text-white"
         >
@@ -157,15 +161,6 @@ export function SpecialIdCatalog({ initialCatalog }) {
                   <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-bold text-amber-700">
                     {item.category}
                   </span>
-                </td>
-                <td className="px-5 text-right">
-                  <button
-                    type="button"
-                    onClick={() => setDeleting(item)}
-                    className="rounded-lg border border-red-200 px-3 py-2 text-[10px] font-bold text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
                 </td>
                 <td>
                   {item.minimumVipLevel ? `VIP ${item.minimumVipLevel}+` : "—"}
@@ -197,6 +192,12 @@ export function SpecialIdCatalog({ initialCatalog }) {
                     </span>
                   )}
                 </td>
+                <td className="px-5 text-right">
+                  {canManage && <div className="flex justify-end gap-2">
+                    {onAssign && <button type="button" disabled={Boolean(item.assignedTo)} onClick={() => onAssign(item)} className="rounded-lg bg-[#087f74] px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Assign</button>}
+                    <button type="button" onClick={() => setDeleting(item)} className="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-600">Delete</button>
+                  </div>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -211,6 +212,7 @@ export function SpecialIdCatalog({ initialCatalog }) {
               { ...item, assignedTo: null, expiresAt: null },
             ]);
             setCreating(false);
+            onChanged();
           }}
         />
       )}
@@ -221,6 +223,7 @@ export function SpecialIdCatalog({ initialCatalog }) {
           onDeleted={() => {
             setCatalog((current) => current.filter((item) => item.id !== deleting.id));
             setDeleting(null);
+            onChanged();
           }}
         />
       )}
@@ -503,3 +506,49 @@ function Actions({ onClose, confirm }) {
 }
 const input =
   "h-11 w-full rounded-lg border border-[#dce6e4] bg-white px-3 text-xs outline-none focus:border-[#2ca89c]";
+export function SpecialIdManager({ idData, canManage }) {
+  const router = useRouter();
+  const [selected, setSelected] = useState(null);
+  const [notice, setNotice] = useState("");
+  const refresh = () => router.refresh();
+  // Remount local table state when refreshed server records change.
+  return <div className="space-y-6">
+    {notice && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
+    <SpecialIdCatalog key={JSON.stringify(idData.catalog)} initialCatalog={idData.catalog} canManage={canManage} onAssign={setSelected} onChanged={refresh}/>
+    <SpecialIdAssignments key={JSON.stringify(idData.assignments)} initialAssignments={idData.assignments} canManage={canManage} onChanged={refresh}/>
+    {selected && <AssignModal item={selected} onClose={() => setSelected(null)} onAssigned={() => { setSelected(null); setNotice("Special ID assigned successfully."); refresh(); }}/>}
+  </div>;
+}
+
+function AssignModal({ item, onClose, onAssigned }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  return <Modal title="Assign Special ID" subtitle={item.code + " · " + item.category} onClose={() => { if (!pending) onClose(); }}>
+    <form className="space-y-4" onSubmit={async event => {
+      event.preventDefault();
+      if (pending) return;
+      const form = new FormData(event.currentTarget);
+      const userId = String(form.get("userId") || "").trim().toUpperCase();
+      const reason = String(form.get("reason") || "").trim();
+      if (!userId || !reason) { setError("Enter a user ID and an assignment reason."); return; }
+      setPending(true); setError("");
+      try {
+        await assignSpecialId(userId, item.id, Number(form.get("durationMinutes")), reason);
+        onAssigned();
+      } catch (failure) {
+        setError(failure.message || "Unable to assign this ID. Please try again.");
+      } finally { setPending(false); }
+    }}>
+      <Field label="User public ID"><input autoFocus name="userId" required maxLength={64} placeholder="USR-123456 or TLN-123456" className={input}/></Field>
+      <DurationPicker defaultMinutes={item.defaultDurationMinutes}/>
+      <Field label="Admin reason"><textarea name="reason" required maxLength={500} rows={3} className={input}/></Field>
+      <p className="text-xs text-[#748782]">Assigning this ID replaces the user's existing Special ID. Their permanent account ID is unchanged.</p>
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" disabled={pending} onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+        <button disabled={pending} className="rounded-lg bg-[#087f74] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{pending ? "Assigning…" : "Confirm assignment"}</button>
+      </div>
+    </form>
+  </Modal>;
+}
+

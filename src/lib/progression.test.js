@@ -2,6 +2,13 @@ import { expect, it } from "vitest";
 import { levelSnapshot, validateProgressionConfig } from "./progression.js";
 import { giftOperation, priorGiftOperation } from "./gift-operation.js";
 const levels=[0n,100n,500n].map((thresholdPoints,level)=>({track:"USER",level,thresholdPoints,benefits:[]}));
+it("allows removing non-baseline levels and recalculates without losing XP",()=>{
+  const remaining=levels.filter(row=>row.level!==1);
+  const config=validateProgressionConfig({enabled:false,rules:[],levels:[...remaining,{track:"CHARM",level:0,thresholdPoints:0n,benefits:[]}]});
+  expect(levelSnapshot({track:"USER",lifetimePoints:250n},config.levels)).toMatchObject({level:0,nextLevel:2,lifetimePoints:"250",remainingPoints:"250"});
+  expect(levelSnapshot({track:"USER",lifetimePoints:900n},remaining.filter(row=>row.level!==2))).toMatchObject({level:0,nextLevel:null,lifetimePoints:"900"});
+  expect(()=>validateProgressionConfig({...config,levels:config.levels.filter(row=>row.track!=="USER"||row.level!==0)})).toThrow();
+});
 it("computes exact boundaries and maximum without floating-point amount conversion",()=>{
   const snapshot=points=>levelSnapshot({track:"USER",configurationVersion:1,revision:1,lifetimePoints:points},levels,null);
   expect(snapshot(99n)).toMatchObject({level:0,remainingPoints:"1",progressPercent:99});

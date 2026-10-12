@@ -1,18 +1,20 @@
 "use client";
 import { useEffect,useState } from "react";
+import { SpecialIdManager } from "../users/special-id-management";
 import { VIP_PRIVILEGES } from "@/lib/vip-contract";
 const field="mt-1 w-full rounded-xl border border-[#dce8e5] bg-white p-3 text-sm";
 const button="rounded-xl bg-[#16877d] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
 const blank={name:"",level:"",validDays:30,active:true,privileges:[],assets:[]};
 async function api(url,options){const res=await fetch(url,options),body=await res.json();if(!res.ok||!body.success)throw new Error(body.error?.message||"Request failed.");return body.data;}
-export default function VipManager({canManage,canUpload}){
-  const [tab,setTab]=useState("Tiers"),[data,setData]=useState(null),[page,setPage]=useState(1),[draft,setDraft]=useState(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
+export default function VipManager({canManage,canUpload,canManageIds,idData,initialTab}){
+  const [tab,setTab]=useState(initialTab==="VIP & SVIP IDs"&&idData?"Special ID":["Tiers","Artwork","Members",...(idData?["Special ID"]:[])].includes(initialTab)?initialTab:"Tiers"),[data,setData]=useState(null),[page,setPage]=useState(1),[draft,setDraft]=useState(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
   async function load(p=page){setData(await api(`/api/admin/vip?page=${p}`));}
   useEffect(()=>{let active=true;api(`/api/admin/vip?page=${page}`).then(d=>{if(active)setData(d)}).catch(e=>{if(active)setMessage(e.message)});return()=>{active=false}},[page]);
   async function save(body){setBusy(true);setMessage("");try{await api("/api/admin/vip",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});await load();setMessage("Saved successfully.");setDraft(null)}catch(e){setMessage(e.message)}finally{setBusy(false)}}
   function toggle(key){setDraft(d=>({...d,privileges:d.privileges.includes(key)?d.privileges.filter(k=>k!==key):[...d.privileges,key],assets:d.assets.filter(a=>a.privilege!==key)}))}
   return <><header className="mb-7"><p className="text-xs font-bold uppercase tracking-widest text-[#16877d]">Memberships & benefits</p><h1 className="mt-2 text-3xl font-bold">VIP Management</h1><p className="mt-2 text-sm text-[#71847f]">Create your own tiers, choose privileges and artwork, and grant time-limited memberships.</p></header>
-    <nav className="mb-6 flex gap-2 border-b border-[#dce8e5]" aria-label="VIP sections">{["Tiers","Artwork","Members"].map(t=><button key={t} onClick={()=>{setTab(t);setDraft(null)}} className={`px-5 py-3 text-sm font-semibold ${tab===t?"border-b-2 border-[#16877d] text-[#16877d]":"text-[#71847f]"}`}>{t}</button>)}</nav>
+    <nav className="mb-6 flex gap-2 border-b border-[#dce8e5]" aria-label="VIP sections">{["Tiers","Artwork","Members",...(idData?["Special ID"]:[])].map(t=><button key={t} onClick={()=>{setTab(t);setDraft(null)}} className={`px-5 py-3 text-sm font-semibold ${tab===t?"border-b-2 border-[#16877d] text-[#16877d]":"text-[#71847f]"}`}>{t}</button>)}</nav>
+    {tab==="Special ID"&&idData&&<SpecialIdManager idData={idData} canManage={canManageIds}/>}
     {message&&<p role="status" className="mb-5 rounded-xl border border-[#dce8e5] bg-white p-4 text-sm">{message}</p>}
     {!data?<p>Loading VIP management…</p>:<>
     {tab==="Tiers"&&<><div className="mb-5 flex items-center justify-between"><p className="text-sm text-[#71847f]">{data.total} tiers · no fixed tier count</p><button className={button} disabled={!canManage||busy} onClick={()=>setDraft({...blank})}>+ Create VIP</button></div>

@@ -126,15 +126,6 @@ export default async function UsersPage() {
     terminatedUntil: room.terminatedUntil?.toISOString() ?? null,
   }));
   const userModules = {
-    levels: users.map((user) => ({
-      id: user.publicId,
-      userId: user.publicId,
-      user: user.name,
-      level: levelFromSpend(user.totalSpent),
-      totalSpent: Number(user.totalSpent).toLocaleString(),
-      vipLevel: user.vipLevel,
-      progress: `${Number(user.totalSpent) % 50000} / 50,000`,
-    })),
     albums: users.flatMap((user) =>
       user.albumItems.map((item) => ({
         id: item.id,
@@ -256,8 +247,4 @@ function display(value) {
     .toLowerCase()
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function levelFromSpend(value) {
-  return Math.max(1, Math.floor(Number(value) / 50000) + 1);
 }

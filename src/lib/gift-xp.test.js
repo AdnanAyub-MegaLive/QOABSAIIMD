@@ -16,6 +16,16 @@ it("awards per-gift XP times quantity independently of price and deduplicates",a
  expect(db.ledger.every(r=>r.basis==="GIFT_XP")).toBe(true);
  expect([...db.rows.values()].every(r=>r.currentLevel===10)).toBe(true);
 });
+it("awards Wealth only to the sender and Charm only to the recipient",async()=>{
+ const db=database();await awardGiftProgress(db,input);
+ expect(db.ledger.map(r=>({userId:r.userId,track:r.track,sourceType:r.sourceType}))).toEqual([
+  {userId:"sender",track:"USER",sourceType:"GIFT_SENT"},
+  {userId:"host",track:"CHARM",sourceType:"GIFT_RECEIVED"},
+ ]);
+});
+it.each(["RECHARGE","TRANSFER","STORE_PURCHASE","DAILY_TASK","LOGIN"])("does not award either track for %s",async source=>{
+ const db=database();await awardGiftProgress(db,{...input,source});expect(db.ledger).toHaveLength(0);expect(db.rows.size).toBe(0);
+});
 it("does not give Charm to ordinary recipients or self-gifts",async()=>{
  const db=database();await awardGiftProgress(db,{...input,recipientType:"NORMAL_USER"});expect(db.ledger).toHaveLength(1);expect(db.ledger[0].track).toBe("USER");
  const self=database();await awardGiftProgress(self,{...input,recipient:input.sender});expect(self.ledger).toHaveLength(0);

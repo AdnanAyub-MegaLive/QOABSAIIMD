@@ -38,9 +38,8 @@ const features = [
     "Review restricted user accounts",
     "/users?tab=Blocked%20or%20Banned%20User",
   ],
-  ["User Level", "Manage user levels", "/users?tab=User%20Level"],
   ["User Album", "Review user album content", "/users?tab=User%20Album"],
-  ["Special ID", "Manage special user IDs", "/users?tab=Special%20ID"],
+  ["Special ID", "Manage special user IDs", "/vip-management?tab=Special%20ID"],
   [
     "User Top History",
     "View user ranking history",

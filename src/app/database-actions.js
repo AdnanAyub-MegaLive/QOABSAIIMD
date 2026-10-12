@@ -1121,6 +1121,7 @@ export async function createSpecialIdDefinition(values) {
     metadata: { ...values },
   });
   revalidatePath("/users");
+  revalidatePath("/vip-management");
   return {
     success: true,
     data: {
@@ -1200,6 +1201,7 @@ export async function deleteSpecialIdDefinition(
       },
     });
   revalidatePath("/users");
+  revalidatePath("/vip-management");
   return { id: definition.id, code: definition.code, mode };
 }
 
@@ -1239,6 +1241,7 @@ export async function assignSpecialId(
     },
   });
   revalidatePath("/users");
+  revalidatePath("/vip-management");
   revalidatePath(`/users/${publicId}`);
   return {
     id: assignment.id,
@@ -1276,4 +1279,5 @@ export async function revokeSpecialId(assignmentId, reason) {
     },
   });
   revalidatePath("/users");
+  revalidatePath("/vip-management");
 }

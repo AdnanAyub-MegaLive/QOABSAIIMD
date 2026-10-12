@@ -8,9 +8,6 @@ import GiftHistoryTable from "./gift-history-table";
 import BlockedUsersTable from "./blocked-users-table";
 import RecordTable from "../components/record-table";
 import AudioRoomTable from "./audio-room-table";
-import SpecialIdAssignments, {
-  SpecialIdCatalog,
-} from "./special-id-management";
 
 const tabs = [
   "User List",
@@ -18,10 +15,7 @@ const tabs = [
   "Audio Room Records",
   "Device Information",
   "Blocked and Banned User",
-  "User Level",
   "User Album",
-  "Special ID",
-  "VIP & SVIP IDs",
   "User Top History",
   "Game logs",
 ];
@@ -107,20 +101,6 @@ export default function ManagementTabs({
           />
         ) : activeTab === "Blocked and Banned User" ? (
           <BlockedUsersTable initialUsers={users} initialDevices={devices} />
-        ) : activeTab === "User Level" ? (
-          <RecordTable
-            title="User Level"
-            description="Spending-based user progression and level progress."
-            rows={modules.levels}
-            columns={[
-              { key: "userId", label: "User ID", mono: true },
-              { key: "user", label: "User" },
-              { key: "level", label: "Level", badge: true },
-              { key: "totalSpent", label: "Total spent" },
-              { key: "vipLevel", label: "VIP level" },
-              { key: "progress", label: "Next level progress" },
-            ]}
-          />
         ) : activeTab === "User Album" ? (
           <RecordTable
             title="User Album"
@@ -135,10 +115,6 @@ export default function ManagementTabs({
               { key: "uploaded", label: "Uploaded" },
             ]}
           />
-        ) : activeTab === "Special ID" ? (
-          <SpecialIdAssignments initialAssignments={modules.specialIds} />
-        ) : activeTab === "VIP & SVIP IDs" ? (
-          <SpecialIdCatalog initialCatalog={specialIdCatalog} />
         ) : activeTab === "User Top History" ? (
           <RecordTable
             title="User Top History"

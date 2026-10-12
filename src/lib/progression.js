@@ -49,6 +49,9 @@ export async function appendOutbox(tx,channel,event,data) {
   return row.id;
 }
 export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,credit,revealed=0n,reward=0n,recipientType,origin}) {
+  // USER is Wealth Level: only gift sends qualify. CHARM belongs to the
+  // recipient of that gift. Recharge, transfers, purchases and tasks cannot award XP.
+  if (!["PAID", "BACKPACK", "LUCKY", "BLIND_BOX"].includes(source)) return null;
   const active=await currentConfiguration(tx);
   if (!active?.enabled) return null;
   let senderSnapshot=null;
