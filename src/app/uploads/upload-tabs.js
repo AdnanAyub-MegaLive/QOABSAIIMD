@@ -1,4 +1,5 @@
 "use client";
+import { ROLE_DISTRIBUTIONS, roleArtworkLabel } from "@/lib/role-artwork";
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1175,7 +1176,7 @@ function DistributionSettings({
           <option value="STORE">Buy from Store</option>
           <option value="VIP">VIP level reward</option>
           <option value="SVIP">SVIP / recharge reward</option>
-          <option value="RESELLER">Reseller role reward</option>
+          {ROLE_DISTRIBUTIONS.map(value => <option key={value} value={value}>{roleArtworkLabel(value)}</option>)}
           <option value="ACTIVITY">Activity or event only</option>
           <option value="MANUAL">Super Admin grant only</option>
         </select>
@@ -1350,7 +1351,7 @@ function distributionLabel(item) {
     return `VIP ${item.minimumVipLevel ?? ""}`.trim();
   if (item.distribution === "SVIP")
     return `SVIP · recharge ${item.minimumRecharge ?? ""}`.trim();
-  if (item.distribution === "RESELLER") return "Reseller role reward";
+  if (roleArtworkLabel(item.distribution)) return roleArtworkLabel(item.distribution);
   if (item.distribution === "ACTIVITY") return "Activity reward";
   return "Super Admin grant";
 }

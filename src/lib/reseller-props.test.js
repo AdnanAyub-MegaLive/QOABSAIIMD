@@ -4,11 +4,11 @@ import { normalizeApplicationRoles, primaryLegacyRole } from "./user-roles.js";
 
 function fixture(roles = ["RESELLER"]) {
   const user = { appRoles: roles, deletedAt: null };
-  const assets = [{ id: "badge", defaultGrantDurationMinutes: 60 }];
+  const assets = [{ id: "badge", distribution: "RESELLER", defaultGrantDurationMinutes: 60 }];
   const grants = new Map();
   const client = {
     user: { findUnique: async () => user },
-    uploadAsset: { findMany: async () => assets },
+    uploadAsset: { findMany: async ({ where }) => assets.filter(a => where.distribution.in.includes(a.distribution)) },
     uploadAssetAssignment: {
       deleteMany: async ({ where }) => {
         for (const [id, grant] of grants) {
@@ -24,6 +24,16 @@ function fixture(roles = ["RESELLER"]) {
 }
 
 describe("Reseller role rewards", () => {
+  it("grants and removes CS role artwork without removing purchased items", async () => {
+    const f=fixture(["CS"]);
+    f.assets[0].distribution="ROLE_CS";
+    await syncResellerProps("user",f.client);
+    expect(f.grants.get("badge").source).toBe("ROLE_CS");
+    f.grants.set("purchase",{source:"STORE"});
+    f.user.appRoles=["LISTENER"];
+    await syncResellerProps("user",f.client);
+    expect([...f.grants.keys()]).toEqual(["purchase"]);
+  });
   it("accepts Reseller without assigning a privileged legacy role", () => {
     expect(normalizeApplicationRoles(["Reseller", "Listener"])).toEqual(["RESELLER", "LISTENER"]);
     expect(primaryLegacyRole(["RESELLER"])).toBe("LISTENER");

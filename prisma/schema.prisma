@@ -22,6 +22,8 @@ enum UserRole {
 }
 
 enum ApplicationRole {
+  CS
+  CS_LEADER
   MANAGER
   RESELLER
   LISTENER
@@ -395,6 +397,7 @@ model RoleTeamLimit {
 }
 
 model TeamPolicy {
+  topUpTargets Json @default("[]")
   id String @id @default("GLOBAL")
   limitScope String @default("DIRECT")
   allowAncestorRemoval Boolean @default(false)

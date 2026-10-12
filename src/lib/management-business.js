@@ -1,3 +1,4 @@
+import { managementRole } from "./user-roles.js";
 import { prisma } from "./prisma.js";
 import { requireTeamManager, subtree } from "./management-team.js";
 import { normalizeSignupCountry } from "./geo-country.js";
@@ -5,6 +6,7 @@ import { salaryMonth, getAgencySalary } from "./agency-salary.js";
 import { managementFailure } from "./management-web.js";
 export async function businessScope(userId,db=prisma) {
   const me=await requireTeamManager(db,userId),country=normalizeSignupCountry(me.country);
+  if(managementRole(me)==="CS_LEADER")throw managementFailure("Customer Support Leaders can manage only their CS team.");
   if(!country)throw managementFailure("Assign a country before managing agencies.");
   const members=(await subtree(db,me.id)).filter(u=>!u.deletedAt&&u.status==="ACTIVE"&&normalizeSignupCountry(u.country)===country);
   return {me,country,ids:[me.id,...members.map(u=>u.id)]};

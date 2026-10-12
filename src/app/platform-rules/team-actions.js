@@ -1,4 +1,5 @@
 "use server";
+import { validateTopUpTargets } from "@/lib/role-topup-targets";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +10,7 @@ import { emitToUser } from "@/lib/realtime";
 export async function saveTeamPolicy(input) {
   const admin = await requirePermission("rules.manage");
   if (!["DIRECT", "SUBTREE"].includes(input.limitScope) || typeof input.allowAncestorRemoval !== "boolean" || !Array.isArray(input.limits) || input.limits.length > 30) throw new Error("Invalid team policy.");
+  const topUpTargets = validateTopUpTargets(input.topUpTargets ?? []);
   const keys = new Set();
   const limits = input.limits.map(({ supervisorRole, memberRole, max }) => {
     const key = `${supervisorRole}:${memberRole}`;
@@ -18,7 +20,7 @@ export async function saveTeamPolicy(input) {
   await prisma.$transaction(async tx => {
     await tx.roleTeamLimit.deleteMany({});
     if (limits.length) await tx.roleTeamLimit.createMany({ data: limits });
-    const policy = { limitScope: input.limitScope, allowAncestorRemoval: input.allowAncestorRemoval };
+    const policy = { topUpTargets, limitScope: input.limitScope, allowAncestorRemoval: input.allowAncestorRemoval };
     await tx.teamPolicy.upsert({ where: { id: "GLOBAL" }, create: { id: "GLOBAL", ...policy }, update: policy });
     await tx.auditLog.create({ data: { adminId: admin.id, action: "UPDATE_TEAM_POLICY", category: "USER_MANAGEMENT", entityType: "TeamPolicy", entityId: "GLOBAL", description: "Updated reporting limits and removal policy. Existing assignments retained.", metadata: { ...policy, limits } } });
   }, { isolationLevel: "Serializable" });

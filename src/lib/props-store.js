@@ -1,3 +1,4 @@
+import { roleArtworkLabel } from "./role-artwork.js";
 import { syncResellerProps } from "./reseller-props.js";
 import { prisma } from "./prisma.js";
 import { createSignedAssetUrl } from "./upload-assets.js";
@@ -104,8 +105,8 @@ export function mobileAssetUrl(request, asset, user) {
 export function storeAssetPayload(asset, user, entitlement, equipped) {
   const lockedReason = entitlement
     ? null
-    : asset.distribution === "RESELLER"
-      ? "Requires the Reseller role."
+    : roleArtworkLabel(asset.distribution)
+      ? `Requires the assigned role: ${roleArtworkLabel(asset.distribution)}.`
       : asset.distribution === "VIP"
       ? `Requires VIP ${asset.minimumVipLevel}`
       : asset.distribution === "SVIP"

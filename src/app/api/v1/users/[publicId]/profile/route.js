@@ -1,3 +1,4 @@
+import { resolveRoleTags } from "@/lib/role-tags";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
@@ -29,8 +30,10 @@ export async function GET(request, { params }) {
       resolveUserPerks([target], origin, ["BUSINESS_CARD"]),
     ]);
     after(() => recordProfileVisit(target.id, viewer.id).catch(error => console.error("Profile visit failed", error.message)));
+    const roleTags = (await resolveRoleTags([target], origin)).get(target.publicId) ?? [];
     const visibleDob = isSelf || isFriend || target.showDateOfBirth;
     return mobileJson({ success: true, data: { user: {
+      roleTags, roles: target.appRoles,
       publicId: target.publicId, name: target.name, profileImage: avatarDisplayUrl(target.profileImage, origin),
       gender: target.gender, dob: visibleDob ? target.dob?.toISOString().slice(0, 10) ?? null : null,
       age: publicAge(target.dob, visibleDob), country: normalizeSignupCountry(target.country), bio: target.bio,

@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+vi.mock("./role-tags.js", () => ({ resolveRoleTags: async () => new Map() }));
 vi.mock("./user-perks.js", () => ({ resolveUserPerks: async () => new Map() }));
 import { assignTeamMember, removeTeamMember, readTeam, teamCandidates, countRole } from "./management-team.js";
 import { managementIdentity } from "./user-roles.js";
@@ -18,6 +19,16 @@ function fixture(users, rules, policy = { limitScope: "DIRECT", allowAncestorRem
   db.$transaction = vi.fn(work => work(db)); return db;
 }
 const rule = (supervisorRole, memberRole, max) => ({ supervisorRole, memberRole, max });
+it("CS leaders assign only CS and see their team count without business permissions", async () => {
+  const users=[person("leader","CS_LEADER"),person("cs","CS"),person("bd","BD")];
+  const db=fixture(users,[rule("CS_LEADER","CS",null),rule("CS_LEADER","BD",null)]);
+  await assignTeamMember("leader","USR-cs","CS",db);
+  const result=await readTeam("leader","https://portal.example",db);
+  expect(result.limits).toEqual([{role:"CS",roleLabel:"Customer Support",used:1,max:null}]);
+  expect(result.members).toHaveLength(1);
+  await expect(assignTeamMember("leader","USR-bd","BD",db)).rejects.toMatchObject({code:"TEAM_ROLE_NOT_ALLOWED"});
+  expect(managementIdentity(users[0]).management.permissions).toEqual(["team.view","team.assign","team.remove"]);
+});
 it("uses database quotas, audits assignment and rejects taken members", async () => {
   const users = [person("a", "ADMIN"), person("b", "BD"), person("c", "BD")];
   const db = fixture(users, [rule("ADMIN", "BD", 1)]);

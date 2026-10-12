@@ -1,0 +1,6 @@
+ALTER TYPE "ApplicationRole" ADD VALUE IF NOT EXISTS 'CS';
+ALTER TYPE "ApplicationRole" ADD VALUE IF NOT EXISTS 'CS_LEADER';
+INSERT INTO "RoleTeamLimit" ("supervisorRole", "memberRole", "max")
+VALUES ('CS_LEADER', 'CS', NULL) ON CONFLICT DO NOTHING;
+ALTER TABLE "TeamPolicy" ADD COLUMN "topUpTargets" JSONB NOT NULL DEFAULT '[]';
+

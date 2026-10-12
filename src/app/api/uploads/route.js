@@ -1,3 +1,4 @@
+import { ROLE_DISTRIBUTIONS } from "@/lib/role-artwork";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../auth";
@@ -26,7 +27,7 @@ const allowedTypes = new Set([
 ]);
 const maxFileSize = 15 * 1024 * 1024;
 const maxMusicFileSize = 50 * 1024 * 1024;
-const distributions = new Set(["FREE", "MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY", "RESELLER"]);
+const distributions = new Set(["FREE", "MANUAL", "STORE", "VIP", "SVIP", "ACTIVITY", ...ROLE_DISTRIBUTIONS]);
 const giftTiers = new Set(["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"]);
 const assignmentInclude = {
   assignments: {

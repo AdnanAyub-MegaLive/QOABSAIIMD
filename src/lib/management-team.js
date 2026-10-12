@@ -1,3 +1,4 @@
+import { resolveRoleTags } from "./role-tags.js";
 import { prisma } from "./prisma.js";
 import { MANAGEMENT_ROLE_ORDER, managementRole, displayApplicationRole } from "./user-roles.js";
 import { normalizeSignupCountry } from "./geo-country.js";
@@ -6,13 +7,15 @@ import { resolveUserPerks } from "./user-perks.js";
 export const teamSelect = { id: true, publicId: true, name: true, profileImage: true, country: true, appRoles: true, status: true, deletedAt: true, supervisorUserId: true, teamRole: true, countryHeadDesignation: true };
 export function teamError(code, status, message) { throw Object.assign(new Error(message), { code, status }); }
 export function canSupervise(supervisorRole, memberRole) {
+  if (supervisorRole === "CS_LEADER") return memberRole === "CS";
+  if (["CS", "CS_LEADER"].includes(memberRole) || supervisorRole === "CS") return false;
   const a = MANAGEMENT_ROLE_ORDER.indexOf(supervisorRole), b = MANAGEMENT_ROLE_ORDER.indexOf(memberRole);
   return a >= 0 && b > a;
 }
 export async function requireTeamManager(db, userId) {
   const user = await db.user.findUnique({ where: { id: userId }, select: teamSelect });
   const role = managementRole(user);
-  if (!user || user.deletedAt || user.status !== "ACTIVE" || !role || role === "BD") teamError("TEAM_ROLE_NOT_ALLOWED", 403, "A management role is required.");
+  if (!user || user.deletedAt || user.status !== "ACTIVE" || !role || ["BD", "CS"].includes(role)) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "A management role is required.");
   return user;
 }
 export async function teamPolicy(db = prisma) {
@@ -36,9 +39,10 @@ export async function teamRules(db, user) {
 }
 export async function teamPeople(rows, origin, supervisorMap = new Map()) {
   const perks = await resolveUserPerks(rows, origin, ["FRAMES"]);
+  const tags = await resolveRoleTags(rows, origin);
   return rows.map(user => {
     const role = user.teamRole ?? managementRole(user);
-    return { publicId: user.publicId, name: user.name, profileImage: user.profileImage ?? null, frameUrl: perks.get(user.publicId)?.frameUrl ?? null, role, roleLabel: role ? displayApplicationRole(role) : null, country: user.country, supervisorId: supervisorMap.get(user.supervisorUserId) ?? null, status: user.status, countryHeadDesignation: user.countryHeadDesignation ?? null };
+    return { roleTags: tags.get(user.publicId) ?? [], publicId: user.publicId, name: user.name, profileImage: user.profileImage ?? null, frameUrl: perks.get(user.publicId)?.frameUrl ?? null, role, roleLabel: role ? displayApplicationRole(role) : null, country: user.country, supervisorId: supervisorMap.get(user.supervisorUserId) ?? null, status: user.status, countryHeadDesignation: user.countryHeadDesignation ?? null };
   });
 }
 export async function readTeam(userId, origin, db = prisma) {

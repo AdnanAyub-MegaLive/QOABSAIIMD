@@ -1,5 +1,7 @@
 export const APPLICATION_ROLES = [
   "RESELLER",
+  "CS",
+  "CS_LEADER",
   "LISTENER",
   "SENDER",
   "CREATOR",
@@ -16,12 +18,12 @@ export const APPLICATION_ROLES = [
 ];
 
 const LEGACY_ROLES = ["HOST", "MODERATOR", "CREATOR", "SENDER", "LISTENER"];
-export const MANAGEMENT_ROLE_ORDER = ["MANAGER", "COUNTRY_HEAD", "SUPER_ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "ADMIN", "BD"];
+export const MANAGEMENT_ROLE_ORDER = ["MANAGER", "COUNTRY_HEAD", "SUPER_ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "ADMIN", "BD", "CS_LEADER", "CS"];
 export function managementRole(user) { return MANAGEMENT_ROLE_ORDER.find(role => user?.appRoles?.includes(role)) ?? null; }
 export function managementIdentity(user) {
   const role = managementRole(user);
-  const enabled=Boolean(role&&role!=="BD"),portalEnabled=["SUPER_ADMIN","COUNTRY_HEAD"].includes(role);
-  return { management: { enabled, role, roleLabel: role ? displayApplicationRole(role) : null, countryHeadDesignation: user?.countryHeadDesignation ?? null, portal: {enabled:portalEnabled,sessionEndpoint:portalEnabled?"/api/v1/management/portal-session":null}, permissions: enabled ? ["team.view", "team.assign", "team.remove","agencies.assign","performance.view",...(role==="SUPER_ADMIN"?["country.users.moderate","country.rooms.moderate"]:[])] : [] } };
+  const enabled=Boolean(role&&!["BD","CS"].includes(role)),portalEnabled=["SUPER_ADMIN","COUNTRY_HEAD"].includes(role);
+  return { management: { enabled, role, roleLabel: role ? displayApplicationRole(role) : null, countryHeadDesignation: user?.countryHeadDesignation ?? null, portal: {enabled:portalEnabled,sessionEndpoint:portalEnabled?"/api/v1/management/portal-session":null}, permissions: role==="CS_LEADER" ? ["team.view","team.assign","team.remove"] : enabled ? ["team.view", "team.assign", "team.remove","agencies.assign","performance.view",...(role==="SUPER_ADMIN"?["country.users.moderate","country.rooms.moderate"]:[])] : [] } };
 }
 
 export const APPLICATION_ROLE_PERMISSIONS = {
@@ -49,6 +51,8 @@ export function primaryLegacyRole(roles, currentRole = "LISTENER") {
 }
 
 export function displayApplicationRole(role) {
+  if (role === "CS") return "Customer Support";
+  if (role === "CS_LEADER") return "Customer Support Leader";
   if (role === "BD") return "BD";
   return role
     .toLowerCase()
