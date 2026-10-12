@@ -19,6 +19,7 @@ import { normalizeApplicationRoles, primaryLegacyRole, managementIdentity } from
 import {
   shouldAssignTalentPublicId,
   talentPublicIdForApprovedHost,
+  userPublicIdForRemovedHost,
 } from "../lib/host-public-id";
 import { ledgerData } from "../lib/wallet";
 import { generateNumericPublicId } from "../lib/public-id";
@@ -114,7 +115,7 @@ export async function updateUserAccount(publicId, changes) {
     status: nextStatus,
   })
     ? talentPublicIdForApprovedHost(currentUser.publicId)
-    : currentUser.publicId;
+    : !isHost ? userPublicIdForRemovedHost(currentUser.publicId) : currentUser.publicId;
   if (nextPublicId !== currentUser.publicId) {
     const conflict = await prisma.user.findUnique({
       where: { publicId: nextPublicId },
@@ -333,7 +334,7 @@ export async function managePortalHost(publicId, changes) {
   if (!auditReason) throw new Error("HOST_AUDIT_REASON_REQUIRED");
   const nextPublicId = shouldAssignTalentPublicId({ hostEnabled, isVerified, status })
     ? talentPublicIdForApprovedHost(user.publicId)
-    : user.publicId;
+    : !hostEnabled ? userPublicIdForRemovedHost(user.publicId) : user.publicId;
   if (nextPublicId !== user.publicId) {
     const existingUser = await prisma.user.findUnique({
       where: { publicId: nextPublicId },

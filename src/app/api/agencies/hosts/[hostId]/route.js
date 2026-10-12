@@ -6,6 +6,7 @@ import {
   requireMobileUser,
 } from "@/lib/mobile-api";
 import { emitToUser } from "@/lib/realtime";
+import { userPublicIdForRemovedHost } from "@/lib/host-public-id";
 import { normalizeApplicationRoles, primaryLegacyRole } from "@/lib/user-roles";
 
 export function OPTIONS() {
@@ -40,11 +41,16 @@ export async function DELETE(request, { params }) {
     const remainingRoles = normalizeApplicationRoles(
       host.appRoles.filter((role) => role !== "HOST"),
     );
+    const nextPublicId = userPublicIdForRemovedHost(host.publicId);
     await prisma.$transaction(async (tx) => {
+      const conflict = await tx.user.findUnique({ where: { publicId: nextPublicId }, select: { id: true } });
+      if (conflict && conflict.id !== host.id) throw Object.assign(new Error("The restored user ID is already in use."), { code: "HOST_PUBLIC_ID_CONFLICT" });
       const removed = await tx.user.updateMany({
-        where: { id: host.id, agencyId: host.agencyId },
+        where: { id: host.id, agencyId: host.agencyId, publicId: host.publicId },
         data: {
           agencyId: null,
+          publicId: nextPublicId,
+          sessionVersion: { increment: 1 },
           appRoles: { set: remainingRoles },
           role: primaryLegacyRole(remainingRoles, host.role),
 
@@ -55,6 +61,7 @@ export async function DELETE(request, { params }) {
         error.code = "FORBIDDEN";
         throw error;
       }
+      await tx.legacyIdMapping.updateMany({ where: { userId: host.id, entityType: "USER" }, data: { publicId: nextPublicId } });
       await tx.agencyJoinRequest.updateMany({
         where: { userId: host.id, agencyId: host.agencyId, status: "APPROVED" },
         data: {
@@ -74,19 +81,22 @@ export async function DELETE(request, { params }) {
             source: "MOBILE_AGENCY_OWNER",
             ownerId: owner.publicId,
             hostId: host.publicId,
+            previousPublicId: host.publicId,
+            publicId: nextPublicId,
             agencyId: host.agency.publicId,
             preservedSalaryCoinBalance: true,
           },
         },
       });
-    });
+    }, { isolationLevel: "Serializable" });
     const payload = {
       success: true,
-      data: { hostId: host.publicId, agencyId: host.agency.publicId },
+      data: { hostId: host.publicId, previousPublicId: host.publicId, publicId: nextPublicId, userId: nextPublicId, agencyId: host.agency.publicId, sessionInvalidated: true },
     };
     emitToUser(host.publicId, "agency:host-removed", payload);
     return mobileJson(payload);
   } catch (error) {
+    if (error?.code === "HOST_PUBLIC_ID_CONFLICT" || error?.code === "P2002") return mobileJson({ success: false, error: { code: "HOST_PUBLIC_ID_CONFLICT", message: "The restored user ID is already in use. No membership changes were made." } }, 409);
     if (error?.code === "FORBIDDEN")
       return mobileJson(
         { success: false, error: { code: error.code, message: error.message } },

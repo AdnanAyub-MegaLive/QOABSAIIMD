@@ -47,6 +47,15 @@ beforeEach(() => {
 
 const request = body => new Request("https://portal.test/api/gifts/send", { method: "POST", body: JSON.stringify({ giftId: "AST-1", roomId: "ROOM-1", recipientId: "USR-A", ...body }) });
 describe.each([["standard", standard], ["backpack", backpack], ["lucky", lucky]])("%s gift batching", (_name, send) => {
+  it("allows room self-gifts while keeping the debit and recipient credit", async () => {
+    mocks.db.user.findFirst = async () => ({id:"sender",publicId:"USR-S",appRoles:[]});
+    const response = await send(request({recipientId:"USR-S"}));
+    expect(response.status).toBe(201);
+    expect(mocks.rows[0]).toMatchObject({senderId:"sender",recipientUserId:"sender",coinValue:100n});
+    expect(mocks.ledger.some(row=>row.userId==="sender"&&row.type==="GIFT_RECEIVED"&&row.diamonds===100n)).toBe(true);
+    if (_name === "backpack") expect(mocks.db.userGiftInventory.updateMany).toHaveBeenCalled();
+    else expect(mocks.db.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:{id:"sender",coinBalance:{gte:100n}}}));
+  });
   it("persists and echoes the same batch without merging recipient transactions", async () => {
     for (const recipientId of ["USR-A", "USR-B"]) {
       const response = await send(request({ recipientId, giftBatchId: "batch-1" }));
@@ -74,4 +83,20 @@ describe.each([["standard", standard], ["backpack", backpack], ["lucky", lucky]]
     expect(mocks.ledger).toHaveLength(0);
     expect(mocks.emit).not.toHaveBeenCalled();
   });
+});
+
+it("allows a self-gift outside a room",async()=>{
+  mocks.db.user.findFirst=async()=>({id:"sender",publicId:"USR-S",appRoles:[]});
+  const response=await standard(request({recipientId:"USR-S",roomId:null}));
+  expect(response.status).toBe(201);
+  expect(mocks.rows[0]).toMatchObject({senderId:"sender",recipientUserId:"sender"});
+});
+
+it("still rejects self-gifts with insufficient Coins",async()=>{
+  mocks.db.user.findFirst=async()=>({id:"sender",publicId:"USR-S",appRoles:[]});
+  mocks.db.user.updateMany.mockResolvedValue({count:0});
+  const response=await standard(request({recipientId:"USR-S",roomId:null}));
+  expect(response.status).not.toBe(201);
+  expect(mocks.rows).toHaveLength(0);
+  expect(mocks.ledger).toHaveLength(0);
 });

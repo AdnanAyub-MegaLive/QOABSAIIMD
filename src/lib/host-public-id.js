@@ -9,3 +9,11 @@ export function talentPublicIdForApprovedHost(publicId) {
 export function shouldAssignTalentPublicId({ hostEnabled, status }) {
   return Boolean(hostEnabled) && String(status).toUpperCase() === "ACTIVE";
 }
+
+export function userPublicIdForRemovedHost(publicId) {
+  const normalized = String(publicId ?? "").trim().toUpperCase();
+  if (/^USR-[A-Z0-9]+$/.test(normalized)) return normalized;
+  const match = /^TLN-([A-Z0-9]+)$/.exec(normalized);
+  if (!match) throw new Error("HOST_PUBLIC_ID_REQUIRES_TLN_PREFIX");
+  return `USR-${match[1]}`;
+}

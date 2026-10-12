@@ -52,11 +52,7 @@ export async function POST(request) {
       throw error;
     }
     if (roomId && liveId) throw Object.assign(new Error("Choose either an audio room or live video."), { code: "VALIDATION_ERROR" });
-    if (!roomId && !liveId && recipientId === sessionUser.publicId) {
-      const error = new Error("You cannot send a gift to yourself.");
-      error.code = "VALIDATION_ERROR";
-      throw error;
-    }
+    // Self-gifts use the same debit, settlement and eligibility checks as other gifts.
 
     const [giftAsset, recipientUser, talent, policy, room, live] = await Promise.all([
       prisma.uploadAsset.findFirst({

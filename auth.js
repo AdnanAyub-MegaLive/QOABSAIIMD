@@ -13,7 +13,7 @@ function equalsSecret(a, b) {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: { signIn: "/" },
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 60 * 30 },
   callbacks: {
     async jwt({ token, user }) {
       if (user) { token.sub = user.id; token.staffVersion = user.sessionVersion; }
