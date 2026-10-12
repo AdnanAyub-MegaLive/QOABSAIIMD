@@ -1035,6 +1035,7 @@ model UploadAsset {
   distribution                String                       @default("MANUAL")
   storeVisible                Boolean                      @default(false)
   coinPrice                   BigInt?
+  giftCategory                String?
   giftTier                    String?
   giftRewardMinBps            Int?
   giftRewardMaxBps            Int?

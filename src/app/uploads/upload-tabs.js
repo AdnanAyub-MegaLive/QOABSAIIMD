@@ -1,36 +1,22 @@
 "use client";
 import { ROLE_DISTRIBUTIONS, roleArtworkLabel } from "@/lib/role-artwork";
 
+import { GIFT_CATEGORIES, giftCategory as resolveGiftCategory } from "@/lib/gift-categories";
 import Image from "next/image";
+import { UPLOAD_SECTIONS, filterUploadRecords } from "./upload-sections";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { durationCalculation } from "../utils/duration";
 
-const tabs = [
-  "Profile Dresses", "Medals", "Role Artwork", "Agency Artwork",
-  "Banners",
-  "Frames",
-  "Entrance Strip",
-  "Rides",
-  "Tail-lights",
-  "Gifts",
-  "Badges",
-  "Chat Boxes",
-  "Room Backgrounds",
-  "Seat Styles",
-  "Business Cards",
-  "VIP Stickers",
-  "Campaign Widgets",
-  "Music",
-];
 const categories = {
-  "Profile Dresses": "PROFILE_DRESS", Medals: "MEDALS", "Role Artwork": "ROLE_ARTWORK", "Agency Artwork": "AGENCY_ARTWORK",
+  "Profile Dresses": "PROFILE_DRESS", "Agency Artwork": "AGENCY_ARTWORK",
   Banners: "BANNERS",
   Frames: "FRAMES",
   "Entrance Strip": "ENTRANCES",
   Rides: "RIDES",
-  "Tail-lights": "TAIL_LIGHTS",
   Gifts: "GIFTS",
   Badges: "BADGES",
+  "User Tags": "USER_TAGS",
+  "Profile BG": "PROFILE_BG",
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
   "Seat Styles": "SEAT_STYLES",
@@ -50,7 +36,12 @@ function bannerPlacementLabel(value) {
 }
 
 export default function UploadTabs({ initialUploads, users }) {
-  const [active, setActive] = useState(tabs[0]);
+  const [section, setSection] = useState("Props");
+  const [active, setActive] = useState(UPLOAD_SECTIONS.Props[0]);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("ALL");
+  const [giftTierFilter, setGiftTierFilter] = useState("ALL");
+  const tabs = UPLOAD_SECTIONS[section];
   const [uploads, setUploads] = useState(initialUploads);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [managedAsset, setManagedAsset] = useState(null);
@@ -105,11 +96,11 @@ export default function UploadTabs({ initialUploads, users }) {
     }
   }
 
-  const records = uploads.filter(
-    (item) => item.category === categories[active],
-  );
+  const records = filterUploadRecords(uploads.filter(item => item.category === categories[active]), { query, status, giftTier: section === "Gifts" ? giftTierFilter : "ALL" });
   return (
     <>
+      <nav aria-label="Upload sections" className="mb-6 flex gap-2 border-b border-[#dce7e4]">{Object.keys(UPLOAD_SECTIONS).map(name => <button type="button" key={name} aria-current={section === name ? "page" : undefined} onClick={() => { setSection(name); setActive(UPLOAD_SECTIONS[name][0]); setQuery(""); setStatus("ALL"); setGiftTierFilter("ALL"); setError(""); }} className={`px-5 py-3 text-sm font-bold ${section === name ? "border-b-2 border-[#087f74] text-[#087f74]" : "text-[#71847f]"}`}>{name}</button>)}</nav>
+      <p className="mb-5 text-sm text-[#71847f]">{section === "Props" ? "Prop Mall · Items users can obtain, own and equip. Configure artwork, acquisition method, price and validity." : section === "Gifts" ? "Gift catalogue · Consumable gifts with their own artwork, Coin price and sender/receiver XP. Live-video gifts remain in Live Management." : "Supporting media · Banners, official artwork, medals, campaigns and music."}</p>
       <div
         className="mb-7 overflow-x-auto border-b border-[#dce7e4]"
         role="tablist"
@@ -138,7 +129,7 @@ export default function UploadTabs({ initialUploads, users }) {
           <div>
             <h3 className="text-lg font-bold">{active}</h3>
             <p className="mt-1 text-xs text-[#788b86]">
-              Database-backed files available to the mobile application.
+              {records.length} item(s) · {section === "Gifts" ? "Gift List" : section === "Props" ? "Prop Mall" : "Media library"}
             </p>
           </div>
           <button
@@ -152,6 +143,7 @@ export default function UploadTabs({ initialUploads, users }) {
             + Add new {singular(active)}
           </button>
         </div>
+        <div className="mb-5 flex flex-wrap gap-3 rounded-xl border border-[#dce7e4] bg-white p-4"><input aria-label="Search uploads" placeholder="Search name or asset ID" value={query} onChange={e=>setQuery(e.target.value)} className="min-w-48 flex-1 rounded-lg border border-[#dce7e4] px-3 py-2 text-sm"/><select aria-label="Asset status" value={status} onChange={e=>setStatus(e.target.value)} className="rounded-lg border px-3 py-2 text-sm"><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Disabled</option></select>{section === "Gifts" && <select aria-label="Gift type" value={giftTierFilter} onChange={e=>setGiftTierFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm"><option value="ALL">All gift types</option>{GIFT_CATEGORIES.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>}</div>
         {error && (
           <p className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
             {error}
@@ -176,7 +168,7 @@ export default function UploadTabs({ initialUploads, users }) {
             ))}
           </div>
         ) : (
-          <EmptyState active={active} />
+          query || status !== "ALL" || (section === "Gifts" && giftTierFilter !== "ALL") ? <p className="rounded-xl border bg-white p-8 text-center text-sm text-[#71847f]">No matching items. Adjust the search or filters.</p> : <EmptyState active={active} />
         )}
       </section>
       {uploadOpen && (
@@ -355,6 +347,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
   );
   const [storeVisible, setStoreVisible] = useState(asset.storeVisible ?? false);
   const [coinPrice, setCoinPrice] = useState(asset.coinPrice ?? "0");
+  const [giftCategory, setGiftCategory] = useState(resolveGiftCategory(asset.giftCategory, asset.giftTier));
   const [giftTier, setGiftTier] = useState(asset.giftTier ?? "CLASSIC");
   const [senderXp,setSenderXp]=useState(asset.senderXp ?? "0");
   const [receiverXp,setReceiverXp]=useState(asset.receiverXp ?? "0");
@@ -403,7 +396,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
       ...(isBanner
         ? { actionUrl: actionUrl.trim(), placement, sortOrder: Number(sortOrder) }
         : isGift
-          ? { giftTier, coinPrice, senderXp, receiverXp, distribution: "STORE", storeVisible: false }
+          ? { giftCategory, giftTier, coinPrice, senderXp, receiverXp, distribution: "STORE", storeVisible: false }
         : isMusic
           ? { distribution: "FREE", storeVisible: false, isRoomBackground: false }
         : {
@@ -458,7 +451,8 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
             />
           </div>
           <div className="grid gap-4">
-            <Field label="Title">
+            <h4 className="text-sm font-bold text-[#087f74]">1. Item information</h4>
+          <Field label={isGift ? "Gift name" : "Item name"}>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
@@ -507,7 +501,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
             )}
           </div>
           {isGift && (
-            <GiftCatalogSettings senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
+            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
@@ -698,7 +692,7 @@ function UserRow({ user, meta, action, tone, onAction }) {
 function UploadModal({ active, users, onClose, onCreated }) {
   const isBanner = active === "Banners";
   const isGift = active === "Gifts";
-  const isBusinessCard = ["Business Cards", "Profile Dresses"].includes(active);
+  const isBusinessCard = ["Business Cards", "Profile Dresses", "Profile BG"].includes(active);
   const isMusic = active === "Music";
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
@@ -709,6 +703,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
   const [distribution, setDistribution] = useState(isMusic ? "FREE" : "STORE");
   const [storeVisible, setStoreVisible] = useState(true);
   const [coinPrice, setCoinPrice] = useState("0");
+  const [giftCategory, setGiftCategory] = useState("NORMAL");
   const [giftTier, setGiftTier] = useState("CLASSIC");
   const [senderXp,setSenderXp]=useState("");
   const [receiverXp,setReceiverXp]=useState("");
@@ -769,6 +764,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
     }
     if (isGift) {
       form.set("giftTier", giftTier);
+      form.set("giftCategory", giftCategory);
       form.set("senderXp",senderXp);
       form.set("receiverXp",receiverXp);
       form.set("giftRewardMinBps", giftRewardMinBps);
@@ -842,7 +838,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
           </button>
         </div>
         <div className="space-y-4 p-6">
-          <Field label="Title">
+          <h4 className="text-sm font-bold text-[#087f74]">1. Item information</h4>
+          <Field label={isGift ? "Gift name" : "Item name"}>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -887,6 +884,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
               <p className="sm:col-span-2 rounded-lg bg-[#eef8f6] px-3 py-2 text-[10px] leading-4 text-[#4d6c67]">Use rights-approved PNG, JPEG, or WebP artwork. Recommended size: 1200 × 500 px (2.4:1), with important text kept inside a safe inset.</p>
             </div>
           )}
+          <h4 className="border-t border-[#e5ecea] pt-4 text-sm font-bold text-[#087f74]">2. Artwork & preview</h4>
+          <p className="text-xs text-[#71847f]">Media type is detected and validated by the server. Upload the original artwork; unsupported formats are not converted automatically.</p>
           <Field label="Media file">
             <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#cbded9] bg-[#f8fbfa] px-5 text-center">
               <strong className="text-xs text-[#087f74]">
@@ -918,14 +917,14 @@ function UploadModal({ active, users, onClose, onCreated }) {
               </p>
             </div>
           )}
-          {isBusinessCard && (
-            <Field label="Poster image (required for video cards)">
+          {(isBusinessCard || isGift) && (
+            <Field label={isGift ? "Gift icon / poster (optional)" : "Poster image (required for video cards)"}>
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setPosterFile(event.target.files?.[0] ?? null)} className={inputClass} />
-              <p className="mt-1.5 text-[10px] text-[#7b8e89]">PNG, JPEG, or WebP; maximum 5 MB. Used before a video card starts playing.</p>
+              <p className="mt-1.5 text-[10px] text-[#7b8e89]">PNG, JPEG, or WebP; maximum 5 MB. Used as the static catalogue preview before animation starts.</p>
             </Field>
           )}
           {isGift && (
-            <GiftCatalogSettings senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
+            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
@@ -1104,7 +1103,7 @@ function AssignmentPeriod({ value, onChange }) {
   );
 }
 
-function GiftCatalogSettings({ senderXp, onSenderXp, receiverXp, onReceiverXp, giftTier, onGiftTier, coinPrice, onCoinPrice, giftRewardMinBps, onGiftRewardMinBps, giftRewardMaxBps, onGiftRewardMaxBps }) {
+function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderXp, receiverXp, onReceiverXp, giftTier, onGiftTier, coinPrice, onCoinPrice, giftRewardMinBps, onGiftRewardMinBps, giftRewardMaxBps, onGiftRewardMaxBps }) {
   return (
     <fieldset className="rounded-xl border border-[#cadbd7] bg-[#f8fbfa] p-4">
       <legend className="px-2 text-xs font-bold text-[#294a45]">
@@ -1112,7 +1111,8 @@ function GiftCatalogSettings({ senderXp, onSenderXp, receiverXp, onReceiverXp, g
       </legend>
       <div className="mb-4 grid gap-4 sm:grid-cols-2">{[["Sender XP",senderXp,onSenderXp],["Receiver XP",receiverXp,onReceiverXp]].map(([label,value,setValue])=><Field key={label} label={`${label} (required)`}><input type="number" min="0" max="1000000000000" step="1" required value={value} onChange={e=>setValue(e.target.value)} className={inputClass}/></Field>)}</div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Gift category">
+        <Field label="Application category (required)"><select required value={giftCategory} onChange={e=>onGiftCategory(e.target.value)} className={inputClass}>{GIFT_CATEGORIES.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></Field>
+        <Field label="Gift behavior (independent of category)">
           <select
             value={giftTier}
             onChange={(event) => onGiftTier(event.target.value)}
@@ -1163,7 +1163,7 @@ function DistributionSettings({
   return (
     <fieldset className="rounded-xl border border-[#c9ddd8] bg-[#f7fbfa] p-4">
       <legend className="px-2 text-xs font-bold text-[#294a45]">
-        Store and ownership rules
+        3. Acquisition, price & validity
       </legend>
       <label className="block">
         <span className="mb-2 block text-xs font-bold">How users obtain it</span>
@@ -1228,7 +1228,7 @@ function DistributionSettings({
         <span>
           <strong className="block text-xs">Show in Store catalog</strong>
           <span className="mt-0.5 block text-[9px] text-[#748681]">
-            Reseller rewards unlock while the user holds the Reseller role. VIP, SVIP, and activity items appear locked until earned.
+            Role rewards unlock while the user holds the matching role. VIP, SVIP, and activity items appear locked until earned.
           </span>
         </span>
       </label>

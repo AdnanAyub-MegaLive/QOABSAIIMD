@@ -1,3 +1,4 @@
+import { GIFT_CATEGORIES, giftCategory } from "@/lib/gift-categories";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
 
-const tiers = ["CLASSIC", "PREMIUM", "VIP"];
+const tiers = ["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"];
 
 export function OPTIONS() {
   return mobileOptions();
@@ -32,6 +33,7 @@ export async function GET(request) {
         details: true,
         tags: true,
         giftTier: true,
+        giftCategory: true,
         mimeType: true,
         coinPrice: true,
         createdAt: true,
@@ -45,7 +47,8 @@ export async function GET(request) {
       name: asset.name,
       details: asset.details,
       tags: asset.tags,
-      category: asset.giftTier,
+      category: giftCategory(asset.giftCategory, asset.giftTier),
+      giftTier: asset.giftTier,
       mimeType: asset.mimeType,
       coinPrice: asset.coinPrice.toString(),
       mediaUrl: createPublicDisplayAssetUrl(origin, asset.publicId),
@@ -54,9 +57,9 @@ export async function GET(request) {
     return mobileJson({
       success: true,
       data: {
-        categories: tiers.map((id) => ({
+        categories: GIFT_CATEGORIES.map(([id, name]) => ({
           id,
-          name: id.charAt(0) + id.slice(1).toLowerCase(),
+          name,
           gifts: gifts.filter((gift) => gift.category === id),
         })),
         gifts,

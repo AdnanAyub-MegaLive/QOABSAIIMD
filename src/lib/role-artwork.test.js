@@ -3,7 +3,7 @@ vi.mock("./upload-assets.js",()=>({createPublicDisplayAssetUrl:(origin,id)=>`${o
 import { resolveRoleTags } from "./role-tags.js";
 import { validateTopUpTargets } from "./role-topup-targets.js";
 it("returns graphical role metadata without replacing equipped badges",async()=>{
-  const db={uploadAsset:{findMany:async()=>[{publicId:"AST-CS",distribution:"ROLE_CS",mimeType:"image/png"}]}};
+  const db={uploadAsset:{findMany:async()=>[{publicId:"AST-CS",category:"USER_TAGS",distribution:"ROLE_CS",mimeType:"image/png"}]}};
   const tags=await resolveRoleTags([{publicId:"USR-1",appRoles:["CS","BD"]}],"https://portal.example",db);
   expect(tags.get("USR-1").find(t=>t.role==="CS")).toMatchObject({assetId:"AST-CS",mimeType:"image/png"});
   expect(tags.get("USR-1").find(t=>t.role==="BD").imageUrl).toBeNull();

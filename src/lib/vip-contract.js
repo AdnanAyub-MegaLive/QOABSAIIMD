@@ -1,6 +1,6 @@
 // Stable capability keys; labels may change without breaking the mobile contract.
 export const VIP_PRIVILEGES = [
-  ["BADGE", "Badge", "BADGES"], ["ENTRANCE_STRIP", "Entrance strip", "TAIL_LIGHTS"],
+  ["BADGE", "Badge", "BADGES"], ["ENTRANCE_STRIP", "Entrance strip", "ENTRANCES"],
   ["VIP_GIFTS", "VIP gifts", "GIFTS"], ["HIGHLIGHT_NAME", "Highlight name"],
   ["VIP_SEAT", "VIP seat", "SEAT_STYLES"], ["VIP_DATA_CARD", "VIP data card", "BUSINESS_CARD"],
   ["VIP_EMOJI", "VIP emoji", "VIP_STICKERS"], ["ANTI_MIC_BAN", "Anti-mic-ban"],

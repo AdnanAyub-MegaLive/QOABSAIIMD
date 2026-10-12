@@ -38,10 +38,10 @@ export async function displayAssets(ids, origin, db = prisma) {
 }
 export async function equippedProfileAssets(users, origin, db = prisma) {
   const now = new Date();
-  const rows = await db.userEquippedProp.findMany({ where: { userId: { in: users.map(u => u.id) }, category: { in: ["FRAMES", "BADGES", "PROFILE_DRESS"] }, asset: { active: true } }, include: { asset: { select: { publicId: true, isGlobal: true, mimeType: true, category: true, assignments: { where: { userId: { in: users.map(u => u.id) }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, select: { userId: true } } } } } });
+  const rows = await db.userEquippedProp.findMany({ where: { userId: { in: users.map(u => u.id) }, category: { in: ["FRAMES", "BADGES", "PROFILE_DRESS", "USER_TAGS", "PROFILE_BG"] }, asset: { active: true } }, include: { asset: { select: { publicId: true, isGlobal: true, mimeType: true, category: true, assignments: { where: { userId: { in: users.map(u => u.id) }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, select: { userId: true } } } } } });
   const assets = await displayAssets(rows.map(r => r.asset.publicId), origin, db);
-  const results = new Map(users.map(u => [u.id, { avatarFrame: null, profileBadge: null, profileDress: null }]));
-  const keys = { FRAMES: "avatarFrame", BADGES: "profileBadge", PROFILE_DRESS: "profileDress" };
+  const results = new Map(users.map(u => [u.id, { avatarFrame: null, profileBadge: null, profileDress: null, userTag: null, profileBackground: null }]));
+  const keys = { FRAMES: "avatarFrame", BADGES: "profileBadge", PROFILE_DRESS: "profileDress", USER_TAGS: "userTag", PROFILE_BG: "profileBackground" };
   for (const row of rows) {
     if (row.asset.category !== row.category || (!row.asset.isGlobal && !row.asset.assignments.some(a => a.userId === row.userId))) continue;
     if (!["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(row.asset.mimeType)) continue;
@@ -58,7 +58,7 @@ export function wallOffset(cursor) {
 }
 export async function medalWall(userId, origin, { limit = 4, cursor } = {}, db = prisma) {
   const offset = wallOffset(cursor);
-  const rows = await db.userMedal.findMany({ where: { userId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }], assetPublicId: { in: (await db.uploadAsset.findMany({ where: { active: true, category: "MEDALS" }, select: { publicId: true } })).map(a => a.publicId) } }, orderBy: [{ pinned: "desc" }, { earnedAt: "desc" }, { id: "desc" }], skip: offset, take: limit + 1 });
+  const rows = await db.userMedal.findMany({ where: { userId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }], assetPublicId: { in: (await db.uploadAsset.findMany({ where: { active: true, category: "BADGES" }, select: { publicId: true } })).map(a => a.publicId) } }, orderBy: [{ pinned: "desc" }, { earnedAt: "desc" }, { id: "desc" }], skip: offset, take: limit + 1 });
   const assets = await displayAssets(rows.map(r => r.assetPublicId), origin, db);
   return { items: rows.slice(0, limit).map(row => ({ id: row.publicId, name: row.name, imageUrl: assets.get(row.assetPublicId)?.url ?? null, earnedAt: row.earnedAt.toISOString(), expiresAt: row.expiresAt?.toISOString() ?? null })), nextCursor: rows.length > limit ? wallCursor(offset + limit) : null };
 }
@@ -89,6 +89,8 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
   const levels = progress.get(target.publicId);
   return { roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
     equippedAssets, frameUrl: equippedAssets.avatarFrame?.url ?? null, badgeUrl: equippedAssets.profileBadge?.url ?? null,
+    userTagUrl: equippedAssets.userTag?.url ?? null,
+    profileBackgroundUrl: equippedAssets.profileBackground?.url ?? null, profileBackgroundPosterUrl: equippedAssets.profileBackground?.posterUrl ?? null, profileBackgroundMimeType: equippedAssets.profileBackground?.mimeType ?? null,
     homeDressUrl: equippedAssets.profileDress?.url ?? null, homeDressPosterUrl: equippedAssets.profileDress?.posterUrl ?? null, homeDressMimeType: equippedAssets.profileDress?.mimeType ?? null,
     ...levels, medalWall: medals, giftWall: gifts,
     agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agency.level, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, badgeUrl: assets.get(agency.badgeAssetPublicId)?.url ?? null } : null,

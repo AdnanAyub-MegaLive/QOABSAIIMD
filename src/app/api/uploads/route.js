@@ -1,3 +1,4 @@
+import { giftCategory as normalizeGiftCategory } from "@/lib/gift-categories";
 import { ROLE_DISTRIBUTIONS } from "@/lib/role-artwork";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { portalPermissionError } from "@/lib/portal-admin";
@@ -252,6 +253,8 @@ export async function POST(request) {
       isBanner,
     );
     const giftTier = cleanGiftTier(form.get("giftTier"), isGift);
+    if (isGift && !form.get("giftCategory")) throw Object.assign(new Error("Select an application gift category."), { code: "VALIDATION_ERROR" });
+    const selectedGiftCategory = isGift ? normalizeGiftCategory(form.get("giftCategory"), giftTier) : null;
     const giftRewardMinBps = giftTier === "LUCKY" ? Math.max(0, Math.min(50000, Number(form.get("giftRewardMinBps")) || 0)) : null;
     const giftRewardMaxBps = giftTier === "LUCKY" ? Math.max(giftRewardMinBps, Math.min(50000, Number(form.get("giftRewardMaxBps")) || 20000)) : null;
     if (isGift && (!distribution.coinPrice || distribution.coinPrice <= 0n)) {
@@ -384,9 +387,9 @@ export async function POST(request) {
       return Response.json({ success: false, error: { code: "UNSUPPORTED_POSTER_TYPE", message: "Poster images must be PNG, JPEG, or WebP." } }, { status: 415 });
     if (hasPoster && posterFile.size > 5 * 1024 * 1024)
       return Response.json({ success: false, error: { code: "POSTER_TOO_LARGE", message: "Poster images cannot exceed 5 MB." } }, { status: 413 });
-    if (hasPoster && !["BUSINESS_CARD", "PROFILE_DRESS", "FRAMES", "BADGES", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category))
-      return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Poster images are currently supported only for Business Cards." } }, { status: 422 });
-    if (["BUSINESS_CARD", "PROFILE_DRESS"].includes(category) && file.type === "video/mp4" && !hasPoster)
+    if (hasPoster && !["USER_TAGS", "PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS", "FRAMES", "BADGES", "AGENCY_ARTWORK", "GIFTS"].includes(category))
+      return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Poster images are not supported for this asset category." } }, { status: 422 });
+    if (["PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS"].includes(category) && file.type === "video/mp4" && !hasPoster)
       return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Video Business Cards require a poster image." } }, { status: 422 });
     const users = await resolveUsers(prisma, selectedIds);
     const publicId = `AST-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
@@ -412,6 +415,7 @@ export async function POST(request) {
           placement: assetContract.placement,
           sortOrder,
           giftTier,
+          giftCategory: selectedGiftCategory,
           giftRewardMinBps,
           giftRewardMaxBps,
           ...(isGift ? giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")}) : {}),
@@ -572,6 +576,7 @@ export async function PATCH(request) {
           name: true,
           category: true,
           giftTier: true,
+          giftCategory: true,
           placement: true,
           sortOrder: true,
         },
@@ -671,7 +676,7 @@ export async function PATCH(request) {
           ...(Array.isArray(body?.tags) ? { tags: cleanTags(body.tags) } : {}),
           ...(actionUrl !== undefined ? { actionUrl } : {}),
           ...(isBanner ? { placement, sortOrder } : {}),
-          ...(isGift ? { giftTier, ...giftXpInput(body) } : {}),
+          ...(isGift ? { giftTier, giftCategory: normalizeGiftCategory(body.giftCategory ?? current.giftCategory, giftTier), ...giftXpInput(body) } : {}),
           ...(updatesAssignments ? { isGlobal: false } : {}),
           ...(typeof body?.isRoomBackground === "boolean"
             ? { isRoomBackground: body.isRoomBackground }

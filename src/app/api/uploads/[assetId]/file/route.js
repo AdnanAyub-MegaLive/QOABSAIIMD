@@ -12,6 +12,8 @@ const publicDisplayCategories = new Set([
   "AVATARS",
   "FRAMES",
   "BADGES",
+  "USER_TAGS",
+  "PROFILE_BG",
   "ROOM_BACKGROUNDS",
   "SEAT_STYLES",
   "ENTRANCES",

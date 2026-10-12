@@ -37,6 +37,7 @@ export default async function UploadsPage() {
         senderXp: true,
         receiverXp: true,
         giftTier: true,
+        giftCategory: true,
         minimumVipLevel: true,
         minimumRecharge: true,
         defaultGrantDurationMinutes: true,

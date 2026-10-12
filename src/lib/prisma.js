@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-11-withdrawal-quotes";
+const prismaSchemaVersion = "2026-10-12-upload-gift-categories";
 const requiredUserFields = [
   "sessionVersion",
   "forcedLogoutAt",
@@ -74,7 +74,7 @@ const cachedClientMatchesSchema =
     "revision",
     "seatRevision",
   ].every((field) => cachedAudioRoomFields.includes(field)) &&
-  ["details", "tags", "isGlobal", "actionUrl", "placement", "sortOrder", "posterFileName", "posterMimeType", "posterFileSize", "posterFileData", "giftRewardMinBps", "giftRewardMaxBps"].every(
+  ["giftCategory", "details", "tags", "isGlobal", "actionUrl", "placement", "sortOrder", "posterFileName", "posterMimeType", "posterFileSize", "posterFileData", "giftRewardMinBps", "giftRewardMaxBps"].every(
     (field) => cachedUploadAssetFields.includes(field),
   ) &&
   ["durationMinutes", "expiresAt"].every((field) =>

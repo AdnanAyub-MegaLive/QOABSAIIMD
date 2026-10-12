@@ -1,16 +1,15 @@
 import { publicCdnUrl } from "./media-cdn-policy.js";
 export const uploadCategories = {
   "Profile Dresses": "PROFILE_DRESS",
-  Medals: "MEDALS",
-  "Role Artwork": "ROLE_ARTWORK",
   "Agency Artwork": "AGENCY_ARTWORK",
   Banners: "BANNERS",
   Frames: "FRAMES",
   "Entrance Strip": "ENTRANCES",
   Rides: "RIDES",
-  "Tail-lights": "TAIL_LIGHTS",
   Gifts: "GIFTS",
   Badges: "BADGES",
+  "User Tags": "USER_TAGS",
+  "Profile BG": "PROFILE_BG",
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
   "Seat Styles": "SEAT_STYLES",
@@ -111,7 +110,7 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (category === "SEAT_STYLES" && mimeType && !seatStyleMimeTypes.has(mimeType)) {
     throw validationError("Seat styles must be PNG, JPEG, or WebP images.");
   }
-  if (["PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category) && mimeType && !["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(mimeType)) throw validationError("Profile artwork must be PNG, JPEG, WebP, GIF or MP4.");
+  if (["USER_TAGS", "PROFILE_BG", "PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category) && mimeType && !["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(mimeType)) throw validationError("Profile artwork must be PNG, JPEG, WebP, GIF or MP4.");
   if (category === "BUSINESS_CARD" && mimeType && !businessCardMimeTypes.has(mimeType)) {
     throw validationError("Business cards must be PNG, JPEG, WebP, or MP4.");
   }
@@ -163,6 +162,7 @@ export function serializeUploadAsset(asset,url) {
     coinPrice:asset.coinPrice?.toString()??null,
       senderXp:String(asset.senderXp??0),
       receiverXp:String(asset.receiverXp??0),
+    giftCategory:asset.giftCategory??null,
     giftTier:asset.giftTier??null,
     minimumVipLevel:asset.minimumVipLevel??null,
     minimumRecharge:asset.minimumRecharge?.toString()??null,
