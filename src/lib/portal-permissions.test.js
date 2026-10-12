@@ -8,6 +8,18 @@ const staff = { id: "staff", active: true, role: "STAFF", createdById: "manager"
 const db = rows => ({ admin: { findUnique: async ({ where }) => rows.find(row => row.id === where.id) ?? null } });
 
 describe("portal permission boundaries", () => {
+  it("requires explicit grants for new financial, progression and live catalogue controls", () => {
+    const keys=["rules.levels","rules.hierarchy","rules.currency","video.gifts","video.rewards"];
+    const legacy={...manager,permissions:["rules.view","rules.manage","video.view","video.manage"]};
+    for(const key of keys){
+      expect(allPermissions).toContain(key);
+      expect(hasPermission(root,key)).toBe(true);
+      expect(hasPermission(legacy,key)).toBe(false);
+      expect(()=>validatePermissions([key],root)).toThrow();
+      expect(validatePermissions([key.split(".")[0]+".view",key],root)).toContain(key);
+      expect(()=>validatePermissions([key.split(".")[0]+".view",key],legacy)).toThrow();
+    }
+  });
   it("defaults to no access and gives only active platform managers full access", () => {
     expect(new Set(allPermissions).size).toBe(allPermissions.length);
     expect(hasPermission(null, "finance.adjust")).toBe(false);

@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/portal-admin";
 import { validateCurrencyPolicy } from "@/lib/currency-policy";
 import { reviewCurrencyRequest } from "@/lib/currency-operations";
 export async function saveCurrencyPolicy(input){
-  const admin=await requirePermission("rules.manage");
+  const admin=await requirePermission("rules.currency");
   const rules=validateCurrencyPolicy(input);
   await prisma.$transaction(async tx=>{
     const row=await tx.currencyPolicy.upsert({where:{id:"GLOBAL"},create:{id:"GLOBAL",rules,version:2},update:{rules,version:{increment:1}}});

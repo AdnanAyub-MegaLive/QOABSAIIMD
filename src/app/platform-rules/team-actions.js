@@ -8,7 +8,7 @@ import { managementIdentity } from "@/lib/user-roles";
 import { emitToUser } from "@/lib/realtime";
 
 export async function saveTeamPolicy(input) {
-  const admin = await requirePermission("rules.manage");
+  const admin = await requirePermission("rules.hierarchy");
   if (!["DIRECT", "SUBTREE"].includes(input.limitScope) || typeof input.allowAncestorRemoval !== "boolean" || !Array.isArray(input.limits) || input.limits.length > 30) throw new Error("Invalid team policy.");
   const topUpTargets = validateTopUpTargets(input.topUpTargets ?? []);
   const keys = new Set();
@@ -28,7 +28,7 @@ export async function saveTeamPolicy(input) {
 }
 
 export async function setCountryHeadDesignation(input) {
-  const admin = await requirePermission("rules.manage");
+  const admin = await requirePermission("rules.hierarchy");
   if (!["TITLED", "ACTUAL"].includes(input.designation) || typeof input.publicId !== "string") throw new Error("Enter a Country Head ID and designation.");
   const user = await prisma.$transaction(async tx => {
     const target = await tx.user.findUnique({ where: { publicId: input.publicId.trim() } });

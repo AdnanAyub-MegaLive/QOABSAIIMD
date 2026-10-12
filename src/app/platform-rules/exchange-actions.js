@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePositiveCoins } from "@/lib/wallet";
 
 export async function saveExchangeSettings(input) {
-  const admin = await requirePermission("rules.manage");
+  const admin = await requirePermission("rules.currency");
   const diamondsPerCoin = parsePositiveCoins(input.diamondsPerCoin);
   const minDiamonds = parsePositiveCoins(input.minDiamonds);
   if (typeof input.enabled !== "boolean" || diamondsPerCoin > 9223372036854775807n || minDiamonds > 9223372036854775807n) throw new Error("Invalid exchange settings.");
@@ -18,7 +18,7 @@ export async function saveExchangeSettings(input) {
 }
 
 export async function setUserExchangeAccess(input) {
-  const admin = await requirePermission("rules.manage");
+  const admin = await requirePermission("rules.currency");
   if (typeof input.enabled !== "boolean" || !String(input.publicId ?? "").trim()) throw new Error("Enter a valid user ID.");
   await prisma.$transaction(async tx => {
     const user = await tx.user.update({ where: { publicId: input.publicId.trim() }, data: { diamondExchangeEnabled: input.enabled } });

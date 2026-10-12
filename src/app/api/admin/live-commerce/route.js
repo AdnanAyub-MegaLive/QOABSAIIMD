@@ -22,8 +22,9 @@ export async function GET() {
 }
 export async function POST(request) {
   try {
-    const admin = await requirePermission("video.manage");
+    const admin = await requirePermission("video.view");
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+      await requirePermission("video.gifts");
       const form = await request.formData(), file = form.get("file"), name = String(form.get("name") || "").trim();
       if (!name || name.length > 120 || !(file instanceof File) || file.size > 5 * 1024 * 1024 || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw Object.assign(new Error("Provide a name and PNG, JPEG or WebP artwork up to 5 MB."), { status: 422 });
       let bytes;
@@ -39,6 +40,7 @@ export async function POST(request) {
     } else {
       const body = await request.json();
       if (body.action === "gift") {
+        await requirePermission("video.gifts");
         const name = String(body.name || "").trim();
         if (!name || name.length > 120 || typeof body.active !== "boolean") throw Object.assign(new Error("Invalid gift details."), { status: 422 });
         const coinPrice = amount(body.coinPrice, true);
@@ -48,6 +50,7 @@ export async function POST(request) {
           await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_GIFT_UPDATED", category: "LIVE_MANAGEMENT", entityType: "UploadAsset", entityId: body.publicId, description: "Updated live-only gift pricing or availability." } });
         });
       } else if (body.action === "rules") {
+        await requirePermission("video.rewards");
         let split;
         try { split = validateProfitSplit({ ...body, normalUserReusablePercent: 0 }); } catch { throw Object.assign(new Error("Host, agency and company shares must total 100%."), { status: 422 }); }
         if (typeof body.rewardsEnabled !== "boolean") throw Object.assign(new Error("Invalid reward setting."), { status: 422 });

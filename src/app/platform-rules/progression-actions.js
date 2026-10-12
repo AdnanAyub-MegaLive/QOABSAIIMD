@@ -4,7 +4,7 @@ import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { validateProgressionConfig, jsonSafe, levelSnapshot } from "@/lib/progression";
 export async function publishProgression(input) {
-  const admin=await requirePermission("rules.manage"),data=validateProgressionConfig(input);
+  const admin=await requirePermission("rules.levels"),data=validateProgressionConfig(input);
   const ids=[...new Set(data.levels.map(l=>l.badgeAssetId).filter(Boolean))];
   if(ids.length!==await prisma.uploadAsset.count({where:{publicId:{in:ids},category:"BADGES",active:true}}))throw new Error("Every level badge must be an active BADGES upload.");
   const result=await prisma.$transaction(async tx=>{
