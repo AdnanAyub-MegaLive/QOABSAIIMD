@@ -1,0 +1,40 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({ findMany: vi.fn(), auth: vi.fn(), reconcile: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({ prisma: { audioRoomVisit: { findMany: mocks.findMany } } }));
+vi.mock("@/lib/mobile-api", async importOriginal => ({ ...await importOriginal(), requireMobileUser: mocks.auth }));
+vi.mock("@/lib/audio-room-maintenance", () => ({ reconcileExpiredAudioRoomRestrictions: mocks.reconcile }));
+vi.mock("@/lib/user-perks", () => ({ requestOrigin: () => "https://portal.example", resolveUserPerks: async () => new Map() }));
+vi.mock("@/lib/avatar-history", () => ({ avatarDisplayUrl: x => x }));
+vi.mock("@/lib/room-background", () => ({ serializeRoomBackground: () => ({ assetId: null }) }));
+vi.mock("@/lib/room-seat-style", () => ({ serializeRoomSeatStyle: () => ({ assetId: null }) }));
+import { GET } from "../app/api/audio-rooms/recent/route.js";
+beforeEach(() => { vi.clearAllMocks(); mocks.auth.mockResolvedValue({ id: "authenticated" }); mocks.findMany.mockResolvedValue([]); });
+it("returns empty history separately from a server error", async () => {
+  const request = new Request("https://portal.example/api/audio-rooms/recent");
+  expect(await (await GET(request)).json()).toEqual({ success: true, data: { rooms: [], nextCursor: null } });
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.findMany.mockRejectedValueOnce(new Error("database failure"));
+  const failed = await GET(request);
+  expect(failed.status).toBe(500);
+  expect((await failed.json()).error.code).toBe("ROOM_HISTORY_FAILED");
+  log.mockRestore();
+});
+it("serializes idle zero-participant rooms with current artwork and excludes private fields", async () => {
+  const row = { audioRoomId: "internal-room", lastVisitedAt: new Date(), audioRoom: { roomId: "ROOM-1", title: "Hello", status: "IDLE", participantCount: 0, coverImageUrl: "/cover.webp", passwordHash: "secret", owner: { id: "private", publicId: "USR-1", name: "Owner", profileImage: null } } };
+  mocks.findMany.mockResolvedValue([row, { ...row, audioRoomId: "other" }]);
+  const result = await (await GET(new Request("https://portal.example/api/audio-rooms/recent?limit=1&country=DE&userId=someone-else"))).json();
+  expect(result.data.rooms).toHaveLength(1);
+  expect(result.data.rooms[0]).toMatchObject({ status: "IDLE", participantCount: 0, coverImageUrl: "https://portal.example/cover.webp", roomBackground: { assetId: null }, seatStyle: { assetId: null }, isLocked: true });
+  expect(JSON.stringify(result)).not.toContain("secret");
+  expect(result.data.nextCursor).toBeTruthy();
+  const where = mocks.findMany.mock.calls[0][0].where;
+  expect(where.userId).toBe("authenticated");
+  expect(where.audioRoom).not.toHaveProperty("country");
+});
+it("rejects unauthenticated access before reading history", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.auth.mockRejectedValueOnce(new Error("INVALID_SESSION"));
+  expect((await GET(new Request("https://portal.example/api/audio-rooms/recent"))).status).toBe(401);
+  expect(mocks.findMany).not.toHaveBeenCalled();
+  log.mockRestore();
+});

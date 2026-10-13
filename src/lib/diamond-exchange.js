@@ -1,11 +1,12 @@
 import { prisma } from "./prisma.js";
 import { currencyPolicy } from "./currency-policy.js";
-import { ledgerData, parsePositiveCoins, validationError, walletPublicId } from "./wallet.js";
+import { diamondRules, validateServiceAmount, checkDiamondLimits } from "./diamond-service-rules.js";
+import { ledgerData, parsePositiveCoins, validationError } from "./wallet.js";
 
 export async function exchangeSettings(db = prisma, user = {}) {
-  const policy=await currencyPolicy(db),r=policy.rules;
-  const host=user.role==="HOST"||user.appRoles?.includes("HOST");
-  return {enabled:!user.appRoles?.includes("RESELLER")&&(host?r.hostExchangeEnabled:r.userExchangeEnabled),diamondsPerCoin:BigInt((host?r.hostDiamondsPerCoin:r.userDiamondsPerCoin)||1),minDiamonds:BigInt(r.exchangeMinDiamonds),version:policy.version};
+  const policy=await currencyPolicy(db);
+  const rules = diamondRules(policy, user, "EXCHANGE");
+  return { ...rules, rules, diamondsPerCoin: BigInt(rules.diamondsPerCoin || 0), minDiamonds: BigInt(rules.minDiamonds || 0), version: policy.version };
 }
 
 export function exchangeQuote(value, settings) {
@@ -19,8 +20,8 @@ export function exchangeQuote(value, settings) {
 
 export async function exchangeDiamonds(userId, value, key, db = prisma) {
   const requested = parsePositiveCoins(value, "diamonds");
-  if (key !== null && !/^[A-Za-z0-9._:-]{8,128}$/.test(key)) throw new Error("INVALID_IDEMPOTENCY_KEY");
-  const referenceId = key ? `DEX:${key}` : walletPublicId("DEX");
+  if (typeof key !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(key)) throw new Error("INVALID_IDEMPOTENCY_KEY");
+  const referenceId = `DEX:${key}`;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       return await db.$transaction(async tx => {
@@ -33,6 +34,8 @@ export async function exchangeDiamonds(userId, value, key, db = prisma) {
         const settings = await exchangeSettings(tx,user);
         if (!settings.enabled || !user.diamondExchangeEnabled || user.status !== "ACTIVE" || user.deletedAt) throw new Error("EXCHANGE_DISABLED");
         const quote = exchangeQuote(value, settings);
+        validateServiceAmount(quote.requested, settings.rules, "EXCHANGE");
+        await checkDiamondLimits(tx, userId, quote.used, settings.rules, "EXCHANGE");
         if (quote.requested > user.hostSalaryCoinBalance) throw new Error("INSUFFICIENT_DIAMONDS");
         if (user.coinBalance + quote.coins > 9223372036854775807n) throw validationError("Coin balance would exceed the supported amount.");
         const updated = await tx.user.update({ where: { id: userId }, data: { hostSalaryCoinBalance: { decrement: quote.used }, coinBalance: { increment: quote.coins } } });

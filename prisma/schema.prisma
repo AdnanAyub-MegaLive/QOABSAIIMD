@@ -185,6 +185,7 @@ model AuditLog {
 }
 
 model User {
+  audioRoomVisits AudioRoomVisit[]
   onboardingCompletedAt DateTime?
   countryChangeUsedAt DateTime?
   birthdayChangeUsedAt DateTime?
@@ -1731,6 +1732,7 @@ model TalentViolation {
 }
 
 model AudioRoom {
+  visits                AudioRoomVisit[]
   id                    String                       @id @default(cuid())
   roomId                String                       @unique
   ownerId               String
@@ -1793,6 +1795,17 @@ model AudioRoom {
   @@index([status, startedAt])
   @@index([roomBackgroundAssetId])
   @@index([seatStyleAssetId])
+}
+
+model AudioRoomVisit {
+  userId        String
+  audioRoomId   String
+  lastVisitedAt DateTime @default(now())
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audioRoom     AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+
+  @@id([userId, audioRoomId])
+  @@index([userId, lastVisitedAt, audioRoomId])
 }
 
 model AudioRoomEntertainmentState {

@@ -1,7 +1,7 @@
 import { withdrawalAvailability } from "@/lib/withdrawal-contract";
 import { prisma } from "@/lib/prisma";
-import { exchangeSettings } from "@/lib/diamond-exchange";
 import { currencyPolicy } from "@/lib/currency-policy";
+import { diamondRules } from "@/lib/diamond-service-rules";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { WALLET_CURRENCY } from "@/lib/wallet";
 
@@ -16,6 +16,7 @@ export async function GET(request) {
       where: { id: sessionUser.id },
       select: {
         status: true,
+        country: true,
         deletedAt: true,
         coinBalance: true,
         diamondExchangeEnabled: true,
@@ -28,7 +29,6 @@ export async function GET(request) {
         updatedAt: true,
       },
     });
-    const settings = await exchangeSettings(prisma,user);
     const policy=await currencyPolicy(prisma);
     const withdrawal = withdrawalAvailability(user, policy);
     return mobileJson({
@@ -38,7 +38,8 @@ export async function GET(request) {
         currencyPolicy: policy,
         canWithdraw: withdrawal.canWithdraw,
         withdrawal,
-        diamondExchange: { enabled: settings.enabled && user.diamondExchangeEnabled, diamondsPerCoin: settings.diamondsPerCoin.toString(), minDiamonds: settings.minDiamonds.toString() },
+        diamondExchange: diamondRules(policy, user, "EXCHANGE"),
+        diamondTransfer: diamondRules(policy, user, "TRANSFER"),
         canTransferCoins: user.appRoles.includes("RESELLER"),
         diamonds: user.hostSalaryCoinBalance.toString(),
         coupons: user.couponBalance,

@@ -1,4 +1,5 @@
 import { payoutConfiguration } from "./withdrawal-contract.js";
+import { serviceFields } from "./diamond-service-rules.js";
 export const currencyDefaults = {
   giftDiamondsNumerator: "1", giftCoinsDenominator: "1", giftBasis: "GROSS",
   rechargeCoinsPerUsd: "45000", withdrawalDiamondsPerUsd: "90000",
@@ -7,6 +8,8 @@ export const currencyDefaults = {
   redemptionEnabled: false, redemptionDiamondsPerCoin: "", redemptionDeductionBps: "",
   usdtEnabled: false, usdtMicrosPerUsd: "", withdrawalMinDiamonds: "", withdrawalMaxDiamonds: "",
   feeBearer: "HOST", commissionChart: [],
+  transferMinDiamonds: "", transferMaxDiamonds: "", transferMultiple: "", transferDailyLimit: "", transferMonthlyLimit: "",
+  exchangeMaxDiamonds: "", exchangeMultiple: "", exchangeDailyLimit: "", exchangeMonthlyLimit: "",
 };
 const MAX=9223372036854775807n;
 export function currencyError(message, code="VALIDATION_ERROR") { return Object.assign(new Error(message),{code}); }
@@ -16,6 +19,12 @@ export function amount(value, allowZero=false) {
 }
 export function validateCurrencyPolicy(input) {
   const r=Object.fromEntries(Object.keys(currencyDefaults).map(key=>[key,input[key]??currencyDefaults[key]]));
+  for (const prefix of ["transfer", "exchange"]) {
+    for (const suffix of serviceFields) { const key = prefix + suffix; r[key] = r[key] === "" ? "" : amount(r[key]).toString(); }
+    if (serviceFields.every(suffix => r[prefix + suffix])) {
+      if (BigInt(r[prefix + "MinDiamonds"]) > BigInt(r[prefix + "MaxDiamonds"]) || BigInt(r[prefix + "MaxDiamonds"]) > BigInt(r[prefix + "DailyLimit"]) || BigInt(r[prefix + "DailyLimit"]) > BigInt(r[prefix + "MonthlyLimit"])) throw currencyError("Limits must satisfy minimum ≤ maximum ≤ daily ≤ monthly.");
+    }
+  }
   for (const key of ["withdrawalDiamondsPerUsd","usdtMicrosPerUsd","withdrawalMinDiamonds","withdrawalMaxDiamonds"]) r[key]=input[key]??"";
   r.feeBearer=input.feeBearer??"";
   for(const key of ["userExchangeEnabled","hostExchangeEnabled","hostTransferEnabled","redemptionEnabled","usdtEnabled"])if(typeof r[key]!=="boolean")throw currencyError("Invalid availability setting.");

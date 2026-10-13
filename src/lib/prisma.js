@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-13-agency-diamond-salary";
+const prismaSchemaVersion = "2026-10-13-audio-room-visits";
 const requiredUserFields = [
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
   "googleEmail",

@@ -2,6 +2,7 @@ import { verifyWithdrawalQuote } from "./withdrawal-contract.js";
 import { createHash } from "node:crypto";
 import { currencyPolicy, amount, currencyError, payoutQuote } from "./currency-policy.js";
 import { ledgerData } from "./wallet.js";
+import { diamondRules, validateServiceAmount, checkDiamondLimits, eligibleResellerWhere, activeSpecialIdWhere, serviceError } from "./diamond-service-rules.js";
 export const isHost=user=>Boolean(user.agencyId&&(user.role==="HOST"||user.appRoles?.includes("HOST")));
 const isReseller=user=>user.appRoles?.includes("RESELLER");
 export const serializeCurrencyRequest=row=>JSON.parse(JSON.stringify(row,(_,v)=>typeof v==="bigint"?String(v):v));
@@ -47,9 +48,12 @@ export async function createCurrencyRequest(db,userId,input,key) {
         if(!validTronAddress(destination))throw currencyError("Enter a valid TRON TRC20 destination address.");
         quote=payoutQuote(diamonds,policy);netUsdtMicros=BigInt(quote.netUsdtMicros);
       }else{
-        if(!r.hostTransferEnabled)throw currencyError("Reseller transfers are disabled.");
-        recipient=await tx.user.findUnique({where:{publicId:recipientPublicId}});
-        if(!recipient||recipient.id===userId||recipient.deletedAt||recipient.status!=="ACTIVE"||!isReseller(recipient))throw currencyError("Select an active reseller other than yourself.");
+        const rules = diamondRules(policy, user, "TRANSFER");
+        validateServiceAmount(diamonds, rules, "TRANSFER");
+        recipient=await tx.user.findFirst({where:{OR:[{publicId:recipientPublicId},{specialIds:{some:{...activeSpecialIdWhere(),specialId:recipientPublicId}}}]}});
+        if (recipient && recipient.country !== user.country) throw serviceError("TRANSFER_COUNTRY_MISMATCH", "Choose a reseller from your account country.");
+        if(!recipient || !await tx.user.findFirst({where:{AND:[eligibleResellerWhere(user),{id:recipient.id}]},select:{id:true}})) throw serviceError("RESELLER_INELIGIBLE", "Select an active, eligible reseller other than yourself.", 409);
+        await checkDiamondLimits(tx, userId, diamonds, rules, "TRANSFER");
       }
     }
     const reserved=await tx.user.updateMany({where:{id:userId,hostSalaryCoinBalance:{gte:diamonds}},data:{hostSalaryCoinBalance:{decrement:diamonds}}});

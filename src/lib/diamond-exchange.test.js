@@ -13,7 +13,7 @@ describe("diamond exchange", () => {
   });
   function database(overrides = {}) {
     const user = { status: "ACTIVE", diamondExchangeEnabled: true, hostSalaryCoinBalance: 100n, coinBalance: 0n, ...overrides };
-    const tx = { currencyPolicy: { findUnique: vi.fn(async () => ({version:1,rules:{userExchangeEnabled:true,userDiamondsPerCoin:"3",exchangeMinDiamonds:"10"}})) }, user: { findUniqueOrThrow: vi.fn(async () => user), update: vi.fn(async ({ data }) => ({ coinBalance: user.coinBalance + data.coinBalance.increment, hostSalaryCoinBalance: user.hostSalaryCoinBalance - data.hostSalaryCoinBalance.decrement })) }, walletTransaction: { findUnique: vi.fn(async () => null), createMany: vi.fn(async () => ({})) } };
+    const tx = { currencyPolicy: { findUnique: vi.fn(async () => ({version:1,rules:{userExchangeEnabled:true,userDiamondsPerCoin:"3",exchangeMinDiamonds:"10",exchangeMaxDiamonds:"1000",exchangeMultiple:"1",exchangeDailyLimit:"2000",exchangeMonthlyLimit:"10000"}})) }, user: { findUniqueOrThrow: vi.fn(async () => user), update: vi.fn(async ({ data }) => ({ coinBalance: user.coinBalance + data.coinBalance.increment, hostSalaryCoinBalance: user.hostSalaryCoinBalance - data.hostSalaryCoinBalance.decrement })) }, walletTransaction: { aggregate: vi.fn(async () => ({_sum:{diamonds:0n}})), findUnique: vi.fn(async () => null), createMany: vi.fn(async () => ({})) } };
     return { tx, $transaction: vi.fn(work => work(tx)) };
   }
   it("creates paired ledger entries and returns balances", async () => {
@@ -33,8 +33,8 @@ describe("diamond exchange", () => {
     await expect(exchangeDiamonds("u", "11", "request-1", db)).rejects.toThrow("IDEMPOTENCY_CONFLICT");
   });
   it("rejects disabled accounts and insufficient requested balances", async () => {
-    await expect(exchangeDiamonds("u", "10", null, database({ diamondExchangeEnabled: false }))).rejects.toThrow("EXCHANGE_DISABLED");
-    await expect(exchangeDiamonds("u", "101", null, database())).rejects.toThrow("INSUFFICIENT_DIAMONDS");
+    await expect(exchangeDiamonds("u", "10", "request-1", database({ diamondExchangeEnabled: false }))).rejects.toThrow("EXCHANGE_DISABLED");
+    await expect(exchangeDiamonds("u", "101", "request-1", database())).rejects.toThrow("INSUFFICIENT_DIAMONDS");
   });
   it("retries serialization conflicts", async () => {
     const db = database();

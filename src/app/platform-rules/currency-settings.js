@@ -8,6 +8,8 @@ const groups={
   "Resellers":[["redemptionDiamondsPerCoin","Redemption Diamonds per Coin"],["redemptionDeductionBps","Deduction basis points (100 = 1%)"]],
   "USDT Commission":[["usdtMicrosPerUsd","USDT micro-units per USD (1 USDT = 1000000)"],["withdrawalMinDiamonds","Minimum withdrawal Diamonds"],["withdrawalMaxDiamonds","Maximum withdrawal Diamonds"]],
 };
+groups.Exchange.push(["exchangeMaxDiamonds","Maximum exchange Diamonds"],["exchangeMultiple","Exchange amount multiple"],["exchangeDailyLimit","Daily exchange limit (UTC, debited Diamonds)"],["exchangeMonthlyLimit","Monthly exchange limit (UTC, debited Diamonds)"]);
+groups.Resellers.push(["transferMinDiamonds","Minimum transfer Diamonds"],["transferMaxDiamonds","Maximum transfer Diamonds"],["transferMultiple","Transfer amount multiple"],["transferDailyLimit","Daily transfer limit (UTC, Diamonds)"],["transferMonthlyLimit","Monthly transfer limit (UTC, Diamonds)"]);
 export default function CurrencySettings({initial,version,requests,canManage,canReview}){
   const [rules,setRules]=useState(initial),[tab,setTab]=useState("Gift & Recharge"),[notice,setNotice]=useState(""),[pending,start]=useTransition();
   const change=(key,value)=>setRules(old=>({...old,[key]:value}));
@@ -21,7 +23,7 @@ export default function CurrencySettings({initial,version,requests,canManage,can
     {tab!=="Review Queue"?<form onSubmit={save}><fieldset disabled={!canManage||pending} className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">{groups[tab].map(([key,label])=><label key={key} className="text-xs font-semibold">{label}<input inputMode="numeric" pattern="[0-9]*" className={inputClass} value={rules[key]??""} onChange={e=>change(key,e.target.value)} /></label>)}</div>
       {tab==="Gift & Recharge"&&<label className="block text-xs font-semibold">Gift conversion basis<select className={inputClass} value={rules.giftBasis} onChange={e=>change("giftBasis",e.target.value)}><option value="GROSS">Gross gift Coins, before commission</option><option value="AFTER_SPLIT">Recipient share after existing profit split</option></select></label>}
-      {tab==="Exchange"&&<>{toggle("userExchangeEnabled","Enable ordinary-user exchange")}{toggle("hostExchangeEnabled","Enable host exchange")}</>}
+      {tab==="Exchange"&&<>{toggle("userExchangeEnabled","Enable ordinary-user exchange")}{toggle("hostExchangeEnabled","Enable host exchange")}<p className="text-xs text-[#71847f]">No transaction fees. Complete all limits before exchange becomes available. Unused conversion remainder stays in the Diamond balance.</p></>}
       {tab==="Resellers"&&<>{toggle("hostTransferEnabled","Allow hosts to send Diamonds to active resellers")}{toggle("redemptionEnabled","Allow reseller redemption requests (admin approval)")}<p className="text-xs text-[#71847f]">Resellers pay hosts externally. A transfer is not proof of salary payment.</p></>}
       {tab==="USDT Commission"&&<>{toggle("usdtEnabled","Enable manual, admin-reviewed TRC20 withdrawals")}<label className="block text-xs">Network fee paid by<select className={inputClass} value={rules.feeBearer} onChange={e=>change("feeBearer",e.target.value)}><option value="HOST">Host</option><option value="COMPANY">Company</option></select></label>
         <p className="text-xs text-[#71847f]">Brackets use inclusive minimum USD micro-units, starting at 0. Each bracket applies until the next. 1 USD/USDT = 1,000,000 micro-units.</p>
