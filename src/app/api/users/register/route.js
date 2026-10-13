@@ -1,4 +1,5 @@
 import { prisma } from "../../../../lib/prisma";
+import { profileEditPermissions } from "@/lib/profile-edit-policy";
 import { managementIdentity } from "@/lib/user-roles";
 import { hashPassword } from "../../../../lib/password";
 import mobileSession from "../../../../lib/mobile-session.cjs";
@@ -183,6 +184,7 @@ export async function POST(request) {
         data: {
           ...session,
           user: {
+            ...profileEditPermissions(user),
             id: user.publicId,
             normalId: user.publicId,
             specialId: null,

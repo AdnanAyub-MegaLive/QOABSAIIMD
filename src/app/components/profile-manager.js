@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import CountrySelect from "./country-select";
+import { APPLICATION_ROLES, displayApplicationRole, normalizeApplicationRoles } from "@/lib/user-roles";
 import {
   adjustUserCoins,
   assignSpecialId,
@@ -25,6 +26,7 @@ export default function ProfileManager({ profile, type }) {
   const [modal, setModal] = useState(null);
   const [officialPending, setOfficialPending] = useState(false);
   const [actionError, setActionError] = useState("");
+  const can = (...keys) => !profile.actionAccess || keys.every(key => profile.actionAccess[key]);
   const stats = isTalent
     ? [
         ["Gifts received", `${format.format(data.giftsReceived)} coins`],
@@ -62,6 +64,7 @@ export default function ProfileManager({ profile, type }) {
             <h2 className="text-base font-bold">Account information</h2>
             <button
               onClick={() => setModal("edit")}
+              disabled={!can("users.edit")}
               className="rounded-lg border border-[#cfe1de] px-3 py-2 text-[10px] font-bold text-[#087f74]"
             >
               Edit details
@@ -129,41 +132,50 @@ export default function ProfileManager({ profile, type }) {
               </>
             ) : (
               <>
-                <Action text="Adjust role" onClick={() => setModal("role")} />
+                <Action text="Adjust role" disabled={!can("users.edit", "hosts.manage")} onClick={() => setModal("role")} />
                 <Action
                   text="Manage VIP membership"
+                  disabled={!can("vip.view")}
                   onClick={() => window.location.assign("/vip-management")}
                 />
                 <Action
                   text="Add / Remove coins"
+                  disabled={!can("finance.adjust")}
                   onClick={() => setModal("coins")}
                 />
                 <Action
                   text="Manage assigned items"
+                  disabled={!can("users.props")}
                   onClick={() => setModal("assets")}
                 />
                 <Action
                   text={data.activeSpecialId ? "Manage Special ID" : "Assign Special ID"}
+                  disabled={!can("users.specialIds")}
                   onClick={() => setModal("specialId")}
                 />
                 <Action
                   text={data.isBanned ? "Unban user" : "Ban user"}
+                  disabled={!can("users.ban")}
                   onClick={() => setModal(data.isBanned ? "unban" : "ban")}
                 />
                 <Action
                   text="Force logout"
+                  disabled={!can("users.logout")}
                   onClick={() => setModal("forceLogout")}
                 />
                 <Action
                   text="Reset password"
+                  disabled={!can("users.password")}
                   onClick={() => setModal("resetPassword")}
                 />
                 <Action
                   text="Delete user account"
+                  disabled={!can("users.delete")}
                   onClick={() => setModal("deleteAccount")}
                 />
                 <Action
                   text="Change account status"
+                  disabled={!can("users.edit", "users.ban")}
                   onClick={() => setModal("status")}
                 />
                 <Action
@@ -174,16 +186,17 @@ export default function ProfileManager({ profile, type }) {
                         ? "Remove Official Badge"
                         : "Mark as Official"
                   }
-                  disabled={officialPending}
+                  disabled={officialPending || !can("users.edit", "users.verify")}
                   onClick={async () => {
                     const next = !data.isOfficial;
                     setOfficialPending(true);
                     setActionError("");
                     try {
-                      await updateUserAccount(data.id, { isOfficial: next });
+                      const saved = await updateUserAccount(data.id, { isOfficial: next });
                       setData((current) => ({
                         ...current,
                         isOfficial: next,
+                        roleCodes: saved.roles,
                         roles: next
                           ? [...new Set([...(current.roles ?? [current.role]), "Official"])]
                           : (current.roles ?? [current.role]).filter((role) => role !== "Official"),
@@ -228,7 +241,7 @@ export default function ProfileManager({ profile, type }) {
       {!isTalent && (
         <AssignedAssets
           assets={data.assignedAssets ?? []}
-          onManage={() => setModal("assets")}
+          onManage={can("users.props") ? () => setModal("assets") : undefined}
         />
       )}
       {modal && (
@@ -283,10 +296,13 @@ export default function ProfileManager({ profile, type }) {
                 );
                 setData((current) => ({ ...current, balance }));
               } else {
-                await (isTalent
+                const result = await (isTalent
                   ? updateTalentAccount(data.id, updates)
                   : updateUserAccount(data.id, updates));
-                setData((current) => ({ ...current, ...updates }));
+                setData((current) => ({ ...current, ...updates, ...(!isTalent && result ? {
+                  id: result.publicId, roleCodes: result.roles, roles: result.roles.map(displayApplicationRole), role: displayApplicationRole(result.role), isOfficial: result.isOfficial,
+                } : {}) }));
+                if (!isTalent && result?.publicId && result.publicId !== data.id) window.location.replace(`/users/${encodeURIComponent(result.publicId)}`);
               }
               setModal(null);
             }}
@@ -685,6 +701,7 @@ function AssignedAssets({ assets, onManage }) {
           </span>
           <button
             onClick={onManage}
+            disabled={!onManage}
             className="rounded-lg bg-[#087f74] px-3 py-2 text-[10px] font-bold text-white"
           >
             Assign or revoke items
@@ -808,8 +825,8 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
     catch { setSaveError("Unable to save changes. Check the email/phone is not already used and that your account has permission to edit this profile."); }
     finally { setPending(false); }
   }
-  const roleChoices = ["Listener", "Sender", "Creator", "Host", "Moderator", "Official", "BD", "Admin", "Junior Admin", "Senior Admin", "Super Admin", "Country Head", "Manager"];
-  const [roles, setRoles] = useState(profile.roles?.length ? profile.roles : [profile.role]);
+  const roleChoices = APPLICATION_ROLES;
+  const [roles, setRoles] = useState(profile.roleCodes ?? normalizeApplicationRoles(profile.roles?.length ? profile.roles : [profile.role]));
   const [value, setValue] = useState(
     type === "vip"
       ? profile.vipLevel
@@ -828,7 +845,7 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
     if (type === "vip") save({ vipLevel: Number(value), auditReason });
     else if (type === "role") {
       if (!roles.length) return;
-      save({ roles, isOfficial: roles.includes("Official"), auditReason });
+      save({ roles, auditReason });
     }
     else if (type === "status") save({ status: value, auditReason });
     else if (type === "verification")
@@ -913,11 +930,12 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
                     <label key={role} className="flex items-center gap-2 rounded-lg border border-[#dce8e5] px-3 py-2.5 text-xs font-semibold">
                       <input
                         type="checkbox"
+                        disabled={role === "OFFICIAL" && profile.actionAccess && !profile.actionAccess["users.verify"]}
                         checked={roles.includes(role)}
                         onChange={() => setRoles((current) => current.includes(role) ? current.filter((item) => item !== role) : [...current, role])}
                         className="accent-[#087f74]"
                       />
-                      {role}
+                      {displayApplicationRole(role)}
                     </label>
                   ))}
                   {!roles.length && <p className="text-[10px] font-semibold text-red-600">Select at least one role.</p>}

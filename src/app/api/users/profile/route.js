@@ -4,7 +4,7 @@ import {
   getEffectiveUserId,
   reconcileExpiredSpecialIds,
 } from "../../../../lib/special-id";
-import { formatDateOnly, parseDateOnly } from "../../../../lib/date-only";
+import { formatDateOnly } from "../../../../lib/date-only";
 import {
   assertMobileSession,
 } from "../../../../lib/mobile-session-state";
@@ -12,6 +12,7 @@ import { normalizeProfileBio } from "../../../../lib/profile-bio";
 import { avatarDisplayUrl, updateProfileWithHistory } from "@/lib/avatar-history";
 import { requireMobileUser, mobileApiError } from "@/lib/mobile-api";
 import { requestOrigin } from "@/lib/user-perks";
+import { profileEditChanges, profileEditPermissions } from "@/lib/profile-edit-policy";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -58,6 +59,7 @@ export async function PATCH(request) {
 
   try {
     await requireMobileUser(request);
+    if (!body || typeof body !== "object" || Array.isArray(body)) return json({ success: false, error: { code: "VALIDATION_ERROR", message: "Provide a profile object." } }, 422);
     const token = request.headers
       .get("authorization")
       ?.replace(/^Bearer\s+/i, "");
@@ -67,63 +69,19 @@ export async function PATCH(request) {
     });
     assertMobileSession(current, payload);
 
-    const lockedFields = {};
-    if (current.gender !== null && Object.hasOwn(body, "gender"))
-      lockedFields.gender = "This field cannot be changed once set.";
-    if (current.dob !== null && Object.hasOwn(body, "dob"))
-      lockedFields.dob = "This field cannot be changed once set.";
-    if (Object.keys(lockedFields).length)
-      return json(
-        {
-          success: false,
-          error: {
-            code: "FIELD_LOCKED",
-            message:
-              "Gender and date of birth can only be set once and cannot be changed.",
-            fields: lockedFields,
-          },
-        },
-        409,
-      );
-
     const data = {};
-    if (Object.hasOwn(body, "country"))
-      return json(
-        {
-          success: false,
-          error: {
-            code: "COUNTRY_MANAGED_BY_GEOLOCATION",
-            message: "Country is assigned at signup and cannot be edited in the mobile profile.",
-          },
-        },
-        403,
-      );
     const name = optionalString(body, "name");
     const phone = optionalString(body, "phone", { normalizePhone: true });
     const email = optionalString(body, "email", { lowercase: true });
+    if ((Object.hasOwn(body, "phone") && phone !== current.phone) ||
+        (current.googleSubject && Object.hasOwn(body, "email") && email !== current.email)) {
+      return json({ success: false, error: { code: "ACCOUNT_CONNECTION_REQUIRED", message: "Use the account connection flow to change login details." } }, 422);
+    }
     const profileImage = optionalString(body, "profileImage");
     if (Object.hasOwn(body, "profileImage") && body.profileImage !== null &&
         (typeof body.profileImage !== "string" || body.profileImage.length > 2048 || (profileImage && !avatarDisplayUrl(profileImage, requestOrigin(request)))))
       return json({ success: false, error: { code: "VALIDATION_ERROR", message: "Provide a display URL or avatar preset.", fields: { profileImage: "Invalid profile picture." } } }, 422);
     const bio = Object.hasOwn(body, "bio") ? normalizeProfileBio(body.bio) : undefined;
-    const gender = optionalString(body, "gender");
-    const dob = Object.hasOwn(body, "dob")
-      ? body.dob === null
-        ? null
-        : parseDateOnly(body.dob)
-      : undefined;
-    if (Object.hasOwn(body, "dob") && body.dob !== null && !dob)
-      return json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Profile data is invalid.",
-            fields: { dob: "Date of birth must use the YYYY-MM-DD format." },
-          },
-        },
-        422,
-      );
     if (bio?.error)
       return json(
         {
@@ -141,12 +99,10 @@ export async function PATCH(request) {
     if (email !== undefined) data.email = email;
     if (profileImage !== undefined) data.profileImage = profileImage;
     if (bio !== undefined) data.bio = bio.value;
-    if (gender !== undefined) data.gender = gender;
-    if (dob !== undefined) data.dob = dob;
     if (Object.hasOwn(body, "profilePrivate")) data.profilePrivate = Boolean(body.profilePrivate);
     if (Object.hasOwn(body, "showDateOfBirth")) data.showDateOfBirth = Boolean(body.showDateOfBirth);
 
-    if (!Object.keys(data).length)
+    if (!Object.keys(data).length && !["country", "dob", "gender", "completeOnboarding"].some(key => Object.hasOwn(body, key)))
       return json(
         {
           success: false,
@@ -169,13 +125,26 @@ export async function PATCH(request) {
         422,
       );
 
-    const user = await updateProfileWithHistory(prisma, current.id, data);
+    const user = await updateProfileWithHistory(prisma, current.id, data, async (tx, lockedUser) => {
+      assertMobileSession(lockedUser, payload);
+      // Recheck credentials after the lock, too: a concurrent link must not be overwritten.
+      if ((phone !== undefined && phone !== lockedUser.phone) ||
+          (lockedUser.googleSubject && email !== undefined && email !== lockedUser.email))
+        throw Object.assign(new Error("Use the account connection flow to change login details."), { status: 422, code: "ACCOUNT_CONNECTION_REQUIRED" });
+      const changes = profileEditChanges(lockedUser, body);
+      Object.assign(data, changes);
+      if (Object.keys(changes).length) await tx.auditLog.create({ data: {
+        action: "PROFILE_IDENTITY_UPDATED", category: "USER", entityType: "User", entityId: lockedUser.publicId,
+        description: "Updated onboarding/profile identity fields.", metadata: { fields: Object.keys(changes) },
+      } });
+    });
     await reconcileExpiredSpecialIds();
     const identity = await getEffectiveUserId(user.id, user.publicId);
     return json({
       success: true,
       data: {
         user: {
+          ...profileEditPermissions(user),
           id: identity.effectiveId,
           normalId: identity.normalId,
           specialId: identity.specialId,
@@ -203,6 +172,7 @@ export async function PATCH(request) {
       },
     });
   } catch (error) {
+    if (error.status) return json({ success: false, error: { code: error.code, message: error.message, ...(error.fields ? { fields: error.fields } : {}) } }, error.status);
     if (error?.code === "P2002") {
       const fields = Array.isArray(error.meta?.target)
         ? error.meta.target.join(" ")

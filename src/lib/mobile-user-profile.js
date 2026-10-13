@@ -3,8 +3,12 @@ import { formatDateOnly } from "./date-only.js";
 import { getEffectiveUserId, reconcileExpiredSpecialIds } from "./special-id.js";
 import { resolveUserPerks } from "./user-perks.js";
 import { managementIdentity } from "./user-roles.js";
+import { profileEditPermissions } from "./profile-edit-policy.js";
 
 const profileSelect = {
+  onboardingCompletedAt: true,
+  countryChangeUsedAt: true,
+  birthdayChangeUsedAt: true,
   id: true,
   publicId: true,
   name: true,
@@ -35,6 +39,7 @@ export async function mobileUserProfile(userId, origin = null) {
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const perks = origin ? (await resolveUserPerks([user], origin, ["FRAMES", "BADGES", "BUSINESS_CARD"])).get(user.publicId) : null;
   return {
+    ...profileEditPermissions(user),
     ...perks?.progression,
     id: identity.effectiveId,
     normalId: identity.normalId,

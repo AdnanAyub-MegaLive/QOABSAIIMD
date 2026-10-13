@@ -185,6 +185,11 @@ model AuditLog {
 }
 
 model User {
+  onboardingCompletedAt DateTime?
+  countryChangeUsedAt DateTime?
+  birthdayChangeUsedAt DateTime?
+  accountConnectionState AccountConnectionState?
+  googleEmail String?
   currencyRequests CurrencyRequest[]
   vipMembership VipMembership?
   medals UserMedal[]
@@ -310,6 +315,20 @@ model User {
   @@index([vipLevel])
   @@index([deletedAt])
   @@index([agencyId])
+}
+
+model AccountConnectionState {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  windowAt DateTime @default(now())
+  requestCount Int @default(0)
+  challengeId String?
+  phone String?
+  provider String?
+  sessionVersion Int?
+  expiresAt DateTime?
+  attempts Int @default(0)
+  consumedAt DateTime?
 }
 
 model ProgressionConfiguration {

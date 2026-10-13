@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { adminProfileFields } from "../lib/admin-profile-input";
+import { rolesWithOfficial } from "../lib/admin-role-update";
 import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "../lib/prisma";
 import { generateTemporaryPassword, hashPassword } from "../lib/password";
@@ -79,6 +80,7 @@ export async function updateUserAccount(publicId, changes) {
     },
   });
   const data = adminProfileFields(changes);
+  if (changes.roles !== undefined && normalizeApplicationRoles(changes.roles).includes("OFFICIAL") !== currentUser.appRoles.includes("OFFICIAL")) await requirePermission("users.verify");
   let nextRoles = normalizeApplicationRoles(currentUser.appRoles);
   if (changes.role !== undefined) {
     data.role = enumValue(changes.role);
@@ -98,11 +100,8 @@ export async function updateUserAccount(publicId, changes) {
   if (changes.vipLevel !== undefined) data.vipLevel = Number(changes.vipLevel);
   if (changes.isOfficial !== undefined) {
     data.isOfficial = Boolean(changes.isOfficial);
-    const roles = new Set(currentUser.appRoles);
-    if (data.isOfficial) roles.add("OFFICIAL");
-    else roles.delete("OFFICIAL");
-    data.appRoles = { set: normalizeApplicationRoles([...roles]) };
-    nextRoles = normalizeApplicationRoles([...roles]);
+    nextRoles = rolesWithOfficial(nextRoles, data.isOfficial);
+    data.appRoles = { set: nextRoles };
   }
   const nextStatus = data.status ?? currentUser.status;
   const isHost = Boolean(currentUser.agencyId) && (
@@ -216,6 +215,8 @@ export async function updateUserAccount(publicId, changes) {
   revalidatePath("/users");
   revalidatePath(`/users/${currentUser.publicId}`);
   revalidatePath(`/users/${nextPublicId}`);
+  const saved = await prisma.user.findUniqueOrThrow({ where: { id: currentUser.id }, select: { publicId: true, appRoles: true, role: true, isOfficial: true } });
+  return { publicId: saved.publicId, roles: saved.appRoles, role: saved.role, isOfficial: saved.isOfficial };
 }
 
 export async function updateTalentAccount(publicId, changes) {

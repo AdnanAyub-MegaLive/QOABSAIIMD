@@ -4,6 +4,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const globalForPrisma = globalThis;
 const prismaSchemaVersion = "2026-10-12-upload-gift-categories";
 const requiredUserFields = [
+  "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
+  "googleEmail",
   "sessionVersion",
   "forcedLogoutAt",
   "passwordHash",

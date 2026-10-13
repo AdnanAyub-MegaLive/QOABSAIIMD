@@ -1,4 +1,5 @@
 import { requirePagePermission } from "@/lib/portal-admin";
+import { hasPermission } from "@/lib/portal-permissions";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
@@ -8,7 +9,7 @@ import MessageHistory from "./message-history";
 import PortalSidebar from "../../components/portal-sidebar";
 
 export default async function UserProfilePage({ params }) {
-  await requirePagePermission("users.view");
+  const admin = await requirePagePermission("users.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const { userId } = await params;
@@ -162,6 +163,7 @@ export default async function UserProfilePage({ params }) {
   ]);
   const device = user.devices[0];
   const profile = {
+    actionAccess: Object.fromEntries(["users.edit", "users.verify", "hosts.manage", "finance.adjust", "users.props", "users.specialIds", "users.ban", "users.logout", "users.password", "users.delete", "vip.view"].map(key => [key, hasPermission(admin, key)])),
     id: user.publicId,
     name: user.name,
     email: user.email,
@@ -170,6 +172,7 @@ export default async function UserProfilePage({ params }) {
     gender: user.gender ? display(user.gender) : "Not set",
     dob: user.dob?.toISOString().slice(0, 10) ?? "Not set",
     role: display(user.role),
+    roleCodes: user.appRoles,
     roles: user.appRoles.map(display),
     status: display(user.status),
     vipLevel: user.vipLevel,

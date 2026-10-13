@@ -11,6 +11,7 @@ import {
   mobileSessionError,
 } from "../../../../../lib/mobile-session-state";
 import { mobileUserProfile } from "../../../../../lib/mobile-user-profile";
+import { profileEditPermissions } from "@/lib/profile-edit-policy";
 
 export async function GET(request) {
   const deviceId =
@@ -84,6 +85,7 @@ export async function GET(request) {
     return Response.json({
       success: true,
       data: {
+        ...profileEditPermissions(user),
         sessionVersion: user.sessionVersion,
         forcedLogoutAt: user.forcedLogoutAt?.toISOString() ?? null,
         isBanned: Boolean(ban),

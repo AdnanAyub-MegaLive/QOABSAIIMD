@@ -26,7 +26,7 @@ export async function updateProfileWithHistory(db, userId, data, beforeUpdate = 
       const oldest = await tx.userAvatarHistory.findMany({ where: { userId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: limit, select: { id: true } });
       if (oldest.length) await tx.userAvatarHistory.deleteMany({ where: { userId, id: { in: oldest.map(row => row.id) } } });
     }
-    await beforeUpdate(tx);
+    await beforeUpdate(tx, current);
     return tx.user.update({ where: { id: userId }, data });
   });
 }

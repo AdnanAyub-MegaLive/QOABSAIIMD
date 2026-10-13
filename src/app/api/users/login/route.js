@@ -1,4 +1,5 @@
 import { observedDeviceIp, observedDeviceLocation } from "@/lib/device-observation";
+import { profileEditPermissions } from "@/lib/profile-edit-policy";
 import { prisma } from "../../../../lib/prisma";
 import { managementIdentity } from "@/lib/user-roles";
 import { verifyPassword } from "../../../../lib/password";
@@ -229,6 +230,7 @@ async function login(request) {
       ...data,
       ...session,
       user: {
+        ...profileEditPermissions(user),
         id: identity.effectiveId,
         normalId: identity.normalId,
         specialId: identity.specialId,

@@ -1,4 +1,5 @@
 import { observedDeviceIp, observedDeviceLocation } from "@/lib/device-observation";
+import { profileEditPermissions } from "@/lib/profile-edit-policy";
 import { prisma } from "@/lib/prisma";
 import { managementIdentity } from "@/lib/user-roles";
 import mobileSession from "@/lib/mobile-session.cjs";
@@ -41,18 +42,14 @@ async function findOrCreateGoogleUser(profile, phone, selectedCountry, request, 
   });
   if (existingGoogleUser) return { user: existingGoogleUser, created: false };
 
-  const existingEmailUser = await prisma.user.findUnique({ where: { email: profile.email } });
+  const existingEmailUser = await prisma.user.findFirst({ where: { OR: [
+    { email: { equals: profile.email, mode: "insensitive" } },
+    { googleEmail: { equals: profile.email, mode: "insensitive" } },
+  ] } });
   if (existingEmailUser) {
-    if (!profile.emailAuthoritative) {
       const error = new Error("GOOGLE_ACCOUNT_LINK_REQUIRED");
       error.code = "GOOGLE_ACCOUNT_LINK_REQUIRED";
       throw error;
-    }
-    const user = await prisma.user.update({
-      where: { id: existingEmailUser.id },
-      data: { googleSubject: profile.subject },
-    });
-    return { user, created: false };
   }
 
   const connectionCountry = resolveSignupCountry(request);
@@ -70,6 +67,7 @@ async function findOrCreateGoogleUser(profile, phone, selectedCountry, request, 
         signupDeviceId: deviceId,
         devices: { create: { macAddress: deviceId } },
         googleSubject: profile.subject,
+        googleEmail: profile.email,
         name: profile.name,
         email: profile.email,
         phone,
@@ -226,6 +224,7 @@ export async function POST(request) {
           data: {
             ...session,
             user: {
+              ...profileEditPermissions(account),
               id: identity.effectiveId,
               normalId: identity.normalId,
               specialId: identity.specialId,
