@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { readApkResponse } from "@/lib/apk-response";
 
 export default function ApkManager({ canManage = false }) {
   const [items, setItems] = useState([]);
@@ -8,9 +9,7 @@ export default function ApkManager({ canManage = false }) {
   const [loading, setLoading] = useState(true);
   async function request(options) {
     const response = await fetch("/api/admin/apks", options);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error?.message || "Request failed.");
-    return result;
+    return readApkResponse(response);
   }
   useEffect(() => {
     request().then(result => setItems(result.data.items)).catch(error => setMessage(error.message)).finally(() => setLoading(false));
