@@ -3,6 +3,7 @@ import { ROLE_DISTRIBUTIONS, roleArtworkLabel } from "@/lib/role-artwork";
 
 import { GIFT_CATEGORIES, giftCategory as resolveGiftCategory } from "@/lib/gift-categories";
 import Image from "next/image";
+import ApkManager from "./apk-manager";
 import { UPLOAD_SECTIONS, filterUploadRecords } from "./upload-sections";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { durationCalculation } from "../utils/duration";
@@ -35,7 +36,7 @@ function bannerPlacementLabel(value) {
   return bannerPlacements.find(([placement]) => placement === value)?.[1] ?? value;
 }
 
-export default function UploadTabs({ initialUploads, users }) {
+export default function UploadTabs({ initialUploads, users, canManageApks = false }) {
   const [section, setSection] = useState("Props");
   const [active, setActive] = useState(UPLOAD_SECTIONS.Props[0]);
   const [query, setQuery] = useState("");
@@ -124,7 +125,7 @@ export default function UploadTabs({ initialUploads, users }) {
           ))}
         </div>
       </div>
-      <section role="tabpanel">
+      {active === "APK" ? <ApkManager canManage={canManageApks} /> : <section role="tabpanel">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-bold">{active}</h3>
@@ -170,7 +171,7 @@ export default function UploadTabs({ initialUploads, users }) {
         ) : (
           query || status !== "ALL" || (section === "Gifts" && giftTierFilter !== "ALL") ? <p className="rounded-xl border bg-white p-8 text-center text-sm text-[#71847f]">No matching items. Adjust the search or filters.</p> : <EmptyState active={active} />
         )}
-      </section>
+      </section>}
       {uploadOpen && (
         <UploadModal
           active={active}

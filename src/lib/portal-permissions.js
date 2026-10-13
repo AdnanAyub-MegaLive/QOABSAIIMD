@@ -42,8 +42,10 @@ export function validatePermissions(value, actor) {
 }
 
 export const pagePermissions = {
+  // Login selects the first accessible page; prefer Home over feature sections.
+  "/home": "dashboard.view",
   "/vip-management": "vip.view",
-  "/home": "dashboard.view", "/users": "users.view", "/talents": "hosts.view", "/agencies": "agencies.view",
+  "/users": "users.view", "/talents": "hosts.view", "/agencies": "agencies.view",
   "/finance": "finance.view", "/platform-rules": "rules.view", "/uploads": "uploads.view", "/room-management": "rooms.view",
   "/daily-tasks": "tasks.view", "/red-envelopes": "envelopes.view", "/room-appearance": "appearance.view", "/room-games": "roomGames.view",
   "/games-management": "games.view", "/games/preview": "games.view", "/live-video-management": "video.view", "/live-management": "video.view",

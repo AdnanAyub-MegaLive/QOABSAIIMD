@@ -1,4 +1,5 @@
 import { requirePagePermission } from "@/lib/portal-admin";
+import { hasPermission } from "@/lib/portal-permissions";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
@@ -8,12 +9,12 @@ import { serializeUploadAsset } from "../../lib/upload-assets";
 import PortalSidebar from "../components/portal-sidebar";
 
 export default async function UploadsPage() {
-  await requirePagePermission("uploads.view");
+  const admin = await requirePagePermission("uploads.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const [assets, users] = await Promise.all([
     prisma.uploadAsset.findMany({
-      where: { category: { not: "LIVE_GIFTS" } },
+      where: { category: { notIn: ["LIVE_GIFTS", "APK"] } },
       select: {
         publicId: true,
         name: true,
@@ -114,7 +115,7 @@ export default async function UploadsPage() {
               application.
             </p>
           </div>
-          <UploadTabs initialUploads={uploadData} users={userOptions} />
+          <UploadTabs initialUploads={uploadData} users={userOptions} canManageApks={hasPermission(admin, "uploads.manage")} />
         </div>
       </section>
     </main>

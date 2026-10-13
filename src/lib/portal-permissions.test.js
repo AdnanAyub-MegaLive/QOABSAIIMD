@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { allPermissions, hasPermission, validatePermissions, permissionForPage, canAccessPage } from "./portal-permissions.js";
+import { allPermissions, hasPermission, validatePermissions, permissionForPage, canAccessPage, pagePermissions } from "./portal-permissions.js";
 import { effectiveAdmin, canManageStaff, staffDto } from "./portal-staff-state.js";
 
 const root = { id: "root", active: true, role: "SUPER_ADMIN", permissions: [] };
@@ -8,6 +8,14 @@ const staff = { id: "staff", active: true, role: "STAFF", createdById: "manager"
 const db = rows => ({ admin: { findUnique: async ({ where }) => rows.find(row => row.id === where.id) ?? null } });
 
 describe("portal permission boundaries", () => {
+  it("lands admins on Home before VIP while preserving restricted staff access", () => {
+    const landing = admin => Object.keys(pagePermissions).find(path => canAccessPage(admin, path)) || "/access-denied";
+    expect(landing(root)).toBe("/home");
+    expect(landing({ ...staff, permissions: ["vip.view", "dashboard.view"] })).toBe("/home");
+    expect(landing(staff)).toBe("/room-management");
+    expect(landing({ ...staff, permissions: [] })).toBe("/access-denied");
+    expect(landing({ ...root, active: false })).toBe("/access-denied");
+  });
   it("requires explicit grants for new financial, progression and live catalogue controls", () => {
     const keys=["rules.levels","rules.hierarchy","rules.currency","video.gifts","video.rewards"];
     const legacy={...manager,permissions:["rules.view","rules.manage","video.view","video.manage"]};
