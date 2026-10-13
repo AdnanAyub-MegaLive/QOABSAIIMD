@@ -5,17 +5,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import RecordTable from "../components/record-table";
+import WorkPanel from "./work-panel";
 import SalaryPanel from "./salary-panel";
 
 const tabs = [
   "Agency Home",
+  "Work & Targets",
   "Agency Tasks",
   "Monthly Salary",
   "Host Salaries",
   "Agency Apply",
   "Join Requests",
 ];
-export default function AgencyTabs({ applications = [], joinRequests = [], overview, modules }) {
+export default function AgencyTabs({ applications = [], joinRequests = [], overview, modules, canManage = false }) {
   const searchParams = useSearchParams();
   const requested = searchParams.get("tab");
   const [active, setActive] = useState(
@@ -44,7 +46,7 @@ export default function AgencyTabs({ applications = [], joinRequests = [], overv
         </div>
       </div>
       <section role="tabpanel">
-        {active === "Agency Home" ? (
+        {active === "Work & Targets" ? <WorkPanel canManage={canManage}/> : active === "Agency Home" ? (
           <AgencyHome overview={overview} />
         ) : (
           <Module tab={active} applications={applications} joinRequests={joinRequests} modules={modules} />

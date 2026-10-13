@@ -72,5 +72,9 @@ it("returns the whole tree and scoped candidates with nullable decoration fields
 });
 it("advertises management roles without granting portal administrator access", () => {
   expect(managementIdentity(person("m", "MANAGER")).management.enabled).toBe(true);
-  expect(managementIdentity(person("b", "BD")).management.enabled).toBe(false);
+  const bd = managementIdentity(person("b", "BD")).management;
+  expect(bd.enabled).toBe(true);
+  expect(bd.permissions).toContain("performance.view");
+  expect(bd.permissions).not.toContain("team.assign");
+  expect(bd.portal.enabled).toBe(false);
 });

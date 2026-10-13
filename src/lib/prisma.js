@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-12-upload-gift-categories";
+const prismaSchemaVersion = "2026-10-13-agency-diamond-salary";
 const requiredUserFields = [
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
   "googleEmail",
@@ -96,6 +96,7 @@ const cachedClientMatchesSchema =
     "agency",
     "profitSplitRule",
     "giftSettlement",
+    "agencySalaryPolicy",
     "userAlbumItem",
     "specialIdAssignment",
     "specialIdDefinition",

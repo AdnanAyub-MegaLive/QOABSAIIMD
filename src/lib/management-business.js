@@ -1,3 +1,5 @@
+import { agencyWorkReports, hierarchyWork, usdValue } from "./agency-work.js";
+import { teamSelect } from "./management-team.js";
 import { managementRole } from "./user-roles.js";
 import { prisma } from "./prisma.js";
 import { requireTeamManager, subtree } from "./management-team.js";
@@ -5,11 +7,12 @@ import { normalizeSignupCountry } from "./geo-country.js";
 import { salaryMonth, getAgencySalary } from "./agency-salary.js";
 import { managementFailure } from "./management-web.js";
 export async function businessScope(userId,db=prisma) {
-  const me=await requireTeamManager(db,userId),country=normalizeSignupCountry(me.country);
+  const candidate=await db.user.findUnique({where:{id:userId},select:teamSelect});
+  const me=managementRole(candidate)==="BD"&&candidate.status==="ACTIVE"&&!candidate.deletedAt?candidate:await requireTeamManager(db,userId),country=normalizeSignupCountry(me.country);
   if(managementRole(me)==="CS_LEADER")throw managementFailure("Customer Support Leaders can manage only their CS team.");
   if(!country)throw managementFailure("Assign a country before managing agencies.");
-  const members=(await subtree(db,me.id)).filter(u=>!u.deletedAt&&u.status==="ACTIVE"&&normalizeSignupCountry(u.country)===country);
-  return {me,country,ids:[me.id,...members.map(u=>u.id)]};
+  const members=(await subtree(db,me.id)).filter(u=>!u.deletedAt&&normalizeSignupCountry(u.country)===country);
+  return {me,members,country,ids:[me.id,...members.map(u=>u.id)]};
 }
 export async function managementAgencies(userId,db=prisma) {
   const scope=await businessScope(userId,db);
@@ -32,9 +35,13 @@ export async function managementPerformance(userId,month,agencyPublicId,db=prism
   const scope=await businessScope(userId,db),period=salaryMonth(month);
   const agencies=await db.agency.findMany({where:{country:scope.country,bdUserId:{in:scope.ids}},select:{id:true,publicId:true,name:true,bdUserId:true,bd:{select:{publicId:true,name:true}},_count:{select:{userHosts:true,talents:true}}}});
   if(agencyPublicId){const agency=agencies.find(a=>a.publicId===agencyPublicId);if(!agency)throw managementFailure("Agency is outside your team.");return getAgencySalary(agency.id,period.month,db);}
+  const workReports=await agencyWorkReports(db,agencies,period);
+  const hierarchy=hierarchyWork([scope.me,...scope.members],workReports);
   const totals=await db.giftSettlement.groupBy({by:["agencyId"],where:{agencyId:{in:agencies.map(a=>a.id)},createdAt:{gte:period.start,lt:period.end}},_sum:{grossCoins:true,hostSalaryCoins:true,agencyCoins:true}});
-  const rows=agencies.map(a=>{const sum=totals.find(t=>t.agencyId===a.id)?._sum;return {publicId:a.publicId,name:a.name,supervisor:a.bd,hostCount:a._count.userHosts+a._count.talents,giftCoins:String(sum?.grossCoins??0n),salaryCoins:String(sum?.hostSalaryCoins??0n),commissionCoins:String(sum?.agencyCoins??0n)};});
+  const rows=agencies.map(a=>{const sum=totals.find(t=>t.agencyId===a.id)?._sum;return {work:workReports.find(r=>r.id===a.id).work,publicId:a.publicId,name:a.name,supervisor:a.bd,hostCount:a._count.userHosts+a._count.talents,giftCoins:String(sum?.grossCoins??0n),salaryCoins:String(sum?.hostSalaryCoins??0n),commissionCoins:String(sum?.agencyCoins??0n)};});
   const rank=(a,b)=>BigInt(a.giftCoins)===BigInt(b.giftCoins)?a.publicId.localeCompare(b.publicId):BigInt(a.giftCoins)>BigInt(b.giftCoins)?-1:1;
   const groups=new Map();for(const row of rows){const id=row.supervisor.publicId,old=groups.get(id)??{publicId:id,name:row.supervisor.name,giftCoins:"0",agencies:0};old.giftCoins=String(BigInt(old.giftCoins)+BigInt(row.giftCoins));old.agencies++;groups.set(id,old);}
-  return {month:period.month,timezone:"UTC",attribution:"CURRENT_AGENCY_SUPERVISION",agencyCount:rows.length,hostCount:rows.reduce((s,r)=>s+r.hostCount,0),giftCoins:rows.reduce((s,r)=>s+BigInt(r.giftCoins),0n).toString(),salaryCoins:rows.reduce((s,r)=>s+BigInt(r.salaryCoins),0n).toString(),agencies:rows.sort(rank),topAgencies:[...rows].sort(rank).slice(0,3),topSupervisors:[...groups.values()].sort(rank).slice(0,3)};
+  const totalDiamonds=rows.reduce((n,r)=>n+BigInt(r.work.totalDiamonds),0n);
+  const agencySalaryDiamonds=rows.reduce((n,r)=>n+BigInt(r.work.salaryDiamonds),0n);
+  return {totalDiamonds:String(totalDiamonds),totalUsd:usdValue(totalDiamonds),agencySalaryDiamonds:String(agencySalaryDiamonds),agencySalaryUsd:usdValue(agencySalaryDiamonds),diamondsPerUsd:"90000",hierarchy,month:period.month,timezone:"UTC",attribution:"CURRENT_AGENCY_SUPERVISION",agencyCount:rows.length,hostCount:rows.reduce((s,r)=>s+r.hostCount,0),giftCoins:rows.reduce((s,r)=>s+BigInt(r.giftCoins),0n).toString(),salaryCoins:rows.reduce((s,r)=>s+BigInt(r.salaryCoins),0n).toString(),agencies:rows.sort(rank),topAgencies:[...rows].sort(rank).slice(0,3),topSupervisors:[...groups.values()].sort(rank).slice(0,3)};
 }

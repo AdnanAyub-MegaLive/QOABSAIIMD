@@ -22,8 +22,8 @@ export const MANAGEMENT_ROLE_ORDER = ["MANAGER", "COUNTRY_HEAD", "SUPER_ADMIN", 
 export function managementRole(user) { return MANAGEMENT_ROLE_ORDER.find(role => user?.appRoles?.includes(role)) ?? null; }
 export function managementIdentity(user) {
   const role = managementRole(user);
-  const enabled=Boolean(role&&!["BD","CS"].includes(role)),portalEnabled=["SUPER_ADMIN","COUNTRY_HEAD"].includes(role);
-  return { management: { enabled, role, roleLabel: role ? displayApplicationRole(role) : null, countryHeadDesignation: user?.countryHeadDesignation ?? null, portal: {enabled:portalEnabled,sessionEndpoint:portalEnabled?"/api/v1/management/portal-session":null}, permissions: role==="CS_LEADER" ? ["team.view","team.assign","team.remove"] : enabled ? ["team.view", "team.assign", "team.remove","agencies.assign","performance.view",...(role==="SUPER_ADMIN"?["country.users.moderate","country.rooms.moderate"]:[])] : [] } };
+  const enabled=Boolean(role&&role!=="CS"),portalEnabled=["SUPER_ADMIN","COUNTRY_HEAD"].includes(role);
+  return { management: { enabled, role, roleLabel: role ? displayApplicationRole(role) : null, countryHeadDesignation: user?.countryHeadDesignation ?? null, portal: {enabled:portalEnabled,sessionEndpoint:portalEnabled?"/api/v1/management/portal-session":null}, permissions: role==="BD" ? ["agencies.assign","performance.view"] : role==="CS_LEADER" ? ["team.view","team.assign","team.remove"] : enabled ? ["team.view", "team.assign", "team.remove","agencies.assign","performance.view",...(role==="SUPER_ADMIN"?["country.users.moderate","country.rooms.moderate"]:[])] : [] } };
 }
 
 export const APPLICATION_ROLE_PERMISSIONS = {

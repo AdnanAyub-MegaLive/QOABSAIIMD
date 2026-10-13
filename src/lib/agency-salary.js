@@ -1,3 +1,4 @@
+import { agencyWorkReports } from "./agency-work.js";
 import { prisma } from "./prisma.js";
 import { validationError } from "./wallet.js";
 
@@ -64,5 +65,11 @@ export async function getAgencySalary(agencyId, selectedMonth, db = prisma) {
   if (!months.some(b => b.month === month)) months.push({ month, totalSalaryCoins: "0", commissionCoins: "0", status: month === now.toISOString().slice(0, 7) ? "ACCRUING" : "ACCRUED" });
   months.sort((a, b) => b.month.localeCompare(a.month));
   const bill = months.find(b => b.month === month);
-  return { agencyId: agency.publicId, agencyName: agency.name, month, timezone: "UTC", ...bill, giftIncomeCoins: settlements.reduce((sum, s) => sum + s.grossCoins, 0n).toString(), totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n), rechargeBasis: "CURRENT_HOSTS_LIFETIME", agencyLevel: null, nextLevelThreshold: null, monthlyTargetCoins: agency.monthlyTargetCoins.toString(), hosts: rows, topEarners: rows.slice(0, 3), months, activityNotice: "User-host attendance covers recorded video sessions only. Historical audio attendance is not available. Accrued salary is earnings, not an unpaid payout bill." };
+  const [report] = await agencyWorkReports(db, [{ id: agencyId }], { month, start, end });
+  for (const host of rows) {
+    const source = [...hosts.values()].find(h => h.publicId === host.publicId && h.kind === host.kind);
+    const work = report.work.hosts.find(h => h.key === `${host.kind}:${source.internalId}`);
+    Object.assign(host, { giftDiamonds: work?.diamonds ?? "0", agencySalaryDiamonds: work?.salaryDiamonds ?? "0", achievedTargetDiamonds: work?.targetDiamonds ?? null, commissionBps: work?.commissionBps ?? 0 });
+  }
+  return { work: report.work, agencyId: agency.publicId, agencyName: agency.name, month, timezone: "UTC", ...bill, giftIncomeCoins: settlements.reduce((sum, s) => sum + s.grossCoins, 0n).toString(), totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n), rechargeBasis: "CURRENT_HOSTS_LIFETIME", agencyLevel: null, nextLevelThreshold: null, monthlyTargetCoins: agency.monthlyTargetCoins.toString(), hosts: rows, topEarners: rows.slice(0, 3), months, activityNotice: "User-host attendance covers recorded video sessions only. Historical audio attendance is not available. Accrued salary is earnings, not an unpaid payout bill." };
 }
