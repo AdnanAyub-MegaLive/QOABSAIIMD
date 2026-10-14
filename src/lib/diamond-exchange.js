@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { notifyAction } from "./action-notifications.js";
 import { currencyPolicy } from "./currency-policy.js";
 import { diamondRules, validateServiceAmount, checkDiamondLimits } from "./diamond-service-rules.js";
 import { ledgerData, parsePositiveCoins, validationError } from "./wallet.js";
@@ -45,6 +46,7 @@ export async function exchangeDiamonds(userId, value, key, db = prisma) {
           ledgerData({ userId, type: "DIAMOND_EXCHANGE_DEBIT", direction: "DEBIT", title: "Diamonds exchanged", diamonds: quote.used, referenceId, metadata }),
           ledgerData({ userId, type: "DIAMOND_EXCHANGE_CREDIT", direction: "CREDIT", title: "Coins from diamonds", coins: quote.coins, referenceId, metadata }),
         ] });
+        await notifyAction(tx, { userId, key: referenceId, type: "EXCHANGE", title: "Exchange completed", body: `${quote.used} Diamonds exchanged for ${quote.coins} Coins.`, action: { screen: "WALLET", referenceId } });
         return result;
       }, { isolationLevel: "Serializable" });
     } catch (error) {

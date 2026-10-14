@@ -57,6 +57,8 @@ export async function POST(request) {
         const completed = await tx.walletTopUpOrder.update({ where: { id: order.id }, data: { status: "COMPLETED", providerReference, completedAt: new Date() }, include: { user: { select: { publicId: true } } } });
         await tx.user.update({ where: { id: order.userId }, data: { coinBalance: { increment: order.totalCoins }, totalTopUp: { increment: order.baseCoins } } });
         await tx.walletTransaction.create({ data: ledgerData({ userId: order.userId, type: "COIN_TOP_UP", direction: "CREDIT", title: "Coins package", description: `${order.baseCoins.toString()} coins via ${order.paymentMethod}`, coins: order.totalCoins, cashAmount: order.amount, currency: order.currency, referenceId: order.publicId, metadata: { packageId: order.packageId, providerReference, baseCoins: order.baseCoins.toString(), bonusCoins: order.bonusCoins.toString() } }) });
+        const { notifyAction } = await import("@/lib/action-notifications");
+        await notifyAction(tx, { userId: order.userId, key: `topup:${order.id}`, type: "TOP_UP", title: "Recharge received", body: `${order.totalCoins} Coins credited to your wallet.`, action: { screen: "WALLET", referenceId: order.publicId } });
         return { order: completed, newlyCompleted: true };
       },
       { isolationLevel: "Serializable" },

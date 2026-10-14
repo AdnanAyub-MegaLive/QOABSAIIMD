@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { notifyAction } from "./action-notifications.js";
 import { ledgerData } from "./wallet.js";
 export const LIVE_GIFT_CATEGORY = "LIVE_GIFTS";
 export function getLiveCommerceRule(db = prisma) {
@@ -21,4 +22,5 @@ export async function applyLiveGiftReward(tx, live, senderId, grossCoins) {
   if (!claimed.count) return;
   await tx.user.update({ where: { id: row.hostId }, data: { coinBalance: { increment: row.targetRewardCoins } } });
   await tx.walletTransaction.create({ data: ledgerData({ userId: row.hostId, type: "LIVE_TARGET_REWARD", direction: "CREDIT", coins: row.targetRewardCoins, title: "Live gifting target reward", referenceId: row.publicId, metadata: { liveId: row.publicId, ruleVersion: row.liveRuleVersion, targetCoins: String(row.rewardTargetCoins), eligibleGiftCoins: String(row.eligibleGiftCoins) } }) });
+  await notifyAction(tx, { userId: row.hostId, key: `live-reward:${row.id}`, type: "REWARD", title: "Live target reward received", body: `${row.targetRewardCoins} Coins credited for achieving your live gifting target.`, action: { screen: "WALLET", referenceId: row.publicId } });
 }

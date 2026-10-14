@@ -13,6 +13,10 @@ export async function dashboardData(db, admin, period, now = new Date()) {
   const cards = [], attention = [], charts = [], network = [];
   const card = (label, value, detail, href, urgent = false) => cards.push({ label, value: String(value), detail, href, urgent });
   await Promise.all([
+    can("games.view") && (async () => {
+      const totals = await db.gameLog.aggregate({ _sum: { wager: true, payout: true } });
+      cards.push({ label: "Games · all time", value: String(totals._sum.wager ?? 0n), wins: String(totals._sum.payout ?? 0n), detail: "Coins · recorded wagers / player payouts", href: "/games-management" });
+    })(),
     can("users.view") && (async () => {
       const [total, rows] = await Promise.all([db.user.count({ where: { deletedAt: null } }), db.$queryRaw`SELECT to_char("createdAt", 'YYYY-MM-DD') AS day, count(*)::bigint AS value FROM "User" WHERE "createdAt" >= ${range.start} AND "createdAt" <= ${now} AND "deletedAt" IS NULL GROUP BY 1 ORDER BY 1`]);
       card("Registered users", total, "Excludes deleted accounts", "/users");
@@ -61,7 +65,7 @@ export async function dashboardData(db, admin, period, now = new Date()) {
     })(),
   ]);
   const logs = can("audit.view") ? await db.auditLog.findMany({ select: { id: true, action: true, description: true, createdAt: true, admin: { select: { name: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 6 }) : [];
-  const order = ["Active agencies", "Finance action queue", "Registered users", "Active hosts", "Live audio rooms", "Live video streams", "Gift Coins today"];
+  const order = ["Active agencies", "Finance action queue", "Registered users", "Active hosts", "Live audio rooms", "Live video streams", "Gift Coins today", "Games · all time"];
   cards.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
   charts.sort((a, b) => a.title.localeCompare(b.title)); network.sort((a, b) => a.label.localeCompare(b.label));
   return { ...range, generatedAt: now, cards, attention: attention.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)), charts, network, logs };

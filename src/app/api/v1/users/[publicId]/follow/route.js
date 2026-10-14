@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyAction } from "@/lib/action-notifications";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 
 export function OPTIONS() { return mobileOptions(); }
@@ -37,9 +38,13 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { viewer, target } = await targetFor(request, params);
-    await prisma.userFollow.upsert({
+    await prisma.$transaction(async tx => {
+    await tx.userFollow.upsert({
       where: { followerId_followedId: { followerId: viewer.id, followedId: target.id } },
       create: { followerId: viewer.id, followedId: target.id }, update: {},
+    });
+    const mutual = await tx.userFollow.findUnique({ where: { followerId_followedId: { followerId: target.id, followedId: viewer.id } } });
+    await notifyAction(tx, { userId: target.id, key: `follow:${viewer.id}`, type: mutual ? "FOLLOW_BACK" : "FOLLOW", title: mutual ? "New follow back" : "New follower", body: `${viewer.name} ${mutual ? "followed you back" : "started following you"}.`, action: { screen: "PROFILE", publicId: viewer.publicId } });
     });
     globalThis.portalIo?.to(`user:${target.publicId}`).emit("profile:followed", { success: true, data: { userId: viewer.publicId } });
     return mobileJson({ success: true, data: await state(viewer.id, target.id) });

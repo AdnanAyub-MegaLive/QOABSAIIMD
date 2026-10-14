@@ -201,6 +201,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     RED_ENVELOPE_UNAVAILABLE: [409, "RED_ENVELOPE_UNAVAILABLE", "This red envelope is no longer available."],
     RED_ENVELOPE_ALREADY_CLAIMED: [409, "RED_ENVELOPE_ALREADY_CLAIMED", "You have already claimed this red envelope."],
     RED_ENVELOPE_DISABLED: [403, "RED_ENVELOPE_DISABLED", "Red Envelopes are currently disabled."],
+    INAPPROPRIATE_WORD: [422, "INAPPROPRIATE_WORD", "Your message contains an inappropriate word. Please edit it before sending."],
     VALIDATION_ERROR: [
       422,
       "VALIDATION_ERROR",

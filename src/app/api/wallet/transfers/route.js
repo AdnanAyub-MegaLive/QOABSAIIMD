@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyAction } from "@/lib/action-notifications";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { integerSetting, ledgerData, parsePositiveCoins, walletPublicId } from "@/lib/wallet";
 
@@ -38,6 +39,7 @@ export async function POST(request) {
           tx.walletTransaction.create({ data: ledgerData({ userId: sender.id, type: "TRANSFER_SENT", direction: "DEBIT", title: "Coin transfer", description: `Sent to ${recipient.name} (${recipient.publicId})`, coins, referenceId, metadata: { recipientPublicId: recipient.publicId } }) }),
           tx.walletTransaction.create({ data: ledgerData({ userId: recipient.id, type: "TRANSFER_RECEIVED", direction: "CREDIT", title: "Coin transfer received", description: `Received from ${sender.name} (${sender.publicId})`, coins, referenceId, metadata: { senderPublicId: sender.publicId } }) }),
         ]);
+        await notifyAction(tx, { userId: recipient.id, key: `reseller-topup:${referenceId}`, type: "RESELLER_TOP_UP", title: "Reseller top-up received", body: `${coins} Coins received from ${sender.name}.`, action: { screen: "WALLET", referenceId } });
         const updated = await tx.user.findUniqueOrThrow({ where: { id: sender.id }, select: { coinBalance: true } });
         return { transaction, balance: updated.coinBalance };
       },

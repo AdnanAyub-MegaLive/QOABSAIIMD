@@ -5,6 +5,7 @@ function database() {
   const sender = { id: "u", publicId: "TLN-1", status: "ACTIVE", country: "PK", agencyId: "a", appRoles: ["HOST"] };
   const recipient = { id: "r", publicId: "USR-2", country: "PK" };
   const tx = {
+    notification: { upsert: vi.fn(async () => ({})) },
     currencyRequest: { findUnique: vi.fn(async () => null), create: vi.fn(async ({ data }) => ({ id: "request", ...data })) },
     currencyPolicy: { findUnique: vi.fn(async () => ({ version: 1, rules: { hostTransferEnabled: true, transferMinDiamonds: "10", transferMaxDiamonds: "100", transferMultiple: "5", transferDailyLimit: "200", transferMonthlyLimit: "500" } })) },
     user: { findUniqueOrThrow: vi.fn(async () => sender), findFirst: vi.fn(async () => recipient), updateMany: vi.fn(async () => ({ count: 1 })) },

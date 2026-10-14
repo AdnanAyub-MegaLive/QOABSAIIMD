@@ -77,6 +77,8 @@ async function findOrCreateGoogleUser(profile, phone, selectedCountry, request, 
         status: "ACTIVE",
       },
     });
+    const { welcomeNotification } = await import("@/lib/action-notifications");
+    await welcomeNotification(tx, created);
     await tx.auditLog.create({
       data: {
         action: "GOOGLE_SSO_REGISTERED",

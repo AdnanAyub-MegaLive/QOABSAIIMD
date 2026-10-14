@@ -69,7 +69,7 @@ export default async function DashboardHome({ searchParams }) {
           </div>
           <p className="mb-4 text-[10px] text-[#81928e]">Updated {now.toISOString().replace("T", " ").slice(0,19)} UTC · Charts use UTC daily totals</p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {data.cards.map(({ label, value, detail, href, urgent }) => (
+            {data.cards.map(({ label, value, wins, detail, href, urgent }) => (
               <Link
                 key={label}
                 href={href}
@@ -83,7 +83,12 @@ export default async function DashboardHome({ searchParams }) {
                     {urgent && BigInt(value) > 0n ? "Needs review" : "Live data"}
                   </span>
                 </div>
-                <p className="mt-3 text-2xl font-bold">{BigInt(value).toLocaleString("en-US")}</p>
+                {wins !== undefined ? (
+                  <dl className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="min-w-0"><dt className="text-[10px] text-[#768984]">Spend</dt><dd className="mt-1 wrap-anywhere text-lg font-bold">{BigInt(value).toLocaleString("en-US")}</dd></div>
+                    <div className="min-w-0 border-l border-[#dfe9e7] pl-3"><dt className="text-[10px] text-[#768984]">Wins</dt><dd className="mt-1 wrap-anywhere text-lg font-bold text-[#16877d]">{BigInt(wins).toLocaleString("en-US")}</dd></div>
+                  </dl>
+                ) : <p className="mt-3 text-2xl font-bold">{BigInt(value).toLocaleString("en-US")}</p>}
                 <div className="mt-3 flex justify-between text-[10px] text-[#879792]">
                   <span>{detail}</span>
                   <span className="text-[#16877d] opacity-0 group-hover:opacity-100">

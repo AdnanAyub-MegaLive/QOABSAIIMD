@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { assertChatWordsAllowed } from "./chat-word-policy.js";
 import { formatDateOnly } from "./date-only.js";
 import { assertConversationMessagingAllowed } from "./user-blocks.js";
 
@@ -249,6 +250,7 @@ export async function createMessage(
     error.validationMessage = error.message;
     throw error;
   }
+  await assertChatWordsAllowed(prisma, body);
   const createdAt = new Date();
   const message = await prisma.$transaction(async (tx) => {
     const record = await tx.message.create({
@@ -350,9 +352,11 @@ export async function editMessage(conversationPublicId, messagePublicId, userId,
     error.code = "MESSAGE_EDIT_WINDOW_EXPIRED";
     throw error;
   }
+  const body = validatedMessageBody(rawBody);
+  await assertChatWordsAllowed(prisma, body);
   return prisma.message.update({
     where: { id: message.id },
-    data: { body: validatedMessageBody(rawBody), editedAt: new Date() },
+    data: { body, editedAt: new Date() },
     include: messageSenderInclude,
   });
 }

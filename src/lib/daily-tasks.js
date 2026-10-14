@@ -255,6 +255,8 @@ export async function claimDailyTask(userId, taskId, expectedType = null, now = 
         metadata: { source: "DAILY_TASK", taskType: instance.definition.type },
       }),
     });
+    const { notifyAction } = await import("./action-notifications.js");
+    await notifyAction(tx, { userId, key: `task:${instance.id}`, type: "REWARD", title: "Task reward received", body: `${instance.definition.rewardCoins} Coins credited for ${instance.definition.title}.`, action: { screen: "TASKS", taskId: instance.id } });
     let streak = null;
     if (instance.definition.type === "SIGN_IN") {
       const today = utcDayStart(now);

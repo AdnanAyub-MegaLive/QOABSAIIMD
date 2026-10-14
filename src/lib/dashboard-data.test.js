@@ -1,5 +1,15 @@
 import { expect, it, vi } from "vitest";
 import { dashboardRange, dailySeries, dashboardData } from "./dashboard-data.js";
+it("shows all-time game spend and payouts without losing BigInt precision", async () => {
+  const aggregate = vi.fn(async () => ({ _sum: { wager: 9007199254740993n, payout: 700n } }));
+  const result = await dashboardData({ gameLog: { aggregate } }, { active: true, permissions: ["games.view"] }, 7);
+  expect(aggregate).toHaveBeenCalledWith({ _sum: { wager: true, payout: true } });
+  expect(result.cards).toEqual([expect.objectContaining({ label: "Games · all time", value: "9007199254740993", wins: "700", href: "/games-management" })]);
+});
+it("shows zero game totals when no rounds have been recorded", async () => {
+  const result = await dashboardData({ gameLog: { aggregate: async () => ({ _sum: { wager: null, payout: null } }) } }, { active: true, permissions: ["games.view"] }, 30);
+  expect(result.cards[0]).toMatchObject({ value: "0", wins: "0" });
+});
 it("uses explicit UTC day boundaries and bounded periods", () => {
   const range = dashboardRange("30", new Date("2026-10-13T23:59:00Z"));
   expect(range.today.toISOString()).toBe("2026-10-13T00:00:00.000Z");

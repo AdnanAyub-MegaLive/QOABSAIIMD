@@ -14,6 +14,7 @@ describe("diamond exchange", () => {
   function database(overrides = {}) {
     const user = { status: "ACTIVE", diamondExchangeEnabled: true, hostSalaryCoinBalance: 100n, coinBalance: 0n, ...overrides };
     const tx = { currencyPolicy: { findUnique: vi.fn(async () => ({version:1,rules:{userExchangeEnabled:true,userDiamondsPerCoin:"3",exchangeMinDiamonds:"10",exchangeMaxDiamonds:"1000",exchangeMultiple:"1",exchangeDailyLimit:"2000",exchangeMonthlyLimit:"10000"}})) }, user: { findUniqueOrThrow: vi.fn(async () => user), update: vi.fn(async ({ data }) => ({ coinBalance: user.coinBalance + data.coinBalance.increment, hostSalaryCoinBalance: user.hostSalaryCoinBalance - data.hostSalaryCoinBalance.decrement })) }, walletTransaction: { aggregate: vi.fn(async () => ({_sum:{diamonds:0n}})), findUnique: vi.fn(async () => null), createMany: vi.fn(async () => ({})) } };
+    tx.notification = { upsert: vi.fn(async () => ({})) };
     return { tx, $transaction: vi.fn(work => work(tx)) };
   }
   it("creates paired ledger entries and returns balances", async () => {

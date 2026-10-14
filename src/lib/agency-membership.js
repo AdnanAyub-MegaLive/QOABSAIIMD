@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "./prisma.js";
+import { notifyAction } from "./action-notifications.js";
 import { primaryLegacyRole } from "./user-roles.js";
 import { talentPublicIdForApprovedHost } from "./host-public-id.js";
 const fail=(code,message,status=409)=>{throw Object.assign(new Error(message),{code,status});};
@@ -18,6 +19,8 @@ export async function createMembership(actorId,{agencyId,userPublicId,invite=fal
   if(await tx.agencyJoinRequest.findFirst({where:{userId:user.id,status:"PENDING"}}))fail("ALREADY_REQUESTED","User already has a pending request or invitation.");
   const row=await tx.agencyJoinRequest.create({data:{publicId:`AGJ-${randomUUID()}`,userId:user.id,agencyId:agency.id,direction:invite?"OWNER_INVITE":"USER_REQUEST"}});
   await tx.auditLog.create({data:{action:invite?"AGENCY_USER_INVITED":"AGENCY_JOIN_REQUESTED",category:"AGENCY_MANAGEMENT",entityType:"AgencyJoinRequest",entityId:row.publicId,description:"Agency membership offered; awaiting receiving party consent.",metadata:{actorId,userId:user.id,agencyId:agency.id,direction:row.direction}}});
+  const recipientId=invite?user.id:agency.ownerUserId;
+  if(recipientId)await notifyAction(tx,{userId:recipientId,key:`agency:${row.id}:pending`,type:invite?"AGENCY_INVITATION":"AGENCY_JOIN_REQUEST",title:invite?"Agency invitation":"Agency join request",body:invite?`${agency.name} invited you to join.`:`${user.name} requested to join ${agency.name}.`,action:{screen:"AGENCY_MEMBERSHIP",requestId:row.publicId,agencyId:agency.publicId}});
   return {requestId:row.publicId,direction:row.direction,status:row.status};
  },{isolationLevel:"Serializable"});
 }
@@ -40,6 +43,8 @@ export async function respondMembership(actorId,requestId,accept,db=prisma){
   }
   await tx.agencyJoinRequest.update({where:{id:row.id},data:{status,reviewedAt:new Date(),reviewNote:row.direction==="OWNER_INVITE"?"Responded by invited user.":"Responded by agency owner."}});
   await tx.auditLog.create({data:{action:`AGENCY_MEMBERSHIP_${status}`,category:"AGENCY_MANAGEMENT",entityType:"AgencyJoinRequest",entityId:requestId,description:"Membership decision by receiving party; KYC unchanged.",metadata:{actorId,previousUserId,userId,direction:row.direction}}});
+  const recipientId=row.direction==="OWNER_INVITE"?row.agency.ownerUserId:row.userId;
+  if(recipientId)await notifyAction(tx,{userId:recipientId,key:`agency:${row.id}:${status}`,type:`AGENCY_MEMBERSHIP_${status}`,title:accept?"Agency membership accepted":"Agency membership rejected",body:`The membership ${row.direction==="OWNER_INVITE"?"invitation":"request"} for ${row.agency.name} was ${accept?"accepted":"rejected"}.`,action:{screen:"AGENCY_MEMBERSHIP",requestId,agencyId:row.agency.publicId}});
   return {requestId,status,direction:row.direction,previousUserId,userId,agencyId:row.agency.publicId,sessionInvalidated:accept&&userId!==previousUserId};
  },{isolationLevel:"Serializable"});
 }

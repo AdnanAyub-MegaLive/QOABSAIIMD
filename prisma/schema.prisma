@@ -166,6 +166,13 @@ model Admin {
   customBackgroundReviews    CustomRoomBackgroundRequest[] @relation("CustomBackgroundReviewer")
 }
 
+model ChatWordPolicy {
+  id        String   @id @default("GLOBAL")
+  words     String[] @default([])
+  revision  Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   adminId     String?
@@ -885,6 +892,10 @@ model AudioRoomMessage {
 }
 
 model Notification {
+  sourceKey String? @unique
+  type String @default("SYSTEM")
+  action Json?
+  deliveredAt DateTime?
   id        String             @id @default(cuid())
   publicId  String             @unique
   userId    String?
@@ -896,6 +907,16 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([createdAt])
+  @@index([deliveredAt, createdAt])
+}
+
+model NotificationSettings {
+  id String @id @default("GLOBAL")
+  welcomeEnabled Boolean @default(true)
+  welcomeTitle String @default("Welcome to MegaLive!")
+  welcomeBody String @default("Welcome to MegaLive! Explore rooms, meet people and enjoy your time with us.")
+  revision Int @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 model NotificationRead {

@@ -151,6 +151,8 @@ export async function POST(request) {
         },
       });
 
+      const { welcomeNotification } = await import("@/lib/action-notifications");
+      await welcomeNotification(tx, created);
       await tx.auditLog.create({
         data: {
           action: "USER_REGISTERED",
