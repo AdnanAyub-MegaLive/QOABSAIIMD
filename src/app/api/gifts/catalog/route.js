@@ -10,6 +10,7 @@ import {
   createPublicDisplayAssetUrl,
 } from "@/lib/upload-assets";
 import { requestOrigin } from "@/lib/user-perks";
+import { giftCatalogVersion } from "@/lib/gift-catalog-version";
 
 const tiers = ["CLASSIC", "PREMIUM", "VIP", "LUCKY", "BLIND_BOX"];
 
@@ -35,6 +36,9 @@ export async function GET(request) {
         giftTier: true,
         giftCategory: true,
         mimeType: true,
+        mediaVersion:true,
+        posterMediaVersion:true,
+        posterMimeType:true,
         coinPrice: true,
         createdAt: true,
       },
@@ -51,12 +55,17 @@ export async function GET(request) {
       giftTier: asset.giftTier,
       mimeType: asset.mimeType,
       coinPrice: asset.coinPrice.toString(),
-      mediaUrl: createPublicDisplayAssetUrl(origin, asset.publicId),
+      mediaUrl: createPublicDisplayAssetUrl(origin, asset),
+      mediaVersion:asset.mediaVersion,
+      posterMediaVersion:asset.posterMediaVersion,
+      posterMimeType:asset.posterMimeType,
+      posterUrl:asset.posterMimeType?`${createPublicDisplayAssetUrl(origin,asset.publicId,3600,asset.posterMediaVersion)}&poster=1`:null,
     }));
 
     return mobileJson({
       success: true,
       data: {
+        catalogVersion:await giftCatalogVersion(),
         categories: GIFT_CATEGORIES.map(([id, name]) => ({
           id,
           name,

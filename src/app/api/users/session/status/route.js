@@ -81,7 +81,7 @@ export async function GET(request) {
       : null;
     await reconcileExpiredSpecialIds();
     const identity = await getEffectiveUserId(user.id, user.publicId);
-    const profile = await mobileUserProfile(user.id);
+    const profile = await versionMediaPayload(await mobileUserProfile(user.id));
     return Response.json({
       success: true,
       data: {
@@ -116,3 +116,4 @@ export async function GET(request) {
     return Response.json({ success: false, error: { code: "SESSION_STATUS_FAILED", message: "Unable to check session status right now." } }, { status: 500 });
   }
 }
+import { versionMediaPayload } from "@/lib/media-payload";

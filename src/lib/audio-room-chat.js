@@ -41,7 +41,9 @@ export async function serializeRoomChatMessages(messages, origin) {
         name: message.sender?.name ?? message.senderName,
         profileImage: message.sender?.profileImage ?? null,
         badgeUrl: senderPerks?.badgeUrl ?? null,
+        badgeMediaVersion: senderPerks?.badgeMediaVersion ?? null,
         chatBoxUrl: senderPerks?.chatBoxUrl ?? null,
+        chatBoxMediaVersion: senderPerks?.chatBoxMediaVersion ?? null,
       },
     };
   });

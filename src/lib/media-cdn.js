@@ -15,7 +15,7 @@ export function spacesConfig(env = process.env) {
 }
 export function mediaKey(assetId, bytes, mimeType, poster = false) {
   if (!/^[A-Za-z0-9_-]+$/.test(assetId)) throw new Error("Invalid asset ID.");
-  const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4" }[mimeType];
+  const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "application/svga": "svga" }[mimeType];
   if (!ext) throw new Error("Unsupported public CDN media type.");
   const hash = createHash("sha256").update(bytes).update(mimeType).digest("hex");
   return `portal-media/${assetId}/${poster ? "poster-" : ""}${hash}.${ext}`;
@@ -27,7 +27,7 @@ export async function publishMedia(asset, { config = spacesConfig(), client } = 
   async function put(bytes, mimeType, poster) {
     const Key = mediaKey(asset.publicId, bytes, mimeType, poster);
     await client.send(new PutObjectCommand({ Bucket: config.bucket, Key, Body: bytes, ACL: "public-read",
-      ContentType: mimeType, ContentDisposition: "inline", CacheControl: "public, max-age=86400, immutable" }),
+      ContentType: mimeType, ContentDisposition: "inline", CacheControl: "public, max-age=31536000, immutable" }),
       { abortSignal: AbortSignal.timeout(30000) });
     return `${config.base}/${Key}`;
   }

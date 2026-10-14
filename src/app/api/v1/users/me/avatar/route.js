@@ -14,7 +14,7 @@ export function POST(request) {
     try {
       const user = await requireMobileUser(request);
       if (isRateLimited(`avatar-upload:${user.id}`, { limit: 10, windowMs: 60000 })) {
-        const response = mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many avatar uploads. Try again in a minute." } }, 429);
+        const response = await mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many avatar uploads. Try again in a minute." } }, 429);
         response.headers.set("Retry-After", "60");
         return response;
       }

@@ -28,6 +28,7 @@ app.prepare().then(async()=>{
   const {reconcileExpiredAudioRoomRestrictions}=await import("./src/lib/audio-room-maintenance.js");
   const {createMessage,deleteMessage,editMessage,emitConversationEvent,ensureWorldConversation,markConversationRead,markMessageDelivered,messageSyncLimit,requireConversationParticipant,serializeMessage,syncMessagesForUser}=await import("./src/lib/messaging.js");
   const {resolveUserPerks,socketOrigin}=await import("./src/lib/user-perks.js");
+  const {versionMediaPayload}=await import("./src/lib/media-payload.js");
   const {formatDateOnly}=await import("./src/lib/date-only.js");
   const {getEffectiveUserId}=await import("./src/lib/special-id.js");
   const {isLiveKitConfigured,issueLiveKitAccess}=await import("./src/lib/livekit-authorization.js");
@@ -209,7 +210,7 @@ app.prepare().then(async()=>{
   };
   const broadcastAudioRoomSeatState=async(room,origin,participantCount,mutated=false)=>{
     if(mutated)await advanceAudioRoomSeatRevision(room.id);
-    const seatState=await readAudioRoomSeatState(room,origin);
+    const seatState=await versionMediaPayload(await readAudioRoomSeatState(room,origin));
     io.to(`audio-room:${room.roomId}`).emit("audio-room:seat-update",{
       success:true,
       data:{...seatState,...(typeof participantCount==="number"?{participantCount}:{})},
@@ -436,7 +437,7 @@ app.prepare().then(async()=>{
         const recovered=(recoveringRooms.get(recoveryKey(user,room.roomId))??0)>Date.now();
         recoveringRooms.delete(recoveryKey(user,room.roomId));
         if(!alreadyJoined&&presence.newEntrance&&!recovered){
-          io.to(roomChannel).emit("audio-room:entrance",{
+          io.to(roomChannel).emit("audio-room:entrance",await versionMediaPayload({
             success:true,
             data:{
               roomId:room.roomId,
@@ -450,7 +451,7 @@ app.prepare().then(async()=>{
               entranceUrl:joiningPerks?.entranceUrl??null,
               rideUrl:joiningPerks?.rideUrl??null,
             },
-          });
+          }));
           if(!isOwner){
             io.to(`user:${room.owner.publicId}`).emit("audio-room:seat-sync-request",{success:true,data:{roomId:room.roomId,requesterId:userId,requesterName:user.name,requesterProfileImage:user.profileImage??null,requesterGender:user.gender??null,requesterDob:formatDateOnly(user.dob),requesterIsVerified:Boolean(user.isVerified),requesterIsOfficial:Boolean(user.isOfficial),requesterFrameUrl:joiningPerks?.frameUrl??null,requesterBadgeUrl:joiningPerks?.badgeUrl??null,reason:"VIEWER_JOINED"}});
           }
@@ -466,7 +467,8 @@ app.prepare().then(async()=>{
       }
     };
     socket.on("audio-room:join",(input={},ack=()=>{})=>{
-      return joinGuard(String(input?.roomId??""),()=>new Promise(resolve=>{let replied=false;handleAudioRoomJoin(input,result=>{if(!replied){replied=true;resolve(result)}}).catch(()=>resolve({success:false,error:{code:"ROOM_JOIN_FAILED"}}));}),typeof ack==="function"?ack:()=>{});
+      const reply=typeof ack==="function"?ack:()=>{};
+      return joinGuard(String(input?.roomId??""),()=>new Promise(resolve=>{let replied=false;handleAudioRoomJoin(input,result=>{if(!replied){replied=true;resolve(result)}}).catch(()=>resolve({success:false,error:{code:"ROOM_JOIN_FAILED"}}));}),result=>{void versionMediaPayload(result).then(reply).catch(error=>{console.error("Room media version lookup failed",error);reply({success:false,error:{code:"ROOM_JOIN_FAILED",message:"Unable to load room media. Please retry."}});});});
     });
     const changeRoomMusic=async(action,input={},ack=()=>{})=>{
       try{
@@ -646,7 +648,7 @@ app.prepare().then(async()=>{
           include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}},
         });
         const [data]=await serializeRoomChatMessages([storedMessage],connectionOrigin);
-        io.to(`audio-room:${id}`).emit("audio-room:message",{success:true,data});
+        io.to(`audio-room:${id}`).emit("audio-room:message",await versionMediaPayload({success:true,data}));
         ack({success:true,data});
       }catch(error){
         if(error?.code==="P2002"&&String(requestId??"").trim()){

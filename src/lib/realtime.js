@@ -1,13 +1,18 @@
-export function emitToUser(publicId,event,payload) {
-  globalThis.portalIo?.to(`user:${publicId}`).emit(event,payload);
+import { versionMediaPayload } from "./media-payload.js";
+async function emitVersioned(channel,event,payload) {
+  try { channel.emit(event,await versionMediaPayload(payload)); }
+  catch(error) { console.error("Realtime media delivery failed",event,error); }
+}
+export async function emitToUser(publicId,event,payload) {
+  if(globalThis.portalIo)await emitVersioned(globalThis.portalIo.to(`user:${publicId}`),event,payload);
 }
 
-export function emitToAudioRoom(roomId,event,payload) {
-  globalThis.portalIo?.to(`audio-room:${roomId}`).emit(event,payload);
+export async function emitToAudioRoom(roomId,event,payload) {
+  if(globalThis.portalIo)await emitVersioned(globalThis.portalIo.to(`audio-room:${roomId}`),event,payload);
 }
 
-export function emitToVideoLive(liveId,event,payload) {
-  globalThis.portalIo?.to(`live-video:${liveId}`).emit(event,payload);
+export async function emitToVideoLive(liveId,event,payload) {
+  if(globalThis.portalIo)await emitVersioned(globalThis.portalIo.to(`live-video:${liveId}`),event,payload);
 }
 
 export async function audioRoomParticipantIds(roomId) {

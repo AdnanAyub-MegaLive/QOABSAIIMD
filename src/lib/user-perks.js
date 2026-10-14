@@ -1,6 +1,7 @@
 import { prisma } from "./prisma.js";
 import { publicProgression } from "./progression.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
+import { versionedUrl } from "./media-version.js";
 import { formatDateOnly } from "./date-only.js";
 
 const perkFields = {
@@ -107,6 +108,8 @@ export async function resolveUserPerks(
       category: true,
       mimeType: true,
       posterFileData: true,
+      mediaVersion:true,
+      posterMediaVersion:true,
       isGlobal: true,
       createdAt: true,
       assignments: {
@@ -151,11 +154,12 @@ export async function resolveUserPerks(
       if (asset) {
         perks[perkFields[category]] = createPublicDisplayAssetUrl(
           origin,
-          asset.publicId,
+          asset,
         );
+        perks[perkFields[category].replace(/Url$/,"")+"MediaVersion"]=asset.mediaVersion??null;
         if (category === "BUSINESS_CARD") {
           perks.businessCardMimeType = asset.mimeType;
-          if (asset.posterFileData) perks.businessCardPosterUrl = `${createPublicDisplayAssetUrl(origin, asset.publicId)}&poster=1`;
+          if (asset.posterFileData) {perks.businessCardPosterUrl = versionedUrl(`${createPublicDisplayAssetUrl(origin, asset.publicId)}&poster=1`,asset.posterMediaVersion);perks.businessCardPosterMediaVersion=asset.posterMediaVersion??null;}
         }
       }
     }

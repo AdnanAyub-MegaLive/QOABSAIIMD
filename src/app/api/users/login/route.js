@@ -21,8 +21,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
-const json = (body, status = 200) =>
-  Response.json(body, { status, headers: corsHeaders });
+const json = async (body, status = 200) =>
+  Response.json(await versionMediaPayload(body), { status, headers: corsHeaders });
 const clean = (value, max = 255) =>
   typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null;
 
@@ -261,3 +261,4 @@ async function login(request) {
     },
   });
 }
+import { versionMediaPayload } from "@/lib/media-payload";

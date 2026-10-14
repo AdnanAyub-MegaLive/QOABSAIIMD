@@ -9,7 +9,7 @@ export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
     if(isRateLimited(`audio-rtc-token:${user.id}`,{limit:30,windowMs:60000})){
-      const response=mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Too many audio credential requests. Retry shortly."}},429);
+      const response=await mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Too many audio credential requests. Retry shortly."}},429);
       response.headers.set("Retry-After","60");return response;
     }
     const body = await request.json();

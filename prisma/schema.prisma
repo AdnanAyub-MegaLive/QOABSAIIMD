@@ -1051,6 +1051,8 @@ model EventAuditLog {
 }
 
 model UploadAsset {
+  mediaVersion String?
+  posterMediaVersion String?
   cdnUrl String?
   posterCdnUrl String?
   vipBenefits VipBenefitAsset[]

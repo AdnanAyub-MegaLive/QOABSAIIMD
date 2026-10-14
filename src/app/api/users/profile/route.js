@@ -1,4 +1,5 @@
 import { prisma } from "../../../../lib/prisma";
+import { versionMediaPayload } from "@/lib/media-payload";
 import mobileSession from "../../../../lib/mobile-session.cjs";
 import {
   getEffectiveUserId,
@@ -19,8 +20,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "PATCH, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
-const json = (body, status = 200) =>
-  Response.json(body, { status, headers: corsHeaders });
+const json = async (body, status = 200) =>
+  Response.json(await versionMediaPayload(body), { status, headers: corsHeaders });
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders });

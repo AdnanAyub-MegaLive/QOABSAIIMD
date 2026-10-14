@@ -13,7 +13,7 @@ async function change(request, remove) {
     try {
       const user = await requireMobileUser(request);
       if (isRateLimited(`profile-cover:${user.id}`, { limit: 10, windowMs: 3600000 })) {
-        const response = mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "You can change your cover up to 10 times per hour." } }, 429);
+        const response = await mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "You can change your cover up to 10 times per hour." } }, 429);
         response.headers.set("Retry-After", "3600"); return response;
       }
       const file = remove ? null : await readAvatarFile(request, 20 * 1024 * 1024, ["image", "video"]);

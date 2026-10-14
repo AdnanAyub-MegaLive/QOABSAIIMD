@@ -1,4 +1,5 @@
 import { roomCoverDto } from "@/lib/room-cover";
+import { versionMediaPayload } from "@/lib/media-payload";
 import { prisma } from "../../../lib/prisma";
 import { requireMobileUser } from "../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../lib/audio-room-maintenance";
@@ -33,8 +34,8 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
-const json = (body, status = 200) =>
-  Response.json(body, { status, headers: cors });
+const json = async (body, status = 200) =>
+  Response.json(await versionMediaPayload(body), { status, headers: cors });
 const optional = (value) =>
   typeof value === "string" && value.trim() ? value.trim() : null;
 

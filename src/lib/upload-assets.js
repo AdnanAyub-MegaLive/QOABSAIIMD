@@ -1,4 +1,5 @@
 import { publicCdnUrl } from "./media-cdn-policy.js";
+import { versionedUrl } from "./media-version.js";
 export const uploadCategories = {
   "Profile Dresses": "PROFILE_DRESS",
   "Agency Artwork": "AGENCY_ARTWORK",
@@ -146,9 +147,11 @@ export function serializeUploadAsset(asset,url) {
     fileName:asset.fileName,
     mimeType:asset.mimeType,
     fileSize:asset.fileSize,
-    url: publicCdnUrl(asset) || url,
-    cacheKey: publicCdnUrl(asset) || `${asset.publicId}:${(asset.updatedAt??asset.createdAt).toISOString()}`,
-    posterUrl:publicCdnUrl(asset, true) || (asset.posterFileData?`${url}${url.includes("?")?"&":"?"}poster=1`:null),
+    url: publicCdnUrl(asset) || versionedUrl(url,asset.mediaVersion),
+    mediaVersion:asset.mediaVersion??null,
+    posterMediaVersion:asset.posterMediaVersion??null,
+    cacheKey: publicCdnUrl(asset) || `${asset.publicId}:${asset.mediaVersion??(asset.updatedAt??asset.createdAt).toISOString()}`,
+    posterUrl:publicCdnUrl(asset, true) || (asset.posterFileData?versionedUrl(`${url}${url.includes("?")?"&":"?"}poster=1`,asset.posterMediaVersion):null),
     posterMimeType:asset.posterMimeType??null,
     posterFileSize:asset.posterFileSize??null,
     actionUrl:asset.category==="BANNERS"
@@ -186,7 +189,8 @@ function publicDisplaySignature(assetId,expiresAt) {
   return createHmac("sha256",process.env.AUTH_SECRET).update(`display:${assetId}:${expiresAt}`).digest("base64url");
 }
 
-export function createSignedAssetUrl(origin,assetId,userId,sessionVersion,ttlSeconds=3600) {
+export function createSignedAssetUrl(origin,assetId,userId,sessionVersion,ttlSeconds=3600,mediaVersion=null) {
+  if(typeof assetId==="object"){mediaVersion=assetId.mediaVersion;assetId=assetId.publicId;}
   const expiresAt=Math.floor(Date.now()/1000)+ttlSeconds;
   const signature=assetSignature(assetId,userId,sessionVersion,expiresAt);
   const url=new URL(`/api/uploads/${assetId}/file`,origin);
@@ -194,7 +198,7 @@ export function createSignedAssetUrl(origin,assetId,userId,sessionVersion,ttlSec
   url.searchParams.set("sv",String(sessionVersion));
   url.searchParams.set("exp",String(expiresAt));
   url.searchParams.set("sig",signature);
-  return url.toString();
+  return versionedUrl(url.toString(),mediaVersion);
 }
 
 export function verifySignedAssetUrl(assetId,{userId,sessionVersion,expiresAt,signature}) {
@@ -208,12 +212,13 @@ export function verifySignedAssetUrl(assetId,{userId,sessionVersion,expiresAt,si
   return {userId,sessionVersion:version,expiresAt:expiry};
 }
 
-export function createPublicDisplayAssetUrl(origin,assetId,ttlSeconds=3600) {
+export function createPublicDisplayAssetUrl(origin,assetId,ttlSeconds=3600,mediaVersion=null) {
+  if(typeof assetId==="object"){mediaVersion=assetId.mediaVersion;assetId=assetId.publicId;}
   const expiresAt=Math.floor(Date.now()/1000)+ttlSeconds;
   const url=new URL(`/api/uploads/${assetId}/file`,origin);
   url.searchParams.set("displayExp",String(expiresAt));
   url.searchParams.set("displaySig",publicDisplaySignature(assetId,expiresAt));
-  return url.toString();
+  return versionedUrl(url.toString(),mediaVersion);
 }
 
 export function verifyPublicDisplayAssetUrl(assetId,{expiresAt,signature}) {

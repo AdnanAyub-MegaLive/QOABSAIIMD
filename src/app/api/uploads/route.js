@@ -1,6 +1,7 @@
 import { giftCategory as normalizeGiftCategory } from "@/lib/gift-categories";
 import { ROLE_DISTRIBUTIONS } from "@/lib/role-artwork";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
+import { notifyGiftCatalogUpdated } from "@/lib/gift-catalog-version";
 import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../auth";
 import { prisma } from "../../../lib/prisma";
@@ -470,6 +471,7 @@ export async function POST(request) {
       });
     });
     const mirroredAsset = await mirrorAssetBestEffort(prisma, asset);
+    if(["GIFTS","LIVE_GIFTS"].includes(asset.category))await notifyGiftCatalogUpdated();
     return Response.json(
       {
         success: true,
@@ -729,6 +731,7 @@ export async function PATCH(request) {
         include: assignmentInclude,
       });
     });
+    if(["GIFTS","LIVE_GIFTS"].includes(asset.category))await notifyGiftCatalogUpdated();
     return Response.json({
       success: true,
       data: {
@@ -852,6 +855,7 @@ export async function DELETE(request) {
       });
       await tx.uploadAsset.delete({ where: { id: asset.id } });
     });
+    await notifyGiftCatalogUpdated();
     return Response.json({ success: true, data: { assetId } });
   } catch (error) {
     if (error?.code === "P2025")

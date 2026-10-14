@@ -17,6 +17,8 @@ export default async function UploadsPage() {
       where: { category: { notIn: ["LIVE_GIFTS", "APK"] } },
       select: {
         publicId: true,
+        mediaVersion:true,
+        posterMediaVersion:true,
         name: true,
         details: true,
         tags: true,

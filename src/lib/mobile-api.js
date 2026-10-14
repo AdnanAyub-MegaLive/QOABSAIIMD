@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { versionMediaPayload } from "./media-payload.js";
 import { synchronizeVip } from "./vip-membership.js";
 import mobileSession from "./mobile-session.cjs";
 import { assertMobileSession, mobileSessionError } from "./mobile-session-state";
@@ -10,8 +11,8 @@ export const mobileCorsHeaders = {
   "Cache-Control": "no-store, max-age=0",
 };
 
-export function mobileJson(body, status = 200) {
-  return Response.json(body, { status, headers: mobileCorsHeaders });
+export async function mobileJson(body, status = 200) {
+  return Response.json(await versionMediaPayload(body), { status, headers: mobileCorsHeaders });
 }
 
 export function mobileOptions() {

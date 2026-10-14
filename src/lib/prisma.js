@@ -1,8 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { mediaVersionExtension } from "./media-version.js";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-14-action-notifications";
+const prismaSchemaVersion = "2026-10-14-media-versions";
 const requiredUserFields = [
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
   "googleEmail",
@@ -27,7 +28,7 @@ const requiredUserFields = [
 const createPrismaClient = () =>
   new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  }).$extends(mediaVersionExtension);
 
 const cachedUserFields =
   globalForPrisma.prisma?._runtimeDataModel?.models?.User?.fields?.map(

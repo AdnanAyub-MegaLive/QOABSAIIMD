@@ -5,6 +5,12 @@ const asset = { id: "internal", publicId: "AST-123", category: "GIFTS", mimeType
 const config = { endpoint: "https://sgp1.digitaloceanspaces.com", base: "https://media.megachat.live", bucket: "megalive-space", credentials: { accessKeyId: "test", secretAccessKey: "test" } };
 afterEach(() => vi.unstubAllEnvs());
 describe("public artwork CDN", () => {
+  it("publishes SVGA with an immutable hash path and canonical MIME", async () => {
+    const client={send:vi.fn().mockResolvedValue({})};
+    const result=await publishMedia({...asset,mimeType:"application/svga"},{config,client});
+    expect(result.cdnUrl).toMatch(/\/[a-f0-9]{64}\.svga$/);
+    expect(client.send.mock.calls[0][0].input.ContentType).toBe("application/svga");
+  });
   it("excludes private assignments, private music, KYC, inactive and unsupported formats", () => {
     expect(canPublishMedia(asset)).toBe(true);
     for (const change of [{ isGlobal: false }, { category: "MUSIC_TRACKS" }, { category: "KYC" }, { audioRoomId: "room" }, { active: false }, { mimeType: "image/svg+xml" }, { category: "AVATARS" }]) expect(canPublishMedia({ ...asset, ...change })).toBe(false);
@@ -23,7 +29,7 @@ describe("public artwork CDN", () => {
     const client = { send: vi.fn().mockResolvedValue({}) };
     const result = await publishMedia({ ...asset, posterFileData: Buffer.from("poster"), posterMimeType: "image/webp" }, { config, client });
     expect(client.send).toHaveBeenCalledTimes(2);
-    expect(client.send.mock.calls[0][0].input).toMatchObject({ ACL: "public-read", ContentType: "image/png", CacheControl: "public, max-age=86400, immutable" });
+    expect(client.send.mock.calls[0][0].input).toMatchObject({ ACL: "public-read", ContentType: "image/png", CacheControl: "public, max-age=31536000, immutable" });
     expect(result.cdnUrl).toContain("https://media.megachat.live/portal-media/");
     expect(result.posterCdnUrl).toContain("poster-");
   });

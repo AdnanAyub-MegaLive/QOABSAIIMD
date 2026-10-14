@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { mediaVersion } from "./media-version.js";
 import sharp from "sharp";
 import { updateProfileWithHistory } from "./avatar-history.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
@@ -62,7 +63,7 @@ export async function decodeAvatar(file) {
 
 export async function saveAvatar(db, userId, bytes, origin) {
   const publicId = `AVATAR-${randomUUID().replaceAll("-", "")}`;
-  const profileImage = createPublicDisplayAssetUrl(origin, publicId, 30 * 24 * 3600);
+  const profileImage = createPublicDisplayAssetUrl(origin, { publicId, mediaVersion: mediaVersion(bytes) }, 30 * 24 * 3600);
   await updateProfileWithHistory(db, userId, { profileImage }, tx => tx.uploadAsset.create({ data: {
     publicId, name: "Profile picture", category: "AVATARS", fileName: `${publicId}.webp`,
     mimeType: "image/webp", fileSize: bytes.length, fileData: bytes, isGlobal: false, storeVisible: false,

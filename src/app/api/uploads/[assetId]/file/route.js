@@ -1,4 +1,4 @@
-import { publicCdnUrl } from "@/lib/media-cdn-policy";
+import { publicCdnUrl, canPublishMedia } from "@/lib/media-cdn-policy";
 import { auth } from "../../../../../../auth";
 import { prisma } from "../../../../../lib/prisma";
 import mobileSession from "../../../../../lib/mobile-session.cjs";
@@ -35,6 +35,8 @@ export async function GET(request, { params }) {
     where: { publicId: assetId },
     select: {
       publicId: true,
+      mediaVersion:true,
+      posterMediaVersion:true,
       cdnUrl: true,
       posterCdnUrl: true,
       audioRoomId: true,
@@ -122,10 +124,20 @@ export async function GET(request, { params }) {
 
 async function mediaResponse(asset, request) {
   const wantsPoster = new URL(request.url).searchParams.get("poster") === "1";
+  const version=wantsPoster?asset.posterMediaVersion:asset.mediaVersion;
+  const requested=new URL(request.url).searchParams.get("v");
+  if(requested&&requested!==version)return Response.json({success:false,error:{code:"MEDIA_VERSION_CHANGED",message:"Refresh the asset URL."}},{status:409,headers:{"Cache-Control":"no-store"}});
+  const cache= requested&&version&&canPublishMedia(asset)?"public, max-age=31536000, immutable":"private, no-cache";
+  const headers={"Cache-Control":cache,...(version?{ETag:`"${version}"`}:{})};
+  // This executes only AFTER session/signature validation. Private files never
+  // get a shared immutable cache policy, even with a guessed version.
+  if(version&&request.headers.get("if-none-match")?.split(",").some(tag=>["*",`"${version}"`,`W/"${version}"`].includes(tag.trim())))return new Response(null,{status:304,headers});
   const cdn = publicCdnUrl(asset, wantsPoster);
   if (cdn) return new Response(null, { status: 307, headers: { Location: cdn, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
-  const bytes = await prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { fileData: true, posterFileData: true } });
+  const bytes = await prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { fileData: true, posterFileData: true, mediaVersion: true, posterMediaVersion: true } });
   if (!bytes) return new Response(null, { status: 404 });
+  if ((wantsPoster ? bytes.posterMediaVersion : bytes.mediaVersion) !== version)
+    return Response.json({success:false,error:{code:"MEDIA_VERSION_CHANGED",message:"Refresh the asset URL."}},{status:409,headers:{"Cache-Control":"no-store"}});
   asset = { ...asset, ...bytes };
   if (wantsPoster && asset.posterFileData) asset = { ...asset, fileData: asset.posterFileData, fileName: asset.posterFileName, mimeType: asset.posterMimeType };
   const total = asset.fileData.byteLength;
@@ -141,7 +153,7 @@ async function mediaResponse(asset, request) {
       "Content-Type": asset.mimeType,
       "Content-Length": String(body.byteLength),
       "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(asset.fileName)}`,
-      "Cache-Control": "private, max-age=3600",
+      ...headers,
       "Accept-Ranges": "bytes",
       ...(range ? { "Content-Range": `bytes ${range.start}-${range.end}/${total}` } : {}),
       "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",

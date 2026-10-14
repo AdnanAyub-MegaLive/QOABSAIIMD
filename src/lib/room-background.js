@@ -28,7 +28,8 @@ export function serializeRoomBackground(room, origin) {
   }
   return {
     assetId: asset.publicId,
-    url: createPublicDisplayAssetUrl(origin, asset.publicId, 21600),
+    url: createPublicDisplayAssetUrl(origin, asset, 21600),
+    mediaVersion:asset.mediaVersion??null,
     mimeType: asset.mimeType,
     version: room.roomBackgroundVersion ?? 0,
   };

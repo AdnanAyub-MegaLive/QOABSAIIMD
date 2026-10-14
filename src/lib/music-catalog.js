@@ -2,7 +2,7 @@ import { createPublicDisplayAssetUrl, musicTrackMimeTypes } from "./upload-asset
 import { prisma } from "./prisma.js";
 
 export function serializeCatalogTrack(asset, origin, ttlSeconds = 21600) {
-  const trackUrl = createPublicDisplayAssetUrl(origin, asset.publicId, ttlSeconds);
+  const trackUrl = createPublicDisplayAssetUrl(origin, asset, ttlSeconds);
   return {
     id: asset.publicId,
     title: asset.name,

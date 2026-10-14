@@ -3,6 +3,7 @@ import { giftXpInput } from "@/lib/gift-xp-input";
 import crypto from "node:crypto";
 import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
+import { notifyGiftCatalogUpdated } from "@/lib/gift-catalog-version";
 import { requirePermission } from "@/lib/portal-admin";
 import { getLiveCommerceRule } from "@/lib/live-commerce";
 import { validateProfitSplit } from "@/lib/profit-rules";
@@ -63,6 +64,7 @@ export async function POST(request) {
         });
       } else throw Object.assign(new Error("Unknown action."), { status: 422 });
     }
+    await notifyGiftCatalogUpdated();
     return Response.json({ success: true });
   } catch (e) { return failure(e); }
 }

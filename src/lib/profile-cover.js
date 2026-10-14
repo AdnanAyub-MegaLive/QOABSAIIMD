@@ -45,9 +45,9 @@ export async function profileCoverDto(db, ownerId, viewerId, origin) {
   const row = await db.profileCover.findUnique({ where: { userId: ownerId }, select: { status: true, revision: true, mimeType: true, createdAt:true } });
   const isSelf = ownerId === viewerId;
   const visible = row && (isSelf || row.status === "APPROVED");
-  const path = visible ? `/api/profile-cover/file?token=${coverToken(ownerId, viewerId, row.revision)}` : null;
+  const path = visible ? `/api/profile-cover/file?v=${row.revision}&token=${coverToken(ownerId, viewerId, row.revision)}` : null;
   const items = await db.profileCoverItem.findMany({where:{userId:ownerId,...(!isSelf?{status:"APPROVED"}:{})},select:{id:true,mimeType:true,status:true,revision:true,createdAt:true},orderBy:[{createdAt:"asc"},{id:"asc"}],take:5});
-  const entries=items.map(item=>{const url=`/api/profile-cover/file?token=${coverToken(ownerId,viewerId,item.revision,item.id)}`;return {id:item.id,createdAt:item.createdAt,coverImageUrl:origin?new URL(url,origin).toString():url,coverMimeType:item.mimeType,coverStatus:item.status};});
+  const entries=items.map(item=>{const url=`/api/profile-cover/file?v=${item.revision}&token=${coverToken(ownerId,viewerId,item.revision,item.id)}`;return {id:item.id,createdAt:item.createdAt,mediaVersion:String(item.revision),coverImageUrl:origin?new URL(url,origin).toString():url,coverMimeType:item.mimeType,coverStatus:item.status};});
   if(visible)entries.push({id:"legacy",createdAt:row.createdAt,coverImageUrl:origin?new URL(path,origin).toString():path,coverMimeType:row.mimeType??"image/webp",coverStatus:row.status});
   const covers=entries.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)||a.id.localeCompare(b.id)).slice(0,5).map(({createdAt: _createdAt,...item})=>item);
   return { coverImageUrl: covers[0]?.coverImageUrl??null, coverMimeType:covers[0]?.coverMimeType??null, coverStatus: isSelf ? row?.status ?? covers[0]?.coverStatus??null : covers.length?"APPROVED":null, covers };
