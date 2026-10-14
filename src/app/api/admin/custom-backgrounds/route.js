@@ -41,7 +41,7 @@ export async function PATCH(request) {
   try {
     const actor = await admin(); const body = await request.json();
     if (body.entity === "settings") {
-      const allowedMimeTypes = Array.isArray(body.mimeTypes) ? body.mimeTypes.filter((v) => ["image/jpeg", "image/png", "image/webp"].includes(v)) : [];
+      const allowedMimeTypes = Array.isArray(body.mimeTypes) ? body.mimeTypes.filter((v) => ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4"].includes(v)) : [];
       if (!allowedMimeTypes.length) throw Object.assign(new Error("Select at least one allowed image type."), { status: 422 });
       const data = { enabled: Boolean(body.enabled), maxBytes: integer(body.maxBytes, "Maximum upload bytes", 1024, 25_000_000), allowedMimeTypes };
       await prisma.$transaction(async (tx) => { await tx.customRoomBackgroundSettings.upsert({ where: { id: "DEFAULT" }, create: { id: "DEFAULT", ...data }, update: data }); await tx.auditLog.create({ data: { adminId: actor.id, action: "CUSTOM_BACKGROUND_SETTINGS_UPDATED", category: "CONTENT_MANAGEMENT", entityType: "CustomRoomBackgroundSettings", entityId: "DEFAULT", description: `${actor.name} updated custom background settings.`, metadata: data } }); });

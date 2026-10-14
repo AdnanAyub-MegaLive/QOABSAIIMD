@@ -1,4 +1,5 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
+import { awardActivityXp } from "../activity-levels.js";
 import { prisma } from "../prisma.js";
 import { ledgerData } from "../wallet.js";
 import { assertMobileSession } from "../mobile-session-state.js";
@@ -91,6 +92,7 @@ export async function placeRound(identity, input) {
     if (result.payout > 0) entries.push(ledgerData({ userId: user.id, type: "GAME_PAYOUT", direction: "CREDIT", title: `${game.name} payout`, coins: BigInt(result.payout), referenceId: round.id, metadata: { gameId: game.id, revision: game.revision } }));
     await tx.walletTransaction.createMany({ data: entries });
     await tx.gameLog.create({ data: { userId: user.id, gameName: game.name, wager: BigInt(result.bet), payout: BigInt(result.payout), result: result.outcome, referenceId: round.id } });
+    await awardActivityXp(tx, "GAME", user.id, round.id, BigInt(result.bet));
     await tx.gameRound.create({ data: { id: round.id, gameId: game.id, userId: user.id, requestHash, payload: round, createdAt: new Date(round.createdAt) } });
     return round;
   }, { timeout: 15000 });

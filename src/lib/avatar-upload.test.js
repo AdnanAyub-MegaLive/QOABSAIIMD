@@ -5,6 +5,11 @@ import { verifyPublicDisplayAssetUrl } from "./upload-assets.js";
 
 beforeEach(() => { process.env.AUTH_SECRET = "test-avatar-signature-secret-not-production"; });
 const file = (bytes, type) => new File([bytes], "photo", { type });
+it("preserves multiple GIF frames as animated WebP",async()=>{
+ const bytes=await sharp(Buffer.from([255,0,0,0,255,0]),{raw:{width:1,height:2,channels:3,pageHeight:1}}).gif({delay:[100,100],loop:0}).toBuffer();
+ const output=await decodeAvatar(file(bytes,"image/gif"));
+ expect((await sharp(output,{animated:true}).metadata()).pages).toBe(2);
+});
 it.each(["jpeg", "png", "webp"])("decodes %s and emits sanitized WebP", async format => {
   const input = await sharp({ create: { width: 8, height: 8, channels: 3, background: "red" } }).toFormat(format).toBuffer();
   const output = await decodeAvatar(file(input, `image/${format}`));

@@ -1,4 +1,6 @@
+import { hasPermission } from "@/lib/portal-permissions";
 import { requirePagePermission } from "@/lib/portal-admin";
+import LinkedHostProfile from "../linked-host-profile";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
@@ -6,11 +8,13 @@ import ProfileManager from "../../components/profile-manager";
 import { prisma } from "../../../lib/prisma";
 import PortalSidebar from "../../components/portal-sidebar";
 
-export default async function TalentProfilePage({ params }) {
-  await requirePagePermission("hosts.view");
+export default async function TalentProfilePage({ params, searchParams }) {
+  const admin = await requirePagePermission("hosts.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   const { talentId } = await params;
+  const host = await prisma.user.findFirst({ where: { publicId: decodeURIComponent(talentId), deletedAt: null, appRoles: { has: "HOST" } }, include: { agency: { select: { name: true } } } });
+  if (host) return <LinkedHostProfile user={host} canViewFinance={hasPermission(admin, "finance.view")} searchParams={await searchParams}/>;
   const talent = await prisma.talent.findUnique({
     where: { publicId: decodeURIComponent(talentId) },
     include: {

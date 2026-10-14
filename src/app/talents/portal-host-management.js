@@ -73,7 +73,7 @@ export default function PortalHostManagement({ hosts, candidates, agencies }) {
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Portal hosts" value={hosts.length} note="Android host accounts" />
         <Metric label="Live audio rooms" value={liveRooms} note="Currently live" />
-        <Metric label="KYC verified" value={verifiedHosts} note="Eligible for payout" />
+        <Metric label="KYC verified" value={verifiedHosts} note="Required for live video only" />
         <Metric label="Open payouts" value={openPayouts} note="Pending or approved" />
       </div>
       <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
@@ -131,7 +131,7 @@ function HostRow({ host, onManage }) {
     <td><strong>{formatCoins(host.salaryCoins)}</strong><span className="block text-[10px] text-[#71847f]">salary coins</span></td>
     <td><strong>{formatCoins(host.giftCoins)}</strong><span className="block text-[10px] text-[#71847f]">{host.giftCount} gifts received</span></td>
     <td>{host.openWithdrawal ? <><Badge value={host.openWithdrawal.status} /><span className="mt-1 block text-[10px] text-[#71847f]">{formatCoins(host.openWithdrawal.coins)} coins</span></> : <span className="text-[#71847f]">None open</span>}</td>
-    <td className="px-5 text-right"><div className="flex justify-end gap-2"><Link href={`/users/${encodeURIComponent(host.id)}`} className="rounded-lg border border-[#d7e4e1] px-3 py-2 text-[10px] font-bold text-[#526b67] hover:bg-[#f1f7f5]">Profile</Link><button type="button" onClick={onManage} className="rounded-lg bg-[#e1f3f0] px-3 py-2 text-[10px] font-bold text-[#087f74] hover:bg-[#cfece7]">Manage</button></div></td>
+    <td className="px-5 text-right"><div className="flex justify-end gap-2"><Link href={`/talents/${encodeURIComponent(host.id)}`} className="rounded-lg border border-[#d7e4e1] px-3 py-2 text-[10px] font-bold text-[#526b67] hover:bg-[#f1f7f5]">Profile</Link><button type="button" onClick={onManage} className="rounded-lg bg-[#e1f3f0] px-3 py-2 text-[10px] font-bold text-[#087f74] hover:bg-[#cfece7]">Manage</button></div></td>
   </tr>;
 }
 

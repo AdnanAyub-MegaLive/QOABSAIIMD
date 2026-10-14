@@ -1,5 +1,6 @@
 import { agencyWorkReports } from "./agency-work.js";
 import { prisma } from "./prisma.js";
+import { activityProgress } from "./activity-levels.js";
 import { validationError } from "./wallet.js";
 
 export function salaryMonth(value, now = new Date()) {
@@ -30,7 +31,7 @@ export function sessionAttendance(sessions, start, end, now = new Date()) {
 export async function getAgencySalary(agencyId, selectedMonth, db = prisma) {
   const now = new Date();
   const { month, start, end } = salaryMonth(selectedMonth, now);
-  const agency = await db.agency.findUniqueOrThrow({ where: { id: agencyId }, select: { publicId: true, name: true, monthlyTargetCoins: true, userHosts: { select: { id: true, publicId: true, name: true, profileImage: true } }, talents: { select: { id: true, publicId: true, displayName: true, profileImage: true } } } });
+  const agency = await db.agency.findUniqueOrThrow({ where: { id: agencyId }, select: { id: true, publicId: true, name: true, monthlyTargetCoins: true, userHosts: { select: { id: true, publicId: true, name: true, profileImage: true } }, talents: { select: { id: true, publicId: true, displayName: true, profileImage: true } } } });
   const [settlements, bills, recharge] = await Promise.all([
     db.giftSettlement.findMany({ where: { agencyId, createdAt: { gte: start, lt: end } }, select: { grossCoins: true, hostSalaryCoins: true, agencyCoins: true, giftTransaction: { select: { recipientUser: { select: { id: true, publicId: true, name: true, profileImage: true } }, talent: { select: { id: true, publicId: true, displayName: true, profileImage: true } } } } } }),
     db.$queryRaw`SELECT to_char("createdAt", 'YYYY-MM') AS month, SUM("hostSalaryCoins") AS salary, SUM("agencyCoins") AS commission FROM "GiftSettlement" WHERE "agencyId" = ${agencyId} GROUP BY 1 ORDER BY 1 DESC`,
@@ -71,5 +72,5 @@ export async function getAgencySalary(agencyId, selectedMonth, db = prisma) {
     const work = report.work.hosts.find(h => h.key === `${host.kind}:${source.internalId}`);
     Object.assign(host, { giftDiamonds: work?.diamonds ?? "0", agencySalaryDiamonds: work?.salaryDiamonds ?? "0", achievedTargetDiamonds: work?.targetDiamonds ?? null, commissionBps: work?.commissionBps ?? 0 });
   }
-  return { work: report.work, agencyId: agency.publicId, agencyName: agency.name, month, timezone: "UTC", ...bill, giftIncomeCoins: settlements.reduce((sum, s) => sum + s.grossCoins, 0n).toString(), totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n), rechargeBasis: "CURRENT_HOSTS_LIFETIME", agencyLevel: null, nextLevelThreshold: null, monthlyTargetCoins: agency.monthlyTargetCoins.toString(), hosts: rows, topEarners: rows.slice(0, 3), months, activityNotice: "User-host attendance covers recorded video sessions only. Historical audio attendance is not available. Accrued salary is earnings, not an unpaid payout bill." };
+  return { work: report.work, agencyId: agency.publicId, agencyName: agency.name, month, timezone: "UTC", ...bill, giftIncomeCoins: settlements.reduce((sum, s) => sum + s.grossCoins, 0n).toString(), totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n), rechargeBasis: "CURRENT_HOSTS_LIFETIME", ...await activityProgress("AGENCY",agency.id).then(p=>({agencyLevel:p.level,nextLevelThreshold:p.nextThreshold,progression:p})), monthlyTargetCoins: agency.monthlyTargetCoins.toString(), hosts: rows, topEarners: rows.slice(0, 3), months, activityNotice: "User-host attendance covers recorded video sessions only. Historical audio attendance is not available. Accrued salary is earnings, not an unpaid payout bill." };
 }

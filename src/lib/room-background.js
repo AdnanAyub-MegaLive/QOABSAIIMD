@@ -4,6 +4,7 @@ export const roomBackgroundMimeTypes = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
+  "image/gif",
   "video/mp4",
 ]);
 

@@ -192,6 +192,7 @@ model AuditLog {
 }
 
 model User {
+  profileCoverItems ProfileCoverItem[]
   profileCover ProfileCover?
   audioRoomVisits AudioRoomVisit[]
   onboardingCompletedAt DateTime?
@@ -1341,9 +1342,24 @@ model ProfileCover {
   userId String @id
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   imageData Bytes
+  mimeType String @default("image/webp")
+  createdAt DateTime @default(now())
   status String @default("PENDING")
   revision String @default(cuid())
   updatedAt DateTime @updatedAt
+}
+
+model ProfileCoverItem {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ imageData Bytes
+ mimeType String
+ status String @default("PENDING")
+ revision String @default(cuid())
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([userId,createdAt])
 }
 
 model Device {
@@ -1656,6 +1672,36 @@ model SpecialIdDefinition {
   @@index([category, active])
   @@index([minimumVipLevel])
   @@index([minimumTopUpAmount])
+}
+
+model ActivityLevelRule {
+  track String @id
+  revision Int @default(0)
+  enabled Boolean @default(false)
+  rateBps Int @default(0)
+  levels Json
+  updatedAt DateTime @updatedAt
+}
+
+model ProfileCardArtwork {
+ id String @id @default("GLOBAL")
+ revision Int @default(0)
+ ranges Json @default("[]")
+ updatedAt DateTime @updatedAt
+}
+
+model ActivityLevelAward {
+  id String @id @default(cuid())
+  track String
+  subjectId String
+  sourceId String
+  amount BigInt
+  xp BigInt
+  ruleRevision Int
+  rateBps Int
+  createdAt DateTime @default(now())
+  @@unique([track, sourceId])
+  @@index([track, subjectId])
 }
 
 model GameLog {

@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { isSupportedRoomBackgroundMimeType, serializeRoomBackground } from "./room-background";
 
 describe("room-specific background contract", () => {
-  it.each(["image/png", "image/jpeg", "image/webp", "video/mp4"])("supports %s", (mimeType) => {
+  it.each(["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"])("supports %s", (mimeType) => {
     expect(isSupportedRoomBackgroundMimeType(mimeType)).toBe(true);
   });
 
-  it.each(["image/gif", "video/webm", "text/html"])("rejects %s", (mimeType) => {
+  it.each(["video/webm", "text/html"])("rejects %s", (mimeType) => {
     expect(isSupportedRoomBackgroundMimeType(mimeType)).toBe(false);
   });
 

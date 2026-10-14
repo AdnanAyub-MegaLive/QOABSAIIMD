@@ -1,4 +1,6 @@
 import { prisma } from "./prisma.js";
+import { activityProgress } from "./activity-levels.js";
+import { profileCardArtwork } from "./profile-card-artwork.js";
 import { profileCoverDto } from "./profile-cover.js";
 import { avatarDisplayUrl } from "./avatar-history.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
@@ -74,7 +76,7 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
   const roles = [...new Set(target.appRoles)].filter(r => APPLICATION_ROLES.includes(r));
   const [equipment, progress, roleRows, medals, gifts, supporters, relationships] = await Promise.all([
     equippedProfileAssets([target], origin, db), publicProgression([target], origin, db, true),
-    db.roleBadge.findMany({ where: { code: { in: roles } } }), medalWall(target.id, origin, {}, db), receivedGiftWall(target.id, origin, {}, db),
+    db.roleBadge.findMany({ where: { code: { in: roles } } }), medalWall(target.id, origin, { limit: 50 }, db), receivedGiftWall(target.id, origin, {}, db),
     db.giftTransaction.groupBy({ by: ["senderId"], where: { recipientUserId: target.id, reversedAt: null, sender: activePerson }, _sum: { coinValue: true }, orderBy: [{ _sum: { coinValue: "desc" } }, { senderId: "asc" }], take: 3 }),
     db.profileRelationship.findMany({ where: { status: "ACTIVE", leftAcceptedAt: { not: null }, rightAcceptedAt: { not: null }, left: activePerson, right: activePerson, AND: [{ OR: [{ leftUserId: target.id }, { rightUserId: target.id }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] }, include: { left: { select: publicPerson }, right: { select: publicPerson } }, orderBy: { publicId: "asc" } }),
   ]);
@@ -88,14 +90,17 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
   const assets = await displayAssets([...roleRows.map(r => r.assetPublicId), agency?.logoAssetPublicId, agency?.badgeAssetPublicId], origin, db);
   const equippedAssets = equipment.get(target.id);
   const levels = progress.get(target.publicId);
+  const game = await activityProgress("GAME", target.id, origin, db);
+  const agencyProgress = agency ? await activityProgress("AGENCY", agency.id, origin, db) : null;
+  const cardArt = await profileCardArtwork(db,target.id,levels?.charmLevel??0,origin);
   return { roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
     equippedAssets, frameUrl: equippedAssets.avatarFrame?.url ?? null, badgeUrl: equippedAssets.profileBadge?.url ?? null,
     userTagUrl: equippedAssets.userTag?.url ?? null,
     profileBackgroundUrl: equippedAssets.profileBackground?.url ?? null, profileBackgroundPosterUrl: equippedAssets.profileBackground?.posterUrl ?? null, profileBackgroundMimeType: equippedAssets.profileBackground?.mimeType ?? null,
     homeDressUrl: equippedAssets.profileDress?.url ?? null, homeDressPosterUrl: equippedAssets.profileDress?.posterUrl ?? null, homeDressMimeType: equippedAssets.profileDress?.mimeType ?? null,
     ...await profileCoverDto(db, target.id, viewer.id, origin),
-    ...levels, medalWall: medals, giftWall: gifts,
-    agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agency.level, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, badgeUrl: assets.get(agency.badgeAssetPublicId)?.url ?? null } : null,
+    ...levels, gameLevel:game.level,gameLevelBadgeUrl:game.badgeUrl, medalWall: medals, giftWall: gifts, cardBackgrounds:cardArt.cardBackgrounds,
+    agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agencyProgress.level, progression:agencyProgress, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, ...cardArt.agency } : null,
     topSupporters: supporters.flatMap(s => { const person = people.find(p => p.id === s.senderId); return person && !hidden.has(person.id) ? [{ ...identity(person), totalCoins: (s._sum.coinValue ?? 0n).toString() }] : []; }).map((s, i) => ({ rank: i + 1, ...s })),
     relationships: relationships.flatMap(r => { const partner = r.leftUserId === target.id ? r.right : r.left; return !hidden.has(partner.id) ? [{ id: r.publicId, type: r.type, status: r.status, level: r.level, days: Math.max(0, Math.floor((Date.now() - r.startedAt.getTime()) / 86400000)), partner: identity(partner) }] : []; }),
   };

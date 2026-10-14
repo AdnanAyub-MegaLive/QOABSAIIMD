@@ -1,4 +1,7 @@
 import { prisma } from "./prisma.js";
+import { profileCardArtwork } from "./profile-card-artwork.js";
+import { publicProgression } from "./progression.js";
+import { activityProgress } from "./activity-levels.js";
 import { profileCoverDto } from "./profile-cover.js";
 import { formatDateOnly } from "./date-only.js";
 import { getEffectiveUserId, reconcileExpiredSpecialIds } from "./special-id.js";
@@ -40,6 +43,8 @@ export async function mobileUserProfile(userId, origin = null) {
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const perks = origin ? (await resolveUserPerks([user], origin, ["FRAMES", "BADGES", "BUSINESS_CARD"])).get(user.publicId) : null;
   return {
+    ...await profileCardArtwork(prisma,user.id,(await publicProgression([user],origin)).get(user.publicId)?.charmLevel??0,origin),
+    ...await activityProgress("GAME", user.id, origin).then(p=>({gameLevel:p.level,gameLevelBadgeUrl:p.badgeUrl,gameProgression:p})),
     ...await profileCoverDto(prisma, user.id, user.id, origin),
     ...profileEditPermissions(user),
     ...perks?.progression,

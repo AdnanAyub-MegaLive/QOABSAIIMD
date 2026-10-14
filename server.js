@@ -70,6 +70,9 @@ app.prepare().then(async()=>{
   const runRealtimeMaintenance=async()=>{try{const[, , , ,controls]=await Promise.all([finalizeExpiredPkSessions(),reconcileAudioRoomPresence(io),reconcileStaleVideoPresence(),expireGuestRequests(),reconcileExpiredAudioRoomControls()]);const changedRooms=new Map();for(const seat of controls.seats){await updateLiveKitPublishPermission(seat.audioRoom.roomId,seat.occupant.publicId,true);changedRooms.set(seat.audioRoom.roomId,seat.audioRoom);io.to(`user:${seat.occupant.publicId}`).emit("audio-room:seat-force-muted",{success:true,data:{roomId:seat.audioRoom.roomId,userId:seat.occupant.publicId,muted:false,expiresAt:null,expired:true}})}for(const member of controls.members)io.to(`user:${member.user.publicId}`).emit("audio-room:member-force-deafened",{success:true,data:{roomId:member.audioRoom.roomId,userId:member.user.publicId,deafened:false,expiresAt:null,expired:true}});for(const room of changedRooms.values())await broadcastAudioRoomSeatState(room,"",undefined,true)}catch(error){console.error("Realtime maintenance failed",error)}};
   setImmediate(runRealtimeMaintenance);
   const maintenanceTimer=setInterval(runRealtimeMaintenance,15000);
+  const {expirePendingCustomBackgrounds}=await import("./src/lib/custom-background-maintenance.js");
+  const customBackgroundTimer=setInterval(()=>expirePendingCustomBackgrounds().catch(e=>console.error("Custom background maintenance failed",e.message)),60000);
+  customBackgroundTimer.unref();
   maintenanceTimer.unref?.();
   const liveKitAccessFor=(targetUser,roomId,canPublish)=>rtcProvider()==="TRTC"?audioRtcAccess(targetUser,roomId,canPublish):isLiveKitConfigured()?issueLiveKitAccess(targetUser,roomId,canPublish):Promise.resolve(null);
   globalThis.portalRevokeOlderSessions=(publicId,version)=>{

@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { verifyCoverToken } from "@/lib/profile-cover";
+import { coverResponse } from "@/lib/profile-cover-response";
 export async function GET(request) {
   const token = verifyCoverToken(new URL(request.url).searchParams.get("token"));
   if (!token) return new Response(null, { status: 403 });
   const [row, users, blocked, ban] = await Promise.all([
-    prisma.profileCover.findUnique({ where: { userId: token.ownerId } }),
+    token.coverId ? prisma.profileCoverItem.findFirst({where:{id:token.coverId,userId:token.ownerId}}) : prisma.profileCover.findUnique({ where: { userId: token.ownerId } }),
     prisma.user.findMany({ where: { id: { in: [token.ownerId, token.viewerId] }, deletedAt: null, status: "ACTIVE" }, select: { id: true, profilePrivate: true } }),
     prisma.userBlock.findFirst({ where: { OR: [{ blockerId: token.viewerId, blockedId: token.ownerId }, { blockerId: token.ownerId, blockedId: token.viewerId }] } }),
     prisma.ban.findFirst({ where: { userId: { in: [token.ownerId, token.viewerId] }, revokedAt: null, startsAt: { lte: new Date() }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } }),
@@ -15,5 +16,5 @@ export async function GET(request) {
     const friend = await prisma.friendRequest.findFirst({ where: { status: "ACCEPTED", OR: [{ requesterId: token.ownerId, addresseeId: token.viewerId }, { requesterId: token.viewerId, addresseeId: token.ownerId }] } });
     if (!friend) return new Response(null, { status: 404 });
   }
-  return new Response(row.imageData, { headers: { "Content-Type": "image/webp", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+  return coverResponse(row, request.headers.get("range"));
 }

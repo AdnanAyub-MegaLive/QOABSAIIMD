@@ -92,8 +92,7 @@ export async function GET(request) {
               ),
               totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n),
               rechargeBasis: "CURRENT_HOSTS_LIFETIME",
-              agencyLevel: null,
-              nextLevelThreshold: null,
+              ...await activityProgress("AGENCY",agency.id).then(p=>({agencyLevel:p.level,level:p.level,nextLevelThreshold:p.nextThreshold,progression:p})),
               totalGiftingCoins: String(
                 lifetimeGifting._sum.grossCoins ?? 0n,
               ),
@@ -119,3 +118,4 @@ export async function GET(request) {
     return mobileApiError(error, "AGENCY_DASHBOARD_FAILED");
   }
 }
+import { activityProgress } from "@/lib/activity-levels";

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 export const TRACKS = ["USER", "CHARM"];
 const MAX = 9223372036854775807n;
@@ -60,6 +61,8 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
   // USER is Wealth Level: only gift sends qualify. CHARM belongs to the
   // recipient of that gift. Recharge, transfers, purchases and tasks cannot award XP.
   if (!["PAID", "BACKPACK", "LUCKY", "BLIND_BOX"].includes(source)) return null;
+  const settlement = await tx.giftSettlement.findUnique({ where: { giftTransactionId: gift.id } });
+  if (settlement?.recipientType === "HOST") await awardActivityXp(tx, "AGENCY", settlement.agencyId, gift.id, settlement.recipientDiamonds);
   const active=await currentConfiguration(tx);
   if (!active?.enabled) return null;
   recipient = await resolveGiftProgressRecipient(tx, gift, recipient);

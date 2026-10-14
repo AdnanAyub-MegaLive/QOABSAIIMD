@@ -27,6 +27,7 @@ vi.mock("@/app/api/gifts/send/route", async () => import("../app/api/gifts/send/
 import { POST as standard } from "../app/api/gifts/send/route";
 import { POST as backpack } from "../app/api/v1/gifts/backpack/send/route";
 import { POST as lucky } from "../app/api/v1/gifts/lucky/send/route";
+import { POST as multi } from "../app/api/v1/gifts/send-multi/route";
 
 beforeEach(() => {
   mocks.emit.mockClear(); mocks.rows.length = 0; mocks.ledger.length = 0;
@@ -46,6 +47,17 @@ beforeEach(() => {
 });
 
 const request = body => new Request("https://portal.test/api/gifts/send", { method: "POST", body: JSON.stringify({ giftId: "AST-1", roomId: "ROOM-1", recipientId: "USR-A", ...body }) });
+it("multi-send credits ordinary recipients in Diamonds, never reusable Coins",async()=>{
+ mocks.db.user.findMany=async()=>["USR-A","USR-B"].map(publicId=>({id:publicId,publicId,appRoles:[]}));
+ const settlements=[];mocks.db.giftSettlement.create=async({data})=>{settlements.push(data);return data;};
+ const updates=[];mocks.db.user.update=async args=>{updates.push(args);return {};};
+ const response=await multi(request({requestId:"multi-unique",recipientIds:["USR-A","USR-B"]}));
+ expect(response.status).toBe(201);
+ expect(settlements).toHaveLength(2);
+ expect(settlements.every(s=>s.recipientDiamonds===100n&&s.currencyPolicyVersion===1)).toBe(true);
+ expect(updates.every(u=>u.data.hostSalaryCoinBalance.increment===100n&&!u.data.coinBalance)).toBe(true);
+ expect(mocks.ledger.filter(r=>r.type==="GIFT_RECEIVED").every(r=>r.diamonds===100n&&!r.coins)).toBe(true);
+});
 describe.each([["standard", standard], ["backpack", backpack], ["lucky", lucky]])("%s gift batching", (_name, send) => {
   it("allows room self-gifts while keeping the debit and recipient credit", async () => {
     mocks.db.user.findFirst = async () => ({id:"sender",publicId:"USR-S",appRoles:[]});

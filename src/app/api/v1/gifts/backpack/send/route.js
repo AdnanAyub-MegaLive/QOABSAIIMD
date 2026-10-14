@@ -1,10 +1,11 @@
-import { currencyPolicy, giftDiamonds } from "@/lib/currency-policy";
+import { calculateGiftSettlement, assertGiftRecipient } from "@/lib/gift-currency-settlement";
+import { currencyPolicy } from "@/lib/currency-policy";
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { audioRoomParticipantIds } from "@/lib/realtime";
-import { coinsForShare, getProfitSplitRule } from "@/lib/profit-rules";
+import { getProfitSplitRule } from "@/lib/profit-rules";
 import { ledgerData } from "@/lib/wallet";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
@@ -35,11 +36,12 @@ export async function POST(request) {
     const gross = gift.coinPrice * BigInt(quantity), host = recipient.appRoles.includes("HOST");
     if (host && !recipient.agencyId) throw new Error("HOST_AGENCY_REQUIRED");
     const response = await runGiftOperation(sender.id,operation,async (tx) => {
+      await assertGiftRecipient(tx, recipient);
       const emitToAudioRoom=(id,event,payload)=>appendOutbox(tx,`audio-room:${id}`,event,payload.data);
       const used = await tx.userGiftInventory.updateMany({ where: { userId: sender.id, giftAssetId: gift.id, quantity: { gte: quantity } }, data: { quantity: { decrement: quantity } } });
       if (!used.count) throw new Error("BACKPACK_INSUFFICIENT");
-      const hostCoins = host ? coinsForShare(gross, policy.hostShareBps) : 0n, agencyCoins = host ? coinsForShare(gross, policy.agencyShareBps) : 0n, reusable = host ? 0n : coinsForShare(gross, policy.normalUserReusableShareBps), company = gross - hostCoins - agencyCoins - reusable;
-      const currency=await currencyPolicy(tx),credit=giftDiamonds(gross,hostCoins+reusable,currency);
+      const currency = await currencyPolicy(tx);
+      const { hostSalaryCoins: hostCoins, agencyCoins, reusableCoins: reusable, companyCoins: company, receivedDiamonds: credit } = calculateGiftSettlement(gross, host, policy, currency);
       const giftTx = await tx.giftTransaction.create({ data: { giftBatchId, senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: gross, roomId } });
       await tx.giftSettlement.create({ data: { giftTransactionId: giftTx.id, recipientDiamonds:credit,currencyPolicyVersion:currency.version, agencyId: recipient.agencyId, recipientType: host ? "HOST" : "NORMAL_USER", grossCoins: gross, hostSalaryCoins: hostCoins, agencyCoins, companyCoins: company, reusableCoins: reusable, hostShareBps: host ? policy.hostShareBps : 0, agencyShareBps: host ? policy.agencyShareBps : 0, companyShareBps: host ? policy.companyShareBps : 10000 - policy.normalUserReusableShareBps, reusableShareBps: policy.normalUserReusableShareBps, policyVersion: policy.version } });
       await tx.user.update({ where: { id: recipient.id }, data: { hostSalaryCoinBalance: { increment: credit } } });

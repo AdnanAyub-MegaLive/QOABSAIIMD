@@ -52,6 +52,9 @@ export default async function TalentsPage() {
         status: true,
         isVerified: true,
         hostSalaryCoinBalance: true,
+        devices: { orderBy: { lastLoginAt: "desc" } },
+        receivedGifts: { include: { sender: true }, orderBy: { createdAt: "desc" }, take: 100 },
+        currencyRequests: { orderBy: { createdAt: "desc" }, take: 100 },
         agency: { select: { publicId: true, name: true } },
         audioRooms: {
           select: {
@@ -255,6 +258,15 @@ export default async function TalentsPage() {
       })),
     ),
   };
+  const currentIds = new Set(portalHosts.map(h => h.publicId));
+  const linkedTalentData = [
+    ...operationalHosts.map(h => [h.name, "Audio Host", h.id, h.isVerified ? "Verified" : "Not verified (video only)", BigInt(h.giftCoins).toLocaleString(), "—"]),
+    ...talentData.filter(row => !currentIds.has(row[2])),
+  ];
+  const linkedDevices = [...portalHosts.flatMap(h => h.devices.map(d => ({ userId: h.publicId, userName: h.name, ip: d.lastLoginIp ?? "—", mac: d.macAddress, location: d.location ?? "Unknown", loginTime: d.lastLoginAt?.toLocaleString("en-US") ?? "Never", isUserBanned: h.status === "BANNED", isDeviceBanned: d.isBanned }))), ...deviceData];
+  const knownGifts = new Set(talentModules.gifts.map(g => g.id));
+  talentModules.gifts.push(...portalHosts.flatMap(h => h.receivedGifts.filter(g => !knownGifts.has(g.id)).map(g => ({ id:g.id,talentId:h.publicId,talent:h.name,senderId:g.sender.publicId,sender:g.sender.name,gift:g.giftName,quantity:g.quantity,value:g.coinValue.toLocaleString(),received:g.createdAt.toLocaleString("en-US") }))));
+  talentModules.salaries.push(...portalHosts.flatMap(h => h.currencyRequests.map(r => ({id:r.id,talentId:h.publicId,talent:h.name,period:r.createdAt.toLocaleDateString("en-US"),amount:`${r.diamonds.toLocaleString()} Diamonds`,status:r.status,paid:r.paidAt?.toLocaleDateString("en-US")??"—",notes:`${r.kind} · ${r.reviewNote??""}`}))));
   return (
     <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
       <PortalSidebar />
@@ -304,15 +316,14 @@ export default async function TalentsPage() {
           />
           <section className="mt-10 border-t border-[#dce7e4] pt-10">
             <div className="mb-6">
-              <h3 className="text-lg font-bold">Legacy host records</h3>
+              <h3 className="text-lg font-bold">Linked host records</h3>
               <p className="mt-1 text-sm text-[#71847f]">
-                Historical Talent data retained for review during the MegaLive
-                migration.
+                Current host account records and retained historical Talent records. Gifts and currency requests show the latest 100 per account.
               </p>
             </div>
             <TalentTabs
-              initialTalents={talentData}
-              devices={deviceData}
+              initialTalents={linkedTalentData}
+              devices={linkedDevices}
               modules={talentModules}
             />
           </section>

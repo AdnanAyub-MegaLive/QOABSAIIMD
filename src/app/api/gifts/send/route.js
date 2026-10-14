@@ -1,5 +1,6 @@
+import { calculateGiftSettlement, assertGiftRecipient } from "@/lib/gift-currency-settlement";
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
-import { currencyPolicy, giftDiamonds } from "@/lib/currency-policy";
+import { currencyPolicy } from "@/lib/currency-policy";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
 import {
@@ -76,7 +77,7 @@ export async function POST(request) {
         },
       }),
       prisma.user.findFirst({
-        where: { publicId: recipientId, deletedAt: null },
+        where: { publicId: recipientId, deletedAt: null, status: "ACTIVE" },
         select: { id: true, publicId: true, name: true, appRoles: true, agencyId: true },
       }),
       prisma.talent.findUnique({
@@ -97,7 +98,7 @@ export async function POST(request) {
       error.code = "GIFT_NOT_FOUND";
       throw error;
     }
-    if (!recipientUser && !talent) throw new Error("USER_NOT_FOUND");
+    if (!recipientUser) throw Object.assign(new Error("The recipient needs an active linked user account."), {code:"USER_NOT_FOUND"});
     if (roomId && !room) {
       const error = new Error("The selected audio room is not live.");
       error.code = "ROOM_NOT_LIVE";
@@ -129,8 +130,8 @@ export async function POST(request) {
           skip: randomInt(0, Math.max(1, await prisma.uploadAsset.count({ where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } } }))),
         })
       : null;
-    const isHost = Boolean(talent || recipientUser?.appRoles.includes("HOST"));
-    const agencyId = talent?.agencyId ?? recipientUser?.agencyId ?? null;
+    const isHost = recipientUser.appRoles.includes("HOST");
+    const agencyId = recipientUser.agencyId ?? null;
     if (isHost && !agencyId) {
       const error = new Error("Hosts must belong to an agency before receiving gifts.");
       error.code = "HOST_AGENCY_REQUIRED";
@@ -138,6 +139,7 @@ export async function POST(request) {
     }
 
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
+      await assertGiftRecipient(tx, recipientUser);
       if (live && !(await tx.videoLiveSession.findFirst({ where: { id: live.id, status: "LIVE" } }))) throw Object.assign(new Error("Live session has ended."), { code: "LIVE_NOT_FOUND" });
       const emitToUser = (id,event,payload) => appendOutbox(tx,`user:${id}`,event,payload.data);
       const emitToAudioRoom = (id,event,payload) => appendOutbox(tx,`audio-room:${id}`,event,payload.data);
@@ -151,23 +153,9 @@ export async function POST(request) {
       });
       if (!debited.count) throw new Error("INSUFFICIENT_COINS");
 
-      const hostSalaryCoins = isHost
-        ? coinsForShare(grossCoins, policy.hostShareBps)
-        : 0n;
-      const agencyCoins = isHost
-        ? coinsForShare(grossCoins, policy.agencyShareBps)
-        : 0n;
-      const reusableCoins = isHost
-        ? 0n
-        : coinsForShare(grossCoins, policy.normalUserReusableShareBps);
-      let companyCoins = isHost
-        ? grossCoins - hostSalaryCoins - agencyCoins
-        : grossCoins - reusableCoins;
-      const luckyRewardCoins = requestedLuckyReward > companyCoins ? companyCoins : requestedLuckyReward;
-      companyCoins -= luckyRewardCoins;
-
-      const currency=await currencyPolicy(tx);
-      const receivedDiamonds=giftDiamonds(grossCoins,hostSalaryCoins+reusableCoins,currency);
+      const currency = await currencyPolicy(tx);
+      const { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins, luckyRewardCoins, receivedDiamonds } =
+        calculateGiftSettlement(grossCoins, isHost, policy, currency, requestedLuckyReward);
       const gift = await tx.giftTransaction.create({
         data: {
           senderId: sessionUser.id,
@@ -199,10 +187,9 @@ export async function POST(request) {
           where: { id: talent.id },
           data: {
             totalGiftsValue: { increment: grossCoins },
-            hostSalaryCoinBalance: { increment: receivedDiamonds },
           },
         });
-      else if (recipientUser)
+      if (recipientUser)
         await tx.user.update({
           where: { id: recipientUser.id },
           data: { hostSalaryCoinBalance: { increment: receivedDiamonds } },
