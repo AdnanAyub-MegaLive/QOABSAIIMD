@@ -420,7 +420,9 @@ export async function POST(request) {
           giftRewardMinBps,
           giftRewardMaxBps,
           ...(isGift ? giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")}) : {}),
-          isGlobal: isBanner || distribution.distribution === "FREE",
+          // Gifts created here are shared catalogue artwork, not private grants.
+          // Their price/VIP requirements still apply to sending the gift.
+          isGlobal: isBanner || isGift || distribution.distribution === "FREE",
           isRoomBackground,
           ...distribution,
         },
@@ -579,6 +581,7 @@ export async function PATCH(request) {
           category: true,
           giftTier: true,
           giftCategory: true,
+          isGlobal: true,
           placement: true,
           sortOrder: true,
         },
@@ -686,7 +689,7 @@ export async function PATCH(request) {
           ...(isBanner ? { isGlobal: true, isRoomBackground: false } : {}),
           ...(isMusic ? { isGlobal: true, isRoomBackground: false, distribution: "FREE", storeVisible: false } : {}),
           ...(distribution ?? {}),
-          ...(distribution ? { isGlobal: distribution.distribution === "FREE" } : {}),
+          ...(distribution ? { isGlobal: !updatesAssignments && (isGift ? current.isGlobal : distribution.distribution === "FREE") } : {}),
         },
       });
       await tx.auditLog.create({
@@ -731,12 +734,13 @@ export async function PATCH(request) {
         include: assignmentInclude,
       });
     });
+    const mirroredAsset = await mirrorAssetBestEffort(prisma, asset);
     if(["GIFTS","LIVE_GIFTS"].includes(asset.category))await notifyGiftCatalogUpdated();
     return Response.json({
       success: true,
       data: {
         asset: serializeUploadAsset(
-          asset,
+          mirroredAsset,
           `/api/uploads/${asset.publicId}/file`,
         ),
       },

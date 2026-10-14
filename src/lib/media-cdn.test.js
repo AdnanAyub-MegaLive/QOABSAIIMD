@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { canPublishMedia, publicCdnUrl } from "./media-cdn-policy.js";
 import { spacesConfig, mediaKey, publishMedia, mirrorAssetBestEffort } from "./media-cdn.js";
+import { mediaVersion } from "./media-version.js";
 const asset = { id: "internal", publicId: "AST-123", category: "GIFTS", mimeType: "image/png", isGlobal: true, active: true, fileData: Buffer.from("fixture"), updatedAt: new Date() };
 const config = { endpoint: "https://sgp1.digitaloceanspaces.com", base: "https://media.megachat.live", bucket: "megalive-space", credentials: { accessKeyId: "test", secretAccessKey: "test" } };
 afterEach(() => vi.unstubAllEnvs());
@@ -8,7 +9,7 @@ describe("public artwork CDN", () => {
   it("publishes SVGA with an immutable hash path and canonical MIME", async () => {
     const client={send:vi.fn().mockResolvedValue({})};
     const result=await publishMedia({...asset,mimeType:"application/svga"},{config,client});
-    expect(result.cdnUrl).toMatch(/\/[a-f0-9]{64}\.svga$/);
+    expect(result.cdnUrl).toMatch(/\/[a-f0-9]{64}\.svga\?v=[a-f0-9]{16}$/);
     expect(client.send.mock.calls[0][0].input.ContentType).toBe("application/svga");
   });
   it("excludes private assignments, private music, KYC, inactive and unsupported formats", () => {
@@ -32,6 +33,9 @@ describe("public artwork CDN", () => {
     expect(client.send.mock.calls[0][0].input).toMatchObject({ ACL: "public-read", ContentType: "image/png", CacheControl: "public, max-age=31536000, immutable" });
     expect(result.cdnUrl).toContain("https://media.megachat.live/portal-media/");
     expect(result.posterCdnUrl).toContain("poster-");
+    expect(new URL(result.cdnUrl).searchParams.get("v")).toBe(mediaVersion(asset.fileData));
+    expect(new URL(result.posterCdnUrl).searchParams.get("v")).toBe(mediaVersion(Buffer.from("poster")));
+    expect(client.send.mock.calls[1][0].input.CacheControl).toBe("public, max-age=31536000, immutable");
   });
   it("never uploads private media", async () => {
     const client = { send: vi.fn() };

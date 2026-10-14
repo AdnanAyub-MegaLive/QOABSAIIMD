@@ -25,6 +25,10 @@ app.prepare().then(async()=>{
   const recoveryKey=(user,roomId)=>`${user.id}:${user.sessionVersion}:${roomId}`;
   const recoveryCleanup=setInterval(()=>{for(const[key,until]of recoveringRooms)if(until<Date.now())recoveringRooms.delete(key)},60000);recoveryCleanup.unref();
   const {prisma}=await import("./src/lib/prisma.js");
+  const {createMediaCdnMaintenance}=await import("./src/lib/media-cdn-maintenance.js");
+  const reconcileMediaCdn=createMediaCdnMaintenance(prisma);
+  const mediaCdnTimer=setInterval(()=>void reconcileMediaCdn().catch(error=>console.error("CDN reconciliation failed",error.name)),60000);
+  mediaCdnTimer.unref();
   const {reconcileExpiredAudioRoomRestrictions}=await import("./src/lib/audio-room-maintenance.js");
   const {createMessage,deleteMessage,editMessage,emitConversationEvent,ensureWorldConversation,markConversationRead,markMessageDelivered,messageSyncLimit,requireConversationParticipant,serializeMessage,syncMessagesForUser}=await import("./src/lib/messaging.js");
   const {resolveUserPerks,socketOrigin}=await import("./src/lib/user-perks.js");

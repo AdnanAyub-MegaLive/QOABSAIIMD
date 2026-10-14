@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { canPublishMedia } from "./media-cdn-policy.js";
+import { mediaVersion, versionedUrl } from "./media-version.js";
 
 export function spacesConfig(env = process.env) {
   if (env.MEDIA_CDN_ENABLED !== "true") return null;
@@ -29,7 +30,7 @@ export async function publishMedia(asset, { config = spacesConfig(), client } = 
     await client.send(new PutObjectCommand({ Bucket: config.bucket, Key, Body: bytes, ACL: "public-read",
       ContentType: mimeType, ContentDisposition: "inline", CacheControl: "public, max-age=31536000, immutable" }),
       { abortSignal: AbortSignal.timeout(30000) });
-    return `${config.base}/${Key}`;
+    return versionedUrl(`${config.base}/${Key}`, mediaVersion(bytes));
   }
   const cdnUrl = await put(asset.fileData, asset.mimeType, false);
   const posterCdnUrl = asset.posterFileData ? await put(asset.posterFileData, asset.posterMimeType, true) : null;
@@ -37,7 +38,8 @@ export async function publishMedia(asset, { config = spacesConfig(), client } = 
 }
 
 // Network I/O happens after the database commit. A failed mirror never destroys
-// the original; rerun the backfill to repair it. Compare version before linking.
+// the original; the background worker retries pending public media. Compare
+// version before linking so stale results cannot overwrite a replacement.
 export async function mirrorAsset(db, asset) {
   const urls = await publishMedia(asset);
   if (!urls) return asset;

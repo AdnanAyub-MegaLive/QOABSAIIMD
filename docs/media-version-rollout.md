@@ -50,6 +50,21 @@ failure is logged without reporting an already committed upload as failed.
 
 ## Device verification
 
+New shared audio gifts are public catalogue artwork automatically; live gifts
+already use the same policy. Prices and VIP sending restrictions are unchanged.
+Editing a gift's price preserves its visibility. Assignment-only media is not
+promoted by the retry worker. Public asset edits trigger CDN mirroring too.
+
+The server checks pending CDN links every minute (20 metadata rows / at most five
+publication attempts per pass, without overlapping passes). Failed uploads keep
+their database originals and are retried on later passes, including after restart.
+Both media and poster CDN links include their own content hash in `v`, preserving
+the production cache-header repair for future uploads and sync runs. No schema
+migration is needed for this automation; rebuild and restart the portal.
+
+Once artwork has been public, making it private cannot recall copies already
+downloaded or cached. Do not upload confidential material as public artwork.
+
 Verify repeated sends and restarts reuse cached bytes; replacing animation or
 poster downloads only the changed version. Verify expired signed requests are
 denied even with a matching ETag. Phone-side download counts and cache eviction
