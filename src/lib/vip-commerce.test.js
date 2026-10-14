@@ -1,6 +1,10 @@
 import { expect, it, vi } from "vitest";
+import { WalletTransactionType } from "@prisma/client";
 vi.mock("./prisma.js",()=>({prisma:{}}));
 import { vipRenewalExpiry, changeVip } from "./vip-commerce.js";
+it("uses a ledger type supported by the generated Prisma client",()=>{
+ expect(WalletTransactionType.VIP_PURCHASE).toBe("VIP_PURCHASE");
+});
 it("extends an unexpired VIP, starts expired/revoked ownership from now",()=>{
  const now=new Date("2026-10-15T00:00:00Z"),old={expiresAt:new Date("2026-10-20T00:00:00Z")};
  expect(vipRenewalExpiry(old,30,now).toISOString()).toBe("2026-11-19T00:00:00.000Z");

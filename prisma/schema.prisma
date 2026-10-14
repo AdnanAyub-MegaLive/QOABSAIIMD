@@ -59,6 +59,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  VIP_PURCHASE
   LIVE_TARGET_REWARD
   LUCKY_GIFT_REWARD
   DIAMOND_EXCHANGE_DEBIT

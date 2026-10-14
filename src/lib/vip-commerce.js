@@ -50,7 +50,7 @@ export async function changeVip(userId,{action,tierId,requestKey},db=prisma) {
       if(!debit.count)fail("INSUFFICIENT_COINS","Your Coin balance is too low.");
       const expiresAt=vipRenewalExpiry(owned,tier.validDays),startsAt=owned&&!owned.revokedAt&&owned.expiresAt>new Date()?owned.startsAt:new Date();
       owned=await tx.vipOwnership.upsert({where:{userId_tierId:{userId,tierId}},create:{userId,tierId,startsAt,expiresAt},update:{startsAt,expiresAt,revokedAt:null}});
-      await tx.walletTransaction.create({data:ledgerData({userId,type:"VIP_PURCHASE",direction:"DEBIT",title:`Purchased ${tier.name}`,coins:tier.coinPrice,referenceId:requestKey,metadata:{tierId,validDays:tier.validDays}})});
+      await tx.walletTransaction.create({data:ledgerData({userId,type:"VIP_PURCHASE",direction:"DEBIT",title:"VIP purchase",description:tier.name,coins:tier.coinPrice,referenceId:requestKey,metadata:{tierId,validDays:tier.validDays}})});
     }
     // Renew selected VIP; purchasing a different one retains the user's selection.
     const current=await tx.vipMembership.findUnique({where:{userId},include:{tier:true}});

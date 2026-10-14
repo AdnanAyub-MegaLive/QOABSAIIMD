@@ -153,7 +153,7 @@ export default async function FinancePage() {
       userId: item.user.publicId,
       type: item.type,
       direction: item.direction,
-      title: item.title,
+      title: item.type === "VIP_PURCHASE" ? "VIP purchase" : item.title,
       coins: item.coins?.toString() ?? null,
       diamonds: item.diamonds?.toString() ?? null,
       amount: item.cashAmount?.toString() ?? null,

@@ -2,6 +2,8 @@
 
 Status: implemented locally; migration and deployment required. No production data changed.
 
+Ledger follow-up: also apply `202610150002_vip_purchase_ledger_type` before enabling purchases and regenerate Prisma. Wallet entries have type `VIP_PURCHASE`, title/typeLabel `VIP purchase`, and the tier name as description. Mobile must add `VIP_PURCHASE: "VIP purchase"` to its local type-label map (or render the server title/typeLabel). No mobile source is included in this repository.
+
 ## Portal
 
 VIP Management → Tiers → Create/Edit: upload artwork directly beside each selected visual privilege with **Upload & select**. Existing artwork may still be selected. Secure upload validation, CDN eligibility and upload permissions are unchanged. Set membership validity once; benefits use the selected membership's expiry, not separate per-item durations.
