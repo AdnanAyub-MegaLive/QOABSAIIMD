@@ -192,6 +192,8 @@ model AuditLog {
 }
 
 model User {
+  ownedVips VipOwnership[]
+  vipPurchases VipPurchase[]
   profileCoverItems ProfileCoverItem[]
   profileCover ProfileCover?
   audioRoomVisits AudioRoomVisit[]
@@ -663,6 +665,9 @@ model UserAvatarHistory {
 }
 
 model VipTier {
+  ownerships VipOwnership[]
+  purchases VipPurchase[]
+  coinPrice BigInt?
   id String @id @default(cuid())
   name String
   level Int @unique
@@ -673,6 +678,30 @@ model VipTier {
   updatedAt DateTime @updatedAt
   assets VipBenefitAsset[]
   members VipMembership[]
+}
+
+model VipOwnership {
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier VipTier @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  userId String
+  tierId String
+  startsAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  @@id([userId, tierId])
+  @@index([expiresAt])
+}
+
+model VipPurchase {
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tier VipTier @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  id String @id @default(cuid())
+  userId String
+  requestKey String
+  tierId String
+  result Json
+  createdAt DateTime @default(now())
+  @@unique([userId, requestKey])
 }
 
 model VipBenefitAsset {

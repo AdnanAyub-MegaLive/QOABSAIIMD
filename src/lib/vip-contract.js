@@ -26,7 +26,9 @@ export function validateVipTier(body) {
   const assets=body.assets??[];
   if(!Array.isArray(assets)||assets.length>100||assets.some(a=>!privileges.includes(a.privilege)||!VIP_PRIVILEGES.find(p=>p.key===a.privilege)?.category||typeof a.assetId!=="string"))fail("Artwork must belong to a selected artwork privilege.");
   for(const p of VIP_PRIVILEGES.filter(p=>p.category&&privileges.includes(p.key)))if(!assets.some(a=>a.privilege===p.key))fail(`Choose artwork for ${p.label}.`);
-  return {name:body.name.trim(),level,validDays,active:body.active!==false,privileges,assets};
+  const price=body.coinPrice==null||body.coinPrice===""?null:String(body.coinPrice);
+  if(price!==null&&(!/^[1-9]\d{0,17}$/.test(price)))fail("VIP price must be a positive whole number of Coins, or blank for grant-only.");
+  return {name:body.name.trim(),level,validDays,coinPrice:price===null?null:BigInt(price),active:body.active!==false,privileges,assets};
 }
 
 export function vipIsActive(membership,now=new Date()) {
