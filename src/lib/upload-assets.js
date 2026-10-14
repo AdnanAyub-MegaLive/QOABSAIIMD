@@ -100,7 +100,7 @@ export function safeBannerActionUrl(value) {
 
 export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (mimeType === SVGA_MIME && !SVGA_CATEGORIES.has(category)) {
-    throw validationError("SVGA is only supported for gifts, frames, entrances, rides, badges, chat boxes, VIP stickers and campaign widgets.");
+    throw validationError("SVGA is only supported for gifts, frames, entrances, rides, badges, chat boxes, profile dresses, user tags, profile backgrounds, VIP stickers and campaign widgets.");
   }
   if (category === "BANNERS") {
     if (mimeType && !bannerMimeTypes.has(mimeType)) {
@@ -116,7 +116,7 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (category === "SEAT_STYLES" && mimeType && !seatStyleMimeTypes.has(mimeType)) {
     throw validationError("Seat styles must be PNG, JPEG, or WebP images.");
   }
-  if (["USER_TAGS", "PROFILE_BG", "PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category) && mimeType && !["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(mimeType)) throw validationError("Profile artwork must be PNG, JPEG, WebP, GIF or MP4.");
+  if (["USER_TAGS", "PROFILE_BG", "PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category) && mimeType && !(mimeType === SVGA_MIME && SVGA_CATEGORIES.has(category)) && !["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(mimeType)) throw validationError("Unsupported profile artwork format.");
   if (category === "BUSINESS_CARD" && mimeType && !businessCardMimeTypes.has(mimeType)) {
     throw validationError("Business cards must be PNG, JPEG, WebP, or MP4.");
   }

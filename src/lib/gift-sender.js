@@ -1,3 +1,4 @@
+import { perkMediaFields } from "./decoration-media.js";
 import { resolveUserPerks } from "./user-perks.js";
 
 export function giftSenderPayload(user, perks = null) {
@@ -6,6 +7,7 @@ export function giftSenderPayload(user, perks = null) {
     publicId: user.publicId,
     name: user.name,
     profileImage: user.profileImage ?? null,
+    ...perkMediaFields(perks),
     frameUrl: perks?.frameUrl ?? null,
     badgeUrl: perks?.badgeUrl ?? null,
     chatBoxUrl: perks?.chatBoxUrl ?? null,

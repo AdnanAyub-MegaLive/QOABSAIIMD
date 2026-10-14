@@ -1,7 +1,6 @@
 import { prisma } from "./prisma.js";
 import { publicProgression } from "./progression.js";
-import { createPublicDisplayAssetUrl } from "./upload-assets.js";
-import { versionedUrl } from "./media-version.js";
+import { decorationMedia, namedDecoration, perkMediaFields } from "./decoration-media.js";
 import { formatDateOnly } from "./date-only.js";
 
 const perkFields = {
@@ -13,6 +12,9 @@ const perkFields = {
   RIDES: "rideUrl",
   ROOM_BACKGROUNDS: "roomBackgroundUrl",
   BUSINESS_CARD: "businessCardUrl",
+  PROFILE_DRESS: "homeDressUrl",
+  USER_TAGS: "userTagUrl",
+  PROFILE_BG: "profileBackgroundUrl",
 };
 
 export function requestOrigin(request) {
@@ -77,6 +79,7 @@ export async function resolveUserPerks(
         businessCardUrl: null,
         businessCardPosterUrl: null,
         businessCardMimeType: null,
+        ...Object.assign({}, ...categories.filter(c => perkFields[c]).map(c => namedDecoration(perkFields[c].replace(/Url$/, ""), null))),
       },
     ]),
   );
@@ -107,7 +110,7 @@ export async function resolveUserPerks(
       publicId: true,
       category: true,
       mimeType: true,
-      posterFileData: true,
+      posterMimeType: true,
       mediaVersion:true,
       posterMediaVersion:true,
       isGlobal: true,
@@ -145,23 +148,13 @@ export async function resolveUserPerks(
         ? assets.find(
             (asset) =>
               asset.id === selected.assetId &&
-              asset.assignments.some(
+              asset.category === category && (asset.isGlobal || asset.assignments.some(
                 (assignment) => assignment.userId === user.id,
-              ),
+              )),
           )
         : null;
       const asset = selectedAsset ?? newestGlobal.get(category);
-      if (asset) {
-        perks[perkFields[category]] = createPublicDisplayAssetUrl(
-          origin,
-          asset,
-        );
-        perks[perkFields[category].replace(/Url$/,"")+"MediaVersion"]=asset.mediaVersion??null;
-        if (category === "BUSINESS_CARD") {
-          perks.businessCardMimeType = asset.mimeType;
-          if (asset.posterFileData) {perks.businessCardPosterUrl = versionedUrl(`${createPublicDisplayAssetUrl(origin, asset.publicId)}&poster=1`,asset.posterMediaVersion);perks.businessCardPosterMediaVersion=asset.posterMediaVersion??null;}
-        }
-      }
+      if (asset && perkFields[category]) Object.assign(perks, namedDecoration(perkFields[category].replace(/Url$/, ""), decorationMedia(asset, origin)));
     }
   }
   return result;
@@ -169,6 +162,7 @@ export async function resolveUserPerks(
 
 export function publicUserWithPerks(user, perks) {
   return {
+    ...perkMediaFields(perks),
     ...perks?.progression,
     publicId: user.publicId,
     name: user.name,

@@ -1,3 +1,4 @@
+import { perkMediaFields } from "./decoration-media.js";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
 
@@ -8,6 +9,7 @@ export function leaderboardEntry(total, user, perks) {
     publicId: user.publicId,
     name: user.name,
     profileImage: user.profileImage ?? null,
+    ...perkMediaFields(perks),
     frameUrl: perks?.frameUrl ?? null,
     badgeUrl: perks?.badgeUrl ?? null,
     totalCoins: Number(total ?? 0n),

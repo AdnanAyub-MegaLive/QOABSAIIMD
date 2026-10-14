@@ -4,6 +4,7 @@ export const SVGA_MAX_BYTES = 8 * 1024 * 1024;
 export const SVGA_CATEGORIES = new Set([
   "GIFTS", "LIVE_GIFTS", "FRAMES", "ENTRANCES", "RIDES", "BADGES",
   "CHAT_BOXES", "VIP_STICKERS", "CAMPAIGN_WIDGETS",
+  "PROFILE_DRESS", "USER_TAGS", "PROFILE_BG",
 ]);
 export function isSvgaFile(file) {
   return /\.svga$/i.test(file?.name ?? "") || [SVGA_MIME, "application/x-svga"].includes(file?.type);

@@ -1,5 +1,6 @@
 import { prisma } from "./prisma.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
+import { activityMediaOrigin } from "./activity-event-media.js";
 export function validateActivityRule(body) {
   const fail=()=>{throw Object.assign(new Error("Use GAME or AGENCY, a percentage from 0–100, and increasing integer levels/XP thresholds starting at level 0 / XP 0."),{status:422});};
   if(!["GAME","AGENCY"].includes(body.track)||typeof body.enabled!=="boolean"||!Number.isInteger(body.rateBps)||body.rateBps<0||body.rateBps>10000||!Array.isArray(body.levels)||!body.levels.length||body.levels.length>200)fail();
@@ -10,7 +11,7 @@ export function validateActivityRule(body) {
 export function activitySnapshot(rule, points, origin) {
   if(!rule)return {level:null,badgeUrl:null,lifetimeXp:points.toString(),nextLevel:null,nextThreshold:null,remainingXp:"0",progressPercent:0};
   const levels=rule.levels,current=levels.filter(l=>BigInt(l.threshold)<=points).at(-1),next=levels.find(l=>BigInt(l.threshold)>points);
-  return {level:current?.level??0,badgeUrl:current?.badgeAssetId&&origin?createPublicDisplayAssetUrl(origin,current.badgeAssetId):null,lifetimeXp:points.toString(),nextLevel:next?.level??null,nextThreshold:next?.threshold??null,remainingXp:next?(BigInt(next.threshold)-points).toString():"0",progressPercent:next?Number((points-BigInt(current?.threshold??0))*10000n/(BigInt(next.threshold)-BigInt(current?.threshold??0)))/100:100,ruleRevision:rule.revision,earningEnabled:rule.enabled};
+  return {badgeAssetId:current?.badgeAssetId??null,level:current?.level??0,badgeUrl:current?.badgeAssetId&&origin?createPublicDisplayAssetUrl(origin,current.badgeAssetId):null,lifetimeXp:points.toString(),nextLevel:next?.level??null,nextThreshold:next?.threshold??null,remainingXp:next?(BigInt(next.threshold)-points).toString():"0",progressPercent:next?Number((points-BigInt(current?.threshold??0))*10000n/(BigInt(next.threshold)-BigInt(current?.threshold??0)))/100:100,ruleRevision:rule.revision,earningEnabled:rule.enabled};
 }
 export async function activityProgress(track,subjectId,origin=null,db=prisma) {
   if (!subjectId) throw new Error("Activity progression requires a subject ID.");
@@ -30,7 +31,7 @@ export async function awardActivityXp(tx,track,subjectId,sourceId,amount) {
 // Agency financial progression is private to its owner, never a room broadcast.
 export async function queueActivityProgress(tx, track, subjectId, sourceId) {
   const [snapshot, revision, owner] = await Promise.all([
-    activityProgress(track,subjectId,null,tx),
+    activityProgress(track,subjectId,activityMediaOrigin(),tx),
     tx.activityLevelAward.count({where:{track,subjectId}}),
     track === "GAME" ? tx.user.findUnique({where:{id:subjectId},select:{publicId:true}})
       : tx.agency.findUnique({where:{id:subjectId},select:{publicId:true,owner:{select:{publicId:true}}}}),

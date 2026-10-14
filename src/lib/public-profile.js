@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { decorationMedia, namedDecoration } from "./decoration-media.js";
 import { activityProgress } from "./activity-levels.js";
 import { profileCardArtwork } from "./profile-card-artwork.js";
 import { profileCoverDto } from "./profile-cover.js";
@@ -36,8 +37,8 @@ export async function recordProfileVisit(targetId, viewerId, db = prisma) {
   `;
 }
 export async function displayAssets(ids, origin, db = prisma) {
-  const rows = ids.length ? await db.uploadAsset.findMany({ where: { publicId: { in: [...new Set(ids.filter(Boolean))] }, active: true }, select: { publicId: true, name: true, category: true, mimeType: true, posterMimeType: true } }) : [];
-  return new Map(rows.map(asset => [asset.publicId, { assetId: asset.publicId, url: createPublicDisplayAssetUrl(origin, asset.publicId), posterUrl: asset.posterMimeType ? `${createPublicDisplayAssetUrl(origin, asset.publicId)}&poster=1` : null, mimeType: asset.mimeType, category: asset.category, name: asset.name }]));
+  const rows = ids.length ? await db.uploadAsset.findMany({ where: { publicId: { in: [...new Set(ids.filter(Boolean))] }, active: true }, select: { publicId: true, name: true, category: true, mimeType: true, posterMimeType: true, mediaVersion: true, posterMediaVersion: true } }) : [];
+  return new Map(rows.map(asset => [asset.publicId, { ...decorationMedia(asset, origin), category: asset.category, name: asset.name }]));
 }
 export async function equippedProfileAssets(users, origin, db = prisma) {
   const now = new Date();
@@ -47,9 +48,9 @@ export async function equippedProfileAssets(users, origin, db = prisma) {
   const keys = { FRAMES: "avatarFrame", BADGES: "profileBadge", PROFILE_DRESS: "profileDress", USER_TAGS: "userTag", PROFILE_BG: "profileBackground" };
   for (const row of rows) {
     if (row.asset.category !== row.category || (!row.asset.isGlobal && !row.asset.assignments.some(a => a.userId === row.userId))) continue;
-    if (!["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(row.asset.mimeType)) continue;
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "application/svga"].includes(row.asset.mimeType)) continue;
     const asset = assets.get(row.asset.publicId);
-    if (asset) { const { assetId, url, posterUrl, mimeType } = asset; results.get(row.userId)[keys[row.category]] = { assetId, url, posterUrl, mimeType }; }
+    if (asset) { const { name: _name, category: _category, ...media } = asset; results.get(row.userId)[keys[row.category]] = media; }
   }
   return results;
 }
@@ -85,7 +86,7 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
   const blocked = await db.userBlock.findMany({ where: { OR: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }, select: { blockerId: true, blockedId: true } });
   const hidden = new Set(blocked.map(b => b.blockerId === viewer.id ? b.blockedId : b.blockerId));
   const decorations = await equippedProfileAssets([...people, ...related], origin, db);
-  const identity = p => ({ publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), frameUrl: decorations.get(p.id)?.avatarFrame?.url ?? null, badgeUrl: decorations.get(p.id)?.profileBadge?.url ?? null });
+  const identity = p => ({ publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), ...namedDecoration("frame", decorations.get(p.id)?.avatarFrame), ...namedDecoration("badge", decorations.get(p.id)?.profileBadge) });
   const agency = target.agency?.status === "ACTIVE" ? target.agency : null;
   const assets = await displayAssets([...roleRows.map(r => r.assetPublicId), agency?.logoAssetPublicId, agency?.badgeAssetPublicId], origin, db);
   const equippedAssets = equipment.get(target.id);
@@ -98,6 +99,8 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
     userTagUrl: equippedAssets.userTag?.url ?? null,
     profileBackgroundUrl: equippedAssets.profileBackground?.url ?? null, profileBackgroundPosterUrl: equippedAssets.profileBackground?.posterUrl ?? null, profileBackgroundMimeType: equippedAssets.profileBackground?.mimeType ?? null,
     homeDressUrl: equippedAssets.profileDress?.url ?? null, homeDressPosterUrl: equippedAssets.profileDress?.posterUrl ?? null, homeDressMimeType: equippedAssets.profileDress?.mimeType ?? null,
+    ...namedDecoration("frame", equippedAssets.avatarFrame), ...namedDecoration("badge", equippedAssets.profileBadge),
+    ...namedDecoration("userTag", equippedAssets.userTag), ...namedDecoration("profileBackground", equippedAssets.profileBackground), ...namedDecoration("homeDress", equippedAssets.profileDress),
     ...await profileCoverDto(db, target.id, viewer.id, origin),
     ...levels, gameLevel:game.level,gameLevelBadgeUrl:game.badgeUrl, medalWall: medals, giftWall: gifts, cardBackgrounds:cardArt.cardBackgrounds,
     agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agencyProgress.level, progression:agencyProgress, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, ...cardArt.agency } : null,

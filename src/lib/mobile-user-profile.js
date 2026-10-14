@@ -1,4 +1,6 @@
 import { prisma } from "./prisma.js";
+import { equippedProfileAssets } from "./public-profile.js";
+import { namedDecoration, perkMediaFields } from "./decoration-media.js";
 import { profileCardArtwork } from "./profile-card-artwork.js";
 import { publicProgression } from "./progression.js";
 import { activityProgress } from "./activity-levels.js";
@@ -42,6 +44,7 @@ export async function mobileUserProfile(userId, origin = null) {
   await reconcileExpiredSpecialIds();
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const perks = origin ? (await resolveUserPerks([user], origin, ["FRAMES", "BADGES", "BUSINESS_CARD"])).get(user.publicId) : null;
+  const equippedAssets = origin ? (await equippedProfileAssets([user], origin)).get(user.id) : null;
   return {
     ...await profileCardArtwork(prisma,user.id,(await publicProgression([user],origin)).get(user.publicId)?.charmLevel??0,origin),
     ...await activityProgress("GAME", user.id, origin).then(p=>({gameLevel:p.level,gameLevelBadgeUrl:p.badgeUrl,gameProgression:p})),
@@ -63,6 +66,10 @@ export async function mobileUserProfile(userId, origin = null) {
     businessCardUrl: perks?.businessCardUrl ?? null,
     businessCardPosterUrl: perks?.businessCardPosterUrl ?? null,
     businessCardMimeType: perks?.businessCardMimeType ?? null,
+    ...perkMediaFields(perks),
+    equippedAssets,
+    ...namedDecoration("frame", equippedAssets?.avatarFrame), ...namedDecoration("badge", equippedAssets?.profileBadge),
+    ...namedDecoration("homeDress", equippedAssets?.profileDress), ...namedDecoration("userTag", equippedAssets?.userTag), ...namedDecoration("profileBackground", equippedAssets?.profileBackground),
     gender: user.gender,
     dob: formatDateOnly(user.dob),
     profilePrivate: Boolean(user.profilePrivate),

@@ -1,3 +1,4 @@
+import { perkMediaFields } from "./decoration-media.js";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
 
@@ -25,7 +26,7 @@ export function decodeRoomChatCursor(value) {
 
 export async function serializeRoomChatMessages(messages, origin) {
   const users = messages.map((message) => message.sender).filter(Boolean);
-  const perks = await resolveUserPerks(users, origin, ["BADGES", "CHAT_BOXES"]);
+  const perks = await resolveUserPerks(users, origin, ["FRAMES", "BADGES", "CHAT_BOXES"]);
   return messages.map((message) => {
     const senderPerks = perks.get(message.senderPublicId);
     return {
@@ -37,6 +38,8 @@ export async function serializeRoomChatMessages(messages, origin) {
       createdAt: message.createdAt.toISOString(),
       sender: {
         ...senderPerks?.progression,
+        ...perkMediaFields(senderPerks),
+        frameUrl: senderPerks?.frameUrl ?? null,
         publicId: message.senderPublicId,
         name: message.sender?.name ?? message.senderName,
         profileImage: message.sender?.profileImage ?? null,

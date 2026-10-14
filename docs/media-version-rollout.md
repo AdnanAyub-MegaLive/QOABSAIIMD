@@ -73,8 +73,8 @@ require mobile testing; server tests cannot prove those client behaviors.
 ## SVGA uploads
 
 Audio gifts, live-video gifts, frames, entrances, rides, badges, chat boxes,
-VIP stickers and campaign widgets accept `.svga` files. Image/video-only
-categories (including room backgrounds, seat styles and profile artwork) retain
+VIP stickers, campaign widgets, Profile Dresses, User Tags and Profile BG accept `.svga` files. Image/video-only
+categories (including room backgrounds, seat styles and agency artwork) retain
 their existing contracts. SVG is a different format and is not enabled here.
 
 - Uploads use `file`; an optional `posterFile` accepts static PNG/JPEG/WebP up to
@@ -114,3 +114,11 @@ a gift and restart the app to confirm cache reuse, then replace the animation an
 poster separately to confirm independent invalidation. Verify both Android and
 iOS; server tests do not establish on-device rendering compatibility. Keep the
 mobile player's pinned dependencies, download bounds and watchdog in place.
+
+# Equipped SVGA artwork and activity badges
+
+Profile Dresses, User Tags and Profile BG accept the same validated SVGA format as frames and badges; posters remain optional. Own/public profiles return the animation MIME type and independent animation/poster versions. Equipped assets retain ownership, expiry and active checks. Seat, chat, member, gift-sender and ranking identities carry matching MIME/poster metadata alongside existing URLs.
+
+Activity level events retain the committed badge asset ID and re-sign its display URL immediately before outbox delivery. Configure `MOBILE_API_BASE_URL` (or `AUTH_URL`) to the public portal origin. Missing origin leaves badge delivery retryable instead of emitting an unusable URL. Disabled/deleted badge assets return null. No migration or historical award correction is required.
+
+Existing signed-file authorization and CDN eligibility remain unchanged: allowing SVGA rendering does not publish private assets. On phones, verify equipped SVGA animation and poster rendering across profiles, seats, chat and rankings; verify replacement downloads once under its new media version; verify a level-up updates its badge without reopening the profile.

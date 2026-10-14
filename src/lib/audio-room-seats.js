@@ -1,3 +1,4 @@
+import { perkMediaFields } from "./decoration-media.js";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
@@ -41,6 +42,7 @@ function publicOccupant(user, perks) {
     publicId: user.publicId,
     name: user.name,
     profileImage: user.profileImage ?? null,
+    ...perkMediaFields(perks),
     frameUrl: perks?.frameUrl ?? null,
     badgeUrl: perks?.badgeUrl ?? null,
     businessCardUrl: perks?.businessCardUrl ?? null,

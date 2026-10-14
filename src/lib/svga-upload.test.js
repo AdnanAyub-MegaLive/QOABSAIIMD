@@ -63,7 +63,7 @@ describe("SVGA upload validation", () => {
   it("normalizes generic browser MIME but restricts categories", () => {
     expect(uploadMimeType({ name: "gift.SVGA", type: "application/octet-stream" })).toBe(SVGA_MIME);
     for (const category of SVGA_CATEGORIES) expect(validateUploadAssetContract({ category, mimeType: SVGA_MIME })).toEqual({ placement: null });
-    for (const category of ["BANNERS", "MUSIC_TRACKS", "ROOM_BACKGROUNDS", "SEAT_STYLES", "PROFILE_BG", "USER_TAGS", "BUSINESS_CARD"]) expect(() => validateUploadAssetContract({ category, mimeType: SVGA_MIME })).toThrow("SVGA");
+    for (const category of ["BANNERS", "MUSIC_TRACKS", "ROOM_BACKGROUNDS", "SEAT_STYLES", "BUSINESS_CARD", "AGENCY_ARTWORK"]) expect(() => validateUploadAssetContract({ category, mimeType: SVGA_MIME })).toThrow("SVGA");
   });
   it.each([Buffer.alloc(0), Buffer.from("fake.svga"), Buffer.alloc(8 * 1024 * 1024 + 1), deflateSync(Buffer.alloc(17 * 1024 * 1024))])("rejects empty, fake, oversized and decompression bomb input", async bytes => {
     await expect(validateSvga(bytes)).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
