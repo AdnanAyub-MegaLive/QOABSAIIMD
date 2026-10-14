@@ -1,5 +1,6 @@
 import { publicCdnUrl } from "./media-cdn-policy.js";
 import { versionedUrl } from "./media-version.js";
+import { SVGA_CATEGORIES, SVGA_MIME } from "./svga-policy.js";
 export const uploadCategories = {
   "Profile Dresses": "PROFILE_DRESS",
   "Agency Artwork": "AGENCY_ARTWORK",
@@ -98,6 +99,9 @@ export function safeBannerActionUrl(value) {
 }
 
 export function validateUploadAssetContract({ category, placement, mimeType }) {
+  if (mimeType === SVGA_MIME && !SVGA_CATEGORIES.has(category)) {
+    throw validationError("SVGA is only supported for gifts, frames, entrances, rides, badges, chat boxes, VIP stickers and campaign widgets.");
+  }
   if (category === "BANNERS") {
     if (mimeType && !bannerMimeTypes.has(mimeType)) {
       throw validationError("Banners must be PNG, JPEG, or WebP images.");

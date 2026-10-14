@@ -9,7 +9,7 @@ import { getProfitSplitRule } from "@/lib/profit-rules";
 import { ledgerData } from "@/lib/wallet";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
-import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
+import { giftMedia } from "@/lib/gift-media";
 import { requestOrigin } from "@/lib/user-perks";
 import { resolveGiftSender } from "@/lib/gift-sender";
 import { parseGiftBatchId } from "@/lib/gift-batch";
@@ -51,7 +51,7 @@ export async function POST(request) {
       await tx.auditLog.create({ data: { action: "BACKPACK_GIFT_SENT", category: "FINANCE", entityType: "GiftTransaction", entityId: giftTx.id, description: `${sender.publicId} sent backpack gift ${gift.publicId} to ${recipient.publicId}.`, metadata: { roomId, quantity, grossCoins: gross.toString() } } });
       const progression=await awardGiftProgress(tx,{sender,recipient,gift:giftTx,source:"BACKPACK",gross,credit,recipientType:host?"HOST":"NORMAL_USER",origin:requestOrigin(request)});
       const result=giftTx;
-    const origin = requestOrigin(request), giftSender = { ...await resolveGiftSender(sender, origin), ...(await publicProgression([sender],origin,tx)).get(sender.publicId) }, data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, mimeType: gift.mimeType, mediaUrl: createPublicDisplayAssetUrl(origin, gift.publicId) } };
+    const origin = requestOrigin(request), giftSender = { ...await resolveGiftSender(sender, origin), ...(await publicProgression([sender],origin,tx)).get(sender.publicId) }, data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, ...giftMedia(gift, origin) } };
     data.giftBatchId = result.giftBatchId;
     await emitToAudioRoom(roomId, "gift:received", { success: true, data });
     const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: true, rightRoom: true } });

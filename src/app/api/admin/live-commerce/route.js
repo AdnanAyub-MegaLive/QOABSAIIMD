@@ -2,6 +2,10 @@ import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { giftXpInput } from "@/lib/gift-xp-input";
 import crypto from "node:crypto";
 import sharp from "sharp";
+import { isSvgaFile, SVGA_MAX_BYTES, SVGA_MIME } from "@/lib/svga-policy";
+import { validateSvga, decodeUploadPoster } from "@/lib/svga-upload";
+import { readUploadForm } from "@/lib/upload-form";
+import { isRateLimited } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { notifyGiftCatalogUpdated } from "@/lib/gift-catalog-version";
 import { requirePermission } from "@/lib/portal-admin";
@@ -13,7 +17,7 @@ function amount(value, positive = false) {
   if (!/^\d{1,12}$/.test(s) || (positive && BigInt(s) === 0n)) throw Object.assign(new Error("Enter a valid coin amount."), { status: 422 });
   return BigInt(s);
 }
-function failure(e) { return Response.json({ success: false, error: { message: e.status ? e.message : "Unable to save live configuration." } }, { status: e.status || 500 }); }
+function failure(e) { return Response.json({ success: false, error: { code: e.code || "LIVE_CONFIGURATION_FAILED", message: e.status ? e.message : "Unable to save live configuration." } }, { status: e.status || 500, ...(e.status === 429 ? { headers: { "Retry-After": "5" } } : {}) }); }
 export async function GET() {
   try {
     await requirePermission("video.view");
@@ -26,14 +30,18 @@ export async function POST(request) {
     const admin = await requirePermission("video.view");
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
       await requirePermission("video.gifts");
-      const form = await request.formData(), file = form.get("file"), name = String(form.get("name") || "").trim();
-      if (!name || name.length > 120 || !(file instanceof File) || file.size > 5 * 1024 * 1024 || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw Object.assign(new Error("Provide a name and PNG, JPEG or WebP artwork up to 5 MB."), { status: 422 });
+      if (isRateLimited(`live-gift-upload:${admin.id}`, { limit: 20, windowMs: 60000 })) throw Object.assign(new Error("Too many uploads. Please retry shortly."), { status: 429, code: "RATE_LIMITED" });
+      const form = await readUploadForm(request, 14 * 1024 * 1024), file = form.get("file"), name = String(form.get("name") || "").trim();
+      const svga = isSvgaFile(file);
+      if (!name || name.length > 120 || !(file instanceof File) || !file.size || file.size > (svga ? SVGA_MAX_BYTES : 5 * 1024 * 1024) || (!svga && !["image/png", "image/jpeg", "image/webp"].includes(file.type))) throw Object.assign(new Error("Provide a name and PNG, JPEG or WebP artwork up to 5 MB, or silent SVGA up to 8 MB."), { status: 422 });
       let bytes;
-      try { bytes = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 16000000 }).webp().toBuffer(); } catch { throw Object.assign(new Error("Invalid image artwork."), { status: 422 }); }
+      if (svga) { bytes = Buffer.from(await file.arrayBuffer()); await validateSvga(bytes); }
+      else { try { bytes = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 16000000 }).webp().toBuffer(); } catch { throw Object.assign(new Error("Invalid image artwork."), { status: 422 }); } }
+      const poster = await decodeUploadPoster(form.get("posterFile"));
       const coinPrice = amount(form.get("coinPrice"), true);
       const xp=giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")});
       const createdAsset = await prisma.$transaction(async tx => {
-        const asset = await tx.uploadAsset.create({ data: { publicId: `AST-${crypto.randomUUID()}`, name, category: "LIVE_GIFTS", fileName: "live-gift.webp", mimeType: "image/webp", fileSize: bytes.length, fileData: bytes, coinPrice, ...xp, giftTier: "CLASSIC", active: true, isGlobal: true } });
+        const asset = await tx.uploadAsset.create({ data: { publicId: `AST-${crypto.randomUUID()}`, name, category: "LIVE_GIFTS", fileName: svga ? "live-gift.svga" : "live-gift.webp", mimeType: svga ? SVGA_MIME : "image/webp", fileSize: bytes.length, fileData: bytes, ...poster, coinPrice, ...xp, giftTier: "CLASSIC", active: true, isGlobal: true } });
         await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_GIFT_CREATED", category: "LIVE_MANAGEMENT", entityType: "UploadAsset", entityId: asset.publicId, description: "Created a live-only gift." } });
         return asset;
       });

@@ -11,7 +11,7 @@ import {
 } from "@/lib/mobile-api";
 import { coinsForShare, getProfitSplitRule } from "@/lib/profit-rules";
 import { audioRoomParticipantIds } from "@/lib/realtime";
-import { createPublicDisplayAssetUrl } from "@/lib/upload-assets";
+import { giftMedia } from "@/lib/gift-media";
 import { requestOrigin } from "@/lib/user-perks";
 import { resolveGiftSender } from "@/lib/gift-sender";
 import { ledgerData } from "@/lib/wallet";
@@ -71,6 +71,8 @@ export async function POST(request) {
           giftTier: true,
           mimeType: true,
           posterMimeType: true,
+          mediaVersion: true,
+          posterMediaVersion: true,
           coinPrice: true,
           giftRewardMinBps: true,
           giftRewardMaxBps: true,
@@ -125,7 +127,7 @@ export async function POST(request) {
     const blindBoxReward = giftAsset.giftTier === "BLIND_BOX"
       ? await prisma.uploadAsset.findFirst({
           where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } },
-          select: { id: true, publicId: true, name: true, mimeType: true, coinPrice: true },
+          select: { id: true, publicId: true, name: true, mimeType: true, coinPrice: true, mediaVersion: true, posterMediaVersion: true, posterMimeType: true },
           orderBy: { createdAt: "asc" },
           skip: randomInt(0, Math.max(1, await prisma.uploadAsset.count({ where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } } }))),
         })
@@ -274,9 +276,8 @@ export async function POST(request) {
 
     const origin = requestOrigin(request);
     const giftSender = { ...await resolveGiftSender(sessionUser, origin), ...(await publicProgression([sessionUser], origin, tx)).get(sessionUser.publicId) };
-    const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, mimeType: blindBoxReward.mimeType, quantity, mediaUrl: createPublicDisplayAssetUrl(origin, blindBoxReward.publicId) } : null;
-    const mediaUrl = createPublicDisplayAssetUrl(origin, giftAsset.publicId);
-    const giftDetails = { publicId: giftAsset.publicId, name: giftAsset.name, mimeType: giftAsset.mimeType, mediaUrl, posterUrl: giftAsset.posterMimeType ? `${mediaUrl}&poster=1` : null, coinPrice: giftAsset.coinPrice.toString() };
+    const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, quantity, ...giftMedia(blindBoxReward, origin) } : null;
+    const giftDetails = { publicId: giftAsset.publicId, name: giftAsset.name, ...giftMedia(giftAsset, origin), coinPrice: giftAsset.coinPrice.toString() };
     const extras = { giftBatchId: result.gift.giftBatchId, comboId, lucky: giftAsset.giftTier === "LUCKY" ? { rewardCoins: result.luckyRewardCoins.toString(), rewardBps: luckyRewardBps } : null, blindBox: revealedGift ? { revealedGift } : null };
     if (live) {
       const updatedLive = result.liveTotals;
@@ -307,8 +308,7 @@ export async function POST(request) {
           id: giftAsset.publicId,
           name: giftAsset.name,
           category: giftAsset.giftTier,
-          mimeType: giftAsset.mimeType,
-          mediaUrl,
+          ...giftMedia(giftAsset, origin),
           unitPrice: giftAsset.coinPrice.toString(),
           quantity,
           totalCoins: grossCoins.toString(),
@@ -349,7 +349,7 @@ export async function POST(request) {
           giftId: giftAsset.publicId,
           giftName: giftAsset.name,
           giftCategory: giftAsset.giftTier,
-          mediaUrl,
+          ...giftMedia(giftAsset, origin),
           unitPrice: giftAsset.coinPrice.toString(),
           quantity,
           recipientId,

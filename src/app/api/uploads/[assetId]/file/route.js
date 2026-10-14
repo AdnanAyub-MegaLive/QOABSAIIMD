@@ -128,7 +128,7 @@ async function mediaResponse(asset, request) {
   const requested=new URL(request.url).searchParams.get("v");
   if(requested&&requested!==version)return Response.json({success:false,error:{code:"MEDIA_VERSION_CHANGED",message:"Refresh the asset URL."}},{status:409,headers:{"Cache-Control":"no-store"}});
   const cache= requested&&version&&canPublishMedia(asset)?"public, max-age=31536000, immutable":"private, no-cache";
-  const headers={"Cache-Control":cache,...(version?{ETag:`"${version}"`}:{})};
+  const headers={"Cache-Control":cache,"X-Content-Type-Options":"nosniff",...(version?{ETag:`"${version}"`}:{})};
   // This executes only AFTER session/signature validation. Private files never
   // get a shared immutable cache policy, even with a guessed version.
   if(version&&request.headers.get("if-none-match")?.split(",").some(tag=>["*",`"${version}"`,`W/"${version}"`].includes(tag.trim())))return new Response(null,{status:304,headers});

@@ -69,3 +69,48 @@ Verify repeated sends and restarts reuse cached bytes; replacing animation or
 poster downloads only the changed version. Verify expired signed requests are
 denied even with a matching ETag. Phone-side download counts and cache eviction
 require mobile testing; server tests cannot prove those client behaviors.
+
+## SVGA uploads
+
+Audio gifts, live-video gifts, frames, entrances, rides, badges, chat boxes,
+VIP stickers and campaign widgets accept `.svga` files. Image/video-only
+categories (including room backgrounds, seat styles and profile artwork) retain
+their existing contracts. SVG is a different format and is not enabled here.
+
+- Uploads use `file`; an optional `posterFile` accepts static PNG/JPEG/WebP up to
+  5 MiB. Posters are decoded, resized within 1024 × 1024 and re-encoded to WebP
+  without metadata. The UI displays a poster or SVGA placeholder, not an unsafe
+  browser animation runtime. Actual animation playback remains in the app.
+- Canonical MIME is `application/svga`, including when a browser supplies an empty
+  or generic MIME for a `.svga` filename. Extension alone never proves validity.
+- Both SVGA 1.x ZIP/JSON and 2.x zlib/protobuf (also ZIP movie.binary) are validated.
+  Original validated animation bytes are retained. Embedded audio is rejected:
+  export a silent animation, matching the mobile player's current behavior.
+- Limits: 8 MiB input, 16 MiB expanded archive/binary, 2 MiB JSON, 2048 × 2048
+  canvas, 60 FPS, 30 seconds/1800 frames, 128 sprites/resources, 40,000 total
+  sprite frames, 20,000 shapes, 2 MiB combined vector paths and 16 megapixels
+  total decoded raster resources. Each raster is static PNG/JPEG/WebP within
+  2048 × 2048. External image references, SVG, unsafe archive names, duplicate
+  entries, symbolic links, encryption, corrupt checksums and unsupported fields
+  are rejected. Files are never extracted to disk or executed.
+- Permission checks precede bounded multipart parsing. Admin uploads are limited
+  to 20/minute per admin; at most two SVGA validations run concurrently per process.
+  `429` includes `Retry-After`. These controls complement proxy request limits.
+- Main and poster bytes use independent `mediaVersion`/`posterMediaVersion` values
+  and `v` URLs. Shared gifts automatically mirror to the existing content-addressed
+  `.svga` CDN path, with `application/svga` and one-year immutable caching. Failures
+  retain the database original and use the existing background retry mechanism.
+  Private assignments, private music and KYC are never promoted to the public CDN.
+- Gift events and live/backpack catalogues include optional `posterUrl`,
+  `posterMimeType` and `posterMediaVersion`. Existing gift charging, XP, ownership
+  and delivery permissions are unchanged.
+
+This addition needs no schema migration or historical backfill. Rebuild/restart
+after deploying; it does not revalidate historical uploads. Requires the existing
+Node 24 runtime (uses built-in ZIP CRC32 validation).
+
+Phone checks: test a valid SVGA 1 and 2 animation with and without a poster, repeat
+a gift and restart the app to confirm cache reuse, then replace the animation and
+poster separately to confirm independent invalidation. Verify both Android and
+iOS; server tests do not establish on-device rendering compatibility. Keep the
+mobile player's pinned dependencies, download bounds and watchdog in place.

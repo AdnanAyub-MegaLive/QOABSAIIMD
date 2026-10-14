@@ -1,5 +1,6 @@
 "use client";
 import { ROLE_DISTRIBUTIONS, roleArtworkLabel } from "@/lib/role-artwork";
+import { SVGA_CATEGORIES, SVGA_MIME, SVGA_MAX_BYTES, isSvgaFile, uploadMimeType } from "@/lib/svga-policy";
 
 import { GIFT_CATEGORIES, giftCategory as resolveGiftCategory } from "@/lib/gift-categories";
 import Image from "next/image";
@@ -219,6 +220,7 @@ function PreviewCard({ item, eager, onManage, onDelete }) {
         <MediaPreview
           url={item.url}
           type={item.mimeType}
+          posterUrl={item.posterUrl}
           name={item.name}
           eager={eager}
         />
@@ -448,6 +450,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
             <MediaPreview
               url={asset.url}
               type={asset.mimeType}
+              posterUrl={asset.posterUrl}
               name={title || asset.name}
             />
           </div>
@@ -734,6 +737,12 @@ function UploadModal({ active, users, onClose, onCreated }) {
 
   function chooseFile(event) {
     const nextFile = event.target.files?.[0] ?? null;
+    if (isSvgaFile(nextFile) && (!SVGA_CATEGORIES.has(categories[active]) || nextFile.size > SVGA_MAX_BYTES)) {
+      event.target.value = "";
+      setError("Choose an SVGA-supported category and a file no larger than 8 MB.");
+      setFile(null);
+      return;
+    }
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     const nextUrl = nextFile ? URL.createObjectURL(nextFile) : null;
     previewRef.current = nextUrl;
@@ -890,14 +899,15 @@ function UploadModal({ active, users, onClose, onCreated }) {
           <Field label="Media file">
             <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#cbded9] bg-[#f8fbfa] px-5 text-center">
               <strong className="text-xs text-[#087f74]">
-                {isMusic ? "Choose an MP3, M4A, AAC, OGG, or WAV file" : "Choose image, GIF, WebP, or video"}
+                {isMusic ? "Choose an MP3, M4A, AAC, OGG, or WAV file" : SVGA_CATEGORIES.has(categories[active]) ? "Choose image, GIF, WebP, video, or SVGA" : "Choose image, GIF, WebP, or video"}
               </strong>
               <span className="mt-1 text-[10px] text-[#849691]">
                 Maximum {isMusic ? "50" : "15"} MB
+                {SVGA_CATEGORIES.has(categories[active]) && " · SVGA: 8 MB, 30 seconds, silent animation"}
               </span>
               <input
                 type="file"
-                accept={isMusic ? "audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/x-wav" : isBanner ? "image/png,image/jpeg,image/webp" : "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"}
+                accept={isMusic ? "audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/x-wav" : isBanner ? "image/png,image/jpeg,image/webp" : `image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm${SVGA_CATEGORIES.has(categories[active]) ? ",.svga,application/svga,application/x-svga" : ""}`}
                 onChange={chooseFile}
                 required
                 className="sr-only"
@@ -909,7 +919,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
               <div className="aspect-video overflow-hidden rounded-lg bg-[#edf4f2]">
                 <MediaPreview
                   url={previewUrl}
-                  type={file.type}
+                  type={uploadMimeType(file)}
                   name={name || file.name}
                 />
               </div>
@@ -918,8 +928,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
               </p>
             </div>
           )}
-          {(isBusinessCard || isGift) && (
-            <Field label={isGift ? "Gift icon / poster (optional)" : "Poster image (required for video cards)"}>
+          {(isBusinessCard || isGift || SVGA_CATEGORIES.has(categories[active])) && (
+            <Field label={isBusinessCard ? "Poster image (required for video cards)" : "Preview icon / poster (optional)"}>
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setPosterFile(event.target.files?.[0] ?? null)} className={inputClass} />
               <p className="mt-1.5 text-[10px] text-[#7b8e89]">PNG, JPEG, or WebP; maximum 5 MB. Used as the static catalogue preview before animation starts.</p>
             </Field>
@@ -1262,7 +1272,13 @@ function EmptyState({ active }) {
     </div>
   );
 }
-function MediaPreview({ url, type, name, eager = false }) {
+function MediaPreview({ url, type, name, eager = false, posterUrl }) {
+  if (type === SVGA_MIME) return (
+    <div className="relative grid h-full w-full place-items-center p-3 text-center text-xs text-[#52756d]">
+      {posterUrl ? <Image src={posterUrl} alt={`${name} poster`} fill unoptimized className="object-contain" /> : <span>SVGA animation<br />Add an optional poster for a static preview.</span>}
+      <span className="absolute bottom-2 right-2 rounded bg-[#087f74] px-2 py-1 text-white">SVGA</span>
+    </div>
+  );
   return type?.startsWith("audio/") ? (
     <div className="flex h-full w-full items-center justify-center p-6">
       <audio src={url} controls preload="metadata" className="w-full" aria-label={`${name} preview`} />

@@ -11,6 +11,9 @@ describe("public artwork CDN", () => {
     const result=await publishMedia({...asset,mimeType:"application/svga"},{config,client});
     expect(result.cdnUrl).toMatch(/\/[a-f0-9]{64}\.svga\?v=[a-f0-9]{16}$/);
     expect(client.send.mock.calls[0][0].input.ContentType).toBe("application/svga");
+    expect(client.send.mock.calls[0][0].input.CacheControl).toBe("public, max-age=31536000, immutable");
+    expect(await publishMedia({...asset,mimeType:"application/svga",isGlobal:false,storeVisible:false},{config,client})).toBeNull();
+    expect(client.send).toHaveBeenCalledOnce();
   });
   it("excludes private assignments, private music, KYC, inactive and unsupported formats", () => {
     expect(canPublishMedia(asset)).toBe(true);

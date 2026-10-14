@@ -1,4 +1,8 @@
 import { giftCategory as normalizeGiftCategory } from "@/lib/gift-categories";
+import { SVGA_MIME, SVGA_MAX_BYTES, SVGA_CATEGORIES, uploadMimeType } from "@/lib/svga-policy";
+import { validateSvga, decodeUploadPoster } from "@/lib/svga-upload";
+import { readUploadForm } from "@/lib/upload-form";
+import { isRateLimited } from "@/lib/rate-limit";
 import { ROLE_DISTRIBUTIONS } from "@/lib/role-artwork";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { notifyGiftCatalogUpdated } from "@/lib/gift-catalog-version";
@@ -14,6 +18,7 @@ import {
 } from "../../../lib/upload-assets";
 
 const allowedTypes = new Set([
+  SVGA_MIME,
   "image/png",
   "image/jpeg",
   "image/webp",
@@ -225,7 +230,8 @@ export async function POST(request) {
       { status: 401 },
     );
   try {
-    const form = await request.formData();
+    if (isRateLimited(`asset-upload:${session.user.id ?? session.user.email}`, { limit: 20, windowMs: 60000 })) return Response.json({ success: false, error: { code: "RATE_LIMITED", message: "Too many uploads. Please wait a minute." } }, { status: 429, headers: { "Retry-After": "60" } });
+    const form = await readUploadForm(request, maxMusicFileSize + 6 * 1024 * 1024);
     const name = String(form.get("name") ?? "").trim();
     const details =
       String(form.get("details") ?? "")
@@ -353,7 +359,8 @@ export async function POST(request) {
         },
         { status: 422 },
       );
-    if (!allowedTypes.has(file.type))
+    const mimeType = uploadMimeType(file);
+    if (!allowedTypes.has(mimeType))
       return Response.json(
         {
           success: false,
@@ -368,17 +375,17 @@ export async function POST(request) {
     const assetContract = validateUploadAssetContract({
       category,
       placement: form.get("placement"),
-      mimeType: file.type,
+      mimeType,
     });
     const sortOrder = cleanSortOrder(form.get("sortOrder"));
-    const fileSizeLimit = category === "MUSIC_TRACKS" ? maxMusicFileSize : maxFileSize;
+    const fileSizeLimit = mimeType === SVGA_MIME ? SVGA_MAX_BYTES : category === "MUSIC_TRACKS" ? maxMusicFileSize : maxFileSize;
     if (file.size > fileSizeLimit)
       return Response.json(
         {
           success: false,
           error: {
             code: "FILE_TOO_LARGE",
-            message: category === "MUSIC_TRACKS" ? "Music files cannot exceed 50 MB." : "Files cannot exceed 15 MB.",
+            message: mimeType === SVGA_MIME ? "SVGA files cannot exceed 8 MB." : category === "MUSIC_TRACKS" ? "Music files cannot exceed 50 MB." : "Files cannot exceed 15 MB.",
           },
         },
         { status: 413 },
@@ -388,14 +395,15 @@ export async function POST(request) {
       return Response.json({ success: false, error: { code: "UNSUPPORTED_POSTER_TYPE", message: "Poster images must be PNG, JPEG, or WebP." } }, { status: 415 });
     if (hasPoster && posterFile.size > 5 * 1024 * 1024)
       return Response.json({ success: false, error: { code: "POSTER_TOO_LARGE", message: "Poster images cannot exceed 5 MB." } }, { status: 413 });
-    if (hasPoster && !["USER_TAGS", "PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS", "FRAMES", "BADGES", "AGENCY_ARTWORK", "GIFTS"].includes(category))
+    if (hasPoster && !SVGA_CATEGORIES.has(category) && !["USER_TAGS", "PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS", "FRAMES", "BADGES", "AGENCY_ARTWORK", "GIFTS"].includes(category))
       return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Poster images are not supported for this asset category." } }, { status: 422 });
     if (["PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS"].includes(category) && file.type === "video/mp4" && !hasPoster)
       return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Video Business Cards require a poster image." } }, { status: 422 });
     const users = await resolveUsers(prisma, selectedIds);
     const publicId = `AST-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const bytes = Buffer.from(await file.arrayBuffer());
-    const posterBytes = hasPoster ? Buffer.from(await posterFile.arrayBuffer()) : null;
+    const svga = mimeType === SVGA_MIME ? await validateSvga(bytes) : null;
+    const poster = hasPoster ? await decodeUploadPoster(posterFile) : null;
     const asset = await prisma.$transaction(async (tx) => {
       const created = await tx.uploadAsset.create({
         data: {
@@ -405,13 +413,10 @@ export async function POST(request) {
           tags,
           category,
           fileName: file.name.slice(0, 255),
-          mimeType: file.type,
+          mimeType,
           fileSize: file.size,
           fileData: bytes,
-          posterFileName: hasPoster ? posterFile.name.slice(0, 255) : null,
-          posterMimeType: hasPoster ? posterFile.type : null,
-          posterFileSize: hasPoster ? posterFile.size : null,
-          posterFileData: posterBytes,
+          ...poster,
           actionUrl,
           placement: assetContract.placement,
           sortOrder,
@@ -449,7 +454,8 @@ export async function POST(request) {
           description: `${session.user.name ?? "Administrator"} uploaded ${name} to ${category} and assigned it to ${users.length} user(s).`,
           metadata: {
             fileName: file.name,
-            mimeType: file.type,
+            mimeType,
+            svga,
             fileSize: file.size,
             assignedUserIds: selectedIds,
             assignmentPermanent,
@@ -487,6 +493,8 @@ export async function POST(request) {
       { status: 201 },
     );
   } catch (error) {
+    if (error?.code === "UPLOAD_BUSY") return Response.json({ success: false, error: { code: error.code, message: error.message } }, { status: 429, headers: { "Retry-After": "5" } });
+    if (error?.status === 413) return Response.json({ success: false, error: { code: "FILE_TOO_LARGE", message: error.message } }, { status: 413 });
     if (error?.code === "VALIDATION_ERROR")
       return Response.json(
         { success: false, error: { code: error.code, message: error.message } },
