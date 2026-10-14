@@ -1,4 +1,3 @@
-import { perkMediaFields } from "./src/lib/decoration-media.js";
 // Set mode before Next imports its environment-dependent server modules.
 process.env.NODE_ENV = process.argv.includes("--dev") ? "development" : (process.env.NODE_ENV || "production");
 const { createServer } = require("node:http");
@@ -19,6 +18,7 @@ const app=next({dev,hostname,port,webpack});
 const handle=app.getRequestHandler();
 
 app.prepare().then(async()=>{
+  const {perkMediaFields}=await import("./src/lib/decoration-media.js");
   const {nextSeatStatus}=await import("./src/lib/room-seat-status.js");
   const {createRoomJoinGuard}=await import("./src/lib/room-join-guard.js");
   const {recordAudioRoomVisit}=await import("./src/lib/audio-room-visits.js");
