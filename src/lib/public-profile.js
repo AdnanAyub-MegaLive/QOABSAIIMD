@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { profileCoverDto } from "./profile-cover.js";
 import { avatarDisplayUrl } from "./avatar-history.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 import { publicProgression } from "./progression.js";
@@ -92,6 +93,7 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
     userTagUrl: equippedAssets.userTag?.url ?? null,
     profileBackgroundUrl: equippedAssets.profileBackground?.url ?? null, profileBackgroundPosterUrl: equippedAssets.profileBackground?.posterUrl ?? null, profileBackgroundMimeType: equippedAssets.profileBackground?.mimeType ?? null,
     homeDressUrl: equippedAssets.profileDress?.url ?? null, homeDressPosterUrl: equippedAssets.profileDress?.posterUrl ?? null, homeDressMimeType: equippedAssets.profileDress?.mimeType ?? null,
+    ...await profileCoverDto(db, target.id, viewer.id, origin),
     ...levels, medalWall: medals, giftWall: gifts,
     agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agency.level, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, badgeUrl: assets.get(agency.badgeAssetPublicId)?.url ?? null } : null,
     topSupporters: supporters.flatMap(s => { const person = people.find(p => p.id === s.senderId); return person && !hidden.has(person.id) ? [{ ...identity(person), totalCoins: (s._sum.coinValue ?? 0n).toString() }] : []; }).map((s, i) => ({ rank: i + 1, ...s })),

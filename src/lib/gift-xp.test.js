@@ -1,5 +1,5 @@
-import { expect, it } from "vitest";
-import { awardGiftProgress } from "./progression.js";
+import { expect, it, vi } from "vitest";
+import { awardGiftProgress, resolveGiftProgressRecipient } from "./progression.js";
 function database() {
   const rows=new Map(),ledger=[];
   const levels=["USER","CHARM"].flatMap(track=>Array.from({length:11},(_,level)=>({track,level,thresholdPoints:BigInt(level*900),benefits:[]})));
@@ -26,8 +26,37 @@ it("awards Wealth only to the sender and Charm only to the recipient",async()=>{
 it.each(["RECHARGE","TRANSFER","STORE_PURCHASE","DAILY_TASK","LOGIN"])("does not award either track for %s",async source=>{
  const db=database();await awardGiftProgress(db,{...input,source});expect(db.ledger).toHaveLength(0);expect(db.rows.size).toBe(0);
 });
-it("does not give Charm to ordinary recipients or self-gifts",async()=>{
+it("does not give Charm without a matching rule or when self-gifts are excluded",async()=>{
  const db=database();await awardGiftProgress(db,{...input,recipientType:"NORMAL_USER"});expect(db.ledger).toHaveLength(1);expect(db.ledger[0].track).toBe("USER");
  const self=database();await awardGiftProgress(self,{...input,recipient:input.sender});expect(self.ledger).toHaveLength(0);
+});
+it("resolves Talent to its exact user and awards receiver XP once with notification",async()=>{
+ const db=database();db.talent={findUnique:vi.fn().mockResolvedValue({publicId:"TLN-H"})};db.user={findFirst:vi.fn().mockResolvedValue(input.recipient)};
+ db.realtimeOutbox.create=vi.fn().mockResolvedValue({id:"event"});
+ const args={...input,recipient:null,gift:{...gift,talentId:"talent"}};
+ await awardGiftProgress(db,args);await awardGiftProgress(db,args);
+ expect(db.ledger.filter(r=>r.track==="CHARM").map(r=>r.deltaPoints)).toEqual([100000n]);
+ expect(db.realtimeOutbox.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({channel:"user:TLN-H",event:"progression:updated",payload:expect.objectContaining({data:expect.objectContaining({track:"CHARM",level:10})})})}));
+});
+it("awards normal-user Charm when the configuration includes its rule",async()=>{
+ const db=database(),config=await db.progressionConfiguration.findFirst();
+ config.rules.push({...config.rules.find(r=>r.track==="CHARM"&&r.source==="PAID"),recipientType:"NORMAL_USER"});
+ await awardGiftProgress(db,{...input,recipientType:"NORMAL_USER"});
+ expect(db.ledger.map(r=>r.deltaPoints)).toEqual([200000n,100000n]);
+});
+it("does not guess an account for an unmapped Talent",async()=>{
+ const db={talent:{findUnique:vi.fn().mockResolvedValue({publicId:"TLN-X"})},user:{findFirst:vi.fn().mockResolvedValue(null)}};
+ expect(await resolveGiftProgressRecipient(db,{talentId:"t"},null)).toBeNull();
+ expect(db.user.findFirst).toHaveBeenCalledWith({where:{publicId:"TLN-X",deletedAt:null},select:{id:true,publicId:true}});
+});
+it("does not award receiver XP when configured gift receiver XP is zero",async()=>{
+ const db=database();db.uploadAsset.findUnique=async()=>({senderXp:100n,receiverXp:0n});
+ await awardGiftProgress(db,input);
+ expect(db.ledger.map(r=>r.track)).toEqual(["USER"]);
+});
+it("applies self-gift eligibility after Talent account resolution",async()=>{
+ const db=database();db.talent={findUnique:async()=>({publicId:input.sender.publicId})};db.user={findFirst:async()=>input.sender};
+ await awardGiftProgress(db,{...input,recipient:null,gift:{...gift,talentId:"self-talent"}});
+ expect(db.ledger).toHaveLength(0);
 });
 it.each(["BACKPACK","LUCKY","BLIND_BOX"])("uses configured gift XP for %s",async source=>{const db=database();await awardGiftProgress(db,{...input,source});expect(db.ledger.map(r=>r.deltaPoints)).toEqual([200000n,100000n]);});

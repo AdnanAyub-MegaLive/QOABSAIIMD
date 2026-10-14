@@ -1,3 +1,4 @@
+import { roomCoverDto } from "@/lib/room-cover";
 import { prisma } from "../../../lib/prisma";
 import { requireMobileUser } from "../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../lib/audio-room-maintenance";
@@ -356,9 +357,7 @@ function serializeRoom(room, perks, origin) {
     status: room.status,
     liveAudioUrl: room.liveAudioUrl,
     recordingUrl: room.recordingUrl,
-    coverImageUrl: room.coverImageUrl
-      ? new URL(room.coverImageUrl, origin).toString()
-      : null,
+    ...roomCoverDto(room, origin),
     roomBackground: serializeRoomBackground(room, origin),
     seatStyle: serializeRoomSeatStyle(room, origin),
     participantCount: room.participantCount,

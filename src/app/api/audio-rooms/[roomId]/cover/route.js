@@ -4,7 +4,7 @@ export async function GET(_request, { params }) {
   const { roomId } = await params;
   const room = await prisma.audioRoom.findUnique({
     where: { roomId: decodeURIComponent(roomId) },
-    select: { coverImageData: true, coverImageMime: true },
+    select: { coverImageData: true, coverImageMime: true, coverRevision: true },
   });
   if (!room?.coverImageData || !room.coverImageMime)
     return Response.json(
@@ -21,6 +21,8 @@ export async function GET(_request, { params }) {
   return new Response(room.coverImageData, {
     headers: {
       "Content-Type": room.coverImageMime,
+      "ETag": `"room-cover-${roomId}-${room.coverRevision}"`,
+      "X-Cover-Revision": String(room.coverRevision),
       "Content-Length": String(room.coverImageData.byteLength),
       "Cache-Control": "no-cache, max-age=0, must-revalidate",
       "X-Content-Type-Options": "nosniff",

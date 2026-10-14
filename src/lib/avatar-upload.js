@@ -10,11 +10,11 @@ function invalid(message, code = "VALIDATION_ERROR") {
 }
 
 // Bound the body even when Content-Length is absent or dishonest.
-export async function readAvatarFile(request) {
+export async function readAvatarFile(request, maxBytes = AVATAR_MAX_BYTES) {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data;"))
     throw invalid("Send multipart/form-data with one image field.");
-  const limit = AVATAR_MAX_BYTES + 65536;
-  if (Number(request.headers.get("content-length")) > limit) throw invalid("Avatar cannot exceed 5 MB.", "FILE_TOO_LARGE");
+  const limit = maxBytes + 65536;
+  if (Number(request.headers.get("content-length")) > limit) throw invalid(`Image cannot exceed ${maxBytes / 1024 / 1024} MB.`, "FILE_TOO_LARGE");
   if (!request.body) throw invalid("An image is required.");
   const reader = request.body.getReader();
   const chunks = [];
@@ -26,7 +26,7 @@ export async function readAvatarFile(request) {
       size += value.byteLength;
       if (size > limit) {
         await reader.cancel();
-        throw invalid("Avatar cannot exceed 5 MB.", "FILE_TOO_LARGE");
+        throw invalid(`Image cannot exceed ${maxBytes / 1024 / 1024} MB.`, "FILE_TOO_LARGE");
       }
       chunks.push(value);
     }
@@ -38,7 +38,7 @@ export async function readAvatarFile(request) {
   const files = form.getAll("image");
   if (files.length !== 1 || !(files[0] instanceof File) || !files[0].size)
     throw invalid("Exactly one non-empty image file is required.");
-  if (files[0].size > AVATAR_MAX_BYTES) throw invalid("Avatar cannot exceed 5 MB.", "FILE_TOO_LARGE");
+  if (files[0].size > maxBytes) throw invalid(`Image cannot exceed ${maxBytes / 1024 / 1024} MB.`, "FILE_TOO_LARGE");
   return files[0];
 }
 

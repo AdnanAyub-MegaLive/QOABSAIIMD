@@ -1,0 +1,7 @@
+CREATE TABLE "ProfileCover" (
+ "userId" TEXT PRIMARY KEY REFERENCES "User"("id") ON DELETE CASCADE,
+ "imageData" BYTEA NOT NULL,
+ "status" TEXT NOT NULL DEFAULT 'PENDING',
+ "revision" TEXT NOT NULL,
+ "updatedAt" TIMESTAMP(3) NOT NULL
+);

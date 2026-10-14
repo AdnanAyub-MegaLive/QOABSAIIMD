@@ -1,3 +1,5 @@
+import { roomCoverDto } from "@/lib/room-cover";
+import { requireRoomPermission } from "@/lib/audio-room-management";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -90,8 +92,8 @@ export async function POST(request) {
       });
 
     const room = await prisma.audioRoom.findUnique({
-      where: { ownerId: user.id },
-      select: { id: true, roomId: true },
+      where: form.get("roomId") ? { roomId: String(form.get("roomId")).trim() } : { ownerId: user.id },
+      select: { id: true, roomId: true, ownerId: true },
     });
     if (!room)
       return mobileJson(
@@ -106,18 +108,20 @@ export async function POST(request) {
       );
 
     const coverImageUrl = `/api/audio-rooms/${room.roomId}/cover`;
-    const [updated] = await prisma.$transaction([
-      prisma.audioRoom.update({
+    const updated = await prisma.$transaction(async tx => {
+      await requireRoomPermission(room, user.id, "canManagePrivacy", tx);
+      const updated = await tx.audioRoom.update({
         where: { id: room.id },
         data: {
           coverImageData: imageData,
           coverImageMime: file.type,
           coverImageUrl,
           revision: { increment: 1 },
+          coverRevision: { increment: 1 },
         },
-        select: { revision: true },
-      }),
-      prisma.auditLog.create({
+        select: { roomId: true, coverImageUrl: true, coverRevision: true, revision: true },
+      });
+      await tx.auditLog.create({
         data: {
           action: "AUDIO_ROOM_COVER_UPDATED",
           category: "USER_MANAGEMENT",
@@ -126,24 +130,28 @@ export async function POST(request) {
           description: `User ${user.publicId} updated the cover image for audio room ${room.roomId}`,
           metadata: {
             source: "MOBILE_APP",
-            ownerId: user.publicId,
+            actorId: user.publicId,
+            ownerId: room.ownerId,
             mimeType: file.type,
             fileSize: file.size,
           },
         },
-      }),
-    ]);
+      });
+      return updated;
+    }, { isolationLevel: "Serializable" });
 
-    const resolvedCoverImageUrl = new URL(coverImageUrl, requestOrigin(request)).toString();
+    const cover = roomCoverDto(updated, requestOrigin(request));
+    // Invalidate lists outside the room without disclosing private room metadata.
+    globalThis.portalIo?.emit("audio-room:catalog-changed", { success: true, data: { reason: "COVER_UPDATED" } });
     emitToAudioRoom(room.roomId, "audio-room:updated", {
       success: true,
-      data: { roomId: room.roomId, coverImageUrl: resolvedCoverImageUrl, revision: updated.revision },
+      data: { roomId: room.roomId, ...cover, revision: updated.revision },
     });
     return mobileJson({
       success: true,
       data: {
         roomId: room.roomId,
-        coverImageUrl: resolvedCoverImageUrl,
+        ...cover,
         revision: updated.revision,
       },
     });

@@ -1,3 +1,4 @@
+import { roomCoverDto } from "@/lib/room-cover";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "@/lib/audio-room-maintenance";
@@ -19,7 +20,7 @@ export async function GET(request) {
       where: recentRoomWhere(user.id, cursor),
       orderBy: [{ lastVisitedAt: "desc" }, { audioRoomId: "desc" }], take: limit + 1,
       select: { audioRoomId: true, lastVisitedAt: true, audioRoom: { select: {
-        roomId: true, title: true, coverImageUrl: true, ownerId: true, status: true, participantCount: true,
+        roomId: true, title: true, coverImageUrl: true, coverRevision: true, ownerId: true, status: true, participantCount: true,
         privacyMode: true, passwordHash: true, paidEntryCoins: true,
         roomBackgroundVersion: true, roomBackgroundAsset: artwork, seatStyleVersion: true, seatStyleAsset: artwork,
         owner: { select: { id: true, publicId: true, name: true, profileImage: true } },
@@ -30,7 +31,7 @@ export async function GET(request) {
     return mobileJson({ success: true, data: {
       rooms: page.map(({ lastVisitedAt, audioRoom: room }) => ({
         roomId: room.roomId, title: room.title,
-        coverImageUrl: room.coverImageUrl ? new URL(room.coverImageUrl, origin).toString() : null,
+        ...roomCoverDto(room, origin),
         status: room.status, participantCount: room.participantCount, lastVisitedAt: lastVisitedAt.toISOString(),
         privacyMode: room.privacyMode, isLocked: Boolean(room.passwordHash), paidEntryCoins: room.paidEntryCoins?.toString() ?? null,
         roomBackground: serializeRoomBackground(room, origin), seatStyle: serializeRoomSeatStyle(room, origin),

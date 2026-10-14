@@ -187,6 +187,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     MUSIC_DURATION_INVALID: [422, "MUSIC_DURATION_INVALID", "Music tracks must be no longer than 15 minutes."],
     MUSIC_SOURCE_UNSUPPORTED: [422, "MUSIC_SOURCE_UNSUPPORTED", "Room music must use a catalog track."],
     ROOM_BANNED: [403, "ROOM_BANNED", "You are not allowed to join this room."],
+    JOIN_ROOM_FIRST: [403, "JOIN_ROOM_FIRST", "Join this room before performing this action."],
     ROOM_PAYMENT_REQUIRED: [402, "ROOM_PAYMENT_REQUIRED", "Paid admission is required before joining this room."],
     ROOM_BACKGROUND_UNAVAILABLE: [403, "ROOM_BACKGROUND_UNAVAILABLE", "This room background is unavailable or not owned by you."],
     ROOM_BACKGROUND_TYPE_UNSUPPORTED: [422, "ROOM_BACKGROUND_TYPE_UNSUPPORTED", "Room backgrounds must be PNG, JPEG, WebP, or MP4."],

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { profileCoverDto } from "./profile-cover.js";
 import { formatDateOnly } from "./date-only.js";
 import { getEffectiveUserId, reconcileExpiredSpecialIds } from "./special-id.js";
 import { resolveUserPerks } from "./user-perks.js";
@@ -39,6 +40,7 @@ export async function mobileUserProfile(userId, origin = null) {
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const perks = origin ? (await resolveUserPerks([user], origin, ["FRAMES", "BADGES", "BUSINESS_CARD"])).get(user.publicId) : null;
   return {
+    ...await profileCoverDto(prisma, user.id, user.id, origin),
     ...profileEditPermissions(user),
     ...perks?.progression,
     id: identity.effectiveId,

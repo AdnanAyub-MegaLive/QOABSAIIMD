@@ -1,3 +1,4 @@
+import { roomCoverDto } from "@/lib/room-cover";
 import { prisma } from "../../../../lib/prisma";
 import { requireMobileUser } from "../../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../../lib/audio-room-maintenance";
@@ -67,7 +68,7 @@ export async function GET(request) {
         revision: true,
         title: true,
         country: true,
-        coverImageUrl: true,
+        coverImageUrl: true, coverRevision: true,
         participantCount: true,
         passwordHash: true,
         roomBackgroundVersion: true,
@@ -106,9 +107,7 @@ export async function GET(request) {
           roomId: room.roomId,
           title: room.title,
           country: room.country ?? null,
-          coverImageUrl: room.coverImageUrl
-            ? new URL(room.coverImageUrl, origin).toString()
-            : null,
+          ...roomCoverDto(room, origin),
           participantCount: room.participantCount,
           isLocked: Boolean(room.passwordHash),
           status: room.status,

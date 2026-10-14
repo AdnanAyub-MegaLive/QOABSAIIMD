@@ -1,3 +1,4 @@
+import { roomCoverDto } from "@/lib/room-cover";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -102,6 +103,8 @@ export async function PATCH(request, { params }) {
       select: {
         roomId: true,
         title: true,
+        coverImageUrl: true,
+        coverRevision: true,
         announcement: true,
         language: true,
         tags: true,
@@ -115,6 +118,7 @@ export async function PATCH(request, { params }) {
     });
     const result = {
       ...updated,
+      ...roomCoverDto(updated, requestOrigin(request)),
       paidEntryCoins: updated.paidEntryCoins?.toString() ?? null,
       updatedAt: updated.updatedAt.toISOString(),
     };

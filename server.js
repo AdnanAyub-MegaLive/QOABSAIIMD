@@ -49,6 +49,9 @@ app.prepare().then(async()=>{
   const {canSendLockedRoomMessage,normalizeRoomPassword,roomControlError}=await import("./src/lib/audio-room-controls.js");
   const {readRoomChatHistory,serializeRoomChatMessages}=await import("./src/lib/audio-room-chat.js");
   const {nextRoomMusicState,serializeEntertainment,serializeRoomMusicForDelivery}=await import("./src/lib/room-entertainment.js");
+  const {roomCoverDto}=await import("./src/lib/room-cover.js");
+  const {registerRoomTools,roomMixSnapshot}=await import("./src/lib/room-tools.js");
+  const {isRateLimited}=await import("./src/lib/rate-limit.js");
   const {resolveCatalogTrack}=await import("./src/lib/music-catalog.js");
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileExpiredAudioRoomControls,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
@@ -211,6 +214,9 @@ app.prepare().then(async()=>{
     return seatState;
   };
 
+  const {syncAudioRoomRemoval}=await import("./src/lib/audio-room-removal-sync.js");
+  globalThis.portalSyncAudioRoomRemoval=(roomId,publicId,origin)=>syncAudioRoomRemoval(prisma,io,broadcastAudioRoomSeatState,roomId,publicId,origin);
+
   io.use(async(socket,nextSocket)=>{
     try{
       const payload=verifyMobileSessionToken(socket.handshake.auth?.token);
@@ -243,9 +249,12 @@ app.prepare().then(async()=>{
           const ack=packet[packet.length-1];if(typeof ack==="function")ack(response);
           socket.emit("session:revoked",response);socket.disconnect(true);return;
         }
+        const {guardRoomSocketAction}=await import("./src/lib/room-moderation-guard.js");
+        try{await guardRoomSocketAction(prisma,socket,user.id,packet[0],packet[1]);}catch(error){const ack=packet[packet.length-1];if(typeof ack==="function")ack({success:false,error:{code:["ROOM_PERMISSION_DENIED","JOIN_ROOM_FIRST","ROOM_UNAVAILABLE"].includes(error.code)?error.code:"ROOM_ACTION_FAILED",message:error.code==="JOIN_ROOM_FIRST"?"Join this room before performing this action.":"You cannot perform this room action."}});return;}
         nextPacket();
       }catch(error){nextPacket(new Error("SESSION_VALIDATION_FAILED"));}
     });
+    registerRoomTools({db:prisma,io,socket,user,isRateLimited});
     const connectionOrigin=socketOrigin(socket);
     socket.data.audioRoomTaskTimers=new Map();
     const recordAudioRoomTaskTime=async(roomId)=>{
@@ -419,7 +428,7 @@ app.prepare().then(async()=>{
         const [liveKit,giftLeaderboard,access,members,chatHistory,musicState]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30}),readRoomChatHistory(room,connectionOrigin,{limit:30}),serializeRoomMusicForDelivery(room.entertainmentState,connectionOrigin)]);
         await recordAudioRoomVisit(prisma,user.id,room.id);
         joinSucceeded=true;
-        ack({success:true,data:{roomId:room.roomId,title:room.title,participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,giftInteractions:serializeGiftInteractions(room.giftInteractions),announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,...rtcFields(liveKit),roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        ack({success:true,data:{roomId:room.roomId,title:room.title,...roomCoverDto(room,connectionOrigin),participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,giftInteractions:serializeGiftInteractions(room.giftInteractions),announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,mixState:roomMixSnapshot(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,...rtcFields(liveKit),roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         for(const invitation of pendingSeatInvitations)socket.emit("audio-room:seat-invited",{success:true,data:{invitationId:invitation.id,roomId:room.roomId,seatId:invitation.seatId,status:invitation.status,expiresAt:invitation.expiresAt.toISOString(),inviter:invitation.inviter,recovered:true}});
         const recovered=(recoveringRooms.get(recoveryKey(user,room.roomId))??0)>Date.now();
         recoveringRooms.delete(recoveryKey(user,room.roomId));

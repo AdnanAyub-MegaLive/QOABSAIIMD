@@ -282,7 +282,7 @@ export async function POST(request) {
       });
       const liveTotals = live ? await tx.videoLiveSession.update({ where: { id: live.id }, data: { giftIncome: { increment: grossCoins }, revision: { increment: 1 } }, select: { giftIncome: true, revision: true } }) : null;
       if (live) await applyLiveGiftReward(tx, live, sessionUser.id, grossCoins);
-      const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:talent ? null : recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:receivedDiamonds,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request)});
+      const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:receivedDiamonds,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request)});
       const result = { gift, settlement, sender, luckyRewardCoins, liveTotals, progression };
 
     const origin = requestOrigin(request);

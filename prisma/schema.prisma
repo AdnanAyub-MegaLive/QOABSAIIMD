@@ -192,6 +192,7 @@ model AuditLog {
 }
 
 model User {
+  profileCover ProfileCover?
   audioRoomVisits AudioRoomVisit[]
   onboardingCompletedAt DateTime?
   countryChangeUsedAt DateTime?
@@ -1336,6 +1337,15 @@ model Talent {
   @@index([agencyId])
 }
 
+model ProfileCover {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageData Bytes
+  status String @default("PENDING")
+  revision String @default(cuid())
+  updatedAt DateTime @updatedAt
+}
+
 model Device {
   id          String    @id @default(cuid())
   userId      String?
@@ -1763,6 +1773,7 @@ model AudioRoom {
   liveAudioUrl          String?
   recordingUrl          String?
   coverImageUrl         String?
+  coverRevision         Int                  @default(0)
   coverImageData        Bytes?
   coverImageMime        String?
   participantCount      Int                          @default(0)
@@ -1832,6 +1843,7 @@ model AudioRoomVisit {
 model AudioRoomEntertainmentState {
   audioRoomId String    @id
   revision    Int       @default(0)
+  mix         Json?
   music       Json?
   game        Json?
   campaign    Json?

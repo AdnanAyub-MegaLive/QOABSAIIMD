@@ -16,7 +16,7 @@ export const permissionGroups = [
   ["games", "Games Management", [["view", "View games and round records"], ["manage", "Change game odds, limits and availability"]]],
   ["video", "Live Video", [["view", "View video sessions and guests"], ["manage", "Moderate and end live sessions"], ["gifts", "Create/edit live-only gifts, prices and XP"], ["rewards", "Configure live gifting targets, rewards and profit splits"]]],
   ["notifications", "Notification Center", [["view", "View notifications"], ["manage", "Publish notifications"]]],
-  ["content", "Content & Social Safety", [["view", "View posts, blocks and friend requests"]]],
+  ["content", "Content & Social Safety", [["view", "View posts, blocks and friend requests"], ["manage", "Review and remove user profile covers"]]],
   ["rankings", "Rankings", [["view", "View rankings"]]],
   ["messages", "Message History", [["view", "View room and private message history (sensitive)"]]],
   ["audit", "Audit Logs", [["view", "View administrator activity"]]],

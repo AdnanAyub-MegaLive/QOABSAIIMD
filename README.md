@@ -6,6 +6,15 @@ seats, and real-time Socket.IO activity.
 
 ## Stack
 
+### October 14, 2026 mobile updates
+
+- Room moderation hierarchy, access preflight, silent kick synchronization, scoped campaign retries, music mix and room invitations: [handoff](docs/audio-room-tools-mobile-handoff.md).
+- Consistent room-cover URLs and revisions: [contract](docs/room-cover-contract.md).
+- Talent-recipient Charm XP and normal-user earning rules: [repair guidance](docs/charm-progression-repair.md). Historical review is read-only; no wallet correction is performed.
+- Personal profile covers (separate from Profile BG props): `POST /api/v1/users/me/cover`, multipart `image`, JPEG/PNG/WebP up to 8 MB; `DELETE` on the same route. Session identity only. Maximum 10 changes/hour. Photos are decoded, metadata-stripped, resized to fit 1080×2160 and stored as WebP. Replacement overwrites the sole database image; deletion removes it. No CDN object is created for this protected user-generated content.
+- Own/public profiles expose `coverImageUrl` and `coverStatus`. New covers are PENDING; owners can preview them, others see only APPROVED covers. Content & Social Safety provides approval, rejection and deletion; writes require the new `content.manage` permission. Signed display links last 15 minutes and recheck current block/ban/privacy/moderation state on load; refetch profile when expired. Do not persist these images as public CDN assets. Previously downloaded bytes cannot be remotely revoked.
+- Before restarting production, run `npx prisma migrate deploy`, `npx prisma generate`, and `npm run build`. This release includes four additive/versioned migrations (room mix, normal-user Charm rules, room-cover revision, personal profile covers). Restart the custom server to load socket handlers.
+
 - Next.js 16 and React 19
 - PostgreSQL with Prisma
 - Socket.IO for real-time portal and mobile events
