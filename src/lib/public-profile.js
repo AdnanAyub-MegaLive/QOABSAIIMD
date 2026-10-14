@@ -73,13 +73,23 @@ export async function receivedGiftWall(userId, origin, { limit = 20, cursor } = 
   const map = new Map(assets.map(a => [a.id, a]));
   return { items: rows.slice(0, limit).flatMap(row => { const asset = map.get(row.giftAssetId); return asset ? [{ giftId: asset.publicId, name: asset.name, quantity: row._sum.quantity ?? 0, totalCoins: (row._sum.coinValue ?? 0n).toString(), mediaUrl: asset.active ? createPublicDisplayAssetUrl(origin, asset.publicId) : null, mimeType: asset.mimeType }] : []; }), nextCursor: rows.length > limit ? wallCursor(offset + limit) : null };
 }
+export async function ownedProfileBadges(userId, origin, db = prisma) {
+  const rows = await db.uploadAssetAssignment.findMany({
+    where: { userId, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }], asset: { active: true, category: "BADGES" } },
+    select: { expiresAt: true, asset: { select: { publicId: true, name: true, mimeType: true, mediaVersion: true, posterMimeType: true, posterMediaVersion: true } } },
+    orderBy: [{ assignedAt: "desc" }, { assetId: "asc" }], take: 50,
+  });
+  return rows.map(row => ({ ...decorationMedia(row.asset, origin), name: row.asset.name, expiresAt: row.expiresAt?.toISOString() ?? null }));
+}
+
 export async function profileExtras(target, viewer, origin, db = prisma) {
   const roles = [...new Set(target.appRoles)].filter(r => APPLICATION_ROLES.includes(r));
-  const [equipment, progress, roleRows, medals, gifts, supporters, relationships] = await Promise.all([
+  const [equipment, progress, roleRows, medals, gifts, supporters, relationships, ownedBadges] = await Promise.all([
     equippedProfileAssets([target], origin, db), publicProgression([target], origin, db, true),
     db.roleBadge.findMany({ where: { code: { in: roles } } }), medalWall(target.id, origin, { limit: 50 }, db), receivedGiftWall(target.id, origin, {}, db),
     db.giftTransaction.groupBy({ by: ["senderId"], where: { recipientUserId: target.id, reversedAt: null, sender: activePerson }, _sum: { coinValue: true }, orderBy: [{ _sum: { coinValue: "desc" } }, { senderId: "asc" }], take: 3 }),
     db.profileRelationship.findMany({ where: { status: "ACTIVE", leftAcceptedAt: { not: null }, rightAcceptedAt: { not: null }, left: activePerson, right: activePerson, AND: [{ OR: [{ leftUserId: target.id }, { rightUserId: target.id }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] }, include: { left: { select: publicPerson }, right: { select: publicPerson } }, orderBy: { publicId: "asc" } }),
+    ownedProfileBadges(target.id, origin, db),
   ]);
   const people = await db.user.findMany({ where: { id: { in: supporters.map(s => s.senderId) }, ...activePerson }, select: publicPerson });
   const related = relationships.map(r => r.leftUserId === target.id ? r.right : r.left);
@@ -95,7 +105,7 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
   const agencyProgress = agency ? await activityProgress("AGENCY", agency.id, origin, db) : null;
   const cardArt = await profileCardArtwork(db,target.id,levels?.charmLevel??0,origin);
   return { roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
-    equippedAssets, frameUrl: equippedAssets.avatarFrame?.url ?? null, badgeUrl: equippedAssets.profileBadge?.url ?? null,
+    ownedBadges, equippedAssets, frameUrl: equippedAssets.avatarFrame?.url ?? null, badgeUrl: equippedAssets.profileBadge?.url ?? null,
     userTagUrl: equippedAssets.userTag?.url ?? null,
     profileBackgroundUrl: equippedAssets.profileBackground?.url ?? null, profileBackgroundPosterUrl: equippedAssets.profileBackground?.posterUrl ?? null, profileBackgroundMimeType: equippedAssets.profileBackground?.mimeType ?? null,
     homeDressUrl: equippedAssets.profileDress?.url ?? null, homeDressPosterUrl: equippedAssets.profileDress?.posterUrl ?? null, homeDressMimeType: equippedAssets.profileDress?.mimeType ?? null,

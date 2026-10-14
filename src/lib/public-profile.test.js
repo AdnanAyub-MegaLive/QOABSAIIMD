@@ -1,7 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("./prisma.js", () => ({ prisma: {} }));
-import { publicAge, wallCursor, wallOffset } from "./public-profile.js";
+import { publicAge, wallCursor, wallOffset, ownedProfileBadges } from "./public-profile.js";
 describe("profile contract helpers", () => {
+  it("queries only the target's active unexpired badges, bounded and newest first", async () => {
+    vi.stubEnv("AUTH_SECRET", "test-only-secret");
+    try {
+      const asset = { publicId: "AST-badge", name: "Badge", mimeType: "application/svga", mediaVersion: "0123456789abcdef", posterMimeType: "image/webp", posterMediaVersion: "fedcba9876543210" };
+      const findMany = vi.fn().mockResolvedValue([{ asset, expiresAt: new Date("2027-01-01T00:00:00Z") }]);
+      const items = await ownedProfileBadges("target", "https://portal.example", { uploadAssetAssignment: { findMany } });
+      expect(findMany.mock.calls[0][0]).toMatchObject({ where: { userId: "target", asset: { active: true, category: "BADGES" }, OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }] }, take: 50, orderBy: [{ assignedAt: "desc" }, { assetId: "asc" }] });
+      expect(items[0]).toMatchObject({ assetId: "AST-badge", name: "Badge", mimeType: "application/svga", expiresAt: "2027-01-01T00:00:00.000Z" });
+      const url = new URL(items[0].url);
+      expect(url.searchParams.has("displaySig")).toBe(true);
+      expect(url.searchParams.has("uid")).toBe(false);
+      expect(new URL(items[0].posterUrl).searchParams.get("v")).toBe(asset.posterMediaVersion);
+      findMany.mockResolvedValue([]);
+      expect(await ownedProfileBadges("target", "https://portal.example", { uploadAssetAssignment: { findMany } })).toEqual([]);
+    } finally { vi.unstubAllEnvs(); }
+  });
   it("never calculates public age when birth date is private", () => {
     expect(publicAge(new Date("2000-10-25"), false)).toBeNull();
     expect(publicAge(new Date("2000-10-25"), true, new Date("2026-10-08"))).toBe(25);

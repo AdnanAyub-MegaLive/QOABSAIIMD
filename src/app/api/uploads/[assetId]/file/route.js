@@ -6,7 +6,7 @@ import {
   verifyPublicDisplayAssetUrl,
   verifySignedAssetUrl,
 } from "../../../../../lib/upload-assets";
-import { sessionInvalidation, mobileSessionError } from "../../../../../lib/mobile-session-state";
+import { sessionInvalidation, signedAssetSessionInvalidation, mobileSessionError } from "../../../../../lib/mobile-session-state";
 
 const publicDisplayCategories = new Set([
   "AVATARS",
@@ -91,7 +91,7 @@ export async function GET(request, { params }) {
         where: { publicId: payload.userId },
         select: { id: true, deletedAt: true, status: true, sessionVersion: true, forcedLogoutAt: true },
       });
-      const invalidation = sessionInvalidation(user, payload);
+      const invalidation = signed ? signedAssetSessionInvalidation(user, signed) : sessionInvalidation(user, payload);
       if (
         invalidation ||
         !asset.active ||

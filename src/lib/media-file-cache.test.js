@@ -1,9 +1,9 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
-const mocks=vi.hoisted(()=>({findUnique:vi.fn(),auth:vi.fn()}));
+const mocks=vi.hoisted(()=>({findUnique:vi.fn(),user:vi.fn(),auth:vi.fn()}));
 vi.mock("../../auth",()=>({auth:mocks.auth}));
-vi.mock("./prisma",()=>({prisma:{uploadAsset:{findUnique:mocks.findUnique}}}));
+vi.mock("./prisma",()=>({prisma:{uploadAsset:{findUnique:mocks.findUnique},user:{findUnique:mocks.user}}}));
 import { GET } from "../app/api/uploads/[assetId]/file/route.js";
-import { createPublicDisplayAssetUrl } from "./upload-assets.js";
+import { createPublicDisplayAssetUrl, createSignedAssetUrl } from "./upload-assets.js";
 const asset={publicId:"AST-1",mediaVersion:"abc",posterMediaVersion:"def",category:"GIFTS",active:true,isGlobal:true,mimeType:"image/gif",fileName:"gift.gif",assignments:[]};
 beforeEach(()=>{
  vi.stubEnv("AUTH_SECRET","test-media-key");vi.stubEnv("MEDIA_CDN_ENABLED","false");
@@ -31,4 +31,15 @@ it("never serves replacement bytes under an old immutable version",async()=>{
 it("keeps private artwork out of shared immutable caches",async()=>{
  mocks.findUnique.mockResolvedValue({...asset,isGlobal:false,fileData:Buffer.from("private")});
  expect((await get()).headers.get("cache-control")).toBe("private, no-cache");
+});
+it("serves current-version signed URLs after forced logout but rejects revoked, expired or unowned access",async()=>{
+ const user={id:"u",status:"ACTIVE",deletedAt:null,sessionVersion:3,forcedLogoutAt:new Date()};
+ mocks.user.mockResolvedValue(user);
+ mocks.findUnique.mockResolvedValue({...asset,isGlobal:false,storeVisible:false,assignments:[{userId:"u"}],fileData:Buffer.from("private")});
+ const signed=(version=3,ttl=3600)=>GET(new Request(createSignedAssetUrl("https://portal.test",asset.publicId,"USR-1",version,ttl,"abc")),{params:Promise.resolve({assetId:asset.publicId})});
+ const response=await signed();expect(response.status).toBe(200);expect(response.headers.get("cache-control")).toBe("private, no-cache");
+ expect((await signed(2)).status).toBe(401);
+ expect((await signed(3,-1)).status).toBe(401);
+ mocks.findUnique.mockResolvedValue({...asset,isGlobal:false,storeVisible:false,assignments:[]});
+ expect((await signed()).status).toBe(401);
 });

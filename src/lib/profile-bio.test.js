@@ -11,13 +11,17 @@ describe("profile bio validation", () => {
     expect(normalizeProfileBio("   ")).toEqual({ value: null });
   });
 
-  it("enforces a 200 Unicode-character maximum", () => {
+  it("enforces a 50 Unicode-character maximum", () => {
     expect(normalizeProfileBio("🙂".repeat(BIO_MAXIMUM_CHARACTERS))).toEqual({
       value: "🙂".repeat(BIO_MAXIMUM_CHARACTERS),
     });
     expect(normalizeProfileBio("🙂".repeat(BIO_MAXIMUM_CHARACTERS + 1))).toEqual({
-      error: "Bio must not exceed 200 characters.",
+      error: "Bio must not exceed 50 characters.",
     });
+  });
+
+  it("normalizes all line breaks to one line", () => {
+    expect(normalizeProfileBio(" First \r\n second\n\nthird\u2028fourth\u2029fifth\t ")).toEqual({ value: "First second third fourth fifth" });
   });
 
   it("rejects non-text and control-character input", () => {

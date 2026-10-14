@@ -17,6 +17,14 @@ export function assertMobileSession(user, payload) {
   return user;
 }
 
+// Only for an already cryptographically verified, unexpired asset signature.
+// Signed asset URLs bind the session version, but have no token issuedAt.
+export function signedAssetSessionInvalidation(user, payload) {
+  if (!user) return "INVALID_SESSION";
+  if (user.deletedAt || user.status !== "ACTIVE" || user.sessionVersion !== payload.sessionVersion) return "SESSION_REVOKED";
+  return null;
+}
+
 export function mobileSessionError(code = "INVALID_SESSION") {
   const revoked = code === "SESSION_REVOKED";
   return {
