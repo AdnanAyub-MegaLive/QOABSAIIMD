@@ -69,6 +69,7 @@ export async function POST(request) {
           publicId: true,
           name: true,
           giftTier: true,
+          giftCategory: true,
           mimeType: true,
           posterMimeType: true,
           mediaVersion: true,
@@ -278,7 +279,7 @@ export async function POST(request) {
     const giftSender = { ...await resolveGiftSender(sessionUser, origin), ...(await publicProgression([sessionUser], origin, tx)).get(sessionUser.publicId) };
     const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, quantity, ...giftMedia(blindBoxReward, origin) } : null;
     const giftDetails = { publicId: giftAsset.publicId, name: giftAsset.name, ...giftMedia(giftAsset, origin), coinPrice: giftAsset.coinPrice.toString() };
-    const extras = { giftBatchId: result.gift.giftBatchId, comboId, lucky: giftAsset.giftTier === "LUCKY" ? { rewardCoins: result.luckyRewardCoins.toString(), rewardBps: luckyRewardBps } : null, blindBox: revealedGift ? { revealedGift } : null };
+    const extras = { requestId: operation.key, recipientIds: [recipientId], transactionIds: [result.gift.id], giftTier: giftAsset.giftTier, catalogCategory: giftAsset.giftCategory, giftBatchId: result.gift.giftBatchId, comboId, lucky: giftAsset.giftTier === "LUCKY" ? { rewardCoins: result.luckyRewardCoins.toString(), rewardBps: luckyRewardBps } : null, blindBox: revealedGift ? { revealedGift } : null };
     if (live) {
       const updatedLive = result.liveTotals;
       const liveGiftData = { liveId: live.publicId, transactionId: result.gift.id, createdAt: result.gift.createdAt.toISOString(), giftIncome: updatedLive.giftIncome.toString(), revision: updatedLive.revision, sender: giftSender, gift: giftDetails, ...extras, recipientId, giftId: giftAsset.publicId, quantity, totalCoins: grossCoins.toString() };
@@ -345,6 +346,7 @@ export async function POST(request) {
         data: {
           transactionId: result.gift.id,
           progression: result.progression,
+          ...extras,
           giftBatchId: result.gift.giftBatchId,
           giftId: giftAsset.publicId,
           giftName: giftAsset.name,
