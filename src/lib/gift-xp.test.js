@@ -10,6 +10,13 @@ function database() {
 }
 const gift={id:"gift-1",giftAssetId:"asset-1",quantity:2};
 const input={sender:{id:"sender",publicId:"USR-S"},recipient:{id:"host",publicId:"TLN-H"},gift,source:"PAID",gross:1n,credit:1n,recipientType:"HOST"};
+it.each(["PAID", "BACKPACK", "LUCKY", "BLIND_BOX"])("awards both tracks once for an approved self-gift: %s", async source => {
+ const db=database(),config=await db.progressionConfiguration.findFirst();
+ config.rules.forEach(rule=>{rule.allowSelf=true;});
+ const args={...input,source,recipient:input.sender};
+ await awardGiftProgress(db,args);await awardGiftProgress(db,args);
+ expect(db.ledger.map(r=>[r.userId,r.track,r.deltaPoints])).toEqual([["sender","USER",200000n],["sender","CHARM",100000n]]);
+});
 it("awards per-gift XP times quantity independently of price and deduplicates",async()=>{
  const db=database(); await awardGiftProgress(db,input); await awardGiftProgress(db,input);
  expect(db.ledger.map(r=>r.deltaPoints)).toEqual([200000n,100000n]);

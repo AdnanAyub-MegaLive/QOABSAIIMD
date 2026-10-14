@@ -24,7 +24,7 @@ export async function GET(request, { params }) {
     const searchParams = new URL(request.url).searchParams;
     const limit = roomGiftHistoryLimit(searchParams.get("limit"));
     const cursor = searchParams.get("cursor")?.trim() || null;
-    const where = { roomId };
+    const where = { roomId, reversedAt: null };
 
     const [total, page] = await Promise.all([
       prisma.giftTransaction.aggregate({

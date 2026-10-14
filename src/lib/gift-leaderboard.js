@@ -21,14 +21,14 @@ export async function getRoomGiftLeaderboard(roomId, origin, db = prisma) {
   const [gifterTotals, receiverTotals] = await Promise.all([
     db.giftTransaction.groupBy({
       by: ["senderId"],
-      where: { roomId: normalizedRoomId },
+      where: { roomId: normalizedRoomId, reversedAt: null },
       _sum: { coinValue: true },
       orderBy: { _sum: { coinValue: "desc" } },
       take: 3,
     }),
     db.giftTransaction.groupBy({
       by: ["recipientUserId"],
-      where: { roomId: normalizedRoomId, recipientUserId: { not: null } },
+      where: { roomId: normalizedRoomId, reversedAt: null, recipientUserId: { not: null } },
       _sum: { coinValue: true },
       orderBy: { _sum: { coinValue: "desc" } },
       take: 3,
@@ -116,6 +116,7 @@ export async function getRoomGiftRanking(
     by: [groupField],
     where: {
       roomId: normalizedRoomId,
+      reversedAt: null,
       ...(groupField === "recipientUserId"
         ? { recipientUserId: { not: null } }
         : {}),

@@ -63,11 +63,11 @@ export async function GET(request) {
     const [lifetimeGifting, monthlySalary, recharge] = agency
       ? await Promise.all([
           prisma.giftSettlement.aggregate({
-            where: { agencyId: agency.id },
+            where: { agencyId: agency.id, giftTransaction: { reversedAt: null } },
             _sum: { grossCoins: true },
           }),
           prisma.giftSettlement.aggregate({
-            where: { agencyId: agency.id, createdAt: { gte: monthStart } },
+            where: { agencyId: agency.id, giftTransaction: { reversedAt: null }, createdAt: { gte: monthStart } },
             _sum: { hostSalaryCoins: true },
           }),
           prisma.user.aggregate({ where: { agencyId: agency.id }, _sum: { totalTopUp: true } }),

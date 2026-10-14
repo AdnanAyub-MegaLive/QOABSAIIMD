@@ -22,5 +22,20 @@ export async function awardActivityXp(tx,track,subjectId,sourceId,amount) {
   const rule=await tx.activityLevelRule.findUnique({where:{track}});
   if(!rule?.enabled)return;
   const xp=BigInt(amount)*BigInt(rule.rateBps)/10000n;
-  await tx.activityLevelAward.upsert({where:{track_sourceId:{track,sourceId}},update:{},create:{track,subjectId,sourceId,amount:BigInt(amount),xp,rateBps:rule.rateBps,ruleRevision:rule.revision}});
+  const inserted = await tx.activityLevelAward.createMany({skipDuplicates:true,data:[{track,subjectId,sourceId,amount:BigInt(amount),xp,rateBps:rule.rateBps,ruleRevision:rule.revision}]});
+  if (inserted.count) await queueActivityProgress(tx,track,subjectId,sourceId);
+}
+
+// Persist alongside the award; the existing outbox publishes only after commit.
+// Agency financial progression is private to its owner, never a room broadcast.
+export async function queueActivityProgress(tx, track, subjectId, sourceId) {
+  const [snapshot, revision, owner] = await Promise.all([
+    activityProgress(track,subjectId,null,tx),
+    tx.activityLevelAward.count({where:{track,subjectId}}),
+    track === "GAME" ? tx.user.findUnique({where:{id:subjectId},select:{publicId:true}})
+      : tx.agency.findUnique({where:{id:subjectId},select:{publicId:true,owner:{select:{publicId:true}}}}),
+  ]);
+  const publicId = track === "GAME" ? owner?.publicId : owner?.owner?.publicId;
+  if (!publicId) return;
+  await tx.realtimeOutbox.create({data:{channel:`user:${publicId}`,event:"activity-progression:updated",payload:{success:true,data:{track,subjectId:owner.publicId,sourceId,revision,...snapshot}}}});
 }

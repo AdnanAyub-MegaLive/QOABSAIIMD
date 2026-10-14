@@ -153,6 +153,7 @@ async function roomScores(userIds, periodStart, generatedAt) {
         by: ["roomId"],
         where: {
           roomId: { in: rooms.map((room) => room.roomId) },
+          reversedAt: null,
           ...(periodStart ? { createdAt: { gte: periodStart } } : {}),
         },
         _sum: { coinValue: true },

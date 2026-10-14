@@ -28,6 +28,7 @@ export const bannerMimeTypes = new Set([
   "image/webp",
 ]);
 export const roomBackgroundMimeTypes = new Set([
+  "image/gif",
   "image/png",
   "image/jpeg",
   "image/webp",

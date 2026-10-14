@@ -27,7 +27,9 @@ export function validateProgressionConfig(input) {
     if (r.basis === "REVEALED" && r.source !== "BLIND_BOX" || r.basis === "REWARD" && r.source !== "LUCKY") throw progressionError("This earning basis does not apply to the source.");
     keys.add(key); const numerator = unsigned(r.numerator), denominator = unsigned(r.denominator);
     if (!denominator || typeof r.description !== "string" || r.description.length > 500) throw progressionError("Provide a positive denominator and a display description.");
-    return { track:r.track, source:r.source, recipientType:r.recipientType, basis:r.basis, allowSelf:r.allowSelf, numerator:numerator.toString(), denominator:denominator.toString(), description:r.description };
+    // Approved platform policy: self-gifts earn the same configured XP.
+    // Normalize stale admin forms so a later publish cannot restore exclusion.
+    return { track:r.track, source:r.source, recipientType:r.recipientType, basis:r.basis, allowSelf:true, numerator:numerator.toString(), denominator:denominator.toString(), description:r.description };
   });
   if (input.enabled && !rules.length) throw progressionError("Approve earning rules before enabling progression.");
   return { enabled: input.enabled, levels, rules };

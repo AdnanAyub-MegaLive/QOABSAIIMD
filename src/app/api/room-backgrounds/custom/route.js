@@ -1,5 +1,6 @@
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
+import { readBoundedMultipart } from "@/lib/bounded-multipart";
 import {validateCoverVideo} from "@/lib/profile-cover-video";
 import {notifyAction} from "@/lib/action-notifications";
 import { prisma } from "@/lib/prisma";
@@ -23,7 +24,8 @@ export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
     authenticatedUser = user;
-    const form = await request.formData();
+    const config = await getCustomBackgroundConfiguration();
+    const form = await readBoundedMultipart(request, config.settings.maxBytes);
     const priceId = String(form.get("priceId") ?? "").trim();
     const requestId = String(form.get("requestId") ?? request.headers.get("idempotency-key") ?? "").trim();
     idempotencyKey = requestId;
@@ -32,7 +34,6 @@ export async function POST(request) {
     const existing = await prisma.customRoomBackgroundRequest.findUnique({ where: { userId_requestId: { userId: user.id, requestId } }, include: customBackgroundInclude(user.id) });
     if (existing) return mobileJson({ success: true, data: { request: serializeCustomBackgroundRequest(existing, requestOrigin(request)) } });
     if (!(image instanceof File)) throw Object.assign(new Error("An image file is required."), { code: "VALIDATION_ERROR" });
-    const config = await getCustomBackgroundConfiguration();
     if (!config.settings.enabled) throw Object.assign(new Error("Custom background submissions are disabled."), { code: "CUSTOM_BACKGROUND_DISABLED" });
     const price = await prisma.customRoomBackgroundPrice.findFirst({ where: { id: priceId, active: true } });
     if (!price) throw Object.assign(new Error("The selected price package is unavailable."), { code: "CUSTOM_BACKGROUND_PRICE_INVALID" });

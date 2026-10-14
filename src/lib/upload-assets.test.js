@@ -12,6 +12,10 @@ import {
   validateUploadAssetContract,
 } from "./upload-assets";
 
+it("allows animated GIF artwork in room background uploads", () => {
+  expect(validateUploadAssetContract({category:"ROOM_BACKGROUNDS",mimeType:"image/gif"})).toEqual({placement:null});
+});
+
 describe("business-card assets", () => {
   it("accepts supported media and rejects WebM", () => {
     expect(validateUploadAssetContract({ category: "BUSINESS_CARD", mimeType: "video/mp4" })).toEqual({ placement: null });

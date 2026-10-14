@@ -2,6 +2,10 @@ import { expect, it } from "vitest";
 import { levelSnapshot, validateProgressionConfig } from "./progression.js";
 import { giftOperation, priorGiftOperation } from "./gift-operation.js";
 const levels=[0n,100n,500n].map((thresholdPoints,level)=>({track:"USER",level,thresholdPoints,benefits:[]}));
+it("keeps approved self-gift XP enabled when a stale form publishes rules", () => {
+  const config=validateProgressionConfig({enabled:true,levels:[...levels,{track:"CHARM",level:0,thresholdPoints:0n,benefits:[]}],rules:[{track:"USER",source:"PAID",recipientType:"ANY",basis:"GIFT_XP",allowSelf:false,numerator:"1",denominator:"1",description:"Gift XP"}]});
+  expect(config.rules[0].allowSelf).toBe(true);
+});
 it("allows removing non-baseline levels and recalculates without losing XP",()=>{
   const remaining=levels.filter(row=>row.level!==1);
   const config=validateProgressionConfig({enabled:false,rules:[],levels:[...remaining,{track:"CHARM",level:0,thresholdPoints:0n,benefits:[]}]});

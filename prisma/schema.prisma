@@ -1384,6 +1384,23 @@ model Device {
   @@index([macAddress])
 }
 
+model GiftRecoverySnapshot {
+  giftId String @id
+  data Json
+  createdAt DateTime @default(now())
+}
+
+model GiftRefund {
+  giftId String @id
+  status String
+  reason String
+  reviewReason String?
+  adminId String
+  result Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model GiftTransaction {
   reversedAt DateTime?
   id              String            @id @default(cuid())

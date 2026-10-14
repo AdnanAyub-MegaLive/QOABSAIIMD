@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import GiftRefunds from "./gift-refunds";
 
-const tabs = ["Payout review", "Reconciliation", "Top-ups", "Gift settlements", "Immutable ledger", "Mobile integration"];
+const tabs = ["Payout review", "Reconciliation", "Top-ups", "Gift settlements", "Gift refunds", "Immutable ledger", "Mobile integration"];
 
-export default function FinanceConsole({ stats, withdrawals, reconciliations, topUps, gifts, packages, ledger, integration }) {
+export default function FinanceConsole({ stats, withdrawals, reconciliations, topUps, gifts, packages, ledger, integration, canRefund=false }) {
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
   const [onlyAlerts, setOnlyAlerts] = useState(true);
@@ -30,6 +31,7 @@ export default function FinanceConsole({ stats, withdrawals, reconciliations, to
         {activeTab === "Reconciliation" && <ReconciliationTable rows={reconciliations} onlyAlerts={onlyAlerts} setOnlyAlerts={setOnlyAlerts} />}
         {activeTab === "Top-ups" && <TopUpsTable rows={topUps} packages={packages} />}
         {activeTab === "Gift settlements" && <GiftSettlementsTable rows={gifts} />}
+        {activeTab === "Gift refunds" && <GiftRefunds canRefund={canRefund} />}
         {activeTab === "Immutable ledger" && <LedgerTable rows={ledger} />}
         {activeTab === "Mobile integration" && <MobileIntegration integration={integration} />}
       </section>

@@ -79,7 +79,7 @@ async function synchronizeMeasuredProgress(userId, definitions, now) {
   for (const definition of giftDefinitions) {
     const start = definition.cadence === "WEEKLY" ? weeklyStart : dailyStart;
     const result = await prisma.giftTransaction.aggregate({
-      where: { senderId: userId, createdAt: { gte: start, lte: now } },
+      where: { senderId: userId, reversedAt: null, createdAt: { gte: start, lte: now } },
       _sum: { quantity: true },
     });
     const progressValue = result._sum.quantity ?? 0;

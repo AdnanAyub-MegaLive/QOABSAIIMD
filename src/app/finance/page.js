@@ -1,4 +1,5 @@
 import { requirePagePermission } from "@/lib/portal-admin";
+import { hasPermission } from "@/lib/portal-permissions";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
@@ -193,7 +194,7 @@ export default async function FinancePage() {
             <h2 className="text-2xl font-bold">Wallet control center</h2>
             <p className="mt-1.5 text-sm text-[#71847f]">Review payouts, trace immutable ledger activity, validate balances, and monitor mobile payment integration.</p>
           </div>
-          <FinanceConsole {...props} />
+          <FinanceConsole {...props} canRefund={hasPermission(admin,"finance.refunds")} />
         </div>
       </section>
     </main>
