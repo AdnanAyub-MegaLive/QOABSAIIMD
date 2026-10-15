@@ -1,6 +1,7 @@
 import { prisma } from "./prisma.js";
 import { vipIsActive } from "./vip-contract.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
+import { syncProgressionProps } from "./props-store.js";
 
 export async function getVipMembership(userId,origin="",client=prisma) {
   const row=await client.vipMembership.findUnique({where:{userId},include:{tier:{include:{assets:{include:{asset:{select:{publicId:true,name:true,mimeType:true,active:true}}}}}}}});
@@ -14,13 +15,13 @@ export async function getVipMembership(userId,origin="",client=prisma) {
 export async function expireVipMemberships(client=prisma) {
   const rows=await client.vipMembership.findMany({where:{user:{vipLevel:{gt:0}},OR:[{expiresAt:{lte:new Date()}},{revokedAt:{not:null}},{tier:{active:false}}]},select:{userId:true},take:500});
   if(!rows.length)return 0;
-  for(const row of rows)await synchronizeVip(row.userId);
+  for(const row of rows)await synchronizeVip(row.userId, client);
   return rows.length;
 }
 
-export async function synchronizeVip(userId) {
-  if (!await prisma.vipMembership.findUnique({where:{userId},select:{userId:true}})) return null;
-  return prisma.$transaction(async tx=>{
+export async function synchronizeVip(userId, client=prisma) {
+  if (!await client.vipMembership.findUnique({where:{userId},select:{userId:true}})) return null;
+  return client.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
     const membership=await tx.vipMembership.findUnique({where:{userId},include:{tier:{include:{assets:true}}}});
     if(!membership)return null; // Never reinterpret a legacy numeric membership.
@@ -34,6 +35,7 @@ export async function synchronizeVip(userId) {
       const data={expiresAt:membership.expiresAt,source:"VIP_TIER",sourceReference:membership.tierId};
       await tx.uploadAssetAssignment.upsert({where:{assetId_userId:{assetId,userId}},create:{assetId,userId,...data},update:data});
     }
+    await syncProgressionProps(userId, tx);
     return level;
   });
 }

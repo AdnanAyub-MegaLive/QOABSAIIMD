@@ -28,3 +28,9 @@ Persist a purchase key before sending. A retry of the same key/tier returns the 
 `202610150001_vip_ownership` adds tier pricing, ownership and purchase records. Existing VipMembership rows are copied unchanged, preserving expiry/revocation. The existing membership remains the selected-membership projection, keeping current permission consumers compatible. No wallet balances are migrated or changed.
 
 Apply migrations before starting the updated portal; regenerate Prisma and rebuild. Verify same-tier renewal, two-tier ownership and switching, insufficient funds, concurrent retries, expired ownership, and free admin grants in staging before enabling paid tiers in production.
+
+## VIP-level upload rewards
+
+Uploads distributed as `VIP` use the selected active `User.vipLevel`, including new-system memberships. Purchase, selection, admin grant/revoke, and membership synchronization reconcile these rewards within the same database transaction. A reward failure is not silently ignored. Standalone Store/My Props synchronization locks the user row to avoid racing a tier change.
+
+Downgrade or expiry removes only `source: VIP` assignments whose VIP threshold exceeds the new level; purchases and manual grants remain intact. Tier-bundled `VIP_TIER` artwork continues to use its existing expiry rules. Buying another tier without selecting it does not unlock that higher tier's level rewards. Non-members still see `Requires VIP N` in the Store. Existing members reconcile on their next authenticated request or Store/My Props read; no balance changes or migration are required.

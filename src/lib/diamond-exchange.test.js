@@ -26,6 +26,17 @@ describe("diamond exchange", () => {
     expect(rows[1]).toMatchObject({ direction: "CREDIT", coins: 3n, diamonds: null });
     expect(rows[0].referenceId).toBe(rows[1].referenceId);
   });
+  it("enforces reseller exclusion and the CS override before ledger writes",async()=>{
+    for(const appRoles of [["RESELLER"],["RESELLER","HOST","ADMIN"]]) {
+      const db=database({appRoles});
+      await expect(exchangeDiamonds("u","10","request-1",db)).rejects.toThrow("EXCHANGE_DISABLED");
+      expect(db.tx.user.update).not.toHaveBeenCalled();
+      expect(db.tx.walletTransaction.createMany).not.toHaveBeenCalled();
+    }
+    for(const appRoles of [["CS","RESELLER"],["CS_LEADER","RESELLER","ADMIN"],["BD"],["ADMIN"]]) {
+      await expect(exchangeDiamonds("u","10","request-1",database({appRoles}))).resolves.toMatchObject({coins:"3"});
+    }
+  });
   it("replays saved result without debiting and rejects a changed request", async () => {
     const db = database();
     db.tx.walletTransaction.findUnique.mockResolvedValue({ metadata: { requested: "10", result: { diamonds: "91", coins: "3" } } });

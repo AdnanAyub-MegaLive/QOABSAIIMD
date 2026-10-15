@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { amount, currencyError } from "./currency-policy.js";
+import { walletEligibility } from "./wallet-eligibility.js";
 
 export function payoutConfiguration(policy) {
   const r = policy?.rules ?? {};
@@ -20,8 +21,8 @@ export function payoutConfiguration(policy) {
 
 export function withdrawalAvailability(user, policy) {
   const configured = payoutConfiguration(policy);
-  const eligible = user.status === "ACTIVE" && !user.deletedAt && Boolean(user.agencyId && (user.role === "HOST" || user.appRoles?.includes("HOST")));
-  const reason = !eligible ? { code: "WITHDRAWAL_NOT_ALLOWED", message: "Only an active agency-linked host can request salary withdrawals." }
+  const eligible = walletEligibility(user).withdraw;
+  const reason = !eligible ? { code: "WITHDRAWAL_NOT_ALLOWED", message: "Withdrawals require an eligible assigned role or active agency ownership. Ordinary users, CS and CS Leaders can only Exchange." }
     : !configured ? { code: "PAYOUT_CONFIGURATION_INCOMPLETE", message: "Withdrawals are unavailable while the platform completes payout rates, limits and fees." }
     : policy.rules.usdtEnabled !== true ? { code: "WITHDRAWAL_DISABLED", message: "The platform has disabled withdrawals." }
     : BigInt(user.hostSalaryCoinBalance ?? 0) < BigInt(policy.rules.withdrawalMinDiamonds) ? { code: "INSUFFICIENT_DIAMONDS", message: "Your available Diamonds are below the minimum withdrawal amount." } : null;

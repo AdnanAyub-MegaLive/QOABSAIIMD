@@ -1,7 +1,9 @@
+import { walletEligibility } from "./wallet-eligibility.js";
 export const serviceFields = ["MinDiamonds", "MaxDiamonds", "Multiple", "DailyLimit", "MonthlyLimit"];
 export function serviceError(code, message, status = 422) { return Object.assign(new Error(message), { code, status }); }
 export function diamondRules(policy, user, kind) {
   const r = policy.rules, host = Boolean(user.agencyId && (user.role === "HOST" || user.appRoles?.includes("HOST")));
+  const eligibility = walletEligibility(user);
   const prefix = kind === "TRANSFER" ? "transfer" : "exchange";
   const fields = Object.fromEntries(serviceFields.map(suffix => [suffix, r[prefix + suffix] ?? null]));
   const configured = policy.configured !== false && Object.values(fields).every(v => /^[1-9]\d*$/.test(String(v ?? "")));
@@ -10,8 +12,8 @@ export function diamondRules(policy, user, kind) {
   if (!configured || (kind === "EXCHANGE" && !/^[1-9]\d*$/.test(String(rate ?? "")))) reason = "Configuration is incomplete. Contact support.";
   else if (kind === "TRANSFER" ? !r.hostTransferEnabled : !(host ? r.hostExchangeEnabled : r.userExchangeEnabled)) reason = `${kind === "TRANSFER" ? "Diamond Transfer" : "Diamond Exchange"} is disabled.`;
   else if (user.status !== "ACTIVE" || user.deletedAt) reason = "Your account is not eligible.";
-  else if (kind === "TRANSFER" && (!host || !user.country)) reason = "An agency-linked host account with a selected country is required.";
-  else if (kind === "EXCHANGE" && (user.appRoles?.includes("RESELLER") || user.diamondExchangeEnabled === false)) reason = "Exchange is unavailable for this account.";
+  else if (kind === "TRANSFER" && (!eligibility.transfer || !user.country)) reason = "Diamond Transfer requires an eligible assigned role or active agency ownership and a selected country. CS and CS Leaders can only Exchange.";
+  else if (kind === "EXCHANGE" && (!eligibility.exchange || user.diamondExchangeEnabled === false)) reason = "Exchange is unavailable for this account.";
   return { enabled: !reason, reason, policyVersion: policy.version, minDiamonds: fields.MinDiamonds, maxDiamonds: fields.MaxDiamonds, amountMultiple: fields.Multiple, dailyLimit: fields.DailyLimit, monthlyLimit: fields.MonthlyLimit, feeDiamonds: "0", feeBps: 0, periodTimezone: "UTC", ...(kind === "EXCHANGE" ? { diamondsPerCoin: rate || null } : {}) };
 }
 export function validateServiceAmount(value, rules, kind) {

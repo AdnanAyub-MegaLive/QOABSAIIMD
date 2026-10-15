@@ -1,7 +1,9 @@
 import { expect, it, vi } from "vitest";
 import { WalletTransactionType } from "@prisma/client";
 vi.mock("./prisma.js",()=>({prisma:{}}));
-import { vipRenewalExpiry, changeVip } from "./vip-commerce.js";
+vi.mock("./props-store.js",()=>({syncProgressionProps:vi.fn()}));
+import { syncProgressionProps } from "./props-store.js";
+import { vipRenewalExpiry, changeVip, selectOwnedVip } from "./vip-commerce.js";
 it("uses a ledger type supported by the generated Prisma client",()=>{
  expect(WalletTransactionType.VIP_PURCHASE).toBe("VIP_PURCHASE");
 });
@@ -32,4 +34,13 @@ it("buying a different VIP retains the previous selection and debits only its co
  expect(result.tierId).toBe("new");expect(select).not.toHaveBeenCalled();
  expect(updateMany.mock.calls[0][0]).toMatchObject({where:{coinBalance:{gte:10n}},data:{coinBalance:{decrement:10n}}});
  expect(tx.walletTransaction.create).toHaveBeenCalledTimes(1);
+ expect(syncProgressionProps).toHaveBeenCalledWith("u",tx);
+});
+it("syncs rewards in the selecting/granting transaction and propagates failures",async()=>{
+ const tx={vipMembership:{upsert:vi.fn()},user:{update:vi.fn()},uploadAssetAssignment:{deleteMany:vi.fn()}};
+ const tier={id:"t",level:1,active:true,assets:[]},owned={expiresAt:new Date(Date.now()+86400000),startsAt:new Date()};
+ await selectOwnedVip(tx,"u",owned,tier);
+ expect(syncProgressionProps).toHaveBeenCalledWith("u",tx);
+ vi.mocked(syncProgressionProps).mockRejectedValueOnce(new Error("sync failed"));
+ await expect(selectOwnedVip(tx,"u",owned,tier)).rejects.toThrow("sync failed");
 });

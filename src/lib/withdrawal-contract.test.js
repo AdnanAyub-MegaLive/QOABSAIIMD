@@ -13,7 +13,8 @@ it("always exposes policy but does not fabricate missing payout rates",async()=>
 });
 it("distinguishes unavailable reasons and eligible accounts",()=>{
   expect(withdrawalAvailability(host,policy).canWithdraw).toBe(true);
-  expect(withdrawalAvailability({...host,agencyId:null},policy).reason.code).toBe("WITHDRAWAL_NOT_ALLOWED");
+  expect(withdrawalAvailability({...host,agencyId:null},policy).canWithdraw).toBe(true);
+  expect(withdrawalAvailability({...host,role:"LISTENER"},policy).reason.code).toBe("WITHDRAWAL_NOT_ALLOWED");
   expect(withdrawalAvailability(host,{...policy,rules:{...rules,usdtEnabled:false}}).reason.code).toBe("WITHDRAWAL_DISABLED");
   expect(withdrawalAvailability({...host,hostSalaryCoinBalance:0n},policy).reason.code).toBe("INSUFFICIENT_DIAMONDS");
   for(const key of ["withdrawalDiamondsPerUsd","usdtMicrosPerUsd","withdrawalMinDiamonds","withdrawalMaxDiamonds","feeBearer","commissionChart"]){

@@ -1,6 +1,7 @@
 import { prisma } from "./prisma.js";
 import { ledgerData } from "./wallet.js";
 import { decorationMedia } from "./decoration-media.js";
+import { syncProgressionProps } from "./props-store.js";
 const fail=(code,message,status=409)=>{throw Object.assign(new Error(message),{code,status});};
 
 export function vipRenewalExpiry(existing,days,now=new Date()) {
@@ -22,6 +23,7 @@ export async function selectOwnedVip(tx,userId,owned,tier) {
     const grant={expiresAt:owned.expiresAt,source:"VIP_TIER",sourceReference:tier.id};
     await tx.uploadAssetAssignment.upsert({where:{assetId_userId:{assetId,userId}},create:{assetId,userId,...grant},update:grant});
   }
+  await syncProgressionProps(userId, tx);
 }
 
 export async function vipCatalog(userId,origin,db=prisma) {
@@ -55,6 +57,7 @@ export async function changeVip(userId,{action,tierId,requestKey},db=prisma) {
     // Renew selected VIP; purchasing a different one retains the user's selection.
     const current=await tx.vipMembership.findUnique({where:{userId},include:{tier:true}});
     if(action==="SELECT"||!current||current.revokedAt||current.expiresAt<=new Date()||!current.tier.active||current.tierId===tierId)await selectOwnedVip(tx,userId,owned,tier);
+    else await syncProgressionProps(userId, tx);
     const balance=await tx.user.findUnique({where:{id:userId},select:{coinBalance:true}});
     const result={tierId,expiresAt:owned.expiresAt.toISOString(),coinBalance:balance.coinBalance.toString()};
     if(action==="PURCHASE")await tx.vipPurchase.create({data:{userId,requestKey,tierId,result}});

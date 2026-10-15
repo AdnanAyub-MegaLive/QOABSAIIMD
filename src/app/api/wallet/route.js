@@ -1,4 +1,5 @@
 import { withdrawalAvailability } from "@/lib/withdrawal-contract";
+import { walletEligibility } from "@/lib/wallet-eligibility";
 import { prisma } from "@/lib/prisma";
 import { currencyPolicy } from "@/lib/currency-policy";
 import { diamondRules } from "@/lib/diamond-service-rules";
@@ -23,6 +24,7 @@ export async function GET(request) {
         appRoles: true,
         role: true,
         agencyId: true,
+        ownedAgency: { select: { status: true } },
         hostSalaryCoinBalance: true,
         couponBalance: true,
         totalTopUp: true,
@@ -40,7 +42,7 @@ export async function GET(request) {
         withdrawal,
         diamondExchange: diamondRules(policy, user, "EXCHANGE"),
         diamondTransfer: diamondRules(policy, user, "TRANSFER"),
-        canTransferCoins: user.appRoles.includes("RESELLER"),
+        canTransferCoins: user.appRoles.includes("RESELLER") && walletEligibility(user).transfer,
         diamonds: user.hostSalaryCoinBalance.toString(),
         coupons: user.couponBalance,
         totalRecharge: user.totalTopUp.toString(),

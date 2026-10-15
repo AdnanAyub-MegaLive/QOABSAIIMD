@@ -6,7 +6,8 @@ it("requires explicit complete policy and eligible account",()=>{
   expect(diamondRules(policy,user,"TRANSFER")).toMatchObject({enabled:true,feeDiamonds:"0",feeBps:0});
   expect(diamondRules({...policy,rules:{}},user,"TRANSFER").enabled).toBe(false);
   expect(diamondRules(policy,{...user,country:null},"TRANSFER").enabled).toBe(false);
-  expect(diamondRules(policy,{...user,agencyId:null},"TRANSFER").enabled).toBe(false);
+  expect(diamondRules(policy,{...user,agencyId:null},"TRANSFER").enabled).toBe(true);
+  expect(diamondRules(policy,{...user,appRoles:["LISTENER"]},"TRANSFER").enabled).toBe(false);
 });
 it("validates minimum maximum and multiple",()=>{
   const rules=diamondRules(policy,user,"TRANSFER");

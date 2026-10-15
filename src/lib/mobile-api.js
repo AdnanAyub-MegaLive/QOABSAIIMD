@@ -158,7 +158,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     SELF_TRANSFER: [422, "SELF_TRANSFER", "You cannot transfer coins to yourself."],
     TRANSFER_LIMIT: [422, "TRANSFER_LIMIT", "The transfer amount is outside the allowed limits."],
     WITHDRAWAL_LIMIT: [422, "WITHDRAWAL_LIMIT", "The withdrawal amount is outside the allowed limits."],
-    WITHDRAWAL_NOT_ALLOWED: [403, "WITHDRAWAL_NOT_ALLOWED", "Only an agency-linked host can withdraw Diamonds."],
+    WITHDRAWAL_NOT_ALLOWED: [403, "WITHDRAWAL_NOT_ALLOWED", "This account is not eligible to transfer or withdraw Diamonds. Ordinary users, CS and CS Leaders can only Exchange."],
     KYC_REQUIRED: [403, "KYC_REQUIRED", "Complete account verification before requesting a withdrawal."],
     INSUFFICIENT_SALARY: [409, "INSUFFICIENT_SALARY", "Your host salary balance is too low for this withdrawal."],
     COIN_PACKAGE_NOT_FOUND: [404, "COIN_PACKAGE_NOT_FOUND", "The selected coin package is unavailable."],

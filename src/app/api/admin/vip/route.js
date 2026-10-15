@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/portal-admin";
 import { VIP_PRIVILEGES,validateVipTier } from "@/lib/vip-contract";
 import { selectOwnedVip } from "@/lib/vip-commerce";
+import { syncProgressionProps } from "@/lib/props-store";
 const fail=(message,status=422)=>Object.assign(new Error(message),{status,code:"VALIDATION_ERROR"});
 function response(error){return Response.json({success:false,error:{code:error.code==="P2002"?"VIP_LEVEL_EXISTS":error.status?error.code:"VIP_UPDATE_FAILED",message:error.code==="P2002"?"This VIP level already exists.":error.status?error.message:"Unable to update VIP management."}},{status:error.code==="P2002"?409:error.status??500});}
 export async function GET(request){try{
@@ -34,6 +35,7 @@ export async function POST(request){try{
         await tx.vipMembership.updateMany({where:{userId:user.id},data:{revokedAt:new Date()}});
         await tx.user.update({where:{id:user.id},data:{vipLevel:0}});
         await tx.uploadAssetAssignment.deleteMany({where:{userId:user.id,source:"VIP_TIER"}});
+        await syncProgressionProps(user.id, tx);
         row={id:user.publicId};
       }else{
         const tier=await tx.vipTier.findFirst({where:{id:String(body.tierId??""),active:true},include:{assets:true}});

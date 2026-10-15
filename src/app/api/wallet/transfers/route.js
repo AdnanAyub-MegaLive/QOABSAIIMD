@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { walletEligibility } from "@/lib/wallet-eligibility";
 import { notifyAction } from "@/lib/action-notifications";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { integerSetting, ledgerData, parsePositiveCoins, walletPublicId } from "@/lib/wallet";
@@ -10,7 +11,7 @@ export function OPTIONS() {
 export async function POST(request) {
   try {
     const sender = await requireMobileUser(request);
-    if (!sender.appRoles?.includes("RESELLER")) throw new Error("RESELLER_REQUIRED");
+    if (!sender.appRoles?.includes("RESELLER") || !walletEligibility(sender).transfer) throw new Error("RESELLER_REQUIRED");
     const body = await request.json();
     const recipientPublicId = String(body?.recipientPublicId ?? "").trim();
     const coins = parsePositiveCoins(body?.coins);
@@ -21,7 +22,7 @@ export async function POST(request) {
     const result = await prisma.$transaction(
       async (tx) => {
         const currentSender = await tx.user.findUniqueOrThrow({ where: { id: sender.id }, select: { appRoles: true, status: true, deletedAt: true } });
-        if (!currentSender.appRoles.includes("RESELLER") || currentSender.status !== "ACTIVE" || currentSender.deletedAt) throw new Error("RESELLER_REQUIRED");
+        if (!currentSender.appRoles.includes("RESELLER") || !walletEligibility(currentSender).transfer) throw new Error("RESELLER_REQUIRED");
         const recipient = await tx.user.findFirst({
           where: { publicId: recipientPublicId, deletedAt: null },
           select: { id: true, publicId: true, name: true, status: true },

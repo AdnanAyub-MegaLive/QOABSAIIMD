@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { createCurrencyRequest } from "./currency-operations.js";
+import { issueWithdrawalQuote } from "./withdrawal-contract.js";
 
 function database() {
   const sender = { id: "u", publicId: "TLN-1", status: "ACTIVE", country: "PK", agencyId: "a", appRoles: ["HOST"] };
@@ -15,6 +16,43 @@ function database() {
   return { tx, $transaction: vi.fn(work => work(tx)) };
 }
 const input = { kind: "RESELLER_TRANSFER", diamonds: "50", recipientPublicId: "USR-2" };
+it.each(["ADMIN","RESELLER","HOST"])("accepts a quoted %s withdrawal and replays without a second reservation",async role=>{
+  vi.stubEnv("AUTH_SECRET","wallet-eligibility-test-secret");
+  try {
+    const db=database();
+    db.tx.user.findUniqueOrThrow.mockResolvedValue({id:"u",publicId:"USR-1",status:"ACTIVE",appRoles:[role]});
+    db.tx.currencyPolicy.findUnique.mockResolvedValue({version:1,rules:{usdtEnabled:true,withdrawalDiamondsPerUsd:"90",usdtMicrosPerUsd:"1000000",withdrawalMinDiamonds:"10",withdrawalMaxDiamonds:"100000",feeBearer:"HOST",commissionChart:[{minUsdMicros:"0",bps:"0",fixedUsdtMicros:"0",networkUsdtMicros:"0"}]}});
+    const destination="T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
+    const request={kind:"USDT",diamonds:"90",destination,policyVersion:1,...issueWithdrawalQuote({userId:"u",diamonds:"90",destination,policyVersion:1})};
+    const first=await createCurrencyRequest(db,"u",request,"withdraw-1");
+    expect(first).toMatchObject({status:"PENDING",diamonds:"90",netUsdtMicros:"1000000"});
+    expect(db.tx.user.updateMany).toHaveBeenCalledWith({where:{id:"u",hostSalaryCoinBalance:{gte:90n}},data:{hostSalaryCoinBalance:{decrement:90n}}});
+    db.tx.currencyRequest.findUnique.mockResolvedValue(first);
+    expect(await createCurrencyRequest(db,"u",request,"withdraw-1")).toEqual(first);
+    expect(db.tx.user.updateMany).toHaveBeenCalledTimes(1);
+    expect(db.tx.walletTransaction.create).toHaveBeenCalledTimes(1);
+  } finally { vi.unstubAllEnvs(); }
+});
+it.each(["HOST","BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD","MANAGER","RESELLER"])("allows %s without agency membership to transfer",async role=>{
+  const db=database();
+  db.tx.user.findUniqueOrThrow.mockResolvedValue({id:"u",publicId:"USR-1",status:"ACTIVE",country:"PK",appRoles:[role]});
+  await expect(createCurrencyRequest(db,"u",input,"request-1")).resolves.toMatchObject({diamonds:"50"});
+  expect(db.tx.user.updateMany).toHaveBeenCalledTimes(2);
+});
+it.each([[],["CS"],["CS_LEADER","HOST","RESELLER","ADMIN"]])("blocks restricted roles %j before transfer or withdrawal debits",async appRoles=>{
+  for(const kind of ["RESELLER_TRANSFER","USDT"]) {
+    const db=database();
+    db.tx.user.findUniqueOrThrow.mockResolvedValue({id:"u",status:"ACTIVE",country:"PK",appRoles,agencyId:"a"});
+    await expect(createCurrencyRequest(db,"u",{...input,kind},"request-1")).rejects.toMatchObject({code:"WITHDRAWAL_NOT_ALLOWED"});
+    expect(db.tx.user.updateMany).not.toHaveBeenCalled();
+  }
+});
+it("allows an active agency owner and rechecks current roles on submission",async()=>{
+  const db=database();
+  db.tx.user.findUniqueOrThrow.mockResolvedValue({id:"u",publicId:"USR-1",status:"ACTIVE",country:"PK",ownedAgency:{status:"ACTIVE"}});
+  await expect(createCurrencyRequest(db,"u",input,"request-1")).resolves.toMatchObject({diamonds:"50"});
+  expect(db.tx.user.findUniqueOrThrow).toHaveBeenCalledWith({where:{id:"u"},include:{ownedAgency:{select:{status:true}}}});
+});
 it("credits the reseller the full submitted amount with no fee", async () => {
   const db = database();
   const row = await createCurrencyRequest(db, "u", input, "request-1");

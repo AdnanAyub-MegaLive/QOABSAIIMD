@@ -1,10 +1,10 @@
 import { verifyWithdrawalQuote } from "./withdrawal-contract.js";
+import { walletEligibility, walletAgencyInclude } from "./wallet-eligibility.js";
 import { notifyAction } from "./action-notifications.js";
 import { createHash } from "node:crypto";
 import { currencyPolicy, amount, currencyError, payoutQuote } from "./currency-policy.js";
 import { ledgerData } from "./wallet.js";
 import { diamondRules, validateServiceAmount, checkDiamondLimits, eligibleResellerWhere, activeSpecialIdWhere, serviceError } from "./diamond-service-rules.js";
-export const isHost=user=>Boolean(user.agencyId&&(user.role==="HOST"||user.appRoles?.includes("HOST")));
 const isReseller=user=>user.appRoles?.includes("RESELLER");
 export const serializeCurrencyRequest=row=>JSON.parse(JSON.stringify(row,(_,v)=>typeof v==="bigint"?String(v):v));
 export function currencyRequestDto(row) {
@@ -31,18 +31,18 @@ export async function createCurrencyRequest(db,userId,input,key) {
   return transaction(db,async tx=>{
     const previous=await tx.currencyRequest.findUnique({where:{userId_idempotencyKey:{userId,idempotencyKey:key}}});
     if(previous){if(previous.fingerprint!==fingerprint)throw currencyError("Idempotency key already used with different details.","IDEMPOTENCY_CONFLICT");return serializeCurrencyRequest(previous);}
-    const user=await tx.user.findUniqueOrThrow({where:{id:userId}});
+    const user=await tx.user.findUniqueOrThrow({where:{id:userId},include:walletAgencyInclude});
     if(user.status!=="ACTIVE"||user.deletedAt)throw currencyError("Account is not active.","SESSION_REVOKED");
     const policy=await currencyPolicy(tx),r=policy.rules;
     if(input.policyVersion!==undefined&&input.policyVersion!==policy.version)throw currencyError("Rates changed. Request a new quote before submitting.","CURRENCY_QUOTE_EXPIRED");
     let quotedCoins=0n,netUsdtMicros=0n,quote=null,recipient=null;
     if(kind==="REDEMPTION"){
-      if(!isReseller(user)||!r.redemptionEnabled)throw currencyError("Reseller redemption is unavailable.","REDEMPTION_DISABLED");
+      if(!isReseller(user)||!walletEligibility(user).withdraw||!r.redemptionEnabled)throw currencyError("Reseller redemption is unavailable.","REDEMPTION_DISABLED");
       const gross=diamonds/BigInt(r.redemptionDiamondsPerCoin);
       quotedCoins=gross*(10000n-BigInt(r.redemptionDeductionBps))/10000n;
       if(quotedCoins<=0n)throw currencyError("The amount is too small after deductions.");
     }else{
-      if(!isHost(user))throw currencyError("Only agency-linked hosts may cash out Diamonds.","WITHDRAWAL_NOT_ALLOWED");
+      if(!walletEligibility(user)[kind==="USDT"?"withdraw":"transfer"])throw currencyError("This account is not eligible to transfer or withdraw Diamonds. Ordinary users, CS and CS Leaders can only Exchange.","WITHDRAWAL_NOT_ALLOWED");
       if(kind==="USDT"){
         if (!Number.isInteger(input.policyVersion) || input.policyVersion !== policy.version) throw currencyError("Request and confirm a fresh quote.", "CURRENCY_QUOTE_EXPIRED");
         verifyWithdrawalQuote(input.quoteToken,{userId,diamonds,destination,policyVersion:policy.version});

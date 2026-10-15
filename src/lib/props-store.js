@@ -26,20 +26,23 @@ export function entitlementExpiry(asset, from = new Date()) {
 }
 
 export async function syncProgressionProps(userId, client = prisma) {
+  if (client === prisma) return prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    return syncProgressionProps(userId, tx);
+  });
   await syncResellerProps(userId, client);
   const user = await client.user.findUnique({
     where: { id: userId },
     select: { id: true, vipLevel: true, totalTopUp: true, deletedAt: true },
   });
   if (!user || user.deletedAt) return;
-  const vipMembership = await client.vipMembership.findUnique({ where: { userId } });
   const eligible = await client.uploadAsset.findMany({
     where: {
       active: true,
       OR: [
         {
           distribution: "VIP",
-          minimumVipLevel: { not: null, lte: vipMembership ? 0 : user.vipLevel },
+          minimumVipLevel: { not: null, lte: user.vipLevel },
         },
         {
           distribution: "SVIP",
@@ -52,6 +55,10 @@ export async function syncProgressionProps(userId, client = prisma) {
       distribution: true,
       defaultGrantDurationMinutes: true,
     },
+  });
+  // Revoke only level-derived rewards, never independent purchases or grants.
+  await client.uploadAssetAssignment.deleteMany({
+    where: { userId: user.id, source: "VIP", asset: { distribution: "VIP", minimumVipLevel: { gt: user.vipLevel } } },
   });
   if (!eligible.length) return;
   const now = new Date();
