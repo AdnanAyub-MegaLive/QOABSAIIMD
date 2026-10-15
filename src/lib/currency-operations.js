@@ -63,15 +63,15 @@ export async function createCurrencyRequest(db,userId,input,key) {
     const reserved=await tx.user.updateMany({where:{id:userId,hostSalaryCoinBalance:{gte:diamonds}},data:{hostSalaryCoinBalance:{decrement:diamonds}}});
     if(!reserved.count)throw new Error("INSUFFICIENT_DIAMONDS");
     const row=await tx.currencyRequest.create({data:{userId,kind,idempotencyKey:key,fingerprint,diamonds,quotedCoins,netUsdtMicros,recipientPublicId:recipient?.publicId??null,destination:kind==="USDT"?destination:null,status:recipient?"PENDING_EXTERNAL":"PENDING",policySnapshot:serializeCurrencyRequest({...policy,quote})}});
-    await tx.walletTransaction.create({data:ledgerData({userId,type:recipient?"TRANSFER_SENT":"WITHDRAWAL",direction:"DEBIT",title:recipient?"Diamonds sent to reseller":"Diamonds reserved for review",diamonds,referenceId:row.id,metadata:{kind,policyVersion:policy.version}})});
+    await tx.walletTransaction.create({data:ledgerData({userId,type:recipient?"TRANSFER_SENT":kind==="REDEMPTION"?"DIAMOND_EXCHANGE_DEBIT":"WITHDRAWAL",direction:"DEBIT",title:recipient?"Diamonds sent to reseller":kind==="REDEMPTION"?"Diamonds held for Coin exchange":"Diamonds reserved for review",diamonds,referenceId:row.id,metadata:{kind,policyVersion:policy.version}})});
     if(recipient){
       const credited=await tx.user.updateMany({where:{id:recipient.id,hostSalaryCoinBalance:{lte:9223372036854775807n-diamonds}},data:{hostSalaryCoinBalance:{increment:diamonds}}});
       if(!credited.count)throw currencyError("Recipient balance limit exceeded.");
       await tx.walletTransaction.create({data:ledgerData({userId:recipient.id,type:"TRANSFER_RECEIVED",direction:"CREDIT",title:"Diamonds received; external payment pending",diamonds,referenceId:row.id,metadata:{senderId:user.publicId,policyVersion:policy.version,verifiedHostTransfer:Boolean(user.agencyId&&(user.role==="HOST"||user.appRoles?.includes("HOST")))}})});
     }
     await tx.auditLog.create({data:{action:"CURRENCY_REQUEST_CREATED",category:"FINANCE",entityType:"CurrencyRequest",entityId:row.id,description:`${user.publicId}: ${kind}`,metadata:{diamonds:String(diamonds),policyVersion:policy.version}}});
-    await notifyAction(tx,{userId,key:`currency:${row.id}:created`,type:"CURRENCY_REQUEST",title:recipient?"Diamonds transferred":"Withdrawal request submitted",body:recipient?`${diamonds} Diamonds sent to the reseller. External payment is pending.`:`${diamonds} Diamonds reserved for review.`,action:{screen:"WALLET",requestId:row.id}});
-    if(recipient)await notifyAction(tx,{userId:recipient.id,key:`currency:${row.id}:received`,type:"DIAMOND_TRANSFER",title:"Diamonds received",body:`${diamonds} Diamonds received from ${user.name}. External settlement is pending.`,action:{screen:"WALLET",requestId:row.id}});
+    await notifyAction(tx,{userId,key:`currency:${row.id}:created`,type:"CURRENCY_REQUEST",title:recipient?"Diamonds transferred":kind==="REDEMPTION"?"Exchange request submitted":"Withdrawal request submitted",body:recipient?`${diamonds} Diamonds sent to the reseller. External payment is pending.`:kind==="REDEMPTION"?`${diamonds} Diamonds are held while your Diamonds → Coins exchange is reviewed.`:`${diamonds} Diamonds reserved for review.`,action:{screen:"WALLET",requestId:row.id,kind}});
+    if(recipient)await notifyAction(tx,{userId:recipient.id,key:`currency:${row.id}:received`,type:"DIAMOND_TRANSFER",title:"Diamonds received",body:`${diamonds} Diamonds received from ${user.name}. External settlement is pending.`,action:{screen:"WALLET",requestId:row.id,kind}});
     return serializeCurrencyRequest(row);
   });
 }
@@ -91,7 +91,7 @@ export async function updateOwnCurrencyRequest(db,userId,id,action){
     }else throw currencyError("Invalid action.");
     const result=await tx.currencyRequest.update({where:{id},data:{status:action==="CANCEL"?"CANCELLED":"COMPLETED",...(action==="CANCEL"?{cancelledAt:new Date()}:{})}});
     await tx.auditLog.create({data:{action:`CURRENCY_${action}`,category:"FINANCE",entityType:"CurrencyRequest",entityId:id,description:`Account ${userId} confirmed ${action}`}});
-    await notifyAction(tx,{userId,key:`currency:${id}:${result.status}`,type:"CURRENCY_REQUEST",title:action==="CANCEL"?"Request cancelled and refunded":"External settlement confirmed",body:action==="CANCEL"?`${row.diamonds} Diamonds returned to your balance.`:"Your external settlement confirmation was recorded.",action:{screen:"WALLET",requestId:id}});
+    await notifyAction(tx,{userId,key:`currency:${id}:${result.status}`,type:"CURRENCY_REQUEST",title:action==="CANCEL"?(row.kind==="REDEMPTION"?"Exchange cancelled and refunded":"Request cancelled and refunded"):"External settlement confirmed",body:action==="CANCEL"?`${row.diamonds} Diamonds returned to your balance.`:"Your external settlement confirmation was recorded.",action:{screen:"WALLET",requestId:id,kind:row.kind}});
     return serializeCurrencyRequest(result);
   });
 }
@@ -121,7 +121,7 @@ export async function reviewCurrencyRequest(db,admin,id,action,note,hash,payment
     }
     const updated=await tx.currencyRequest.update({where:{id},data:{status,reviewedBy:admin.id,reviewNote:note,...(action==="APPROVE"?{approvedAt:new Date()}:{}),...(action==="REJECT"?{rejectedAt:new Date()}:{}),...(action==="MARK_PAID"?{payoutHash:hash.toLowerCase(),paidAt:new Date(),paymentVerifiedAt:new Date()}: {})}});
     await tx.auditLog.create({data:{adminId:admin.id,action:`CURRENCY_${action}`,category:"FINANCE",entityType:"CurrencyRequest",entityId:id,description:note,metadata:{status}}});
-    await notifyAction(tx,{userId:row.userId,key:`currency:${id}:${status}`,type:"CURRENCY_REQUEST",title:status==="REJECTED"?"Request rejected and refunded":status==="APPROVED"?"Withdrawal approved":row.kind==="REDEMPTION"?"Redemption completed":"Payment completed",body:status==="REJECTED"?`${row.diamonds} Diamonds refunded. ${note}`:status==="APPROVED"?"Your request is approved. Payment is still pending.":row.kind==="REDEMPTION"?`${row.quotedCoins} Coins credited to your wallet.`:"Your manual payment has been verified and its transaction reference recorded.",action:{screen:"WALLET",requestId:id}});
+    await notifyAction(tx,{userId:row.userId,key:`currency:${id}:${status}`,type:"CURRENCY_REQUEST",title:status==="REJECTED"?(row.kind==="REDEMPTION"?"Exchange rejected":"Request rejected and refunded"):status==="APPROVED"?"Withdrawal approved":row.kind==="REDEMPTION"?"Exchange approved":"Payment completed",body:status==="REJECTED"?`${row.diamonds} Diamonds ${row.kind==="REDEMPTION"?"returned":"refunded"}. ${note}`:status==="APPROVED"?"Your request is approved. Payment is still pending.":row.kind==="REDEMPTION"?`${row.quotedCoins} Coins added to your wallet.`:"Your manual payment has been verified and its transaction reference recorded.",action:{screen:"WALLET",requestId:id,kind:row.kind}});
     return serializeCurrencyRequest(updated);
   });
 }
