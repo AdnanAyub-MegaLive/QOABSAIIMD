@@ -193,6 +193,8 @@ model AuditLog {
 }
 
 model User {
+  sentResellerPayouts ResellerPayout[] @relation("PayoutSender")
+  receivedResellerPayouts ResellerPayout[] @relation("PayoutReseller")
   ownedVips VipOwnership[]
   vipPurchases VipPurchase[]
   profileCoverItems ProfileCoverItem[]
@@ -477,6 +479,42 @@ model CurrencyRequest {
   updatedAt DateTime @updatedAt
   @@unique([userId, idempotencyKey])
   @@index([status, createdAt])
+}
+
+model ResellerPayout {
+  id String @id @default(cuid())
+  senderId String
+  resellerId String
+  sender User @relation("PayoutSender", fields:[senderId], references:[id], onDelete:Restrict)
+  reseller User @relation("PayoutReseller", fields:[resellerId], references:[id], onDelete:Restrict)
+  requestKey String
+  fingerprint String
+  diamonds BigInt
+  quote Json
+  policyVersion Int
+  hostSource Boolean @default(false)
+  country String
+  bankCipher String
+  maskedBank String
+  status String @default("PENDING")
+  paymentDays Int?
+  paymentDueAt DateTime
+  proofData Bytes?
+  proofMimeType String?
+  proofUploadedAt DateTime?
+  proofSubmittedAt DateTime?
+  verifyDueAt DateTime?
+  paymentReference String?
+  reviewReason String?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([senderId,requestKey])
+  @@index([status,paymentDueAt])
+  @@index([status,verifyDueAt])
+  @@index([resellerId,createdAt,id])
+  @@index([senderId,createdAt,id])
 }
 
 model VideoLiveCover {

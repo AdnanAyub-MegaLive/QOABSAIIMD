@@ -1,4 +1,5 @@
 import { verifyWithdrawalQuote } from "./withdrawal-contract.js";
+import { redemptionCoins, redeemableHostDiamonds } from "./reseller-redemption.js";
 import { walletEligibility, walletAgencyInclude } from "./wallet-eligibility.js";
 import { notifyAction } from "./action-notifications.js";
 import { createHash } from "node:crypto";
@@ -38,8 +39,10 @@ export async function createCurrencyRequest(db,userId,input,key) {
     let quotedCoins=0n,netUsdtMicros=0n,quote=null,recipient=null;
     if(kind==="REDEMPTION"){
       if(!isReseller(user)||!walletEligibility(user).withdraw||!r.redemptionEnabled)throw currencyError("Reseller redemption is unavailable.","REDEMPTION_DISABLED");
-      const gross=diamonds/BigInt(r.redemptionDiamondsPerCoin);
-      quotedCoins=gross*(10000n-BigInt(r.redemptionDeductionBps))/10000n;
+      if (diamonds > await redeemableHostDiamonds(tx,userId)) throw currencyError("Only unspent, verified Host-transfer Diamonds can be redeemed. Older unverified balances require review.","REDEMPTION_SOURCE_INELIGIBLE");
+      quotedCoins=redemptionCoins(diamonds,r);
+      r.redemptionHostSourceRequired=true;
+      if(quotedCoins>9223372036854775807n)throw currencyError("Redemption exceeds the supported amount.");
       if(quotedCoins<=0n)throw currencyError("The amount is too small after deductions.");
     }else{
       if(!walletEligibility(user)[kind==="USDT"?"withdraw":"transfer"])throw currencyError("This account is not eligible to transfer or withdraw Diamonds. Ordinary users, CS and CS Leaders can only Exchange.","WITHDRAWAL_NOT_ALLOWED");
@@ -64,7 +67,7 @@ export async function createCurrencyRequest(db,userId,input,key) {
     if(recipient){
       const credited=await tx.user.updateMany({where:{id:recipient.id,hostSalaryCoinBalance:{lte:9223372036854775807n-diamonds}},data:{hostSalaryCoinBalance:{increment:diamonds}}});
       if(!credited.count)throw currencyError("Recipient balance limit exceeded.");
-      await tx.walletTransaction.create({data:ledgerData({userId:recipient.id,type:"TRANSFER_RECEIVED",direction:"CREDIT",title:"Host Diamonds received; external payment pending",diamonds,referenceId:row.id,metadata:{senderId:user.publicId,policyVersion:policy.version}})});
+      await tx.walletTransaction.create({data:ledgerData({userId:recipient.id,type:"TRANSFER_RECEIVED",direction:"CREDIT",title:"Diamonds received; external payment pending",diamonds,referenceId:row.id,metadata:{senderId:user.publicId,policyVersion:policy.version,verifiedHostTransfer:Boolean(user.agencyId&&(user.role==="HOST"||user.appRoles?.includes("HOST")))}})});
     }
     await tx.auditLog.create({data:{action:"CURRENCY_REQUEST_CREATED",category:"FINANCE",entityType:"CurrencyRequest",entityId:row.id,description:`${user.publicId}: ${kind}`,metadata:{diamonds:String(diamonds),policyVersion:policy.version}}});
     await notifyAction(tx,{userId,key:`currency:${row.id}:created`,type:"CURRENCY_REQUEST",title:recipient?"Diamonds transferred":"Withdrawal request submitted",body:recipient?`${diamonds} Diamonds sent to the reseller. External payment is pending.`:`${diamonds} Diamonds reserved for review.`,action:{screen:"WALLET",requestId:row.id}});
@@ -84,7 +87,7 @@ export async function updateOwnCurrencyRequest(db,userId,id,action){
       if(row.status!=="PENDING")throw currencyError("Only pending requests may be cancelled.");
       const credited=await tx.user.updateMany({where:{id:userId,hostSalaryCoinBalance:{lte:9223372036854775807n-row.diamonds}},data:{hostSalaryCoinBalance:{increment:row.diamonds}}});
       if(!credited.count)throw currencyError("Balance limit prevents cancellation.");
-      await tx.walletTransaction.create({data:ledgerData({userId,type:"REFUND",direction:"CREDIT",title:"Cancelled Diamond request refunded",diamonds:row.diamonds,referenceId:row.id})});
+      await tx.walletTransaction.create({data:ledgerData({userId,type:"REFUND",direction:"CREDIT",title:"Cancelled Diamond request refunded",diamonds:row.diamonds,referenceId:row.id,metadata:row.kind==="REDEMPTION"&&row.policySnapshot?.rules?.redemptionHostSourceRequired?{restoredHostDiamonds:String(row.diamonds)}:{}})});
     }else throw currencyError("Invalid action.");
     const result=await tx.currencyRequest.update({where:{id},data:{status:action==="CANCEL"?"CANCELLED":"COMPLETED",...(action==="CANCEL"?{cancelledAt:new Date()}:{})}});
     await tx.auditLog.create({data:{action:`CURRENCY_${action}`,category:"FINANCE",entityType:"CurrencyRequest",entityId:id,description:`Account ${userId} confirmed ${action}`}});
@@ -102,7 +105,7 @@ export async function reviewCurrencyRequest(db,admin,id,action,note,hash,payment
       status="REJECTED";
       const refunded=await tx.user.updateMany({where:{id:row.userId,hostSalaryCoinBalance:{lte:9223372036854775807n-row.diamonds}},data:{hostSalaryCoinBalance:{increment:row.diamonds}}});
       if(!refunded.count)throw currencyError("Balance limit prevents refund; manual review required.");
-      await tx.walletTransaction.create({data:ledgerData({userId:row.userId,type:"REFUND",direction:"CREDIT",title:"Rejected Diamond request refunded",diamonds:row.diamonds,referenceId:row.id})});
+      await tx.walletTransaction.create({data:ledgerData({userId:row.userId,type:"REFUND",direction:"CREDIT",title:"Rejected Diamond request refunded",diamonds:row.diamonds,referenceId:row.id,metadata:row.kind==="REDEMPTION"&&row.policySnapshot?.rules?.redemptionHostSourceRequired?{restoredHostDiamonds:String(row.diamonds)}:{}})});
     }else if(action==="APPROVE"){
       if(row.status!=="PENDING")throw currencyError("Request is already approved.");
       status="APPROVED";

@@ -78,6 +78,9 @@ app.prepare().then(async()=>{
   const maintenanceTimer=setInterval(runRealtimeMaintenance,15000);
   const {expirePendingCustomBackgrounds}=await import("./src/lib/custom-background-maintenance.js");
   const customBackgroundTimer=setInterval(()=>expirePendingCustomBackgrounds().catch(e=>console.error("Custom background maintenance failed",e.message)),60000);
+  const {expirePayouts}=await import("./src/lib/reseller-payouts.js");
+  const payoutTimer=setInterval(()=>expirePayouts(prisma).catch(()=>console.error("Reseller escrow maintenance failed")),60000);
+  payoutTimer.unref();
   customBackgroundTimer.unref();
   maintenanceTimer.unref?.();
   const liveKitAccessFor=(targetUser,roomId,canPublish)=>rtcProvider()==="TRTC"?audioRtcAccess(targetUser,roomId,canPublish):isLiveKitConfigured()?issueLiveKitAccess(targetUser,roomId,canPublish):Promise.resolve(null);

@@ -16,6 +16,19 @@ function database() {
   return { tx, $transaction: vi.fn(work => work(tx)) };
 }
 const input = { kind: "RESELLER_TRANSFER", diamonds: "50", recipientPublicId: "USR-2" };
+it("reserves only verified Host-source Diamonds for admin-reviewed 9:5 redemption",async()=>{
+ const db=database();
+ db.tx.user.findUniqueOrThrow.mockResolvedValue({id:"u",publicId:"USR-1",status:"ACTIVE",appRoles:["RESELLER"]});
+ db.tx.currencyPolicy.findUnique.mockResolvedValue({version:1,rules:{redemptionEnabled:true,redemptionDiamondsPerCoin:"9",redemptionCoinsNumerator:"5",redemptionDeductionBps:"0"}});
+ db.tx.walletTransaction.findMany=vi.fn(async()=>[]);
+ await expect(createCurrencyRequest(db,"u",{kind:"REDEMPTION",diamonds:"90000"},"redeem-1")).rejects.toMatchObject({code:"REDEMPTION_SOURCE_INELIGIBLE"});
+ expect(db.tx.user.updateMany).not.toHaveBeenCalled();
+ db.tx.walletTransaction.findMany.mockResolvedValue([{direction:"CREDIT",type:"TRANSFER_RECEIVED",diamonds:90000n,metadata:{verifiedHostTransfer:true}}]);
+ const row=await createCurrencyRequest(db,"u",{kind:"REDEMPTION",diamonds:"90000"},"redeem-1");
+ expect(row).toMatchObject({status:"PENDING",diamonds:"90000",quotedCoins:"50000",policySnapshot:{rules:{redemptionHostSourceRequired:true}}});
+ expect(db.tx.user.updateMany).toHaveBeenCalledTimes(1);
+ expect(db.tx.user.updateMany.mock.calls[0][0].data).toEqual({hostSalaryCoinBalance:{decrement:90000n}});
+});
 it.each(["ADMIN","RESELLER","HOST"])("accepts a quoted %s withdrawal and replays without a second reservation",async role=>{
   vi.stubEnv("AUTH_SECRET","wallet-eligibility-test-secret");
   try {

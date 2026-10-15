@@ -1,11 +1,12 @@
 "use client";
 import { useState, useTransition } from "react";
+import ResellerPayoutReview from "./reseller-payout-review";
 import { saveCurrencyPolicy, reviewCurrency } from "./currency-actions";
 const inputClass="mt-2 h-11 w-full rounded-lg border border-[#dce6e4] bg-white px-3 text-sm";
 const groups={
   "Gift & Recharge":[["giftDiamondsNumerator","Diamonds awarded"],["giftCoinsDenominator","Per gift Coins"],["rechargeCoinsPerUsd","Recharge Coins per USD"],["withdrawalDiamondsPerUsd","Salary Diamonds per USD"]],
   "Exchange":[["userDiamondsPerCoin","User Diamonds per Coin"],["hostDiamondsPerCoin","Host Diamonds per Coin (configure first)"],["exchangeMinDiamonds","Minimum exchange Diamonds"]],
-  "Resellers":[["redemptionDiamondsPerCoin","Redemption Diamonds per Coin"],["redemptionDeductionBps","Deduction basis points (100 = 1%)"]],
+  "Resellers":[["redemptionDiamondsPerCoin","Redemption Diamond units (denominator)"],["redemptionCoinsNumerator","Coins per Diamond unit group (numerator; 9 Diamonds / 5 Coins = 9 and 5)"],["redemptionDeductionBps","Deduction basis points (100 = 1%)"]],
   "USDT Commission":[["usdtMicrosPerUsd","USDT micro-units per USD (1 USDT = 1000000)"],["withdrawalMinDiamonds","Minimum withdrawal Diamonds"],["withdrawalMaxDiamonds","Maximum withdrawal Diamonds"]],
 };
 groups.Exchange.push(["exchangeMaxDiamonds","Maximum exchange Diamonds"],["exchangeMultiple","Exchange amount multiple"],["exchangeDailyLimit","Daily exchange limit (UTC, debited Diamonds)"],["exchangeMonthlyLimit","Monthly exchange limit (UTC, debited Diamonds)"]);
@@ -31,6 +32,7 @@ export default function CurrencySettings({initial,version,requests,canManage,can
         <button type="button" className="rounded-lg border px-4 py-2 text-sm" onClick={()=>change("commissionChart",[...rules.commissionChart,{minUsdMicros:"",bps:"",fixedUsdtMicros:"",networkUsdtMicros:""}])}>Add commission bracket</button></>}
       <button className="rounded-lg bg-[#087f74] px-5 py-3 text-sm font-bold text-white">{pending?"Saving…":"Save currency rules"}</button>
     </fieldset></form>:<div className="space-y-4">{requests.length===0&&<p className="text-sm text-[#71847f]">No requests yet.</p>}{requests.map(row=><article key={row.id} className="rounded-xl border p-4"><p className="font-semibold">{row.user?.name} · {row.user?.publicId} · {row.kind}</p><p className="mt-1 text-sm">{row.diamonds} Diamonds · {row.status} · Coins: {row.quotedCoins} · Net USDT micros: {row.netUsdtMicros}</p><p className="break-all text-xs">{row.destination??row.recipientPublicId}</p>{row.payoutHash&&<p className="break-all text-xs">TRON hash: {row.payoutHash}</p>}{["PENDING","APPROVED"].includes(row.status)&&canReview&&<form onSubmit={e=>review(e,row.id)} className="mt-3 grid gap-2 md:grid-cols-2"><select name="action" className={inputClass}>{row.status==="PENDING"&&<option value="APPROVE">Approve</option>}<option value="REJECT">Reject and refund</option>{row.status==="APPROVED"&&row.kind==="USDT"&&<option value="MARK_PAID">Confirm manually paid</option>}</select><label className="flex items-center gap-2 text-xs"><input name="paymentVerified" type="checkbox"/>I verified the successful TRC20 payment, destination and amount (required to mark paid).</label><input name="hash" placeholder="TRON transaction hash (when paid)" className={inputClass}/><input name="note" required maxLength={1000} placeholder="Review reason / verification note" className={inputClass}/><button disabled={pending} className="rounded-lg bg-[#087f74] text-white">Submit review</button></form>}</article>)}</div>}
+    {tab==="Review Queue"&&canReview&&<ResellerPayoutReview/>}
     {notice&&<p role="status" className="mt-5 rounded-lg bg-[#f4f8f7] p-3 text-sm">{notice}</p>}
   </section>;
 }

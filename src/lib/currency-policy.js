@@ -5,7 +5,7 @@ export const currencyDefaults = {
   rechargeCoinsPerUsd: "45000", withdrawalDiamondsPerUsd: "90000",
   userExchangeEnabled: true, userDiamondsPerCoin: "2", hostExchangeEnabled: false, hostDiamondsPerCoin: "",
   exchangeMinDiamonds: "10000", hostTransferEnabled: true,
-  redemptionEnabled: false, redemptionDiamondsPerCoin: "", redemptionDeductionBps: "",
+  redemptionEnabled: false, redemptionDiamondsPerCoin: "", redemptionCoinsNumerator: "1", redemptionDeductionBps: "",
   usdtEnabled: false, usdtMicrosPerUsd: "", withdrawalMinDiamonds: "", withdrawalMaxDiamonds: "",
   feeBearer: "HOST", commissionChart: [],
   transferMinDiamonds: "", transferMaxDiamonds: "", transferMultiple: "", transferDailyLimit: "", transferMonthlyLimit: "",
@@ -27,6 +27,7 @@ export function validateCurrencyPolicy(input) {
   }
   for (const key of ["withdrawalDiamondsPerUsd","usdtMicrosPerUsd","withdrawalMinDiamonds","withdrawalMaxDiamonds"]) r[key]=input[key]??"";
   r.feeBearer=input.feeBearer??"";
+  r.redemptionCoinsNumerator=amount(r.redemptionCoinsNumerator).toString();
   for(const key of ["userExchangeEnabled","hostExchangeEnabled","hostTransferEnabled","redemptionEnabled","usdtEnabled"])if(typeof r[key]!=="boolean")throw currencyError("Invalid availability setting.");
   for(const key of ["giftDiamondsNumerator","giftCoinsDenominator","rechargeCoinsPerUsd","userDiamondsPerCoin","exchangeMinDiamonds"])r[key]=amount(r[key]).toString();
   for(const key of ["withdrawalDiamondsPerUsd","hostDiamondsPerCoin","redemptionDiamondsPerCoin","usdtMicrosPerUsd","withdrawalMinDiamonds","withdrawalMaxDiamonds"])r[key]=r[key]===""?"":amount(r[key]).toString();
