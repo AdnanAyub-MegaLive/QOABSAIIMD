@@ -8,6 +8,11 @@ import { notifyAction } from "./action-notifications.js";
 export const payoutFail=(code,message,status=409)=>{throw Object.assign(new Error(message),{code,status});};
 const hash=value=>createHash("sha256").update(value).digest("hex");
 const DAY=86400000;
+// Reseller bank payouts have no commission or network deduction. Keep the
+// existing valuation/limits, but never use the official USDT fee chart.
+export function resellerPayoutQuote(diamonds, policy) {
+ return payoutQuote(diamonds,{...policy,rules:{...policy.rules,feeBearer:"COMPANY",commissionChart:[{minUsdMicros:"0",bps:"0",fixedUsdtMicros:"0",networkUsdtMicros:"0"}]}});
+}
 function encryptionKey() {
  const key=process.env.PAYOUT_BANK_ENCRYPTION_KEY;
  if(!/^[a-fA-F0-9]{64}$/.test(key??""))payoutFail("PAYOUT_CONFIGURATION_INCOMPLETE","Private payout storage is not configured.",503);
@@ -47,7 +52,7 @@ function verifyQuote(token,expected) {
   const [body,sig,extra]=token.split("."),actual=Buffer.from(sig,"base64url"),wanted=sign(body);
   if(extra||actual.length!==wanted.length||!timingSafeEqual(actual,wanted))throw Error();
   const data=JSON.parse(Buffer.from(body,"base64url").toString());
-  if(data.purpose!=="RESELLER_ESCROW"||data.expires<=Date.now()||Object.entries(expected).some(([k,v])=>data[k]!==v))throw Error();
+  if(data.purpose!=="RESELLER_ESCROW_FEE_FREE"||data.expires<=Date.now()||Object.entries(expected).some(([k,v])=>data[k]!==v))throw Error();
  }catch{payoutFail("CURRENCY_QUOTE_EXPIRED","Request a fresh quote and confirm the payout again.");}
 }
 async function eligible(tx,userId,diamonds,resellerPublicId) {
@@ -58,14 +63,14 @@ async function eligible(tx,userId,diamonds,resellerPublicId) {
  if(!reseller||!walletEligibility(reseller).transfer)payoutFail("RESELLER_INELIGIBLE","Choose an active eligible reseller in your country.",422);
  if(user.hostSalaryCoinBalance<diamonds)payoutFail("INSUFFICIENT_DIAMONDS","Insufficient Diamonds.");
  await checkDiamondLimits(tx,userId,diamonds,rules,"TRANSFER");
- return {user,reseller,policy,quote:payoutQuote(diamonds,policy)};
+ return {user,reseller,policy,quote:resellerPayoutQuote(diamonds,policy)};
 }
 export async function escrowQuote(db,userId,input) {
  encryptionKey();
  const diamonds=amount(input.diamonds),bank=normalizeBank(input.bank);
  const {user,reseller,policy,quote}=await eligible(db,userId,diamonds,String(input.resellerPublicId??""));
  const expires=Date.now()+600000;
- return {diamonds:String(diamonds),resellerPublicId:reseller.publicId,country:user.country,...quote,policyVersion:policy.version,expiresAt:new Date(expires).toISOString(),quoteToken:quoteToken({purpose:"RESELLER_ESCROW",userId,resellerId:reseller.id,diamonds:String(diamonds),bankHash:hash(JSON.stringify(bank)),policyVersion:policy.version,country:user.country,expires})};
+ return {diamonds:String(diamonds),resellerPublicId:reseller.publicId,country:user.country,...quote,policyVersion:policy.version,expiresAt:new Date(expires).toISOString(),quoteToken:quoteToken({purpose:"RESELLER_ESCROW_FEE_FREE",userId,resellerId:reseller.id,diamonds:String(diamonds),bankHash:hash(JSON.stringify(bank)),policyVersion:policy.version,country:user.country,expires})};
 }
 async function transaction(db,work) {
  for(let i=0;i<4;i++)try{return await db.$transaction(work,{isolationLevel:"Serializable",timeout:15000});}catch(e){if(!["P2034","P2002"].includes(e.code)||i===3)throw e;}

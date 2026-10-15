@@ -89,7 +89,9 @@ it("creates escrow with one debit and replays without a second charge",async()=>
  vi.stubEnv("PAYOUT_BANK_ENCRYPTION_KEY","a".repeat(64));vi.stubEnv("AUTH_SECRET","test-quote-secret");
  const database=creationDb(),input={diamonds:"1800000",resellerPublicId:"USR-R",bank};
  const quote=await escrowQuote(database,"s",input);
- expect(quote.netUsdtMicros).toBe("9300000");
+ expect(quote.netUsdtMicros).toBe("20000000");
+ expect(quote.commissionMicros).toBe("0");
+ expect(quote.networkFeeMicros).toBe("0");
  const request={...input,quoteToken:quote.quoteToken};
  expect(await createEscrow(database,"s",request,"payout-key-1")).toBe("p");
  expect(await createEscrow(database,"s",request,"payout-key-1")).toBe("p");
