@@ -8,7 +8,8 @@ import {
 } from "@/lib/mobile-api";
 import { requireRoomPermission } from "@/lib/audio-room-management";
 import { emitToAudioRoom } from "@/lib/realtime";
-import { ensureAudioRoomSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "@/lib/audio-room-seats";
+import { ensureAudioRoomSeats, reconcileAudioRoomLayoutSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "@/lib/audio-room-seats";
+import { updateRtcPublishPermission } from "@/lib/rtc-moderation";
 import { requestOrigin } from "@/lib/user-perks";
 import { normalizeGiftInteractions, serializeGiftInteractions } from "@/lib/audio-room-gift-interactions";
 export function OPTIONS() {
@@ -97,7 +98,8 @@ export async function PATCH(request, { params }) {
     const nextPaidEntryCoins = data.paidEntryCoins === undefined ? room.paidEntryCoins : data.paidEntryCoins;
     if (nextPrivacyMode === "PAID" && (!nextPaidEntryCoins || nextPaidEntryCoins < 1n))
       throw Object.assign(new Error("paidEntryCoins is required when privacyMode is PAID."), { code: "VALIDATION_ERROR" });
-    const updated = await prisma.audioRoom.update({
+    const layoutResult = await prisma.$transaction(async tx => {
+    const updated = await tx.audioRoom.update({
       where: { id: room.id },
       data: { ...data, revision: { increment: 1 } },
       select: {
@@ -116,6 +118,10 @@ export async function PATCH(request, { params }) {
         updatedAt: true,
       },
     });
+    const removed = data.seatLayout ? await reconcileAudioRoomLayoutSeats(tx, { ...room, ...updated }, updateRtcPublishPermission) : [];
+    return { updated, removed };
+    });
+    const { updated } = layoutResult;
     const result = {
       ...updated,
       ...roomCoverDto(updated, requestOrigin(request)),

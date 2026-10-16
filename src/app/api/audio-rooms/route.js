@@ -4,7 +4,8 @@ import { versionMediaPayload } from "@/lib/media-payload";
 import { prisma } from "../../../lib/prisma";
 import { requireMobileUser } from "../../../lib/mobile-api";
 import { reconcileExpiredAudioRoomRestrictions } from "../../../lib/audio-room-maintenance";
-import { ensureAudioRoomSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "../../../lib/audio-room-seats";
+import { ensureAudioRoomSeats, reconcileAudioRoomLayoutSeats, normalizeAudioRoomSeatLayout, readAudioRoomSeatState } from "../../../lib/audio-room-seats";
+import { updateRtcPublishPermission } from "../../../lib/rtc-moderation";
 import { emitToAudioRoom } from "../../../lib/realtime";
 import { normalizeGiftInteractions, serializeGiftInteractions } from "../../../lib/audio-room-gift-interactions";
 import {
@@ -212,7 +213,8 @@ export async function POST(request) {
         select: { id: true },
       }),
     );
-    existing = await prisma.audioRoom.upsert({
+    const layoutResult = await prisma.$transaction(async tx => {
+    const saved = await tx.audioRoom.upsert({
       where: { ownerId: user.id },
       update: { ...data, revision: { increment: 1 } },
       create: {
@@ -223,6 +225,10 @@ export async function POST(request) {
       },
       include: roomBackgroundInclude,
     });
+    const removed = await reconcileAudioRoomLayoutSeats(tx, saved, updateRtcPublishPermission);
+    return { saved, removed };
+    });
+    existing = layoutResult.saved;
     await ensureAudioRoomSeats(existing.id, seatLayout);
     if (Object.hasOwn(body, "seatLayout")) {
       const seatState = await readAudioRoomSeatState(existing, origin);

@@ -4,7 +4,8 @@ import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
 
 export const defaultAudioRoomSeatLayout = [3, 4, 4];
-export const maxAudioRoomSeats = 20;
+// Audience seats only; the owner's header position is separate (26 total).
+export const maxAudioRoomSeats = 25;
 
 export function normalizeAudioRoomSeatLayout(value, { optional = false } = {}) {
   if (value == null && optional) return null;
@@ -34,6 +35,23 @@ export async function ensureAudioRoomSeats(audioRoomId, layout = defaultAudioRoo
     skipDuplicates: true,
   });
   return seatIds;
+}
+
+// Called inside the layout writer's transaction, not during ordinary seat reads.
+export async function reconcileAudioRoomLayoutSeats(tx, room, revokePublish = null) {
+  const seatIds = audioRoomSeatIds(room.seatLayout);
+  const removed = await tx.audioRoomSeat.findMany({
+    where: { audioRoomId: room.id, seatId: { notIn: seatIds }, occupantUserId: { not: null } },
+    select: { occupant: { select: { publicId: true } } },
+  });
+  // Fail closed: keep the old layout/occupancy if media enforcement fails,
+  // so a retry can still find every affected occupant.
+  const removedIds = removed.map(seat => seat.occupant?.publicId).filter(Boolean);
+  if (revokePublish) for (const publicId of removedIds) await revokePublish(room.roomId, publicId, false);
+  await tx.audioRoomSeat.deleteMany({ where: { audioRoomId: room.id, seatId: { notIn: seatIds } } });
+  await tx.audioRoomSeat.createMany({ data: seatIds.map(seatId => ({ audioRoomId: room.id, seatId })), skipDuplicates: true });
+  await tx.audioRoom.update({ where: { id: room.id }, data: { seatRevision: { increment: 1 } } });
+  return removedIds;
 }
 
 function publicOccupant(user, perks) {
