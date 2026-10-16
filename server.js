@@ -469,13 +469,15 @@ app.prepare().then(async()=>{
           }
         }
       }catch(error){
-        console.error("Audio room join failed",error);
+        const expectedJoinErrors={RTC_ROOM_JOIN_REQUIRED:"Connection lost. Reconnect and join the room again.",RTC_INVALID_IDENTITY:"Your account ID is not supported by the audio provider. Contact support."};
+        const expectedCode=Object.hasOwn(expectedJoinErrors,error.message)?error.message:null;
+        if(!expectedCode)console.error("Audio room join failed",error);
         if(newlyJoinedRoom&&!joinSucceeded){
           await socket.leave(`audio-room:${newlyJoinedRoom.roomId}`);
           socket.data.audioRoomTaskTimers.delete(newlyJoinedRoom.roomId);
           await unregisterRoomPresence(newlyJoinedRoom,user,connectionOrigin).catch(()=>console.error("Failed join presence reconciliation required"));
         }
-        ack({success:false,error:{code:"ROOM_JOIN_FAILED",message:"Unable to join this room."}});
+        ack({success:false,error:{code:expectedCode??"ROOM_JOIN_FAILED",message:expectedCode?expectedJoinErrors[expectedCode]:"Unable to join this room."}});
       }
     };
     socket.on("audio-room:join",(input={},ack=()=>{})=>{

@@ -1,13 +1,15 @@
 "use client";
 
+import { unwrapAction } from "@/lib/action-validation";
+
 import Link from "next/link";
 import { Search, Crown, ChevronDown, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
-  assignSpecialId,
+  assignSpecialId as assignSpecialIdAction,
   deleteUserAccount,
   resetUserPassword,
-  updateUserAccount,
+  updateUserAccount as updateUserAccountAction,
 } from "../database-actions";
 import usePortalData from "../hooks/use-portal-data";
 import DurationPicker from "../components/duration-picker";
@@ -640,3 +642,7 @@ function Actions({ onClose, confirm }) {
 }
 const input =
   "h-11 w-full rounded-lg border border-[#dce6e4] bg-white px-3 text-xs";
+const updateUserAccount = (...args) => updateUserAccountAction(...args).then(unwrapAction);
+
+const assignSpecialId = (...args) => assignSpecialIdAction(...args).then(unwrapAction);
+

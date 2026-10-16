@@ -10,7 +10,7 @@ export async function GET(request) {
     if (!roomId) throw Object.assign(new Error("roomId is required."), { code: "VALIDATION_ERROR" });
     return mobileJson({ success: true, data: { roomId, envelopes: await listRedEnvelopes(roomId, user) } });
   } catch (error) {
-    console.error("Red envelope list failed", error);
+    if (!["ROOM_PARTICIPANT_REQUIRED", "ROOM_UNAVAILABLE", "VALIDATION_ERROR"].includes(error.code)) console.error("Red envelope list failed", error);
     return mobileApiError(error, "RED_ENVELOPE_LIST_FAILED");
   }
 }

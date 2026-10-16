@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { validationResult } from "@/lib/action-validation";
 import { adminProfileFields } from "../lib/admin-profile-input";
 import { rolesWithOfficial } from "../lib/admin-role-update";
 import { requirePermission } from "@/lib/portal-admin";
@@ -67,7 +68,7 @@ export async function updateUserAccount(publicId, changes) {
   if (changes.status !== undefined) await requirePermission("users.ban");
   if (changes.isOfficial !== undefined || changes.isVerified !== undefined) await requirePermission("users.verify");
   if (changes.role !== undefined || changes.roles !== undefined) await requirePermission("hosts.manage");
-  const currentUser = await prisma.user.findUniqueOrThrow({
+  const currentUser = await prisma.user.findUnique({
     where: { publicId },
     select: {
       id: true,
@@ -79,18 +80,19 @@ export async function updateUserAccount(publicId, changes) {
       status: true,
     },
   });
+  if (!currentUser) return validationResult("USER_NOT_FOUND");
   const data = adminProfileFields(changes);
   if (changes.roles !== undefined && normalizeApplicationRoles(changes.roles).includes("OFFICIAL") !== currentUser.appRoles.includes("OFFICIAL")) await requirePermission("users.verify");
   let nextRoles = normalizeApplicationRoles(currentUser.appRoles);
   if (changes.role !== undefined) {
     data.role = enumValue(changes.role);
     if (data.role === "HOST" && !currentUser.agencyId)
-      throw new Error("HOST_AGENCY_REQUIRED");
+      return validationResult("HOST_AGENCY_REQUIRED");
   }
   if (changes.roles !== undefined) {
     const roles = normalizeApplicationRoles(changes.roles);
     if (roles.includes("HOST") && !currentUser.agencyId)
-      throw new Error("HOST_AGENCY_REQUIRED");
+      return validationResult("HOST_AGENCY_REQUIRED");
     data.appRoles = { set: roles };
     nextRoles = roles;
     data.role = primaryLegacyRole(roles, currentUser.role);
@@ -1213,12 +1215,17 @@ export async function assignSpecialId(
   reason,
 ) {
   const admin = await requirePermission("users.specialIds");
-  const assignment = await assignDefinitionToUser({
+  let assignment;
+  try { assignment = await assignDefinitionToUser({
     publicId,
     definitionId,
     durationMinutes,
     source: "ADMIN",
   });
+  } catch (error) {
+    if (["USER_NOT_FOUND", "SPECIAL_ID_NOT_FOUND", "SPECIAL_ID_IS_DISABLED", "SPECIAL_ID_ALREADY_ASSIGNED", "INVALID_SPECIAL_ID_DURATION"].includes(error.message)) return validationResult(error.message);
+    throw error;
+  }
   await logActivity(admin, {
     action: "ASSIGN_SPECIAL_ID",
     category: "USER_MANAGEMENT",

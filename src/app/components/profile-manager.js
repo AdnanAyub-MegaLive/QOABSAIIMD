@@ -1,12 +1,14 @@
 "use client";
 
+import { unwrapAction } from "@/lib/action-validation";
+
 import { useState } from "react";
 import Image from "next/image";
 import CountrySelect from "./country-select";
 import { APPLICATION_ROLES, displayApplicationRole, normalizeApplicationRoles } from "@/lib/user-roles";
 import {
   adjustUserCoins,
-  assignSpecialId,
+  assignSpecialId as assignSpecialIdAction,
   createBan,
   deleteUserAccount,
   forceLogoutUser,
@@ -15,7 +17,7 @@ import {
   revokeSpecialId,
   unbanUser,
   updateTalentAccount,
-  updateUserAccount,
+  updateUserAccount as updateUserAccountAction,
 } from "../database-actions";
 
 const format = new Intl.NumberFormat("en-US");
@@ -1036,3 +1038,7 @@ function Reason() {
     </label>
   );
 }
+const updateUserAccount = (...args) => updateUserAccountAction(...args).then(unwrapAction);
+
+const assignSpecialId = (...args) => assignSpecialIdAction(...args).then(unwrapAction);
+

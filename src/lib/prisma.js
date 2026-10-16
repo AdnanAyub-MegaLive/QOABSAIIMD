@@ -1,9 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { mediaVersionExtension } from "./media-version.js";
+import { serializePgTransactions } from "./serialized-pg-adapter.js";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-16-room-banners";
+const prismaSchemaVersion = "2026-10-16-serialized-transactions";
 const requiredUserFields = [
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
   "googleEmail",
@@ -27,7 +28,7 @@ const requiredUserFields = [
 
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+    adapter: serializePgTransactions(new PrismaPg({ connectionString: process.env.DATABASE_URL })),
   }).$extends(mediaVersionExtension);
 
 const cachedUserFields =

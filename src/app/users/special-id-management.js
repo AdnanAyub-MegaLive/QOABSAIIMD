@@ -1,9 +1,11 @@
 "use client";
 
+import { unwrapAction } from "@/lib/action-validation";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  assignSpecialId,
+  assignSpecialId as assignSpecialIdAction,
   createSpecialIdDefinition,
   deleteSpecialIdDefinition,
   revokeSpecialId,
@@ -542,7 +544,7 @@ function AssignModal({ item, onClose, onAssigned }) {
       <Field label="User public ID"><input autoFocus name="userId" required maxLength={64} placeholder="USR-123456 or TLN-123456" className={input}/></Field>
       <DurationPicker defaultMinutes={item.defaultDurationMinutes}/>
       <Field label="Admin reason"><textarea name="reason" required maxLength={500} rows={3} className={input}/></Field>
-      <p className="text-xs text-[#748782]">Assigning this ID replaces the user's existing Special ID. Their permanent account ID is unchanged.</p>
+      <p className="text-xs text-[#748782]">Assigning this ID replaces the user&apos;s existing Special ID. Their permanent account ID is unchanged.</p>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" disabled={pending} onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
@@ -551,4 +553,6 @@ function AssignModal({ item, onClose, onAssigned }) {
     </form>
   </Modal>;
 }
+const assignSpecialId = (...args) => assignSpecialIdAction(...args).then(unwrapAction);
+
 

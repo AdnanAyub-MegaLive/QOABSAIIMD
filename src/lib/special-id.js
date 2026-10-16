@@ -23,8 +23,10 @@ export async function getEffectiveUserId(userId, publicId) {
 
 export async function assignDefinitionToUser({publicId,definitionId,durationMinutes,source="ADMIN"}) {
   await reconcileExpiredSpecialIds();
-  const user=await prisma.user.findUniqueOrThrow({where:{publicId}});
-  const definition=await prisma.specialIdDefinition.findUniqueOrThrow({where:{id:definitionId}});
+  const user=await prisma.user.findUnique({where:{publicId}});
+  if(!user || user.deletedAt) throw new Error("USER_NOT_FOUND");
+  const definition=await prisma.specialIdDefinition.findUnique({where:{id:definitionId}});
+  if(!definition) throw new Error("SPECIAL_ID_NOT_FOUND");
   if(!definition.active)throw new Error("SPECIAL_ID_IS_DISABLED");
   const occupied=await prisma.specialIdAssignment.findFirst({where:{definitionId,status:"ACTIVE",revokedAt:null,expiresAt:{gt:new Date()}}});
   if(occupied)throw new Error("SPECIAL_ID_ALREADY_ASSIGNED");
