@@ -252,6 +252,8 @@ app.prepare().then(async()=>{
   });
 
   io.on("connection",async(socket)=>{
+    const initialization=require("./src/lib/socket-ready-gate.cjs")(socket);
+    try {
     const userId=socket.data.userId;
     socket.join(`user:${userId}`);
     const user=await prisma.user.findUnique({where:{publicId:userId}});
@@ -950,6 +952,12 @@ app.prepare().then(async()=>{
         },0);
       }
     });
+    initialization.ready();
+    } catch(error) {
+      initialization.fail();
+      console.error("Socket initialization failed",error.code??error.name);
+      socket.disconnect(true);
+    }
   });
 
   httpServer.listen(port,hostname,()=>console.log(`> Portal and Socket.IO ready on http://${hostname}:${port}`));

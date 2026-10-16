@@ -1,0 +1,4 @@
+import { it, expect, vi } from 'vitest';
+import gate from './socket-ready-gate.cjs';
+it('holds immediate events until all handlers are registered',async()=>{let middleware;const socket={use:fn=>{middleware=fn},once:vi.fn(),disconnect:vi.fn()};const init=gate(socket),next=vi.fn();const pending=middleware(['audio-room:join',{},vi.fn()],next);await Promise.resolve();expect(next).not.toHaveBeenCalled();init.ready();await pending;expect(next).toHaveBeenCalledOnce();});
+it('returns an explicit failure without executing handlers',async()=>{let middleware;const socket={use:fn=>{middleware=fn},once:vi.fn(),disconnect:vi.fn()};const init=gate(socket),next=vi.fn(),ack=vi.fn();const pending=middleware(['audio-room:join',{},ack],next);init.fail();await pending;expect(next).not.toHaveBeenCalled();expect(ack.mock.calls[0][0].error.code).toBe('SOCKET_INITIALIZATION_FAILED');});
