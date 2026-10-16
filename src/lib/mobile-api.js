@@ -74,6 +74,9 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {
+      MUTUAL_FOLLOW_REQUIRED: [403,"MUTUAL_FOLLOW_REQUIRED","You can message each other once you both follow each other."],
+      VOICE_STORAGE_UNAVAILABLE: [503,"VOICE_STORAGE_UNAVAILABLE","Voice uploads are temporarily unavailable."],
+      RATE_LIMITED: [429,"RATE_LIMITED","Please wait before trying again."],
     PAYOUT_CONFIGURATION_INCOMPLETE: [403, "PAYOUT_CONFIGURATION_INCOMPLETE", "The platform has not completed payout configuration."],
     CURRENCY_QUOTE_EXPIRED: [409,"CURRENCY_QUOTE_EXPIRED","Rates changed. Request a new quote before submitting."],
     WITHDRAWAL_DISABLED: [403,"WITHDRAWAL_DISABLED","Official USDT withdrawals are not configured or enabled."],
@@ -212,7 +215,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     EXCHANGE_DISABLED: [403, "EXCHANGE_DISABLED", "Diamond exchange is disabled for this account."],
     EXCHANGE_BELOW_MINIMUM: [422, "EXCHANGE_BELOW_MINIMUM", "The amount is below the exchange minimum or cannot purchase one coin."],
     INSUFFICIENT_DIAMONDS: [409, "INSUFFICIENT_DIAMONDS", "Your diamond balance is insufficient."],
-    IDEMPOTENCY_CONFLICT: [409, "IDEMPOTENCY_CONFLICT", "This idempotency key was already used with a different amount."],
+    IDEMPOTENCY_CONFLICT: [409, "IDEMPOTENCY_CONFLICT", "This request ID was already used with different details."],
   };
   const [status, code, message] = known[error?.code ?? error?.message] ?? [
     500,

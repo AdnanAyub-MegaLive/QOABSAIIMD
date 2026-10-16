@@ -65,6 +65,10 @@ app.prepare().then(async()=>{
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
+  const {maintainRoomBanners,roomBannerSnapshot}=await import("./src/lib/room-banners.js");
+  let bannersRunning=false;
+  const runBanners=async()=>{if(bannersRunning)return;bannersRunning=true;try{await maintainRoomBanners(prisma)}catch(error){console.error("Room banner maintenance failed",error.code??error.name)}finally{bannersRunning=false}};
+  const bannerTimer=setInterval(runBanners,5000);bannerTimer.unref();setImmediate(runBanners);
   const {startMessageRetention}=await import("./src/lib/message-retention.js");
   startMessageRetention(prisma);
   const {flushRealtimeOutbox}=await import("./src/lib/gift-operation.js");
@@ -284,23 +288,21 @@ app.prepare().then(async()=>{
     for(const membership of conversationMemberships)socket.join(`conversation:${membership.conversation.publicId}`);
     const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
     socket.emit("session:status",{success:true,data:{sessionVersion:user.sessionVersion,forcedLogoutAt:user.forcedLogoutAt?.toISOString()??null,isVerified:Boolean(user.isVerified),isOfficial:Boolean(user.isOfficial),isBanned:Boolean(ban),banReason:ban?.reason??null,banExpiresAt:ban?.expiresAt?.toISOString()??null}});
-    socket.on("message:send",async({conversationId,body}={},ack=()=>{})=>{
+    socket.on("message:send",async({conversationId,body,clientMessageId}={},ack=()=>{})=>{
       try{
         const id=String(conversationId??"");
         const membership=await requireConversationParticipant(id,user.id);
         socket.join(`conversation:${id}`);
-        const senderPerks=(await resolveUserPerks([user],connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"])).get(user.publicId);
-        const message=await createMessage(membership.conversation,user,body,senderPerks);
+        const {chatSenderPerks}=await import("./src/lib/chat-perks-cache.js");
+        const senderPerks=await chatSenderPerks(user,connectionOrigin);
+        const message=await createMessage(membership.conversation,user,body,senderPerks,{clientMessageId});
         const eventPayload={conversationId:id,message};
-        const recipients=await prisma.conversationParticipant.findMany({where:{conversationId:membership.conversationId},select:{user:{select:{publicId:true}}}});
-        let delivery=io.to(`conversation:${id}`);
-        for(const recipient of recipients)delivery=delivery.to(`user:${recipient.user.publicId}`);
-        delivery.emit("message:new",eventPayload);
+        await emitConversationEvent(io,id,"message:new",eventPayload);
         ack({success:true,data:eventPayload});
       }catch(error){
         const code=error?.code??error?.message;
         ack({success:false,error:{
-          code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD"].includes(code)?code:"MESSAGE_SEND_FAILED",
+          code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD","MUTUAL_FOLLOW_REQUIRED","USER_BLOCKED","RATE_LIMITED","IDEMPOTENCY_CONFLICT"].includes(code)?code:"MESSAGE_SEND_FAILED",
           message:error?.validationMessage??(code==="CONVERSATION_NOT_FOUND"?"Conversation not found.":"Unable to send this message."),
         }});
       }
@@ -440,7 +442,7 @@ app.prepare().then(async()=>{
         const [liveKit,giftLeaderboard,access,members,chatHistory,musicState]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30}),readRoomChatHistory(room,connectionOrigin,{limit:30}),serializeRoomMusicForDelivery(room.entertainmentState,connectionOrigin)]);
         await recordAudioRoomVisit(prisma,user.id,room.id);
         joinSucceeded=true;
-        ack({success:true,data:{roomId:room.roomId,title:room.title,...roomCoverDto(room,connectionOrigin),participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,giftInteractions:serializeGiftInteractions(room.giftInteractions),announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,mixState:roomMixSnapshot(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,...rtcFields(liveKit),roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{...perkMediaFields(roomPerks),publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
+        ack({success:true,data:{roomBanners:await roomBannerSnapshot(room.roomId),roomId:room.roomId,title:room.title,...roomCoverDto(room,connectionOrigin),participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,giftInteractions:serializeGiftInteractions(room.giftInteractions),announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,mixState:roomMixSnapshot(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,...rtcFields(liveKit),roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{...perkMediaFields(roomPerks),publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         for(const invitation of pendingSeatInvitations)socket.emit("audio-room:seat-invited",{success:true,data:{invitationId:invitation.id,roomId:room.roomId,seatId:invitation.seatId,status:invitation.status,expiresAt:invitation.expiresAt.toISOString(),inviter:invitation.inviter,recovered:true}});
         const recovered=(recoveringRooms.get(recoveryKey(user,room.roomId))??0)>Date.now();
         recoveringRooms.delete(recoveryKey(user,room.roomId));

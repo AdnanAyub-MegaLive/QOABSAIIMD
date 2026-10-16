@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { vipIsActive } from "./vip-contract.js";
 import { requireMobileUser, mobileJson, mobileApiError } from "./mobile-api.js";
 import { requestOrigin } from "./user-perks.js";
 import { avatarDisplayUrl } from "./avatar-history.js";
@@ -10,6 +11,15 @@ export async function profileSocialList(request, params, type) {
     const { target, isSelf } = await profileAccess(viewer, publicId);
     // Visitor identities are private analytics, not public-profile counters.
     if (type === "visitors" && !isSelf) return mobileJson({ success: false, error: { code: "FORBIDDEN", message: "Only the profile owner can read visitors." } }, 403);
+    if (type === "visitors") {
+      // Re-read the selected membership and tier on every page. Never authorize
+      // from the app, a cached numeric user level, or an unselected owned VIP.
+      const membership = await prisma.vipMembership.findUnique({ where: { userId: viewer.id }, include: { tier: true } });
+      const active = vipIsActive(membership);
+      if (!active || membership.tier.level < 3 || !membership.tier.privileges.includes("VIEW_VISITORS")) {
+        return mobileJson({ success: false, error: { code: "VIP_3_REQUIRED", message: active ? "Upgrade your VIP to VIP 3 to view visitor details." : "Buy VIP 3 to view visitor details." } }, 403);
+      }
+    }
     const query = new URL(request.url).searchParams, offset = type === "visitors" ? 0 : wallOffset(query.get("cursor")), limit = Number(query.get("limit") ?? 20);
     if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new Error("VALIDATION_ERROR");
     const blocks = await prisma.userBlock.findMany({ where: { OR: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }, select: { blockerId: true, blockedId: true } });

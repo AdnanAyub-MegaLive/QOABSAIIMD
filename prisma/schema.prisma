@@ -59,6 +59,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  ROOM_BANNER_PURCHASE
   VIP_PURCHASE
   LIVE_TARGET_REWARD
   LUCKY_GIFT_REWARD
@@ -193,6 +194,7 @@ model AuditLog {
 }
 
 model User {
+  roomBanners RoomBanner[]
   sentResellerPayouts ResellerPayout[] @relation("PayoutSender")
   receivedResellerPayouts ResellerPayout[] @relation("PayoutReseller")
   ownedVips VipOwnership[]
@@ -894,7 +896,60 @@ model ConversationParticipant {
   @@index([userId, conversationId])
 }
 
+model RoomBannerSettings {
+  id String @id @default("default")
+  enabled Boolean @default(false)
+  packages Json @default("[]")
+  revision Int @default(0)
+}
+
+model RoomBannerObject {
+  key String @id
+  checkAt DateTime
+  @@index([checkAt])
+}
+
+model RoomBanner {
+  remindedAt DateTime?
+  id String @id @default(cuid())
+  audioRoomId String
+  room AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Restrict)
+  ownerId String
+  requestId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  fingerprint String
+  status String @default("PENDING")
+  position Int
+  coins BigInt
+  durationDays Int
+  packageName String
+  storageKey String
+  publicKey String?
+  imageUrl String?
+  mimeType String
+  mediaVersion String
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  reviewedAt DateTime?
+  reason String?
+  refundedAt DateTime?
+  @@unique([ownerId, requestId])
+  @@index([audioRoomId, status, expiresAt])
+  @@index([status, expiresAt])
+}
+
+model VoiceObject {
+  key String @id
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
 model Message {
+  clientMessageId String?
+  requestHash String?
+  voiceKey String?
+  voiceDurationMs Int?
+  voiceMimeType String?
   id             String           @id @default(cuid())
   publicId       String           @unique
   conversationId String
@@ -909,6 +964,7 @@ model Message {
   receipts       MessageReceipt[]
 
   @@index([conversationId, createdAt])
+  @@unique([senderId, clientMessageId])
   @@index([senderId, createdAt])
   @@index([conversationId, deletedAt])
   @@index([createdAt])
@@ -1896,6 +1952,9 @@ model TalentViolation {
 }
 
 model AudioRoom {
+  banners               RoomBanner[]
+  bannerRevision        Int @default(0)
+  bannerBroadcastRevision Int @default(0)
   visits                AudioRoomVisit[]
   id                    String                       @id @default(cuid())
   roomId                String                       @unique

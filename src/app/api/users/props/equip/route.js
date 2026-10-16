@@ -1,4 +1,5 @@
 import { prisma } from "../../../../../lib/prisma.js";
+import { invalidateChatPerks } from "@/lib/chat-perks-cache";
 import {
   mobileApiError,
   mobileJson,
@@ -33,6 +34,7 @@ export async function POST(request) {
         category: requestedCategory,
         assetId: null,
       });
+      invalidateChatPerks(user.id);
       return mobileJson({
         success: true,
         data: { category: requestedCategory, assetId: null, equipped: false },
@@ -62,6 +64,7 @@ export async function POST(request) {
       category: asset.category,
       assetId: asset.publicId,
     });
+    invalidateChatPerks(user.id);
     return mobileJson({
       success: true,
       data: {

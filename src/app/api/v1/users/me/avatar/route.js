@@ -3,7 +3,7 @@ import { requireMobileUser, mobileJson, mobileApiError } from "@/lib/mobile-api"
 import { withV1Request, v1Options } from "@/lib/mobile-v1";
 import { isRateLimited } from "@/lib/rate-limit";
 import { requestOrigin } from "@/lib/user-perks";
-import { readAvatarFile, decodeAvatar, saveAvatar } from "@/lib/avatar-upload";
+import { readAvatarFile, decodeAvatar, saveAvatar, AVATAR_GIF_MAX_BYTES } from "@/lib/avatar-upload";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export function POST(request) {
         response.headers.set("Retry-After", "60");
         return response;
       }
-      const bytes = await decodeAvatar(await readAvatarFile(request));
+      const bytes = await decodeAvatar(await readAvatarFile(request, AVATAR_GIF_MAX_BYTES));
       const profileImage = await saveAvatar(prisma, user.id, bytes, requestOrigin(request));
       return mobileJson({ success: true, data: { profileImage } }, 201);
     } catch (error) {

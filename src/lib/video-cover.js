@@ -1,14 +1,20 @@
 import sharp from "sharp";
 import { prisma } from "./prisma.js";
 import { validationError } from "./wallet.js";
-export const COVER_LIMIT = 5 * 1024 * 1024;
+export const COVER_LIMIT = 10 * 1024 * 1024;
 export async function decodeLiveCover(bytes, mime) {
-  const formats = { "image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp" };
-  if (!formats[mime] || !bytes.length || bytes.length > COVER_LIMIT) throw validationError("Cover must be JPEG, PNG or WebP, up to 5 MB.");
+  const formats = { "image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp", "image/gif":"gif" };
+  if (!formats[mime] || !bytes.length || bytes.length > COVER_LIMIT) throw validationError("Cover must be JPEG, PNG, WebP or GIF, up to 10 MB.");
   try {
     const image = sharp(bytes, { limitInputPixels: 25000000, animated: false, failOn: "warning" });
     const meta = await image.metadata();
-    if (meta.format !== formats[mime] || (meta.pages ?? 1) > 1) throw new Error("Invalid format");
+    if (meta.format !== formats[mime]) throw new Error("Invalid format");
+    if(mime==="image/gif") {
+      if((meta.pages??1)>200||meta.width*(meta.pageHeight??meta.height)*(meta.pages??1)>25000000)throw new Error("GIF too complex");
+      await sharp(bytes,{animated:true,limitInputPixels:25000000,failOn:"warning"}).raw().toBuffer();
+      return bytes;
+    }
+    if ((meta.pages ?? 1) > 1) throw new Error("Invalid format");
     return await image.rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).webp({ quality: 85 }).toBuffer();
   } catch { throw validationError("Cover contains invalid or unsupported image content."); }
 }

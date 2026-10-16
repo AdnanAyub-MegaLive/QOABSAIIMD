@@ -1,13 +1,13 @@
 import {prisma} from "@/lib/prisma";
 import {requireMobileUser,mobileJson,mobileApiError} from "@/lib/mobile-api";
 import {readAvatarFile} from "@/lib/avatar-upload";
-import {decodeProfileCover,profileCoverDto} from "@/lib/profile-cover";
+import {decodeProfileCover,profileCoverDto,COVER_GIF_MAX_BYTES} from "@/lib/profile-cover";
 import {requestOrigin} from "@/lib/user-perks";
 import {isRateLimited} from "@/lib/rate-limit";
 export async function POST(request){try{
  const user=await requireMobileUser(request);
  if(isRateLimited(`profile-cover:${user.id}`,{limit:10,windowMs:3600000}))return mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Try again later."}},429);
- const file=await readAvatarFile(request,20*1024*1024,["image","video"]),bytes=await decodeProfileCover(file);
+ const file=await readAvatarFile(request,COVER_GIF_MAX_BYTES,["image","video"]),bytes=await decodeProfileCover(file);
  await prisma.$transaction(async tx=>{
   await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
   const count=await tx.profileCoverItem.count({where:{userId:user.id}})+(await tx.profileCover.count({where:{userId:user.id}}));

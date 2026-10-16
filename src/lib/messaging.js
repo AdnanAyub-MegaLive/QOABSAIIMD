@@ -1,4 +1,6 @@
 import { prisma } from "./prisma.js";
+import { createHash } from "node:crypto";
+import { isRateLimited } from "./rate-limit.js";
 import { assertChatWordsAllowed } from "./chat-word-policy.js";
 import { formatDateOnly } from "./date-only.js";
 import { assertConversationMessagingAllowed } from "./user-blocks.js";
@@ -77,7 +79,7 @@ export async function createGroupConversation(creator, rawName, rawMemberPublicI
     error.code = "GROUP_MEMBER_NOT_FOUND";
     throw error;
   }
-  return prisma.conversation.create({
+  const conversation = await prisma.conversation.create({
     data: {
       publicId: `CONV-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`,
       kind: "GROUP",
@@ -92,6 +94,8 @@ export async function createGroupConversation(creator, rawName, rawMemberPublicI
     },
     include: groupConversationInclude,
   });
+  for(const member of conversation.participants)globalThis.portalIo?.in(`user:${member.user.publicId}`).socketsJoin(`conversation:${conversation.publicId}`);
+  return conversation;
 }
 
 export async function requireGroupOwner(conversationPublicId, userId) {
@@ -134,6 +138,7 @@ export async function addGroupMember(conversationPublicId, ownerId, targetPublic
     data: { participants: { create: { userId: target.id, role: "MEMBER" } } },
     include: groupConversationInclude,
   });
+  globalThis.portalIo?.in(`user:${targetPublicId}`).socketsJoin(`conversation:${conversation.publicId}`);
   return conversation;
 }
 
@@ -174,6 +179,7 @@ export async function removeGroupMember(conversationPublicId, actorId, targetPub
     throw error;
   }
   await prisma.conversationParticipant.delete({ where: { id: targetMembership.id } });
+  globalThis.portalIo?.in(`user:${targetPublicId}`).socketsLeave(`conversation:${conversationPublicId}`);
   return prisma.conversation.findUnique({
     where: { id: membership.conversationId },
     include: groupConversationInclude,
@@ -219,6 +225,9 @@ export async function requireConversationParticipant(publicId, userId) {
 export function serializeMessage(message, senderPerks) {
   return {
     id: message.publicId,
+    clientMessageId: message.clientMessageId ?? null,
+    type: message.voiceKey ? "voice" : "text",
+    voice: !message.deletedAt && message.voiceKey ? {url:`/api/v1/conversations/${message.conversation?.publicId ?? message.conversationId}/voice/${message.publicId}`,durationMs:message.voiceDurationMs,mimeType:message.voiceMimeType} : null,
     senderId: message.sender?.publicId ?? null,
     senderName: message.sender?.name ?? "System",
     senderProfileImage: message.sender?.profileImage ?? null,
@@ -241,9 +250,21 @@ export async function createMessage(
   sender,
   rawBody,
   senderPerks,
+  options = {},
 ) {
-  await assertConversationMessagingAllowed(conversation, sender.id);
-  const body = String(rawBody ?? "").trim();
+  await assertConversationMessagingAllowed(conversation, sender.id, prisma, true);
+  const clientMessageId = options.clientMessageId ?? null;
+  if(clientMessageId!==null&&(typeof clientMessageId!=="string"||!clientMessageId.trim()||clientMessageId.length>128))throw Object.assign(new Error("Invalid client message ID."),{code:"VALIDATION_ERROR"});
+  const body = options.voice ? "Voice message" : String(rawBody ?? "").trim();
+  const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null})).digest("hex");
+  const replay=async()=>{
+    const prior=await prisma.message.findUnique({where:{senderId_clientMessageId:{senderId:sender.id,clientMessageId}},include:messageSenderInclude});
+    if(prior&&prior.requestHash!==requestHash)throw Object.assign(new Error("Client message ID already used for different content."),{code:"IDEMPOTENCY_CONFLICT"});
+    return prior;
+  };
+  if(clientMessageId){const prior=await replay();if(prior)return serializeMessage(prior,senderPerks);}
+  if(conversation.kind==="WORLD"&&isRateLimited(`world-send:${sender.id}`,{limit:5,windowMs:10000}))throw Object.assign(new Error("Please wait before sending another World Chat message."),{code:"RATE_LIMITED"});
+  if(options.voice&&!["DIRECT","GROUP"].includes(conversation.kind))throw Object.assign(new Error("Voice messages are for private and group chats only."),{code:"VALIDATION_ERROR"});
   if (!body || body.length > 2000) {
     const error = new Error("Message body must contain between 1 and 2000 characters.");
     error.code = "VALIDATION_ERROR";
@@ -252,13 +273,17 @@ export async function createMessage(
   }
   await assertChatWordsAllowed(prisma, body);
   const createdAt = new Date();
-  const message = await prisma.$transaction(async (tx) => {
+  let message;
+  try { message = await prisma.$transaction(async (tx) => {
+    await assertConversationMessagingAllowed(conversation,sender.id,tx,true);
     const record = await tx.message.create({
       data: {
         publicId: `MSG-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`,
         conversationId: conversation.id,
         senderId: sender.id,
         body,
+        clientMessageId, requestHash,
+        ...(options.voice?{voiceKey:options.voice.key,voiceDurationMs:options.voice.durationMs,voiceMimeType:options.voice.mimeType}:{}),
         createdAt,
       },
       include: {
@@ -288,7 +313,7 @@ export async function createMessage(
       },
       data: { lastReadAt: createdAt },
     });
-    const recipients = await tx.conversationParticipant.findMany({
+    const recipients = conversation.kind === "WORLD" ? [] : await tx.conversationParticipant.findMany({
       where: { conversationId: conversation.id, userId: { not: sender.id } },
       select: { userId: true },
     });
@@ -301,7 +326,7 @@ export async function createMessage(
       });
     }
     return record;
-  });
+  }); } catch(error) { if(error.code!=="P2002"||!clientMessageId)throw error; message=await replay();if(!message)throw error; }
   return serializeMessage(message, senderPerks);
 }
 
@@ -332,6 +357,7 @@ const messageSenderInclude = {
 
 export async function editMessage(conversationPublicId, messagePublicId, userId, rawBody) {
   const membership = await requireConversationParticipant(conversationPublicId, userId);
+  await assertConversationMessagingAllowed(membership.conversation,userId,prisma,true);
   const message = await prisma.message.findFirst({
     where: { publicId: messagePublicId, conversationId: membership.conversationId },
     select: { id: true, senderId: true, createdAt: true, deletedAt: true },
@@ -391,6 +417,7 @@ export async function markConversationRead(membership, userId, readAt = new Date
       where: { id: membership.id },
       data: { lastReadAt: readAt },
     });
+    if(membership.conversation.kind==="WORLD")return;
     await tx.messageReceipt.updateMany({
       where: {
         userId,
@@ -417,6 +444,7 @@ export async function markConversationRead(membership, userId, readAt = new Date
 
 export async function markMessageDelivered(conversationPublicId, messagePublicId, userId) {
   const membership = await requireConversationParticipant(conversationPublicId, userId);
+  if(membership.conversation.kind==="WORLD")return {conversationId:conversationPublicId,messageId:messagePublicId,userId,deliveredAt:null};
   const receipt = await prisma.messageReceipt.findFirst({
     where: {
       userId,
@@ -454,6 +482,9 @@ export async function markMessageDelivered(conversationPublicId, messagePublicId
 
 export async function emitConversationEvent(io, conversationId, event, payload) {
   if (!io) return;
+  if(conversationId===WORLD_CONVERSATION_ID){io.to(`conversation:${conversationId}`).emit(event,payload);return;}
+  const conversation=await prisma.conversation.findUnique({where:{publicId:conversationId},select:{kind:true}});
+  if(conversation?.kind==="GROUP"){io.to(`conversation:${conversationId}`).emit(event,payload);return;}
   const participants = await prisma.conversationParticipant.findMany({
     where: { conversation: { publicId: conversationId } },
     select: { user: { select: { publicId: true } } },

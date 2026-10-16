@@ -5,6 +5,7 @@ import { updateProfileWithHistory } from "./avatar-history.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+export const AVATAR_GIF_MAX_BYTES = 25 * 1024 * 1024;
 const formats = { "image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
 function invalid(message, code = "VALIDATION_ERROR") {
   return Object.assign(new Error(message), { code });
@@ -46,14 +47,15 @@ export async function readAvatarFile(request, maxBytes = AVATAR_MAX_BYTES, field
 
 export async function decodeAvatar(file) {
   if (!formats[file.type]) throw invalid("Image must be JPEG, PNG, WebP or GIF.");
-  if (file.size > AVATAR_MAX_BYTES) throw invalid("Avatar cannot exceed 5 MB.", "FILE_TOO_LARGE");
+  const maxBytes = file.type === "image/gif" ? AVATAR_GIF_MAX_BYTES : AVATAR_MAX_BYTES;
+  if (file.size > maxBytes) throw invalid(`Avatar cannot exceed ${maxBytes / 1024 / 1024} MB.`, "FILE_TOO_LARGE");
   try {
     const image = sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 25000000, failOn: "warning", animated: true });
     const meta = await image.metadata();
     if (meta.format !== formats[file.type] || (meta.pages ?? 1) > 200) throw new Error("Invalid image");
     if (file.type === "image/gif" || (meta.pages ?? 1) > 1) {
       const output = await image.resize({width:512,height:512,fit:"inside",withoutEnlargement:true}).webp({quality:80,effort:3}).toBuffer();
-      if (output.length > AVATAR_MAX_BYTES) throw new Error("Animated avatar exceeds output limit");
+      if (output.length > maxBytes) throw new Error("Animated avatar exceeds output limit");
       return output;
     }
     // Fully decode, orient, resize and re-encode; never retain EXIF/location metadata.

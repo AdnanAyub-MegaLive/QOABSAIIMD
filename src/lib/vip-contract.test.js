@@ -2,6 +2,10 @@ import { describe,it,expect } from "vitest";
 import { VIP_PRIVILEGES,validateVipTier,vipIsActive } from "./vip-contract";
 const basic={name:"Royal",level:100,validDays:30,privileges:[],assets:[]};
 describe("VIP contract",()=>{
+  it("supports configurable visitor details only on VIP 3+ without artwork",()=>{
+    expect(validateVipTier({...basic,level:3,privileges:["VIEW_VISITORS"]}).privileges).toEqual(["VIEW_VISITORS"]);
+    expect(()=>validateVipTier({...basic,level:2,privileges:["VIEW_VISITORS"]})).toThrow("VIP level 3");
+  });
   it("allows levels above the old fixed five tiers",()=>expect(validateVipTier(basic).level).toBe(100));
   it.each([0,-1,1.2,3651])("rejects invalid validity %s",validDays=>expect(()=>validateVipTier({...basic,validDays})).toThrow());
   it("requires artwork for selected visual privileges",()=>expect(()=>validateVipTier({...basic,privileges:["VIP_FRAME"]})).toThrow("Choose artwork"));

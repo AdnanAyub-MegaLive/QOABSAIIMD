@@ -13,6 +13,7 @@ export const VIP_PRIVILEGES = [
   ["GIFT_AVATAR", "Gift avatar", "FRAMES"], ["CHAT_BACKGROUND", "Chat background", "CHAT_BOXES"],
   ["PROFILE_CARD", "Profile card", "BUSINESS_CARD"], ["GIF_ROOM_COVER", "GIF room cover"],
   ["LEVEL_BOOST", "Level boost"],
+  ["VIEW_VISITORS", "View visitor details (VIP 3+)"],
 ].map(([key,label,category])=>({key,label,category:category??null}));
 
 export function validateVipTier(body) {
@@ -23,6 +24,7 @@ export function validateVipTier(body) {
   if(!Number.isSafeInteger(validDays)||validDays<1||validDays>3650)fail("Validity must be between 1 and 3650 days.");
   if(!Array.isArray(body.privileges)||body.privileges.some(key=>!VIP_PRIVILEGES.some(p=>p.key===key)))fail("Select supported privileges only.");
   const privileges=[...new Set(body.privileges)];
+  if (privileges.includes("VIEW_VISITORS") && level < 3) fail("Visitor details require VIP level 3 or higher.");
   const assets=body.assets??[];
   if(!Array.isArray(assets)||assets.length>100||assets.some(a=>!privileges.includes(a.privilege)||!VIP_PRIVILEGES.find(p=>p.key===a.privilege)?.category||typeof a.assetId!=="string"))fail("Artwork must belong to a selected artwork privilege.");
   for(const p of VIP_PRIVILEGES.filter(p=>p.category&&privileges.includes(p.key)))if(!assets.some(a=>a.privilege===p.key))fail(`Choose artwork for ${p.label}.`);

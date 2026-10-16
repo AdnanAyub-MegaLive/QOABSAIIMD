@@ -1,4 +1,5 @@
 import { roomCoverDto } from "@/lib/room-cover";
+import { decodeLiveCover } from "@/lib/video-cover";
 import { requireRoomPermission } from "@/lib/audio-room-management";
 import { prisma } from "@/lib/prisma";
 import {
@@ -11,7 +12,7 @@ import { requestOrigin } from "@/lib/user-perks";
 import { emitToAudioRoom } from "@/lib/realtime";
 
 const maxImageSize = 10 * 1024 * 1024;
-const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export function OPTIONS() {
   return mobileOptions();
@@ -32,6 +33,7 @@ function validation(message, fields) {
 }
 
 function validImageSignature(bytes, mime) {
+  if (mime === "image/gif") return ["GIF87a","GIF89a"].includes(Buffer.from(bytes.subarray(0,6)).toString("ascii"));
   if (mime === "image/jpeg")
     return (
       bytes.length >= 3 &&
@@ -70,7 +72,7 @@ export async function POST(request) {
         image: "Select an image.",
       });
     if (!allowedImageTypes.has(file.type))
-      return validation("Image must be a JPEG, PNG, or WebP file.", {
+      return validation("Image must be a JPEG, PNG, WebP, or GIF file.", {
         image: "Unsupported image type.",
       });
     if (file.size > maxImageSize)
@@ -86,6 +88,7 @@ export async function POST(request) {
       );
 
     const imageData = Buffer.from(await file.arrayBuffer());
+    if(file.type==="image/gif")await decodeLiveCover(imageData,file.type);
     if (!validImageSignature(imageData, file.type))
       return validation("Image content does not match its file type.", {
         image: "Invalid image file.",

@@ -1,4 +1,5 @@
 import { prisma } from "../../../../../lib/prisma";
+import { chatSenderPerks } from "@/lib/chat-perks-cache";
 import {
   mobileApiError,
   mobileJson,
@@ -7,6 +8,7 @@ import {
 } from "../../../../../lib/mobile-api";
 import {
   createMessage,
+  emitConversationEvent,
   requireConversationParticipant,
   serializeMessage,
 } from "../../../../../lib/messaging";
@@ -94,27 +96,15 @@ export async function POST(request, { params }) {
       user.id,
     );
     const body = await request.json();
-    const perks = await resolveUserPerks(
-      [user],
-      requestOrigin(request),
-      ["FRAMES", "BADGES", "CHAT_BOXES"],
-    );
+    const senderPerks = await chatSenderPerks(user,requestOrigin(request));
     const message = await createMessage(
       membership.conversation,
       user,
       body?.body,
-      perks.get(user.publicId),
+      senderPerks,
+      { clientMessageId: body?.clientMessageId },
     );
-    const recipients = await prisma.conversationParticipant.findMany({
-      where: { conversationId: membership.conversationId },
-      select: { user: { select: { publicId: true } } },
-    });
-    let delivery = globalThis.portalIo?.to(
-      `conversation:${membership.conversation.publicId}`,
-    );
-    for (const recipient of recipients)
-      delivery = delivery?.to(`user:${recipient.user.publicId}`);
-    delivery?.emit("message:new", {
+    await emitConversationEvent(globalThis.portalIo,membership.conversation.publicId,"message:new", {
         conversationId: membership.conversation.publicId,
         message,
       });

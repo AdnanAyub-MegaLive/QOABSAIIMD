@@ -9,10 +9,10 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export function POST(request) { return withV1Request(request, { path, methods, rateLimit: { limit: 10, windowMs: 60000 } }, async () => {
   try {
     const user = await requireMobileUser(request);
-    if (Number(request.headers.get("content-length")) > COVER_LIMIT + 65536) return mobileJson({ success: false, error: { code: "FILE_TOO_LARGE", message: "Cover cannot exceed 5 MB." } }, 413);
+    if (Number(request.headers.get("content-length")) > COVER_LIMIT + 65536) return mobileJson({ success: false, error: { code: "FILE_TOO_LARGE", message: "Cover cannot exceed 10 MB." } }, 413);
     const form = await request.formData(); const cover = form.get("cover");
     if (!(cover instanceof File)) return mobileJson({ success: false, error: { code: "VALIDATION_ERROR", message: "A cover image is required." } }, 422);
-    if (cover.size > COVER_LIMIT) return mobileJson({ success: false, error: { code: "FILE_TOO_LARGE", message: "Cover cannot exceed 5 MB." } }, 413);
+    if (cover.size > COVER_LIMIT) return mobileJson({ success: false, error: { code: "FILE_TOO_LARGE", message: "Cover cannot exceed 10 MB." } }, 413);
     const data = await decodeLiveCover(Buffer.from(await cover.arrayBuffer()), cover.type);
     const id = randomUUID();
     await prisma.videoLiveCover.create({ data: { id, userId: user.id, data } });

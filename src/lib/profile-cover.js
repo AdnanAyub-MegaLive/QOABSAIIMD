@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import sharp from "sharp";
 import { validateCoverVideo } from "./profile-cover-video.js";
 export const COVER_MAX_BYTES = 8 * 1024 * 1024;
+export const COVER_GIF_MAX_BYTES = 25 * 1024 * 1024;
 const invalid = message => Object.assign(new Error(message), { code: "VALIDATION_ERROR" });
 export async function decodeProfileCover(file) {
   if (file?.type === "video/mp4") {
@@ -10,7 +11,8 @@ export async function decodeProfileCover(file) {
   }
   const formats = { "image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
   if (!file || !formats[file.type]) throw invalid("Choose a JPEG, PNG, WebP or GIF photo.");
-  if (file.size > COVER_MAX_BYTES) throw Object.assign(new Error("Cover photos cannot exceed 8 MB."), { code: "FILE_TOO_LARGE" });
+  const maxBytes = file.type === "image/gif" ? COVER_GIF_MAX_BYTES : COVER_MAX_BYTES;
+  if (file.size > maxBytes) throw Object.assign(new Error(`Cover photos cannot exceed ${maxBytes / 1024 / 1024} MB.`), { code: "FILE_TOO_LARGE" });
   try {
     const bytes = Buffer.from(await file.arrayBuffer());
     const image = sharp(bytes, { limitInputPixels: 25000000, failOn: "warning", animated: file.type === "image/gif" });

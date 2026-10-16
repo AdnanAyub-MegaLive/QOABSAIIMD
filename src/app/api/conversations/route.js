@@ -6,7 +6,7 @@ import {
   requireMobileUser,
 } from "../../../lib/mobile-api";
 import { ensureWorldConversation } from "../../../lib/messaging";
-import { assertUsersCanInteract, listBlockedUserIds } from "../../../lib/user-blocks";
+import { assertMutualFollow, listBlockedUserIds } from "../../../lib/user-blocks";
 import {
   requestOrigin,
   resolveUserPerks,
@@ -164,7 +164,7 @@ export async function POST(request) {
       select: { id: true },
     });
     if (!target) throw new Error("USER_NOT_FOUND");
-    await assertUsersCanInteract(user.id, target.id);
+    await assertMutualFollow(user.id, target.id);
     const directKey = [user.id, target.id].sort().join(":");
     const conversation = await prisma.conversation.upsert({
       where: { directKey },

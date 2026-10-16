@@ -3,7 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { mediaVersionExtension } from "./media-version.js";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-14-media-versions";
+const prismaSchemaVersion = "2026-10-16-room-banners";
 const requiredUserFields = [
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
   "googleEmail",

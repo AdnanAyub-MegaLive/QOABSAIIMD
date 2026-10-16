@@ -5,7 +5,7 @@ import { withV1Request, v1Options } from "@/lib/mobile-v1";
 import { isRateLimited } from "@/lib/rate-limit";
 import { requestOrigin } from "@/lib/user-perks";
 import { readAvatarFile } from "@/lib/avatar-upload";
-import { decodeProfileCover, profileCoverDto } from "@/lib/profile-cover";
+import { decodeProfileCover, profileCoverDto, COVER_GIF_MAX_BYTES } from "@/lib/profile-cover";
 const path = "/api/v1/users/me/cover", methods = "POST, DELETE, OPTIONS";
 export function OPTIONS(request) { return v1Options(request, methods); }
 async function change(request, remove) {
@@ -16,7 +16,7 @@ async function change(request, remove) {
         const response = await mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "You can change your cover up to 10 times per hour." } }, 429);
         response.headers.set("Retry-After", "3600"); return response;
       }
-      const file = remove ? null : await readAvatarFile(request, 20 * 1024 * 1024, ["image", "video"]);
+      const file = remove ? null : await readAvatarFile(request, COVER_GIF_MAX_BYTES, ["image", "video"]);
       const bytes = remove ? null : await decodeProfileCover(file);
       const mimeType = ["image/gif","video/mp4"].includes(file?.type) ? file.type : "image/webp";
       await prisma.$transaction(async tx => {

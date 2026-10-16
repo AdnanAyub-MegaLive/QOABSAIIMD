@@ -1,4 +1,5 @@
 import { roomCoverDto } from "@/lib/room-cover";
+import { publicBanner } from "@/lib/room-banners";
 import { versionMediaPayload } from "@/lib/media-payload";
 import { prisma } from "../../../lib/prisma";
 import { requireMobileUser } from "../../../lib/mobile-api";
@@ -15,6 +16,7 @@ import { serializeRoomBackground } from "../../../lib/room-background";
 import { serializeRoomSeatStyle } from "../../../lib/room-seat-style";
 
 const roomBackgroundInclude = {
+  banners: { where: { status: "ACTIVE" }, orderBy: [{ position: "asc" }, { id: "asc" }] },
   roomBackgroundAsset: {
     select: {
       publicId: true,
@@ -352,6 +354,7 @@ function validUrl(value) {
 }
 function serializeRoom(room, perks, origin) {
   return {
+    roomBanners: { roomId: room.roomId, revision: room.bannerRevision ?? 0, banners: (room.banners ?? []).filter(b => b.expiresAt > new Date()).map(publicBanner) },
     roomId: room.roomId,
     title: room.title,
     country: room.country ?? null,

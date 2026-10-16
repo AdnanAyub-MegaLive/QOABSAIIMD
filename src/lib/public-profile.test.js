@@ -1,7 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("./prisma.js", () => ({ prisma: {} }));
-import { publicAge, wallCursor, wallOffset, ownedProfileBadges } from "./public-profile.js";
+import { publicAge, wallCursor, wallOffset, ownedProfileBadges, ownedProfileProps } from "./public-profile.js";
 describe("profile contract helpers", () => {
+  it("returns owned props without financial or assignment metadata",async()=>{
+    vi.stubEnv("AUTH_SECRET","test-only-secret");
+    try{
+      const findMany=vi.fn(async()=>[{expiresAt:null,source:"PRIVATE",purchasePrice:100,asset:{publicId:"AST-frame",name:"Frame",category:"FRAMES",mimeType:"application/svga",mediaVersion:"abc"}}]);
+      const items=await ownedProfileProps("target","https://portal.example",{uploadAssetAssignment:{findMany}});
+      expect(findMany.mock.calls[0][0]).toMatchObject({where:{userId:"target",asset:{active:true}},take:100,orderBy:[{assignedAt:"desc"},{assetId:"asc"}]});
+      expect(items[0]).toMatchObject({category:"FRAMES",assetId:"AST-frame",expiresAt:null});
+      expect(items[0]).not.toHaveProperty("source");expect(items[0]).not.toHaveProperty("purchasePrice");
+      expect(new URL(items[0].url).searchParams.has("displaySig")).toBe(true);
+    }finally{vi.unstubAllEnvs();}
+  });
   it("queries only the target's active unexpired badges, bounded and newest first", async () => {
     vi.stubEnv("AUTH_SECRET", "test-only-secret");
     try {
