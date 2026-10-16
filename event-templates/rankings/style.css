@@ -1,0 +1,97 @@
+*{box-sizing:border-box}
+#ranking[data-theme=cp] nav button[aria-selected=true]{background:linear-gradient(115deg,#82f7f8,#4e1968,#b788b9)}
+#ranking[data-theme=cp] #board,#ranking[data-theme=charm] #board{position:relative}
+#ranking[data-theme=cp] #board:before,#ranking[data-theme=charm] #board:before{content:'';position:absolute;top:-8px;left:calc(50% - 52px);width:103px;height:42px;background:url('assets/e9eda.png') center/contain no-repeat}
+#ranking[data-theme=charm] #board:before{background-image:url('assets/756d0.png')}
+.cp-row:nth-child(-n+3) .rank{font-size:0;height:30px;background:center/contain no-repeat}
+.cp-row:nth-child(1) .rank{background-image:url('assets/99f6f.svg')}
+.cp-row:nth-child(2) .rank{background-image:url('assets/e9ef7.svg')}
+.cp-row:nth-child(3) .rank{background-image:url('assets/e5d71.svg')}
+#ranking[data-theme=agency] #filters{height:42px}
+#ranking[data-theme=agency] #search{margin-top:0}
+#ranking[data-theme=agency] .heading{padding-left:0;padding-right:0;gap:10px}
+#ranking[data-theme=agency] .heading nav{flex:1}
+#ranking[data-theme=agency] #countdown{min-width:108px;border-color:#fff}
+#ranking[data-theme=agency] #hero .agency-logo{width:303px;height:227px}
+#hero .couple .person{position:relative;padding-top:34px}
+#hero .couple .portrait{margin-bottom:22px}
+#hero .couple .cp-frame{position:absolute;top:0;left:-7px;width:144px;height:117px;pointer-events:none}
+body{margin:0;background:#160c2e;color:white;font-family:Arial,sans-serif}
+button,input{font:inherit}
+button{cursor:pointer;color:inherit}
+button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:3px}
+[hidden]{display:none!important}
+#ranking{max-width:440px;min-height:100dvh;margin:auto;background:#243e86 url('assets/7be28.png') center top/cover;--nav:#0d2b73;--panel:linear-gradient(#354d74,#466ce0);--card:linear-gradient(110deg,#0e348c 42%,#93c3fc);--podium:linear-gradient(128deg,#072e7fc7 40%,#fedeb0ab 63%,#3e63d4);--scene:url('assets/31776.png')}
+#ranking[data-theme=charm]{--nav:#ad7b58;--panel:linear-gradient(#d3864a,#995432 50%,#a9876e);--card:linear-gradient(90deg,#624f45 63%,#efc888);--podium:linear-gradient(0deg,#e5d7b88f 7%,#623520 29%,#7b4725);--scene:url('assets/9a1ba.png')}
+#ranking[data-theme=agency]{--nav:#340102;--panel:#550106;--card:linear-gradient(157deg,#481021,#fddec2e3 44%,#740113 86%);--podium:linear-gradient(127deg,#481021,#fddec2e3 44%,#740113 86%);--scene:url('assets/18e54.png')}
+#ranking[data-theme=cp]{--nav:#4092c2;--panel:linear-gradient(138deg,#2c125b,#755bbb,#7f76cd,#6b45b3,#ce3ca7,#2c125b);--card:linear-gradient(90deg,#38327ab8,#3c6fa5bf 22%,#7feaf7d4 43%,#2c125ba3 84%);--scene:url('assets/3d6c0.png')}
+header{height:335px;position:relative;padding:34px 10% 0;background-image:var(--scene);background-position:center top;background-size:auto 370px}
+#back{position:absolute;top:6px;left:8px;border:1px solid #d67cff;border-radius:50%;width:37px;height:37px;background:#21083277;font-size:28px;line-height:28px}
+nav{display:flex;border:1px solid #e7bb58;border-radius:30px;background:var(--nav)}
+nav button{flex:1;min-width:0;border:0;border-radius:30px;background:none;padding:11px 4px;font-size:16px;position:relative}
+nav button[aria-selected=true]{background:linear-gradient(110deg,#caae60,#fff8);box-shadow:inset 0 0 0 1px #e9c461}
+#tracks button[aria-selected=true]:before{content:'';position:absolute;width:30px;height:19px;background:url('assets/60f00.png') center/contain no-repeat;top:-17px;left:30%;transform:rotate(-12deg)}
+#filters{margin:9px auto 0;width:85%}
+#periods button{font-weight:bold}
+#search{margin-top:8px;width:100%;border:1px solid #ffce39;border-radius:24px;background:#340102;color:#ffe431;padding:10px 14px}
+#rules{position:absolute;right:0;top:124px;border:1px solid #e8be62;border-right:0;border-radius:24px 0 0 24px;width:60px;height:42px;background:var(--nav)}
+#rules img{width:36px;height:36px}
+#hero{height:202px;display:flex;justify-content:center;align-items:center;gap:12px}
+#hero .featured{width:214px;text-align:center;position:relative;padding-top:116px;height:200px}
+#hero .featured .portrait{position:absolute;left:64px;top:34px;width:86px;height:86px;border-radius:50%;object-fit:cover;background:#31004e}
+#hero .hero-frame{position:absolute;top:0;left:0;width:214px;height:142px;pointer-events:none}
+#hero .agency-logo{width:270px;height:202px;object-fit:contain}
+#hero .couple{display:flex;gap:22px;padding-top:22px}
+#hero .couple .person{width:130px;text-align:center}
+#hero .couple .portrait{width:70px;height:70px;border-radius:50%;background:#31004e}
+.name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.levels{display:flex;justify-content:center;align-items:center;gap:3px;min-height:20px}
+.levels img{max-width:48px;height:21px;object-fit:contain}
+.levels span{font-size:11px;border-radius:10px;padding:2px 5px;background:#57238c}
+.levels span+span{background:#00766a}
+#board{border:1px solid #e3c15e;border-radius:25px 25px 0 0;background:var(--panel);padding:16px 7px 24px;min-height:620px}
+.heading{display:flex;justify-content:space-between;align-items:center;padding:4px 12px 20px}
+h1{font-size:20px;margin:0}
+#countdown{border:2px solid var(--nav);border-radius:10px;padding:5px 10px;font-size:12px;font-weight:bold;min-width:125px;text-align:center}
+.podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:start;min-height:320px;border:1px solid #f6dfb1;border-radius:24px;background:var(--podium);padding:22px 4px 18px;margin-bottom:6px}
+.podium .person{text-align:center;min-width:0;padding-top:48px}
+.podium .person:first-child{grid-column:2;grid-row:1;padding-top:0}
+.podium .person:nth-child(2){grid-column:1;grid-row:1}
+.podium .person:nth-child(3){grid-column:3;grid-row:1}
+.podium .art{height:125px;position:relative}
+.podium .portrait{position:absolute;width:64px;height:64px;left:50%;top:36px;transform:translateX(-50%);border-radius:50%;background:#31004e;object-fit:cover}
+.podium .frame{position:absolute;width:122px;height:122px;object-fit:contain;left:50%;transform:translateX(-50%);top:0}
+.podium .person:first-child .frame{width:141px;height:141px}
+.podium .person:first-child .art{height:141px}
+.podium .person:first-child .portrait{top:42px;width:72px;height:72px}
+.score{color:#ffe000;font-size:19px;white-space:nowrap}
+.coin{width:16px;height:16px;vertical-align:middle;margin-left:4px}
+.row{display:flex;align-items:center;gap:10px;border-radius:24px;background:var(--card);margin-top:7px;padding:17px 14px;min-height:102px;border:1px solid #f6dfb155}
+.rank{font-size:21px;font-weight:bold;width:30px;text-align:center;flex-shrink:0}
+.row .portrait{width:50px;height:50px;border:1px solid #e05cf9;border-radius:50%;background:#31004e;object-fit:cover}
+.row .identity{min-width:0;flex:1}
+.row .levels{justify-content:flex-start}
+.row .score{font-size:16px}
+.row button,.person button{border:0;background:none;padding:0;text-align:inherit;max-width:100%}
+.trophy{height:62px;width:83px;object-fit:contain}
+.meta{font-size:12px}
+.cp-row{border:2px solid #e349ff}
+.cp-row:first-child{border-color:#ffe400}
+.cp-row .pair{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.cp-row .identity{max-width:80px;text-align:center}
+.cp-row .name{font-size:12px}
+.heart{width:28px;height:28px}
+.cp-row .score{font-size:15px}
+#status{text-align:center;padding:30px 20px;line-height:1.5}
+#more,#retry{display:block;margin:20px auto 0;border:1px solid #e7bb58;border-radius:24px;padding:12px 26px;background:var(--nav)}
+dialog{max-width:360px;width:90%;border:1px solid #e7bb58;border-radius:20px;background:#24143b;color:white;padding:24px;line-height:1.6}
+dialog::backdrop{background:#000a}
+dialog button{border:0;border-radius:12px;background:#7544a6;padding:10px 24px}
+header{padding-top:calc(34px + env(safe-area-inset-top));height:calc(335px + env(safe-area-inset-top))}
+#board{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+@media(max-width:360px){header{padding-left:7%;padding-right:7%}
+.row{gap:6px;padding:14px 8px}
+.podium .frame{width:105px;height:105px}
+.podium .person:first-child .frame{width:125px;height:125px}
+.score{font-size:16px}
+}
