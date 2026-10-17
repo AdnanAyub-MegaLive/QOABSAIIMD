@@ -93,6 +93,8 @@ dialog::backdrop{background:#000a}
 dialog button{border:0;border-radius:12px;background:#7544a6;padding:10px 24px}
 header{padding-top:calc(34px + env(safe-area-inset-top));height:calc(335px + env(safe-area-inset-top))}
 #board{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.reward-details{margin-top:24px;padding:20px;border:1px solid #ffe7a6;border-radius:22px;background:#130e27db;color:#fff;text-align:left;line-height:1.6}
+.reward-details:empty{display:none}.reward-details h2{font-size:22px}.reward-details h3{margin-top:18px;color:#ffe7a6}.reward-details p{margin:10px 0;font-size:14px}
 @media(max-width:360px){header{padding-left:7%;padding-right:7%}
 .row{gap:6px;padding:14px 8px}
 .podium .frame{width:105px;height:105px}

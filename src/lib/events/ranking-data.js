@@ -6,13 +6,12 @@ import { rankingWindow } from './ranking-contract.js';
 
 // Event scores are gift face value in Coins, never wallet balances or XP.
 // Historical agency attribution comes from the committed settlement, not today's membership.
-export async function eventRankings({ type, period, offset, q, viewerId, origin }, db = prisma) {
-  const now = new Date(), { start, end } = rankingWindow(period, now);
+export async function eventRankings({ type, period, offset = 0, q = '', viewerId = null, origin, window, raw = false }, db = prisma) {
+  const now = new Date(), { start, end } = window ?? rankingWindow(period, now);
   const base = Prisma.sql`
     WITH people AS (
       SELECT u.* FROM "User" u WHERE u.status = 'ACTIVE' AND u."deletedAt" IS NULL
       AND NOT EXISTS (SELECT 1 FROM "Ban" b WHERE b."userId"=u.id AND b.target='USER' AND b."revokedAt" IS NULL AND (b."expiresAt" IS NULL OR b."expiresAt">${now}))
-      AND NOT EXISTS (SELECT 1 FROM "UserBlock" b WHERE (b."blockerId"=${viewerId} AND b."blockedId"=u.id) OR (b."blockedId"=${viewerId} AND b."blockerId"=u.id))
     ), gifts AS (
       SELECT g.*, COALESCE(g."recipientUserId", mapped.id) AS receiver
       FROM "GiftTransaction" g LEFT JOIN "Talent" t ON t.id=g."talentId"
@@ -41,7 +40,11 @@ export async function eventRankings({ type, period, offset, q, viewerId, origin 
   const rows = await db.$queryRaw(Prisma.sql`${base}, scores AS (${scores}), ranked AS (
     SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC,"publicId" ASC) AS rank FROM scores WHERE score>0
   ) SELECT * FROM ranked WHERE (${q}='' OR POSITION(LOWER(${q}) IN LOWER(name))>0 OR POSITION(LOWER(${q}) IN LOWER("publicId"))>0)
+    AND NOT EXISTS (SELECT 1 FROM "UserBlock" b WHERE
+      (b."blockerId"=${viewerId} AND b."blockedId" IN (ranked."personId", ranked."partnerId")) OR
+      (b."blockedId"=${viewerId} AND b."blockerId" IN (ranked."personId", ranked."partnerId")))
     ORDER BY rank LIMIT 21 OFFSET ${offset}`);
+  if (raw) return rows.slice(0, 20).map(row => ({ id: row.publicId, rank: Number(row.rank), score: row.score.toString(), recipients: [...new Set([row.personId, row.partnerId].filter(Boolean))] }));
   const hasMore = rows.length > 20, visible = rows.slice(0, 20);
   const ids = [...new Set(visible.flatMap(row => [row.personId, row.partnerId]).filter(Boolean))];
   const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, publicId: true, name: true, profileImage: true, country: true } });

@@ -11,21 +11,29 @@ class Element {
   addEventListener() {}
 }
 const descendants=n=>[n,...n.children.flatMap(descendants)];
-async function fixture() {
-  const nodes=new Map(),messages=[];
+async function fixture(track) {
+  const nodes=new Map(),messages=[],requests=[];
   const get=id=>{if(!nodes.has(id))nodes.set(id,new Element('div'));return nodes.get(id);};
   get('search').value='';get('heading').parentElement=new Element('div');
+  if(track){get('ranking').dataset.track=track;get('ranking').dataset.event=`ranking-${track}`;}
   const window={ReactNativeWebView:{postMessage:value=>messages.push(JSON.parse(value))}};
   vm.runInNewContext(readFileSync('event-templates/rankings/app.js','utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
-  return {get,messages,flush};
+  return {get,messages,flush,requests};
 }
 describe('ranking native navigation',()=>{
+  it.each(['wealth','charm','agency','cp'])('keeps the separate %s event fixed when switching periods',async track=>{
+    const {get,requests,flush}=await fixture(track);
+    get('periods').children[1].onclick();await flush();
+    expect(get('tracks').children).toHaveLength(1);
+    for(const url of requests){const p=new URL(url,'https://example.test').searchParams;expect(p.get('type')).toBe(track);expect(p.get('event')).toBe(`ranking-${track}`);}
+    expect(new URL(requests.at(-1),'https://example.test').searchParams.get('period')).toBe('week');
+  });
   it.each(['Wealth','Charm'])('%s names navigate from hero, podium and list',async tab=>{
     const {get,messages,flush}=await fixture();
     get('tracks').children.find(n=>n.textContent===tab).onclick();await flush();

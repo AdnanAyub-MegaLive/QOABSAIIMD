@@ -1,7 +1,22 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id), root = $('ranking');
-  let token = '', type = 'wealth', period = 'today', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
+  const fixedTrack=root.dataset.track, eventSlug=root.dataset.event||'rankings';
+  let token = '', type = fixedTrack || 'wealth', period = 'today', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
+  const rewardsPanel=document.createElement('section');rewardsPanel.className='reward-details';$('board').append(rewardsPanel);
+  function renderRewards(data){
+    rewardsPanel.replaceChildren();
+    if(!fixedTrack)return;
+    rewardsPanel.append(el('h2','',`${type.toUpperCase()} event rewards`),el('p','',data.rule));
+    const show=(policy,title)=>{
+      rewardsPanel.append(el('h3','',title));
+      if(!policy?.enabled){rewardsPanel.append(el('p','','Automatic rewards are not enabled for this period.'));return;}
+      rewardsPanel.append(el('p','',`Applies from ${new Date(policy.effectiveFrom).toUTCString()}`));
+      for(const r of policy.rewards){const parts=[];if(r.coins!=='0')parts.push(`${r.coins} Coins`);if(r.diamonds!=='0')parts.push(`${r.diamonds} Diamonds`);for(const p of r.props)parts.push(`${p.name} (${p.days} days)`);if(r.vip)parts.push(`${r.vip.name} (${r.vip.days} days)`);rewardsPanel.append(el('p','',`Top ${r.rank}: ${parts.join(' · ')}`));}
+    };
+    show(data.rewardPolicy,'Current period');if(data.upcomingRewardPolicy)show(data.upcomingRewardPolicy,'Next period settings');
+    rewardsPanel.append(el('p','',`${type==='agency'?'Rewards go to the agency owner.':type==='cp'?'Both CP partners receive the full reward.':'Rewards go to the ranked user.'} Awards run after the period closes. Equal scores use public ID order. No awards for periods before activation. Failed checks are held for admin review. Profile blocks may hide entries; award positions use the global ranking.`));
+  }
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { n.hidden = true; }, { once: true }); return n; };
@@ -43,13 +58,13 @@
   async function load(append = false) {
     if (!token) return; request?.abort(); const current = new AbortController(); request = current;
     $('retry').hidden = true; $('more').hidden = true; $('status').hidden = false; $('status').textContent = 'Loading rankings…';
-    try { const params = new URLSearchParams({type,period,offset:String(append ? nextOffset || 0 : 0),q:type==='agency'?$('search').value.trim():''}); const response = await fetch(`/api/v1/events/rankings?${params}`,{headers:{Authorization:`Bearer ${token}`},signal:current.signal,cache:'no-store'}); const body = await response.json(); if(!response.ok) { if(response.status===401){token='';notify({type:'ranking:session-required'});} throw Error(body.error?.message || 'Unable to load rankings.'); } const data=body.data; entries=append?[...entries,...data.entries]:data.entries; nextOffset=data.nextOffset; resetAt=Date.parse(data.resetsAt);clockOffset=Date.parse(data.generatedAt)-Date.now(); $('rule-text').textContent=`${data.rule} Refunded gifts are excluded. Periods use UTC; weeks begin on Monday.`; render(); $('status').hidden=entries.length>0; $('status').textContent='No eligible gifts in this period yet.'; }
+    try { const params = new URLSearchParams({event:eventSlug,type,period,offset:String(append ? nextOffset || 0 : 0),q:type==='agency'?$('search').value.trim():''}); const response = await fetch(`/api/v1/events/rankings?${params}`,{headers:{Authorization:`Bearer ${token}`},signal:current.signal,cache:'no-store'}); const body = await response.json(); if(!response.ok) { if(response.status===401){token='';notify({type:'ranking:session-required'});} throw Error(body.error?.message || 'Unable to load rankings.'); } const data=body.data; entries=append?[...entries,...data.entries]:data.entries; nextOffset=data.nextOffset; resetAt=Date.parse(data.resetsAt);clockOffset=Date.parse(data.generatedAt)-Date.now(); $('rule-text').textContent=`${data.rule} Refunded gifts are excluded. Periods use UTC; weeks begin on Monday.`; render();renderRewards(data); $('status').hidden=entries.length>0; $('status').textContent='No eligible gifts in this period yet.'; }
     catch(error){if(error.name==='AbortError')return;$('status').textContent=error.message;$('retry').hidden=!token;}
   }
-  function tabs(id, values, selected, change) { $(id).replaceChildren(); for(const [value,label] of values){const button=el('button','',label);button.setAttribute('aria-selected',String(value===selected));button.onclick=()=>change(value);$(id).append(button);} }
+  function tabs(id, values, selected, change) { $(id).replaceChildren(); if(id==='tracks'&&fixedTrack){$(id).append(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));return;} for(const [value,label] of values){const button=el('button','',label);button.setAttribute('aria-selected',String(value===selected));button.onclick=()=>change(value);$(id).append(button);} }
   function filters(){tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP']],type,v=>{type=v;root.dataset.theme=v;$('search').hidden=v!=='agency';entries=[];render();filters();load();});tabs('periods',[['today','Daily'],['week','Weekly'],['month','Monthly']],period,v=>{period=v;filters();load();});$('heading').textContent={today:'Today',week:'This week',month:'This month'}[period];$('heading').hidden=type==='agency';if(type==='agency')$('heading').parentElement.prepend($('periods'));else $('filters').prepend($('periods'));}
   window.MegaRankings=Object.freeze({setSession(value){if(typeof value!=='string'||!value||value.length>8192)return;token=value;load();},clearSession(){token='';request?.abort();entries=[];render();$('status').hidden=false;$('status').textContent='Open this event from Mega Live to view rankings.';}});
   $('search').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(),350);};$('more').onclick=()=>load(true);$('retry').onclick=()=>load();$('back').onclick=()=>notify({type:'ranking:close'});$('rules').onclick=()=>$('rules-dialog').showModal();$('close-rules').onclick=()=>$('rules-dialog').close();
   setInterval(()=>{if(!resetAt)return;const seconds=Math.max(0,Math.floor((resetAt-Date.now()-clockOffset)/1000));$('countdown').textContent=`${Math.floor(seconds/86400)?Math.floor(seconds/86400)+'d ':''}${String(Math.floor(seconds/3600)%24).padStart(2,'0')} : ${String(Math.floor(seconds/60)%60).padStart(2,'0')} : ${String(seconds%60).padStart(2,'0')}`;if(!seconds){resetAt=0;load();}},1000);
-  filters();notify({type:'ranking:ready',version:1});
+  filters();if(fixedTrack){$('tracks').replaceChildren(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));$('search').hidden=type!=='agency';const notice=$('rule-text').nextElementSibling;if(notice?.tagName==='P')notice.textContent='See event rewards below the ranking. Rewards follow admin settings and start with future complete periods only.';}notify({type:'ranking:ready',version:1});
 })();

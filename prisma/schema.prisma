@@ -1065,6 +1065,36 @@ model NotificationRead {
   @@index([userId, readAt])
 }
 
+// Future-only ranking reward policies. JSON is validated on write and execution.
+model RankingRewardPolicy {
+  id String @id @default(cuid())
+  eventSlug String
+  track String
+  period String
+  enabled Boolean @default(false)
+  effectiveFrom DateTime
+  rewards Json
+  createdById String
+  createdAt DateTime @default(now())
+  @@index([eventSlug, period, effectiveFrom])
+}
+
+model RankingRewardRound {
+  id String @id @default(cuid())
+  eventSlug String
+  period String
+  startsAt DateTime
+  endsAt DateTime
+  policyId String
+  winners Json
+  status String @default("PENDING")
+  error String?
+  awardedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([eventSlug, period, startsAt])
+  @@index([status, endsAt])
+}
+
 model EventUser {
   id            String              @id @default(cuid())
   name          String

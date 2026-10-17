@@ -2,7 +2,34 @@
 
 Updated 16 October 2026. The production ranking event is published and its authenticated API is working. The app hosts the page in its WebView and supplies the existing mobile session; the page renders rankings and fetches data itself. Android and iOS native integration must still be verified on devices.
 
-Event Management → Events → Create ranking event creates a draft. Publish it using the existing event publishing control. Public entry: `https://portal.megachat.live/event/rankings/index.html`. Unpublishing also disables the ranking API. No migration or balance changes are required.
+Event Management → Events → Create ranking event creates the combined draft. Public entry: `https://portal.megachat.live/event/rankings/index.html`. The separate reward events described below require the ranking reward migration. Nothing is awarded merely by deploying or publishing a page.
+
+## Separate events and automatic rewards
+
+In Event Management → Events → Ranking events & automatic rewards, create each draft, then publish it in the event list:
+
+| Event | Public path |
+|---|---|
+| Wealth | `/event/ranking-wealth/index.html` |
+| Charm | `/event/ranking-charm/index.html` |
+| Agency | `/event/ranking-agency/index.html` |
+| CP | `/event/ranking-cp/index.html` |
+
+These pages retain the existing native session and navigation messages. Add their exact HTTPS document paths (including their directory and trailing-slash equivalents) to the app's trusted main-frame allowlist. Do not broadly trust arbitrary event pages with a session token. Each page fixes its ranking category and offers Daily, Weekly and Monthly filters. Family remains excluded. The combined page remains available.
+
+The separate pages call the existing ranking API with `event=ranking-wealth` (or the matching other slug). The API requires that specific event to be published and rejects a mismatched category. Responses also include `rewardPolicy` and `upcomingRewardPolicy`, each nullable, containing `enabled`, `effectiveFrom` and rank rewards. The webpage displays these itself; the native app does not calculate or award anything.
+
+Only Event SUPER_ADMIN can save financial reward settings or retry held rounds. Choose each event and period, add up to 20 rank rewards and enable future awards. Each rank may contain Coins, Diamonds, up to 10 equippable props with 1–365-day durations, and an optional VIP tier with a 1–365-day duration. Agency rewards go to its owner; each CP partner receives the full configured reward. All three periods are independent, so a winner can earn daily, weekly and monthly rewards.
+
+Settings take effect at the next complete UTC period: next midnight, next Monday or first of next month. Editing or disabling a policy also applies at that next boundary; the current period keeps its announced settings. No rounds before first activation are created. Unpublishing prevents payouts while unpublished. A period processed while unpublished is marked SKIPPED, not paid later.
+
+Scores remain confirmed, unreversed gift face value in Coins, including self-gifts. Agency attribution uses gift settlement records. CP scores use gifts exchanged between active partners since the relationship began. Ties use ascending public ID. Viewer blocks hide people without renumbering the global rank. The server freezes recipients and scores after closing, then awards the round atomically with wallet BONUS entries, inventory/VIP updates, audit records and notifications. Rewards do not award gifting XP. A restart cannot pay a completed round again.
+
+Timed props extend existing expiry; permanent ownership is never shortened. A prop overlapping an existing conditional role/VIP entitlement is held for review instead of overwriting its revocation rules. VIP duration extends ownership of that tier without replacing another valid selected tier. Already selected or otherwise absent/expired VIP selection is synchronized. If a recipient or reward asset is unavailable, the whole round enters REVIEW without partial payment. Snapshots captured more than ten minutes after closing also require review, because agency ownership and CP membership may have changed during downtime. Admin must verify the frozen recipients and scores and resolve the cause before Retry held round; retries use the same frozen winners. Completed awards are never automatically rewritten after a later gift refund; those cases need reconciliation and explicit review.
+
+Deploy the migration with `npx prisma migrate deploy`, regenerate Prisma, rebuild, and restart the custom `server.js` process. Its minute-based worker closes and awards eligible rounds. Keep it running; a static-only deployment cannot pay rewards. New separate event drafts copy the prepared template and rewrite its asset base path. Do not upload the unmodified combined template over a separate event, because that would reset its category and asset path.
+
+Phone checks: open all four URLs with the existing handshake, switch periods without revealing other category tabs, inspect configured current/upcoming rewards, verify profile/agency navigation, expired session recovery, and native Back. With dedicated test accounts, verify both CP partners receive full rewards, agency rewards reach only the owner, wallet/My Props/VIP refresh after notification, and retries do not duplicate awards. Production configuration and real-device acceptance must be completed after deployment; this change does not itself enable rewards.
 
 Four categories: Wealth (gift Coins sent), Charm (gift Coins received), Agency (gift Coins attributed to that agency in settlement), CP (gifts exchanged between currently active, mutually accepted partners after relationship start). Reversed gifts are excluded. Self-gifts retain their recorded value. Family is intentionally excluded. Periods use UTC: Daily, Monday–Sunday Weekly, calendar Monthly. Scores are decimal strings; never convert balances to floating point.
 
@@ -49,7 +76,7 @@ This navigation addition requires uploading a new event version: deploying repos
 
 ## Ranking API and refresh behavior
 
-`GET /api/v1/events/rankings?type=wealth&period=today&offset=0&q=` requires Bearer authentication. Categories: wealth/charm/agency/cp. Periods: today/week/month. Pages contain up to 20 entries and nextOffset; search is used for Agency. Responses include rule, resetsAt, generatedAt, timezone, scoreUnit and public identity artwork. Banned/deleted/blocked identities are excluded. No wallet balances are returned. The rule button is informational; no ranking rewards are configured or awarded by this page.
+`GET /api/v1/events/rankings?type=wealth&period=today&offset=0&q=` requires Bearer authentication. Categories: wealth/charm/agency/cp. Periods: today/week/month. Pages contain up to 20 entries and nextOffset; search is used for Agency. Responses include rule, resetsAt, generatedAt, timezone, scoreUnit and public identity artwork. Banned/deleted/blocked identities are excluded. No wallet balances are returned. The combined page is informational; rewards are configured for the separate events above and awarded by the server worker.
 
 Requests are limited to 60 per minute per user. The page fetches on session injection, category/period changes, debounced Agency search, Show more, retry and period expiry. It does not subscribe to live ranking socket updates or continuously poll. Rankings are refreshed snapshots, not a live score ticker.
 

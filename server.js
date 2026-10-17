@@ -26,6 +26,9 @@ app.prepare().then(async()=>{
   const recoveryKey=(user,roomId)=>`${user.id}:${user.sessionVersion}:${roomId}`;
   const recoveryCleanup=setInterval(()=>{for(const[key,until]of recoveringRooms)if(until<Date.now())recoveringRooms.delete(key)},60000);recoveryCleanup.unref();
   const {prisma}=await import("./src/lib/prisma.js");
+  const {maintainRankingRewards}=await import("./src/lib/events/ranking-rewards.js");
+  const rankingRewardTimer=setInterval(()=>void maintainRankingRewards(prisma).catch(error=>console.error("Ranking rewards maintenance failed",error.code??error.name)),60000);
+  rankingRewardTimer.unref();
   const {createMediaCdnMaintenance}=await import("./src/lib/media-cdn-maintenance.js");
   const reconcileMediaCdn=createMediaCdnMaintenance(prisma);
   const mediaCdnTimer=setInterval(()=>void reconcileMediaCdn().catch(error=>console.error("CDN reconciliation failed",error.name)),60000);
