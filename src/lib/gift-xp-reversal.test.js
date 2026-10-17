@@ -5,6 +5,7 @@ function fixture() {
   const entries = [];
   const row = { lifetimePoints: 100n, currentLevel: 1, revision: 2, track: "USER", configurationVersion: 9, user: { publicId: "USR-1" }, configuration: { levels: [{ track: "USER", level: 0, thresholdPoints: 0n }, { track: "USER", level: 1, thresholdPoints: 100n }] } };
   const tx = {
+    levelTagBackground:{findMany:async()=>[]},
     giftTransaction: { findUnique: vi.fn(async () => ({ reversedAt: new Date() })) },
     progressLedger: {
       findMany: async () => [{ id: "award", userId: "u", track: "USER", deltaPoints: 80n, ruleVersion: 1, eligibleAmount: 40n, numerator: 2n, denominator: 1n, basis: "GIFT_XP" }],

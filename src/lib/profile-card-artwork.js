@@ -18,5 +18,5 @@ export async function profileCardArtwork(db,userId,charmLevel,origin){
  const resolve=id=>{const a=assets.find(a=>a.publicId===id);return a&&origin?{url:createPublicDisplayAssetUrl(origin,id),mimeType:a.mimeType}:null;};
  const hosts=agency?await db.user.count({where:{agencyId:agency.id,deletedAt:null,appRoles:{has:"HOST"}}}):0;
  const background=resolve(agencyRange?.backgroundAssetId);
- return {cardBackgrounds:{supporter:resolve(supporter?.backgroundAssetId)},agency:agency?{publicId:agency.publicId,name:agency.name,status:agency.status,level:progress.level,totalHosts:hosts,badgeUrl:resolve(agencyRange?.badgeAssetId)?.url??progress.badgeUrl,cardBackgroundUrl:background?.url??null,cardBackgroundMimeType:background?.mimeType??null}:null};
+ return {cardBackgrounds:{supporter:resolve(supporter?.backgroundAssetId)},agency:agency?{publicId:agency.publicId,name:agency.name,status:agency.status,level:progress.level,levelBackground:progress.background,levelBackgroundUrl:progress.backgroundUrl,levelBackgroundMimeType:progress.backgroundMimeType,levelBackgroundMediaVersion:progress.backgroundMediaVersion,totalHosts:hosts,badgeUrl:resolve(agencyRange?.badgeAssetId)?.url??progress.badgeUrl,cardBackgroundUrl:background?.url??null,cardBackgroundMimeType:background?.mimeType??null}:null};
 }

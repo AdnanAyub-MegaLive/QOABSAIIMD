@@ -122,7 +122,7 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
     ...namedDecoration("frame", equippedAssets.avatarFrame), ...namedDecoration("badge", equippedAssets.profileBadge),
     ...namedDecoration("userTag", equippedAssets.userTag), ...namedDecoration("profileBackground", equippedAssets.profileBackground), ...namedDecoration("homeDress", equippedAssets.profileDress),
     ...await profileCoverDto(db, target.id, viewer.id, origin),
-    ...levels, gameLevel:game.level,gameLevelBadgeUrl:game.badgeUrl, medalWall: medals, giftWall: gifts, cardBackgrounds:cardArt.cardBackgrounds,
+    ...levels, gameLevel:game.level,gameLevelBadgeUrl:game.badgeUrl,gameLevelBackground:game.background,gameLevelBackgroundUrl:game.backgroundUrl,gameLevelBackgroundMimeType:game.backgroundMimeType,gameLevelBackgroundMediaVersion:game.backgroundMediaVersion, medalWall: medals, giftWall: gifts, cardBackgrounds:cardArt.cardBackgrounds,
     agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agencyProgress.level, progression:agencyProgress, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, ...cardArt.agency } : null,
     topSupporters: supporters.flatMap(s => { const person = people.find(p => p.id === s.senderId); return person && !hidden.has(person.id) ? [{ ...identity(person), totalCoins: (s._sum.coinValue ?? 0n).toString() }] : []; }).map((s, i) => ({ rank: i + 1, ...s })),
     relationships: relationships.flatMap(r => { const partner = r.leftUserId === target.id ? r.right : r.left; return !hidden.has(partner.id) ? [{ id: r.publicId, type: r.type, status: r.status, level: r.level, days: Math.max(0, Math.floor((Date.now() - r.startedAt.getTime()) / 86400000)), partner: identity(partner) }] : []; }),

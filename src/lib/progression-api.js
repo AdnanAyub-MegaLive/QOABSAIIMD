@@ -1,3 +1,4 @@
+import { levelTagBackgrounds, tagBackground } from "./level-tag-backgrounds.js";
 import { prisma } from "./prisma.js";
 import { requireMobileUser, mobileJson, mobileApiError } from "./mobile-api";
 import { withV1Request, v1Options } from "./mobile-v1";
@@ -15,7 +16,8 @@ export function progressionRead(request,kind) {
         const version=query.get("version");if(version!==null&&(!/^\d+$/.test(version)||!Number.isSafeInteger(Number(version))||Number(version)<1))throw progressionError("Invalid configuration version.");
         const config=version?await prisma.progressionConfiguration.findUnique({where:{version:Number(version)},include:{levels:true}}):await currentConfiguration();
         if(!config)return mobileJson({success:false,error:{code:"LEVELS_NOT_FOUND",message:"Configuration not found."}},404);
-        return mobileJson({success:true,data:{track,configurationVersion:config.version,enabled:config.enabled,levels:config.levels.filter(l=>l.track===track).sort((a,b)=>a.level-b.level).map(l=>({level:l.level,thresholdPoints:l.thresholdPoints.toString(),badgeUrl:l.badgeAssetId?createPublicDisplayAssetUrl(origin,l.badgeAssetId):null,benefits:l.benefits,rewards:[]})),earningRules:config.rules.filter(r=>r.track===track).map(r=>({code:`${r.source}_${track==="USER"?"SENT":"RECEIVED"}`,description:r.description,numerator:r.numerator,denominator:r.denominator,basis:r.basis,recipientType:r.recipientType,allowSelf:r.allowSelf}))}});
+        const backgrounds=await levelTagBackgrounds(prisma,origin);
+        return mobileJson({success:true,data:{track,configurationVersion:config.version,enabled:config.enabled,levels:config.levels.filter(l=>l.track===track).sort((a,b)=>a.level-b.level).map(l=>({...tagBackground(backgrounds,track,l.level),level:l.level,thresholdPoints:l.thresholdPoints.toString(),badgeUrl:l.badgeAssetId?createPublicDisplayAssetUrl(origin,l.badgeAssetId):null,benefits:l.benefits,rewards:[]})),earningRules:config.rules.filter(r=>r.track===track).map(r=>({code:`${r.source}_${track==="USER"?"SENT":"RECEIVED"}`,description:r.description,numerator:r.numerator,denominator:r.denominator,basis:r.basis,recipientType:r.recipientType,allowSelf:r.allowSelf}))}});
       }
       const limit=Number(query.get("limit")??20);if(!Number.isSafeInteger(limit)||limit<1||limit>50)throw progressionError("limit must be 1–50.");
       let cursor;

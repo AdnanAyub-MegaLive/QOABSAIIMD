@@ -14,7 +14,7 @@ it("calculates threshold boundaries and maximum level", () => {
 it("awards ten percent of settled Diamonds using integer arithmetic and source deduplication", async () => {
   const entries=new Map();
   const emit=vi.fn();
-  const tx={realtimeOutbox:{create:emit},agency:{findUnique:async()=>({publicId:"AGN-1",owner:{publicId:"USR-1"}})},activityLevelRule:{findUnique:async()=>rule},activityLevelAward:{createMany:async({data:[create]})=>{const key=create.sourceId;if(entries.has(key))return {count:0};entries.set(key,create);return {count:1};},count:async()=>entries.size,aggregate:async()=>({_sum:{xp:[...entries.values()].reduce((n,r)=>n+r.xp,0n)}})}};
+  const tx={levelTagBackground:{findMany:async()=>[]},realtimeOutbox:{create:emit},agency:{findUnique:async()=>({publicId:"AGN-1",owner:{publicId:"USR-1"}})},activityLevelRule:{findUnique:async()=>rule},activityLevelAward:{createMany:async({data:[create]})=>{const key=create.sourceId;if(entries.has(key))return {count:0};entries.set(key,create);return {count:1};},count:async()=>entries.size,aggregate:async()=>({_sum:{xp:[...entries.values()].reduce((n,r)=>n+r.xp,0n)}})}};
   await awardActivityXp(tx,"AGENCY","agency","gift",100000000n);
   await awardActivityXp(tx,"AGENCY","agency","gift",100000000n);
   expect([...entries.values()]).toEqual([expect.objectContaining({xp:10000000n,amount:100000000n,ruleRevision:2,subjectId:"agency"})]);

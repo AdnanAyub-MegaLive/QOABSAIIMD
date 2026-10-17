@@ -1,6 +1,7 @@
 import { prisma } from "./prisma.js";
 import { appendOutbox, levelSnapshot } from "./progression.js";
 import { queueActivityProgress } from "./activity-levels.js";
+import { levelTagBackgrounds, tagBackground } from './level-tag-backgrounds.js';
 
 // Internal service, not a financial refund endpoint. Call in the same
 // transaction that marks a full gift refund, after its financial validation.
@@ -19,6 +20,7 @@ export async function reverseGiftXp(tx, giftId, origin) {
     if (!row || row.lifetimePoints < award.deltaPoints) throw new Error("XP ledger requires reconciliation; reversal would create a negative total.");
     const previousLevel = row.currentLevel;
     const snapshot = levelSnapshot({ ...row, lifetimePoints: row.lifetimePoints - award.deltaPoints, revision: row.revision + 1 }, row.configuration.levels, origin);
+    Object.assign(snapshot,tagBackground(await levelTagBackgrounds(tx,origin),award.track,snapshot.level));
     await tx.progressLedger.create({ data: {
       userId: award.userId, track: award.track, sourceType: "GIFT_REVERSAL", sourceId: giftId, sourceLineId: award.id,
       deltaPoints: -award.deltaPoints, reversalOfId: award.id, ruleVersion: award.ruleVersion,

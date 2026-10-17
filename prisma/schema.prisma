@@ -358,6 +358,15 @@ model ProgressionConfiguration {
   users UserProgress[]
 }
 
+model LevelTagBackground {
+  track String
+  level Int
+  assetId String
+  asset UploadAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
+  @@id([track, level])
+}
+
 model LevelDefinition {
   id String @id @default(cuid())
   track String
@@ -1175,6 +1184,7 @@ model EventAuditLog {
 }
 
 model UploadAsset {
+  levelTagBackgrounds LevelTagBackground[]
   mediaVersion String?
   posterMediaVersion String?
   cdnUrl String?

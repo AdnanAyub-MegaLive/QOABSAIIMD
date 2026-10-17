@@ -42,10 +42,13 @@ export function levelSnapshot(progress, levels, origin) {
   const percent = next ? Number((points-current.thresholdPoints)*10000n/(next.thresholdPoints-current.thresholdPoints))/100 : 100;
   return { type:progress.track, configurationVersion:progress.configurationVersion, revision:progress.revision, level:current.level, lifetimePoints:points.toString(), currentThreshold:current.thresholdPoints.toString(), nextLevel:next?.level ?? null, nextThreshold:next?.thresholdPoints.toString() ?? null, remainingPoints:next ? (next.thresholdPoints-points).toString() : "0", progressPercent:percent, badgeUrl:current.badgeAssetId && origin ? createPublicDisplayAssetUrl(origin,current.badgeAssetId) : null, benefits:current.benefits ?? [] };
 }
+import { levelTagBackgrounds, tagBackground } from './level-tag-backgrounds.js';
+import { namedDecoration } from './decoration-media.js';
 export async function currentConfiguration(db=prisma) { return db.progressionConfiguration.findFirst({ where:{active:true}, include:{levels:true} }); }
 export async function progressionSnapshots(userId, origin, db=prisma) {
   const [active, rows] = await Promise.all([currentConfiguration(db), db.userProgress.findMany({where:{userId},include:{configuration:{include:{levels:true}}}})]);
-  return TRACKS.map(track => { const row=rows.find(r=>r.track===track); const config=row?.configuration??active; return levelSnapshot(row??{track,configurationVersion:config?.version??0,revision:0,lifetimePoints:0n}, config?.levels??[], origin); });
+  const backgrounds=await levelTagBackgrounds(db,origin);
+  return TRACKS.map(track => { const row=rows.find(r=>r.track===track); const config=row?.configuration??active; const snapshot=levelSnapshot(row??{track,configurationVersion:config?.version??0,revision:0,lifetimePoints:0n}, config?.levels??[], origin);return {...snapshot,...tagBackground(backgrounds,track,snapshot.level)}; });
 }
 export async function appendOutbox(tx,channel,event,data) {
   const row=await tx.realtimeOutbox.create({data:{channel,event,payload:jsonSafe({success:true,data})}});
@@ -88,7 +91,7 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
     const updated=levelSnapshot({...row,lifetimePoints:total,revision:row.revision+1},config.levels,origin);
     await tx.progressLedger.create({data:{...key,deltaPoints:points,ruleVersion:config.version,eligibleAmount:amount,numerator:BigInt(rule.numerator),denominator:BigInt(rule.denominator),basis:rule.basis}});
     await tx.userProgress.update({where:{userId_track:{userId:user.id,track}},data:{lifetimePoints:total,currentLevel:updated.level,revision:{increment:1}}});
-    const snapshot={...updated,previousLevel,levelsGained:config.levels.filter(l=>l.track===track&&l.level>previousLevel&&l.level<=updated.level).map(l=>l.level).sort((a,b)=>a-b)};
+    const snapshot={...updated,...tagBackground(await levelTagBackgrounds(tx,origin),track,updated.level),previousLevel,levelsGained:config.levels.filter(l=>l.track===track&&l.level>previousLevel&&l.level<=updated.level).map(l=>l.level).sort((a,b)=>a-b)};
     await appendOutbox(tx,`user:${user.publicId}`,"progression:updated",{...snapshot,track,userId:user.publicId,sourceTransactionId:gift.id});
     if(track==="USER") senderSnapshot=snapshot;
   }
@@ -96,10 +99,11 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
 }
 
 export async function publicProgression(users,origin,db=prisma,includeTotals=false) {
+  const backgrounds=await levelTagBackgrounds(db,origin);
   const rows=await db.userProgress.findMany({where:{userId:{in:users.map(u=>u.id).filter(Boolean)}},include:{configuration:{include:{levels:true}}}});
   return new Map(users.map(user=>{
     const tracks=rows.filter(r=>r.userId===user.id).map(r=>levelSnapshot(r,r.configuration.levels,origin));
     const u=tracks.find(t=>t.type==="USER"),c=tracks.find(t=>t.type==="CHARM");
-    return [user.publicId,{level:u?.level??0,userLevel:u?.level??0,charmLevel:c?.level??0,anchorLevel:c?.level??0,userLevelBadgeUrl:u?.badgeUrl??null,charmLevelBadgeUrl:c?.badgeUrl??null,...(includeTotals?{progression:{user:{level:u?.level??0,lifetimePoints:u?.lifetimePoints??"0",badgeUrl:u?.badgeUrl??null},charm:{level:c?.level??0,lifetimePoints:c?.lifetimePoints??"0",badgeUrl:c?.badgeUrl??null}}}:{})}];
+    return [user.publicId,{...namedDecoration('userLevelBackground',backgrounds.get(`USER:${u?.level??0}`)),...namedDecoration('charmLevelBackground',backgrounds.get(`CHARM:${c?.level??0}`)),level:u?.level??0,userLevel:u?.level??0,charmLevel:c?.level??0,anchorLevel:c?.level??0,userLevelBadgeUrl:u?.badgeUrl??null,charmLevelBadgeUrl:c?.badgeUrl??null,...(includeTotals?{progression:{user:{level:u?.level??0,lifetimePoints:u?.lifetimePoints??"0",badgeUrl:u?.badgeUrl??null},charm:{level:c?.level??0,lifetimePoints:c?.lifetimePoints??"0",badgeUrl:c?.badgeUrl??null}}}:{})}];
   }));
 }

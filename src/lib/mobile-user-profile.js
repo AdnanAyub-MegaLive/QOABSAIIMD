@@ -47,7 +47,7 @@ export async function mobileUserProfile(userId, origin = null) {
   const equippedAssets = origin ? (await equippedProfileAssets([user], origin)).get(user.id) : null;
   return {
     ...await profileCardArtwork(prisma,user.id,(await publicProgression([user],origin)).get(user.publicId)?.charmLevel??0,origin),
-    ...await activityProgress("GAME", user.id, origin).then(p=>({gameLevel:p.level,gameLevelBadgeUrl:p.badgeUrl,gameProgression:p})),
+    ...await activityProgress("GAME", user.id, origin).then(p=>({gameLevel:p.level,gameLevelBadgeUrl:p.badgeUrl,gameLevelBackground:p.background,gameLevelBackgroundUrl:p.backgroundUrl,gameLevelBackgroundMimeType:p.backgroundMimeType,gameLevelBackgroundMediaVersion:p.backgroundMediaVersion,gameProgression:p})),
     ...await profileCoverDto(prisma, user.id, user.id, origin),
     ...profileEditPermissions(user),
     ...perks?.progression,
