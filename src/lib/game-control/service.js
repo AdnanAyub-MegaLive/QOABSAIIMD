@@ -1,15 +1,17 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
-import { awardActivityXp } from "../activity-levels.js";
 import { prisma } from "../prisma.js";
-import { ledgerData } from "../wallet.js";
 import { assertMobileSession } from "../mobile-session-state.js";
 import { validateGame, resolveRound } from "./rules.mjs";
 import { resolveRoulette, strictBets } from "./roulette/engine.mjs";
+import { miniGames, makeChallenge, publicChallenge, resolveMini } from "./mini-games.mjs";
+import { selectTrivia } from "./trivia-rounds.mjs";
+import { dealTeenPatti } from "./teen-patti.mjs";
 
 export class GameError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
 }
 export const defaultGames = [
+  ...Object.entries(miniGames).map(([engine, value]) => ({ id: ({pizza:"pizza",rps:"rock-paper-scissors",dice:"lucky-dice",penalty:"penalty-shootout",reaction:"reaction-race",trivia:"trivia-battle",teenpatti:"teen-patti"})[engine], name: value.name, engine, status: "paused", minBet: 10, maxBet: 10000 })),
   { id: "lucky-flip", name: "Lucky Flip", engine: "flip", status: "paused", winProbability: 45, payoutMultiplier: 2, minBet: 10, maxBet: 1000 },
   { id: "roulette", name: "Roulette", engine: "roulette", status: "paused", pocketWeights: Array(37).fill(1), minBet: 10, maxBet: 1000 },
 ];
@@ -67,7 +69,7 @@ export async function placeRound(identity, input) {
     await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id = ${request.gameId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${identity.userId} FOR UPDATE`;
     const user = await assertPlayer(tx, identity);
-    const existing = await tx.gameRound.findUnique({ where: { id: input.id } });
+    const existing = await tx.gamePlayRound.findUnique({ where: { id: input.id } });
     if (existing) {
       if (existing.userId !== user.id || existing.requestHash !== requestHash) throw new GameError("This operation ID was already used for a different wager.", 409);
       return existing.payload;
@@ -80,20 +82,53 @@ export async function placeRound(identity, input) {
     if (game.status !== "active") throw new GameError("This game is paused.", 409);
     let result;
     try {
-      result = game.engine === "roulette"
+      let challenge;
+      if (["reaction", "trivia"].includes(game.engine)) {
+        const saved = await tx.gamePlayChallenge.findUnique({where:{id:input.id}});
+        challenge=saved?.payload;
+        if (!saved || saved.userId !== user.id || challenge.gameId !== game.id || challenge.revision !== game.revision || challenge.roomId !== identity.roomId || challenge.bet!==request.bet) throw new Error("Invalid challenge. Start a new round.");
+      }
+      result = miniGames[game.engine] ? resolveMini(game, request.bet, request.choice, randomInt(120000), challenge, Date.now(), game.engine==="teenpatti"?dealTeenPatti(randomInt):undefined) : game.engine === "roulette"
         ? resolveRoulette(game, request.bets, randomInt(game.pocketWeights.reduce((sum, weight) => sum + weight, 0)))
         : resolveRound(game, request.bet, request.choice, randomInt(10000));
     } catch (error) { throw new GameError(error.message); }
     if (result.bet !== request.bet) throw new GameError("The total wager does not match the selected bets.");
-    if (user.coinBalance < BigInt(result.bet)) throw new GameError("Not enough coins in your Mega Live wallet.", 409);
+    const account = await tx.gamePlayAccount.upsert({ where: { userId: user.id }, create: { userId: user.id }, update: {} });
+    if (account.points < BigInt(result.bet)) throw new GameError("Not enough free points. Use Free refill to start again.", 409);
     const round = { id: input.id, uid: user.publicId, nickname: user.name, roomId: identity.roomId, gameId: game.id, gameName: game.name, ...result, settings: game, status: "settled", createdAt: new Date().toISOString() };
-    await tx.user.update({ where: { id: user.id }, data: { coinBalance: { increment: BigInt(result.payout) - BigInt(result.bet) } } });
-    const entries = [ledgerData({ userId: user.id, type: "GAME_WAGER", direction: "DEBIT", title: `${game.name} wager`, coins: BigInt(result.bet), referenceId: round.id, metadata: { gameId: game.id, revision: game.revision } })];
-    if (result.payout > 0) entries.push(ledgerData({ userId: user.id, type: "GAME_PAYOUT", direction: "CREDIT", title: `${game.name} payout`, coins: BigInt(result.payout), referenceId: round.id, metadata: { gameId: game.id, revision: game.revision } }));
-    await tx.walletTransaction.createMany({ data: entries });
-    await tx.gameLog.create({ data: { userId: user.id, gameName: game.name, wager: BigInt(result.bet), payout: BigInt(result.payout), result: result.outcome, referenceId: round.id } });
-    await awardActivityXp(tx, "GAME", user.id, round.id, BigInt(result.bet));
-    await tx.gameRound.create({ data: { id: round.id, gameId: game.id, userId: user.id, requestHash, payload: round, createdAt: new Date(round.createdAt) } });
+    // This currency has no wallet, XP, props, reward or redemption integration.
+    const points = account.points - BigInt(result.bet) + BigInt(result.payout);
+    if (points > 9007199254740991n) throw new GameError("Free point limit reached.", 409);
+    await tx.gamePlayAccount.update({ where: { userId: user.id }, data: { points } });
+    round.currency = "PLAY_POINTS";
+    round.availablePoints = points.toString();
+    await tx.gamePlayRound.create({ data: { id: round.id, userId: user.id, requestHash, payload: round, createdAt: new Date(round.createdAt) } });
     return round;
   }, { timeout: 15000 });
+}
+
+export async function startChallenge(identity, input) {
+  return prisma.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id = ${input.gameId} FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${identity.userId} FOR UPDATE`;
+  await assertPlayer(tx, identity);
+  const row = await tx.gameDefinition.findUnique({ where: { id: input.gameId } });
+  if (!row) throw new GameError("Game not found.", 404);
+  const game = serializeGame(row);
+  if (game.status !== "active") throw new GameError("Game paused.", 409);
+  if(!Number.isSafeInteger(input.bet)||input.bet<game.minBet||input.bet>game.maxBet)throw new GameError("Choose points within this game's limits.");
+  if(input.custom!==undefined&&typeof input.custom!=="boolean")throw new GameError("Invalid amount selection.");
+  const now = Date.now(), id = randomUUID();
+  let challenge;
+  if(game.engine==="trivia"){
+    const history=await tx.gameTriviaHistory.findUnique({where:{userId:identity.userId}});
+    const selected=selectTrivia(input.bet,input.custom===true,history?.seen||{},randomInt);
+    await tx.gameTriviaHistory.upsert({where:{userId:identity.userId},create:{userId:identity.userId,seen:selected.history},update:{seen:selected.history}});
+    challenge={tier:selected.tier,questions:selected.questions,expiresAt:now+selected.questions.length*(game.triviaSeconds??20)*1000};
+  }else {try { challenge = makeChallenge(game.engine, randomInt(120000), now); } catch (error) { throw new GameError(error.message); }}
+  await tx.gamePlayChallenge.deleteMany({where:{userId:identity.userId,expiresAt:{lt:new Date(now-86400000)}}});
+  await tx.gamePlayChallenge.create({data:{id,userId:identity.userId,payload:{...challenge,gameId:game.id,revision:game.revision,roomId:identity.roomId,bet:input.bet},expiresAt:new Date(challenge.expiresAt)}});
+  const display=game.engine==="trivia"?{tier:challenge.tier,questions:challenge.questions.map(({id,text,options})=>({id,text,options})),expiresAt:challenge.expiresAt}:publicChallenge(game.engine,challenge);
+  return { id, revision: game.revision, serverTime: now, ...display };
+  });
 }

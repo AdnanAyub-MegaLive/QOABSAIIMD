@@ -195,6 +195,11 @@ model AuditLog {
 
 model User {
   companyBdCountry String? @unique
+  gamePlayAccount GamePlayAccount?
+  gamePlayRounds GamePlayRound[]
+  gameTriviaHistory GameTriviaHistory?
+  gamePlayChallenges GamePlayChallenge[]
+  sharedGameEntries SharedGameEntry[]
   roomBanners RoomBanner[]
   sentResellerPayouts ResellerPayout[] @relation("PayoutSender")
   receivedResellerPayouts ResellerPayout[] @relation("PayoutReseller")
@@ -357,6 +362,69 @@ model ProgressionConfiguration {
   createdAt DateTime @default(now())
   levels LevelDefinition[]
   users UserProgress[]
+}
+
+// Free, non-transferable game points. Never used by wallet or progression code.
+model GamePlayAccount {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points BigInt @default(10000)
+}
+
+model SharedGameDay {
+  id String @id
+  gameId String
+  day DateTime
+  settings Json
+  seed String
+  durationMs Int
+  entries SharedGameEntry[]
+  @@unique([gameId,day])
+}
+
+model SharedGameEntry {
+  id String @id
+  dayId String
+  day SharedGameDay @relation(fields:[dayId], references:[id], onDelete: Restrict)
+  roomId String
+  slot Int
+  userId String
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  amount BigInt
+  input Json
+  requestHash String
+  answer Json?
+  result Json?
+  status String @default("PENDING")
+  resolveAt DateTime
+  createdAt DateTime @default(now())
+  @@index([dayId,roomId,slot,userId])
+  @@index([status,resolveAt])
+}
+
+model GameTriviaHistory {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seen Json
+}
+
+model GamePlayChallenge {
+  id String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payload Json
+  expiresAt DateTime
+  @@index([userId, expiresAt])
+}
+
+model GamePlayRound {
+  id String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestHash String
+  payload Json
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
 }
 
 model LevelTagBackground {

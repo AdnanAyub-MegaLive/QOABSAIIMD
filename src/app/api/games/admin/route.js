@@ -3,6 +3,7 @@ import { auth } from "../../../../../auth.js";
 import { prisma } from "@/lib/prisma";
 import { ensureGames, saveGame, serializeGame, GameError } from "@/lib/game-control/service";
 import { sameOrigin, jsonBody, failure, gameJson } from "@/lib/game-control/http";
+import {previewRound} from "@/lib/game-control/shared-preview";
 export const runtime = "nodejs";
 export async function POST(request) {
   const permissionDenied = await portalPermissionError((await request.clone().json().catch(() => ({})))?.action === "saveGame" ? "games.manage" : "games.view");
@@ -13,6 +14,12 @@ export async function POST(request) {
     const session = await auth();
     if (!session?.user) throw new GameError("Sign in to the main portal to manage games.", 401);
     const body = await jsonBody(request);
+    if(body.action==="preview-round"){
+      if(!["shared-state","shared-enter","shared-answer","refill"].includes(body.request?.action)||typeof body.request?.gameId!=="string")throw new GameError("Invalid preview request.");
+      const game=await prisma.gameDefinition.findUnique({where:{id:body.request.gameId}});
+      if(!game||game.settings.engine==="external")throw new GameError("Game unavailable.",404);
+      return gameJson(previewRound(session.user.id||session.user.email,game,body.request));
+    }
     if (body.action === "saveGame") return gameJson(await saveGame(body.game, session.user.email || "Portal administrator"));
     if (body.action === "snapshot") {
       await ensureGames();
@@ -22,7 +29,7 @@ export async function POST(request) {
         prisma.gameSettingsAudit.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
         prisma.gameRound.count(),
       ]);
-      return gameJson({ games: games.map(serializeGame).filter(game => game.engine !== "external"), rounds: rounds.map((r) => r.payload), audit: audit.map((a) => a.payload), totalRounds, integration: { database: true, wallet: true, launch: true, live: true } });
+      return gameJson({ games: games.map(serializeGame).filter(game => game.engine !== "external"), rounds: rounds.map((r) => r.payload), audit: audit.map((a) => a.payload), totalRounds, historicalFinancialRecords: true, integration: { database: true, wallet: false, currency: "PLAY_POINTS", redeemable: false, launch: true, live: true } });
     }
     if (body.action === "olderRounds") {
       if (typeof body.beforeId !== "string" || typeof body.before !== "string" || !Number.isFinite(Date.parse(body.before))) throw new GameError("Invalid log cursor.");

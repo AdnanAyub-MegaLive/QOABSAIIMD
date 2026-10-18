@@ -1,5 +1,7 @@
 import { validateWeights } from "./roulette/engine.mjs";
 import { validateLaunchUrl } from "./catalog.mjs";
+import { miniGames } from "./mini-games.mjs";
+import { pizzaSettings } from "./pizza.mjs";
 export function validateGame(input) {
   if (!input || typeof input !== "object")
     throw new Error("Game settings are required.");
@@ -23,7 +25,7 @@ export function validateGame(input) {
     name.trim().length > 60
   )
     throw new Error("Game name must be 2–60 characters.");
-  if (!["flip", "roulette", "external"].includes(engine))
+  if (!["flip", "roulette", "external", ...Object.keys(miniGames)].includes(engine))
     throw new Error("Unknown game engine.");
   if (!["active", "paused"].includes(status))
     throw new Error("Invalid game status.");
@@ -32,6 +34,12 @@ export function validateGame(input) {
     throw new Error("Display order must be a whole number from 0 to 100000.");
   if (engine === "external") return { id, name: name.trim(), engine, status, sortOrder,
     launchUrl: validateLaunchUrl(input.launchUrl), category: "Room game", color: "purple" };
+  const controls={pointReturnMultiplier:input.pointReturnMultiplier??(engine==="dice"?6:2),reactionWindowMs:input.reactionWindowMs??1000,triviaSeconds:input.triviaSeconds??20};
+  if(miniGames[engine]){
+    if(!Number.isFinite(controls.pointReturnMultiplier)||controls.pointReturnMultiplier<1||controls.pointReturnMultiplier>100||Math.abs(controls.pointReturnMultiplier*100-Math.round(controls.pointReturnMultiplier*100))>1e-7)throw new Error("Point return must be 1–100 with up to two decimal places.");
+    if(!Number.isInteger(controls.reactionWindowMs)||controls.reactionWindowMs<100||controls.reactionWindowMs>5000)throw new Error("Reaction window must be 100–5,000 ms.");
+    if(!Number.isInteger(controls.triviaSeconds)||controls.triviaSeconds<5||controls.triviaSeconds>120)throw new Error("Trivia time must be 5–120 seconds per question.");
+  }
   if (
     engine === "flip" &&
     (!Number.isFinite(winProbability) ||
@@ -72,6 +80,8 @@ export function validateGame(input) {
     minBet,
     maxBet,
     category: engine === "roulette" ? "Table game" : "Instant",
+    ...(miniGames[engine]?controls:{}),
+    ...(engine==="pizza"?pizzaSettings(input):{}),
     color: engine === "roulette" ? "orange" : "purple",
     ...(engine === "roulette"
       ? { pocketWeights: validateWeights(input.pocketWeights) }
