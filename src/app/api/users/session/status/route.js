@@ -12,6 +12,7 @@ import {
 } from "../../../../../lib/mobile-session-state";
 import { mobileUserProfile } from "../../../../../lib/mobile-user-profile";
 import { profileEditPermissions } from "@/lib/profile-edit-policy";
+import { requestOrigin } from "@/lib/user-perks";
 
 export async function GET(request) {
   const deviceId =
@@ -81,7 +82,7 @@ export async function GET(request) {
       : null;
     await reconcileExpiredSpecialIds();
     const identity = await getEffectiveUserId(user.id, user.publicId);
-    const profile = await versionMediaPayload(await mobileUserProfile(user.id));
+    const profile = await versionMediaPayload(await mobileUserProfile(user.id, requestOrigin(request)));
     return Response.json({
       success: true,
       data: {
