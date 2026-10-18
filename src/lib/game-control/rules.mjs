@@ -1,4 +1,5 @@
 import { validateWeights } from "./roulette/engine.mjs";
+import { iconAssetSetting } from "./icon-artwork.js";
 import { validateLaunchUrl } from "./catalog.mjs";
 import { miniGames } from "./mini-games.mjs";
 import { pizzaSettings } from "./pizza.mjs";
@@ -30,9 +31,10 @@ export function validateGame(input) {
   if (!["active", "paused"].includes(status))
     throw new Error("Invalid game status.");
   const sortOrder = input.sortOrder ?? 0;
+  const iconAssetId = iconAssetSetting(input.iconAssetId);
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 100000)
     throw new Error("Display order must be a whole number from 0 to 100000.");
-  if (engine === "external") return { id, name: name.trim(), engine, status, sortOrder,
+  if (engine === "external") return { id, name: name.trim(), engine, status, sortOrder, iconAssetId,
     launchUrl: validateLaunchUrl(input.launchUrl), category: "Room game", color: "purple" };
   const controls={pointReturnMultiplier:input.pointReturnMultiplier??(engine==="dice"?6:2),reactionWindowMs:input.reactionWindowMs??1000,triviaSeconds:input.triviaSeconds??20};
   if(miniGames[engine]){
@@ -72,6 +74,7 @@ export function validateGame(input) {
   return {
     id,
     sortOrder,
+    iconAssetId,
     name: name.trim(),
     engine,
     status,

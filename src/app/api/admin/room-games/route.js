@@ -5,6 +5,7 @@ import { requirePortalAdmin } from "@/lib/portal-admin";
 import { saveGame, serializeGame, GameError } from "@/lib/game-control/service";
 import { sameOrigin, jsonBody } from "@/lib/game-control/http";
 import { catalogGame } from "@/lib/game-control/catalog.mjs";
+import { attachGameIcons, gameIconWhere } from "@/lib/game-control/catalog-icons";
 
 function failure(error) {
   const status = error.status || (error.code === "P2002" ? 409 : 500);
@@ -22,7 +23,7 @@ export async function GET(request) {
     const games = rows.map(serializeGame).map(game => {
       try { return catalogGame(game, origin); } catch { return { ...game, invalidLink: true }; }
     }).sort((a,b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id));
-    return Response.json({ success: true, data: { games } }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ success: true, data: { games: await attachGameIcons(prisma,games,origin) } }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 export async function POST(request) {
@@ -37,8 +38,10 @@ export async function POST(request) {
     const row = body.id ? await prisma.gameDefinition.findUnique({ where: { id: String(body.id) } }) : null;
     if (body.id && !row) throw new GameError("Game not found.", 404);
     const game = row ? serializeGame(row) : { id: `link-${randomUUID()}`, engine: "external" };
+    const iconAssetId = body.iconAssetId === undefined ? game.iconAssetId : body.iconAssetId;
+    if (iconAssetId && (typeof iconAssetId !== "string" || !await prisma.uploadAsset.findFirst({where:{...gameIconWhere,publicId:iconAssetId},select:{id:true}}))) throw new GameError("Select an active public game icon.",422);
     const result = await saveGame({ ...game, name: body.name, status: body.status, sortOrder: body.sortOrder,
-      ...(game.engine === "external" ? { launchUrl: body.launchUrl } : {}), revision: body.revision }, admin.email);
+      ...(game.engine === "external" ? { launchUrl: body.launchUrl } : {}), iconAssetId, revision: body.revision }, admin.email);
     return Response.json({ success: true, data: result });
   } catch (error) { return failure(error); }
 }

@@ -1,3 +1,5 @@
+import { gameIconArtwork } from "./icon-artwork.js";
+
 export function validateLaunchUrl(value, development = process.env.NODE_ENV !== "production") {
   let url;
   try { url = new URL(value); } catch { throw new Error("Enter a valid game URL."); }
@@ -10,7 +12,15 @@ export function validateLaunchUrl(value, development = process.env.NODE_ENV !== 
 
 export function catalogGame(game, origin) {
   const external = game.engine === "external";
+  const iconPath = external ? null : gameIconArtwork[game.engine];
+  const artwork = iconPath ? {
+    iconUrl: new URL(iconPath, origin).href,
+    imageUrl: new URL(iconPath, origin).href,
+    iconMimeType: "image/webp",
+    iconVersion: "v1",
+  } : {};
   return { ...game, sortOrder: game.sortOrder ?? 0,
+    ...artwork,
     launchUrl: external ? validateLaunchUrl(game.launchUrl) : `${origin.replace(/\/$/, "")}/games/play?game=${encodeURIComponent(game.id)}`,
     requiresPortalSession: !external };
 }
