@@ -3,6 +3,7 @@ import { generateNumericPublicId } from "./public-id.js";
 import { findAgencyReference, validateAgencyReference } from "./agency-reference.js";
 import { normalizeSignupCountry } from "./geo-country.js";
 import { agencyReferenceRole } from "./user-roles.js";
+import { companyBd, selectedAgencyBd } from './company-bd.js';
 
 export function agencyError(code) { throw new Error(code); }
 
@@ -23,14 +24,15 @@ export async function requireActiveBD(client, id) {
 // Run in a Serializable transaction: role validation, unlink and audit commit together.
 export async function unlinkBDAgency(client, bdUserId, agencyPublicId) {
   const bd = await requireActiveBD(client, bdUserId);
-  const agency = await client.agency.findFirst({ where: { publicId: agencyPublicId, bdUserId: bd.id }, select: { id: true, publicId: true } });
+  const agency = await client.agency.findFirst({ where: { publicId: agencyPublicId, bdUserId: bd.id }, select: { id: true, publicId: true, country: true } });
   if (!agency) agencyError("BD_AGENCY_NOT_FOUND");
-  const changed = await client.agency.updateMany({ where: { id: agency.id, bdUserId: bd.id }, data: { bdUserId: null } });
+  const official = await companyBd(client, agency.country);
+  const changed = await client.agency.updateMany({ where: { id: agency.id, bdUserId: bd.id }, data: { bdUserId: official.id } });
   if (!changed.count) agencyError("BD_AGENCY_NOT_FOUND");
   await client.auditLog.create({ data: {
     action: "BD_AGENCY_UNLINKED", category: "AGENCY_MANAGEMENT", entityType: "Agency", entityId: agency.publicId,
     description: `${bd.publicId} unlinked their agency assignment.`,
-    metadata: { actorBdUserId: bd.id, actorPublicId: bd.publicId, previousBdUserId: bd.id, bdUserId: null },
+    metadata: { actorBdUserId: bd.id, actorPublicId: bd.publicId, previousBdUserId: bd.id, bdUserId: official.id },
   } });
   return { agencyId: agency.publicId, unlinked: true };
 }
@@ -68,8 +70,8 @@ async function audit(client, actor, action, entityId, metadata) {
 export async function grantAgency(client, body, actor) {
   const { agencyName, ownerPublicId } = agencyInput(body);
   const user = await eligibleOwner(client, ownerPublicId);
-  const bd = actor.bdUserId ? validateAgencyReference(await requireActiveBD(client, actor.bdUserId), user.country)
-    : await findBD(client, body.bdCode, user.country);
+  if (actor.bdUserId) await requireActiveBD(client, actor.bdUserId);
+  const bd = await selectedAgencyBd(client, body.bdCode, user.country, actor.bdUserId ?? null);
   const agency = await newAgency(client, user, agencyName, bd?.id ?? null);
   const application = await client.agencyApplication.create({ data: {
     publicId: `AGA-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`,

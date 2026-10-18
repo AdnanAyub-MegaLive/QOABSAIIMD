@@ -194,6 +194,7 @@ model AuditLog {
 }
 
 model User {
+  companyBdCountry String? @unique
   roomBanners RoomBanner[]
   sentResellerPayouts ResellerPayout[] @relation("PayoutSender")
   receivedResellerPayouts ResellerPayout[] @relation("PayoutReseller")

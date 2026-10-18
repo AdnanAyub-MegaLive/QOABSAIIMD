@@ -36,7 +36,7 @@ export default function CreateAgency() {
           <form onSubmit={submit} className="mt-5 space-y-4">
             <label className="block text-sm font-semibold">Agency name<input autoFocus name="agencyName" required maxLength={120} className={inputClass} /></label>
             <label className="block text-sm font-semibold">Owner user ID<input name="ownerPublicId" required maxLength={50} placeholder="USR-123456" className={inputClass} /></label>
-            <label className="block text-sm font-semibold">BD/Admin reference ID<input name="bdCode" required maxLength={50} placeholder="Eligible reference in the owner's country" className={inputClass} /></label>
+            <label className="block text-sm font-semibold">BD reference ID<input name="bdCode" required maxLength={50} placeholder="BD in the owner's country (required)" className={inputClass} /></label>
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-3">
               <button type="button" disabled={busy} onClick={() => setOpen(false)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>

@@ -1,4 +1,4 @@
-import { applicationRolesWithPermission, agencyReferenceRole, displayApplicationRole } from "./user-roles.js";
+import { agencyReferenceRole, displayApplicationRole } from "./user-roles.js";
 import { normalizeSignupCountry } from "./geo-country.js";
 
 export function referenceError(status = 422) {
@@ -12,11 +12,12 @@ export function validateAgencyReference(user, country) {
 }
 export async function findAgencyReference(db, publicId, country) {
   const user = await db.user.findUnique({ where: { publicId: String(publicId ?? "").trim() } });
+  if (!user?.appRoles?.includes("BD")) referenceError();
   return validateAgencyReference(user, country);
 }
 export function referenceWhere(country, q = "") {
   const canonical = normalizeSignupCountry(country);
-  return { status: "ACTIVE", deletedAt: null, country: canonical ?? "__UNASSIGNED__", appRoles: { hasSome: applicationRolesWithPermission("agencies.reference") },
+  return { status: "ACTIVE", deletedAt: null, country: canonical ?? "__UNASSIGNED__", appRoles: { hasSome: ["BD"] },
     ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { publicId: { contains: q, mode: "insensitive" } }] } : {}) };
 }
 export function referenceDto(user, perks = new Map()) {

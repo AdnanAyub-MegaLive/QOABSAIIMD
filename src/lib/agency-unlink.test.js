@@ -1,13 +1,13 @@
 import { expect, it, vi } from "vitest";
 import { unlinkBDAgency } from "./agency-management.js";
 function database() {
-  return { user: { findUnique: vi.fn(async () => ({ id: "bd", publicId: "USR-BD", appRoles: ["BD"], status: "ACTIVE" })) }, agency: { findFirst: vi.fn(async () => ({ id: "agency", publicId: "AGN-1" })), updateMany: vi.fn(async () => ({ count: 1 })) }, auditLog: { create: vi.fn() } };
+  return { user: { findUnique: vi.fn(async ({where}) => ({ id: where.companyBdCountry ? "company-bd-pk" : "bd", publicId: "USR-BD", appRoles: ["BD"], status: "ACTIVE" })) }, agency: { findFirst: vi.fn(async () => ({ id: "agency", publicId: "AGN-1", country: "PK" })), updateMany: vi.fn(async () => ({ count: 1 })) }, auditLog: { create: vi.fn() } };
 }
-it("scopes unlink to the caller and only clears the BD assignment", async () => {
+it("scopes unlink to the caller and rehomes only the BD assignment to Company", async () => {
   const db = database();
   expect(await unlinkBDAgency(db, "bd", "AGN-1")).toEqual({ agencyId: "AGN-1", unlinked: true });
   expect(db.agency.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { publicId: "AGN-1", bdUserId: "bd" } }));
-  expect(db.agency.updateMany).toHaveBeenCalledWith({ where: { id: "agency", bdUserId: "bd" }, data: { bdUserId: null } });
+  expect(db.agency.updateMany).toHaveBeenCalledWith({ where: { id: "agency", bdUserId: "bd" }, data: { bdUserId: "company-bd-pk" } });
   expect(db.auditLog.create).toHaveBeenCalledTimes(1);
 });
 it("rejects missing, foreign or already-unlinked agencies without writes", async () => {

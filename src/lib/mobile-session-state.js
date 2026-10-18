@@ -1,5 +1,6 @@
 export function sessionInvalidation(user, payload) {
   if (!user) return "INVALID_SESSION";
+  if (user.companyBdCountry) return "SESSION_REVOKED";
   if (user.deletedAt || user.status !== "ACTIVE") return "SESSION_REVOKED";
   if (user.sessionVersion !== payload.sessionVersion) return "SESSION_REVOKED";
   if (

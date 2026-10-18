@@ -19,6 +19,13 @@ function fixture(users, rules, policy = { limitScope: "DIRECT", allowAncestorRem
   db.$transaction = vi.fn(work => work(db)); return db;
 }
 const rule = (supervisorRole, memberRole, max) => ({ supervisorRole, memberRole, max });
+it("Company BDs cannot join any manager's team", async () => {
+  const users=[person("a","COUNTRY_HEAD"),{...person("company","BD"),companyBdCountry:"PK"}];
+  const db=fixture(users,[rule("COUNTRY_HEAD","BD",null)]);
+  await expect(assignTeamMember("a","USR-company","BD",db)).rejects.toMatchObject({code:"TEAM_ROLE_NOT_ALLOWED"});
+  expect(await teamCandidates("a","BD","",null,db)).toEqual([]);
+  expect(users[1].supervisorUserId).toBeNull();
+});
 it("CS leaders assign only CS and see their team count without business permissions", async () => {
   const users=[person("leader","CS_LEADER"),person("cs","CS"),person("bd","BD")];
   const db=fixture(users,[rule("CS_LEADER","CS",null),rule("CS_LEADER","BD",null)]);

@@ -4,7 +4,7 @@ import { MANAGEMENT_ROLE_ORDER, managementRole, displayApplicationRole } from ".
 import { normalizeSignupCountry } from "./geo-country.js";
 import { resolveUserPerks } from "./user-perks.js";
 
-export const teamSelect = { id: true, publicId: true, name: true, profileImage: true, country: true, appRoles: true, status: true, deletedAt: true, supervisorUserId: true, teamRole: true, countryHeadDesignation: true };
+export const teamSelect = { companyBdCountry: true, id: true, publicId: true, name: true, profileImage: true, country: true, appRoles: true, status: true, deletedAt: true, supervisorUserId: true, teamRole: true, countryHeadDesignation: true };
 export function teamError(code, status, message) { throw Object.assign(new Error(message), { code, status }); }
 export function canSupervise(supervisorRole, memberRole) {
   if (supervisorRole === "CS_LEADER") return memberRole === "CS";
@@ -66,12 +66,13 @@ export async function teamCandidates(userId, role, q, origin, db = prisma) {
   const country = normalizeSignupCountry(me.country);
   if (!country) return [];
   const users = await db.user.findMany({ where: { id: { not: me.id }, deletedAt: null, status: "ACTIVE", country, supervisorUserId: null, appRoles: { has: role }, ...(q ? { OR: [{ publicId: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {}) }, select: teamSelect, orderBy: { publicId: "asc" }, take: 100 });
-  return teamPeople(users.filter(u => canSupervise(managementRole(me), managementRole(u))).map(u => ({ ...u, teamRole: role })), origin);
+  return teamPeople(users.filter(u => !u.companyBdCountry && canSupervise(managementRole(me), managementRole(u))).map(u => ({ ...u, teamRole: role })), origin);
 }
 export async function assignTeamMember(userId, publicId, role, db = prisma) {
   return db.$transaction(async tx => {
     const me = await requireTeamManager(tx, userId), policy = await teamPolicy(tx);
     const target = await tx.user.findUnique({ where: { publicId }, select: teamSelect });
+    if (target?.companyBdCountry) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "Official Company BDs belong only to the Company.");
     const rule = await tx.roleTeamLimit.findUnique({ where: { supervisorRole_memberRole: { supervisorRole: managementRole(me), memberRole: role } } });
     if (!target || target.deletedAt || target.status !== "ACTIVE" || !rule || !target.appRoles.includes(role) || !canSupervise(managementRole(me), role) || !canSupervise(managementRole(me), managementRole(target))) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "The requested reporting role is not allowed.");
     if (!normalizeSignupCountry(me.country) || normalizeSignupCountry(me.country) !== normalizeSignupCountry(target.country)) teamError("TEAM_COUNTRY_MISMATCH", 422, "Team members must be assigned to the same country.");
