@@ -70,7 +70,7 @@ app.prepare().then(async()=>{
   globalThis.portalIo=io;
   const {settleSharedGames}=await import("./src/lib/game-control/shared-games.js");
   let sharedGamesRunning=false;
-  const runSharedGames=async()=>{if(sharedGamesRunning)return;sharedGamesRunning=true;try{await settleSharedGames(prisma)}catch(e){console.error("Free-point round settlement failed",e.code??e.name)}finally{sharedGamesRunning=false}};
+  const runSharedGames=async()=>{if(sharedGamesRunning)return;sharedGamesRunning=true;try{await settleSharedGames(prisma)}catch(e){console.error("Shared coin round settlement failed",e.code??e.name)}finally{sharedGamesRunning=false}};
   const sharedGameTimer=setInterval(runSharedGames,2000);sharedGameTimer.unref();setImmediate(runSharedGames);
   const {maintainRoomBanners,roomBannerSnapshot}=await import("./src/lib/room-banners.js");
   let bannersRunning=false;

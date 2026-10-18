@@ -128,3 +128,49 @@ It never places wagers against the application database.
 The HTTP smoke test requires the local portal to be running. It creates a
 temporary player and game in the local application database, checks the entire
 launch/wager/receipt flow, then removes only those fixtures and their records.
+
+## October 2026: current shared-room coin integration
+
+This section supersedes the older individual-round and free-point descriptions.
+The current `/api/games/player` flow uses `shared-state`, `shared-enter`, and
+`shared-answer`. The application still launches `/games/play` with its authenticated
+mobile session in the fragment. Live entries now debit **User.coinBalance**, the
+same balance used by the application wallet. There is no game-specific live refill.
+
+The catalog includes Lucky Flip, Roulette, Rock Paper Scissors, Dice High / Low
+(`highlow`, distinct from the existing exact-number `dice`), Lucky Wheel (`wheel`),
+Dragon vs Tiger (`dragon`), and Mini Slot (`slots`). Other existing games remain.
+New catalog entries are inserted paused by `ensureGames`; existing settings and
+availability are never overwritten. Open Games Management to register them, review
+limits and activate the games you intend to offer.
+
+All viewers in the same room see the same seeded daily round outcome. The server
+reveals it after the entry window and uses that same outcome for every accepted
+wager. Daily schedules retain their settings snapshot until the next UTC day;
+pausing a game immediately blocks new placements, but does not cancel accepted bets.
+The configured minimum applies to each placement; maximum applies to the player's
+cumulative placements in that game/room/round, including repeated clicks.
+
+Each coin entry stores `input.currency = COINS`. Debit, GAME_WAGER ledger entry,
+and accepted entry are committed together. Settlement locks the entry and user,
+credits winnings, records GAME_PAYOUT, GameRound and GameLog, then marks SETTLED
+in one transaction. Unique IDs and wallet references prevent duplicate charges or
+payouts. Do not delete pending entries or ledger rows to recover failures; the worker
+retries uncommitted transactions. Run the custom `npm start` server, which owns the
+settlement worker, rather than launching Next directly.
+
+Entries accepted before this change have no COINS marker and continue settling
+into their original free-point account. They never create coin payouts. Admin
+previews stay in isolated memory with practice balances and a practice-only refill.
+
+No new schema migration is needed for this patch if the checkout's existing
+SharedGameDay, SharedGameEntry, GameRound, GameLog and WalletTransaction migrations
+have already been applied. Do not use db push on production. Back up and inspect
+migration status through the normal deployment process.
+
+Before live rollout: run `npm ci`, `npx prisma generate`, `npm test`, and `npm run
+build` with the actual deployment environment. Validate concurrent entries,
+duplicate operation IDs, insufficient balances, settlement interruption/retry,
+legacy point entries, and wallet-ledger reconciliation on a staging database.
+The application GameCenterSheet has been adjusted to 70% screen height; the portal
+player fills its WebView. Deploy the portal and ship that mobile change separately.

@@ -11,7 +11,7 @@ export class GameError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
 }
 export const defaultGames = [
-  ...Object.entries(miniGames).map(([engine, value]) => ({ id: ({pizza:"pizza",rps:"rock-paper-scissors",dice:"lucky-dice",penalty:"penalty-shootout",reaction:"reaction-race",trivia:"trivia-battle",teenpatti:"teen-patti"})[engine], name: value.name, engine, status: "paused", minBet: 10, maxBet: 10000 })),
+  ...Object.entries(miniGames).map(([engine, value]) => ({ id: ({highlow:"dice-high-low",wheel:"lucky-wheel",dragon:"dragon-vs-tiger",slots:"mini-slot",pizza:"pizza",rps:"rock-paper-scissors",dice:"lucky-dice",penalty:"penalty-shootout",reaction:"reaction-race",trivia:"trivia-battle",teenpatti:"teen-patti"})[engine], name: value.name, engine, status: "paused", minBet: 10, maxBet: 10000 })),
   { id: "lucky-flip", name: "Lucky Flip", engine: "flip", status: "paused", winProbability: 45, payoutMultiplier: 2, minBet: 10, maxBet: 1000 },
   { id: "roulette", name: "Roulette", engine: "roulette", status: "paused", pocketWeights: Array(37).fill(1), minBet: 10, maxBet: 1000 },
 ];

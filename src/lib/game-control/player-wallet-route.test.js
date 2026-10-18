@@ -1,0 +1,12 @@
+import {it,expect,vi,beforeEach} from 'vitest';
+const mocks=vi.hoisted(()=>({user:{userId:'public-player',publicId:'public-player',id:'internal-player',name:'Player',coinBalance:12345n},shared:vi.fn(),assert:vi.fn(),games:vi.fn()}));
+vi.mock('@/lib/prisma',()=>({prisma:{gameDefinition:{findMany:mocks.games}}}));
+vi.mock('@/lib/game-control/service',()=>({assertPlayer:mocks.assert,serializeGame:r=>r.settings,GameError:class extends Error{constructor(message,status=400){super(message);this.status=status;}}}));
+vi.mock('@/lib/game-control/shared-games',()=>({sharedSnapshot:mocks.shared,enterSharedRound:vi.fn(),answerSharedRound:vi.fn()}));
+vi.mock('@/lib/game-control/http',()=>({sameOrigin:vi.fn(),jsonBody:r=>r.json(),launchPlayer:async()=>({userId:'internal-player'}),playerSession:async()=>({userId:'internal-player'}),limit:vi.fn(),gameJson:data=>Response.json(data),failure:e=>Response.json({error:e.message},{status:e.status||500})}));
+import {POST} from '@/app/api/games/player/route';
+beforeEach(()=>{vi.clearAllMocks();mocks.assert.mockResolvedValue(mocks.user);mocks.games.mockResolvedValue([]);});
+const send=body=>POST(new Request('https://portal.example/api/games/player',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}));
+it('profile reports the application coin balance as a lossless string',async()=>{const r=await send({action:'profile'});expect(await r.json()).toMatchObject({currency:'COINS',user:{availableCoins:'12345'}});});
+it('refill cannot mint application coins',async()=>{const r=await send({action:'refill'});expect(r.status).toBe(400);expect((await r.json()).error).toMatch(/cannot be refilled/);});
+it('legacy individual bets cannot bypass shared settlement',async()=>{expect((await send({action:'bet',bet:100})).status).toBe(409);});
