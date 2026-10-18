@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import PizzaEditor from "./pizza-editor";
+import GameIcon from "./game-icon";
 import {
   LayoutDashboard,
   Gamepad2,
@@ -528,11 +529,7 @@ export default function Portal() {
                   <section className="panel game-card" key={game.id}>
                     <div className={"game-card-top " + game.color}>
                       <span className={"game-icon " + game.color}>
-                        {game.engine === "roulette" ? (
-                          <CircleDot size={32} />
-                        ) : (
-                          <Coins size={32} />
-                        )}
+                        <GameIcon engine={game.engine} size={48} />
                       </span>
                       <Badge status={game.status} />
                       <span className="game-engine">
@@ -772,11 +769,7 @@ export default function Portal() {
                 {data.games.filter(g => !miniGames[g.engine]).map((g) => (
                   <div className="probability-row" key={g.id}>
                     <span className={"game-icon " + g.color}>
-                      {g.engine === "roulette" ? (
-                        <CircleDot size={24} />
-                      ) : (
-                        <Coins size={24} />
-                      )}
+                      <GameIcon engine={g.engine} size={40} />
                     </span>
                     <div className="probability-name">
                       <b>{g.name}</b>
@@ -1019,11 +1012,7 @@ function GameRows({ games, onEdit }) {
       {games.map((g) => (
         <div className="game-row" key={g.id}>
           <span className={"game-icon " + g.color}>
-            {g.engine === "roulette" ? (
-              <CircleDot size={24} />
-            ) : (
-              <Coins size={24} />
-            )}
+            <GameIcon engine={g.engine} size={40} />
           </span>
           <div className="game-name">
             <b>{g.name}</b>
