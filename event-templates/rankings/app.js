@@ -12,7 +12,17 @@
       rewardsPanel.append(el('h3','',title));
       if(!policy?.enabled){rewardsPanel.append(el('p','','Automatic rewards are not enabled for this period.'));return;}
       rewardsPanel.append(el('p','',`Applies from ${new Date(policy.effectiveFrom).toUTCString()}`));
-      for(const r of policy.rewards){const parts=[];if(r.coins!=='0')parts.push(`${r.coins} Coins`);if(r.diamonds!=='0')parts.push(`${r.diamonds} Diamonds`);for(const p of r.props)parts.push(`${p.name} (${p.days} days)`);if(r.vip)parts.push(`${r.vip.name} (${r.vip.days} days)`);rewardsPanel.append(el('p','',`Top ${r.rank}: ${parts.join(' · ')}`));}
+      if(!policy.rewards?.length){rewardsPanel.append(el('p','','No rewards configured for this period.'));return;}
+      for(const r of policy.rewards){
+        const card=el('article','reward-card');card.append(el('h4','reward-rank',`TOP ${r.rank}`));
+        const items=el('div','reward-items');
+        const add=(name,detail,media)=>{const item=el('div','reward-item');if(media)item.append(image(media,'reward-art'));item.append(el('strong','',name));if(detail)item.append(el('span','',detail));items.append(item);};
+        if(r.coins&&r.coins!=='0')add(`${r.coins} Coins`,'');
+        if(r.diamonds&&r.diamonds!=='0')add(`${r.diamonds} Diamonds`,'');
+        for(const p of r.props||[])add(p.name,`${p.days} days`,p.posterUrl||(p.mimeType?.startsWith('image/')?p.url:null));
+        if(r.vip)add(r.vip.name,`${r.vip.days} days of VIP`);
+        card.append(items);rewardsPanel.append(card);
+      }
     };
     show(data.rewardPolicy,'Current period');if(data.upcomingRewardPolicy)show(data.upcomingRewardPolicy,'Next period settings');
     rewardsPanel.append(el('p','',`${type==='agency'?'Rewards go to the agency owner.':type==='cp'?'Both CP partners receive the full reward.':'Rewards go to the ranked user.'} Awards run after the period closes. Equal scores use public ID order. No awards for periods before activation. Failed checks are held for admin review. Profile blocks may hide entries; award positions use the global ranking.`));

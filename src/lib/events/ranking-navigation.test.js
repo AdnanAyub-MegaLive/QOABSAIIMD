@@ -11,7 +11,7 @@ class Element {
   addEventListener() {}
 }
 const descendants=n=>[n,...n.children.flatMap(descendants)];
-async function fixture(track) {
+async function fixture(track, rewardPolicy=null) {
   const nodes=new Map(),messages=[],requests=[];
   const get=id=>{if(!nodes.has(id))nodes.set(id,new Element('div'));return nodes.get(id);};
   get('search').value='';get('heading').parentElement=new Element('div');
@@ -20,13 +20,21 @@ async function fixture(track) {
   vm.runInNewContext(readFileSync('event-templates/rankings/app.js','utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
   return {get,messages,flush,requests};
 }
 describe('ranking native navigation',()=>{
+  it('shows configured rewards as TOP cards with prop artwork',async()=>{
+    const {get}=await fixture('wealth',{enabled:true,effectiveFrom:'2026-10-19T00:00:00Z',rewards:[{rank:1,coins:'500',diamonds:'20',props:[{name:'Gold frame',days:7,url:'https://media.example/frame.gif',mimeType:'image/gif'}],vip:{name:'VIP 3',days:2}}]});
+    const nodes=descendants(get('board'));
+    expect(nodes.some(n=>n.className==='reward-rank'&&n.textContent==='TOP 1')).toBe(true);
+    expect(nodes.some(n=>n.textContent==='500 Coins')).toBe(true);
+    expect(nodes.some(n=>n.textContent==='VIP 3')).toBe(true);
+    expect(nodes.some(n=>n.className==='reward-art'&&n.src==='https://media.example/frame.gif')).toBe(true);
+  });
   it.each(['wealth','charm','agency','cp'])('keeps the separate %s event fixed when switching periods',async track=>{
     const {get,requests,flush}=await fixture(track);
     get('periods').children[1].onclick();await flush();
