@@ -1,3 +1,4 @@
+import { instantGames, resolveInstant } from "./instant-games.mjs";
 import { createHmac } from "node:crypto";
 import { shuffled, triviaTier } from "./trivia-plan.mjs";
 import { triviaPools } from "./trivia-rounds.mjs";
@@ -15,6 +16,7 @@ export function sharedClock(day, now=Date.now()){
 export function seededRandom(seed,scope){let counter=0;return max=>{if(!Number.isInteger(max)||max<1||max>4294967296)throw new Error("Invalid random range");const bound=Math.floor(4294967296/max)*max;let n;do{n=createHmac("sha256",seed).update(`${scope}:${counter++}`).digest().readUInt32BE(0);}while(n>=bound);return n%max;};}
 export function sharedOutcome(day,roomId,slot){
  const g=day.settings,random=seededRandom(day.seed,`${roomId}:${slot}`);
+ if(instantGames[g.engine] && g.engine!=="rps"){const draw=random(instantGames[g.engine].drawSize);return {result:resolveInstant(g,100,instantGames[g.engine].choices[0],draw).result,draw};}
  if(g.engine==="pizza"){const settings=pizzaSettings(g);return {result:pizzaResult(g,random(settings.pizzaWeights.reduce((a,b)=>a+b,0)))};}
  if(g.engine==="roulette")return {result:weightedPocket(g.pocketWeights,random(g.pocketWeights.reduce((a,b)=>a+b,0)))};
  if(g.engine==="flip")return {result:random(10000)<Math.round((g.winProbability??50)*100)?"heads":"tails"};

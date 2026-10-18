@@ -1,3 +1,5 @@
+import { ledgerData } from "../wallet.js";
+import { instantGames, resolveInstant } from "./instant-games.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../prisma.js";
 import { assertPlayer, GameError, serializeGame } from "./service.js";
@@ -27,21 +29,23 @@ async function getDay(db,gameId,now){
 }
 export function accepted(game,input){
  const amount=input.amount;
- if(!Number.isSafeInteger(amount)||amount<1)throw new GameError("Choose a positive whole free-point amount.");
+ if(!Number.isSafeInteger(amount)||amount<1)throw new GameError("Choose a positive whole coin amount.");
  if(input.custom!==undefined&&typeof input.custom!=="boolean")throw new GameError("Invalid custom selection.");
  const choice=input.choice??null;
- const options={flip:["heads","tails"],dice:["1","2","3","4","5","6"],rps:["rock","paper","scissors"],penalty:["left","centre","right"],teenpatti:["1","2","3"]};
+ const options={...Object.fromEntries(Object.entries(instantGames).map(([engine,spec])=>[engine,spec.choices])),flip:["heads","tails"],dice:["1","2","3","4","5","6"],rps:["rock","paper","scissors"],penalty:["left","centre","right"],teenpatti:["1","2","3"]};
  options.pizza=pizzaFoods.map(f=>f.id);
  let bets=null;
  if(game.engine==="roulette"){
    try{bets=strictBets(input.bets,Number.MAX_SAFE_INTEGER);}catch(e){throw new GameError(e.message);}
    if(Object.values(bets).reduce((a,b)=>a+b,0)!==amount)throw new GameError("Selected points do not match.");
  }else if(options[game.engine]&&!options[game.engine].includes(choice))throw new GameError("Choose a valid option.");
+ if(amount<game.minBet||amount>game.maxBet)throw new GameError(`Bet must be ${game.minBet}–${game.maxBet} coins.`);
  return {amount,choice:options[game.engine]?choice:null,bets,custom:input.custom===true};
 }
 export async function enterSharedRound(identity,input,db=prisma){
  if(typeof input.id!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.id)||typeof input.dayId!=="string"||!Number.isInteger(input.slot))throw new GameError("Invalid round request.");
  return db.$transaction(async tx=>{
+   await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id=${input.gameId} FOR UPDATE`;
    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${identity.userId} FOR UPDATE`;
    await requireGameRoom(tx,identity);
    const suppliedDay=await tx.sharedGameDay.findUnique({where:{id:input.dayId}});
@@ -51,11 +55,13 @@ export async function enterSharedRound(identity,input,db=prisma){
    if(existing){if(existing.userId!==identity.userId||existing.requestHash!==fingerprint)throw new GameError("Request ID conflict.",409);return receipt(existing);}
    const now=Date.now(),day=await getDay(tx,input.gameId,now),clock=sharedClock(day,now);
    if(input.dayId!==day.id||input.slot!==clock.slot||clock.phase!=="open")throw new GameError("Entry closed. Wait for the next round.",409);
-   await tx.gamePlayAccount.upsert({where:{userId:identity.userId},create:{userId:identity.userId},update:{}});
+   const placed=await tx.sharedGameEntry.aggregate({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},_sum:{amount:true}});
+   if((placed._sum.amount||0n)+BigInt(parsed.amount)>BigInt(day.settings.maxBet))throw new GameError("Total bets exceed this round's limit.",409);
    if(Date.now()>=clock.closesAt)throw new GameError("Entry closed. Wait for the next round.",409);
-   const debit=await tx.gamePlayAccount.updateMany({where:{userId:identity.userId,points:{gte:BigInt(parsed.amount)}},data:{points:{decrement:BigInt(parsed.amount)}}});
-   if(debit.count!==1)throw new GameError("Not enough free points. Use Free refill.",409);
-   return receipt(await tx.sharedGameEntry.create({data:{id:input.id,dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId,amount:BigInt(parsed.amount),input:parsed,requestHash:fingerprint,resolveAt:new Date(clock.revealsAt)}}));
+   const debit=await tx.user.updateMany({where:{id:identity.userId,coinBalance:{gte:BigInt(parsed.amount)}},data:{coinBalance:{decrement:BigInt(parsed.amount)}}});
+   if(debit.count!==1)throw new GameError("Not enough coins in your application wallet.",409);
+   await tx.walletTransaction.create({data:ledgerData({userId:identity.userId,type:"GAME_WAGER",direction:"DEBIT",title:`${day.settings.name} wager`,coins:BigInt(parsed.amount),referenceId:input.id,metadata:{gameId:input.gameId,roomId:identity.roomId,dayId:day.id,slot:clock.slot}})});
+   return receipt(await tx.sharedGameEntry.create({data:{id:input.id,dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId,amount:BigInt(parsed.amount),input:{...parsed,currency:"COINS"},requestHash:fingerprint,resolveAt:new Date(clock.revealsAt)}}));
  });
 }
 export async function answerSharedRound(identity,input,db=prisma){
@@ -81,7 +87,10 @@ export async function answerSharedRound(identity,input,db=prisma){
 export function resolveSharedEntry(entry){
  const day=entry.day,g=day.settings,input=entry.input,amount=Number(entry.amount),outcome=sharedOutcome(day,entry.roomId,entry.slot);
  let win=false,tie=false,payout=0,detail=outcome.result;
- if(g.engine==="roulette"){payout=Object.entries(input.bets).reduce((sum,[label,n])=>sum+(isBetWinner(label,outcome.result)?BigInt(n)*BigInt(betByLabel[label].multiplier):0n),0n);win=payout>BigInt(amount);tie=payout===BigInt(amount);}
+ if(instantGames[g.engine]&&g.engine!=="rps"){
+   const resolved=resolveInstant(g,amount,input.choice,outcome.draw);
+   payout=BigInt(resolved.payout);win=resolved.outcome==="win";tie=resolved.outcome==="push";detail=resolved.result;
+ }else if(g.engine==="roulette"){payout=Object.entries(input.bets).reduce((sum,[label,n])=>sum+(isBetWinner(label,outcome.result)?BigInt(n)*BigInt(betByLabel[label].multiplier):0n),0n);win=payout>BigInt(amount);tie=payout===BigInt(amount);}
  else{
    if(g.engine==="teenpatti")win=outcome.winners.includes(input.choice);
    else if(g.engine==="rps"){const choices=["rock","paper","scissors"];tie=input.choice===outcome.result;win=(choices.indexOf(input.choice)-choices.indexOf(outcome.result)+3)%3===1;}
@@ -96,7 +105,7 @@ export function resolveSharedEntry(entry){
    const multiplier=g.engine==="pizza"?pizzaSettings(g).pizzaReturns[pizzaFoods.findIndex(f=>f.id===input.choice)]:g.engine==="flip"?g.payoutMultiplier:g.pointReturnMultiplier??(g.engine==="dice"?6:g.engine==="teenpatti"?3:2);
    payout=tie?BigInt(amount):win?BigInt(amount)*BigInt(Math.round(multiplier*100))/100n:0n;
  }
- return {currency:"PLAY_POINTS",bet:amount,payout:payout<=BigInt(Number.MAX_SAFE_INTEGER)?Number(payout):payout.toString(),outcome:win?"win":tie?"push":"loss",result:detail};
+ return {currency:input.currency==="COINS"?"COINS":"PLAY_POINTS",bet:amount,payout:payout<=BigInt(Number.MAX_SAFE_INTEGER)?Number(payout):payout.toString(),outcome:win?"win":tie?"push":"loss",result:detail};
 }
 export async function settleSharedGames(db=prisma,now=new Date(),where={}){
  const due=await db.sharedGameEntry.findMany({where:{status:"PENDING",resolveAt:{lte:now},...where},orderBy:{resolveAt:"asc"},take:200,select:{id:true}});
@@ -106,7 +115,20 @@ export async function settleSharedGames(db=prisma,now=new Date(),where={}){
    if(!entry||entry.status!=="PENDING")return;
    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${entry.userId} FOR UPDATE`;
    const result=resolveSharedEntry(entry);
-   await tx.gamePlayAccount.update({where:{userId:entry.userId},data:{points:{increment:BigInt(result.payout)}}});
+   if(entry.input.currency==="COINS"){
+     const payout=BigInt(result.payout);
+     if(payout>0n){
+       await tx.user.update({where:{id:entry.userId},data:{coinBalance:{increment:payout}}});
+       await tx.walletTransaction.create({data:ledgerData({userId:entry.userId,type:"GAME_PAYOUT",direction:"CREDIT",title:`${entry.day.settings.name} payout`,coins:payout,referenceId:entry.id,metadata:{gameId:entry.day.gameId,roomId:entry.roomId}})});
+     }
+     const user=await tx.user.findUnique({where:{id:entry.userId}});
+     const payload={...result,id:entry.id,uid:user.publicId,nickname:user.name,gameId:entry.day.gameId,gameName:entry.day.settings.name,roomId:entry.roomId,choice:entry.input.choice,bets:entry.input.bets,revision:entry.day.settings.revision,settings:entry.day.settings,status:"settled",createdAt:entry.createdAt.toISOString()};
+     await tx.gameRound.create({data:{id:entry.id,userId:entry.userId,gameId:entry.day.gameId,requestHash:entry.requestHash,payload,createdAt:entry.createdAt}});
+     await tx.gameLog.create({data:{userId:entry.userId,gameName:entry.day.settings.name,wager:entry.amount,payout,result:result.outcome,referenceId:entry.id}});
+   }else{
+     // Existing free-point wagers must never turn into real coin payouts.
+     await tx.gamePlayAccount.update({where:{userId:entry.userId},data:{points:{increment:BigInt(result.payout)}}});
+   }
    await tx.sharedGameEntry.update({where:{id:entry.id},data:{status:"SETTLED",result}});
  });
 }
@@ -117,7 +139,7 @@ export async function sharedSnapshot(identity,input,db=prisma){
  const entries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot},select:{userId:true,amount:true,input:true}});
  const mineEntries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},orderBy:[{createdAt:"asc"},{id:"asc"}]});
  const mine=mineEntries.find(e=>!e.answer)||mineEntries.at(-1);
- const account=await db.gamePlayAccount.findUnique({where:{userId:identity.userId}});
+ const account=await db.user.findUnique({where:{id:identity.userId}});
  const recentEntries=await db.sharedGameEntry.findMany({where:{userId:identity.userId,roomId:identity.roomId,day:{gameId:input.gameId}},orderBy:[{createdAt:"desc"},{id:"desc"}],take:10});
  let challenge=null;
  if(mine&&["playing","reveal"].includes(clock.phase)){
@@ -128,5 +150,5 @@ export async function sharedSnapshot(identity,input,db=prisma){
  }
  const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:slot+1,...sharedOutcome(day,identity.roomId,slot)});
  const totals=entryTotals(entries);
- return {serverTime:now,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,availablePoints:(account?.points??10000n).toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:["reveal","reset"].includes(clock.phase)?sharedOutcome(day,identity.roomId,clock.slot):null};
+ return {serverTime:now,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:["reveal","reset"].includes(clock.phase)?sharedOutcome(day,identity.roomId,clock.slot):null};
 }

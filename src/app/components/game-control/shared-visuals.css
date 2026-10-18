@@ -1,0 +1,90 @@
+/* Instant games: compact stages with game-specific result animations. */
+.shared-game-visuals .instant-shell{--accent:#aee5b0;background:linear-gradient(155deg,#243b32,#172821);border-color:#496454}
+.shared-game-visuals .instant-wheel{--accent:#f3cf73;background:linear-gradient(155deg,#3a3325,#25241d)}
+.shared-game-visuals .instant-dragon{--accent:#ecab91;background:linear-gradient(155deg,#3d2c31,#241d29)}
+.shared-game-visuals .instant-slots{--accent:#d3a8f0;background:linear-gradient(155deg,#352b48,#201c2f)}
+.shared-game-visuals .instant-rps{--accent:#9ac9f4;background:linear-gradient(155deg,#263c4a,#182732)}
+.shared-game-visuals .instant-shell .player-title h1{font-size:25px;color:var(--accent)}
+.shared-game-visuals .instant-shell .player-wallet{background:#0002;border-color:#ffffff15}
+.shared-game-visuals .instant-shell .flip-stage{padding:10px 0}
+.shared-game-visuals .single-play-choice{display:none}
+.shared-game-visuals .three-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.shared-game-visuals .three-choices>button{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;padding:8px 3px}
+.shared-game-visuals .three-choices small{font-size:9px}
+.shared-game-visuals .game-theater{height:210px;position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #ffffff12;border-radius:16px;background:radial-gradient(ellipse at 50% 90%,#ffffff0c,transparent 65%),#0002}
+.shared-game-visuals .theater-glow{position:absolute;inset:15%;border-radius:50%;background:var(--accent);opacity:.07;filter:blur(25px);z-index:-1}
+.shared-game-visuals .game-die{width:85px;height:85px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:15px;border-radius:18px;background:linear-gradient(135deg,#fffef4,#c9d8c7);box-shadow:5px 8px 0 #819b87,0 20px 30px #0005;transform:rotate(-9deg);margin-bottom:25px}
+.shared-game-visuals .pip{border-radius:50%;background:transparent}.shared-game-visuals .pip.lit{background:#273b32;box-shadow:inset 1px 2px 2px #0006}
+.shared-game-visuals .rolling .game-die{animation:dice-tumble .45s linear infinite}
+.shared-game-visuals .revealed .game-die{animation:dice-land .7s cubic-bezier(.2,.8,.3,1) both}
+.shared-game-visuals .dice-orbit{position:absolute;width:170px;height:55px;border:1px solid #b2e6bb33;border-radius:50%;bottom:40px}
+.shared-game-visuals .theater-caption{position:absolute;bottom:12px;display:flex;gap:25px;font-size:9px;letter-spacing:1px;color:#9baea2}.shared-game-visuals .theater-caption b{display:block;font-size:11px;margin-top:4px}.shared-game-visuals .theater-caption .selected{color:var(--accent)}
+.shared-game-visuals .prize-wheel-wrap{position:relative;width:184px;height:184px}.shared-game-visuals .prize-wheel{width:100%;height:100%;border:4px solid #caa75d;border-radius:50%;box-shadow:0 8px 20px #0006}.shared-game-visuals .prize-wheel svg{display:block;width:100%;height:100%}.shared-game-visuals .prize-pointer{position:absolute;top:-5px;left:calc(50% - 9px);border-left:9px solid transparent;border-right:9px solid transparent;border-top:20px solid #fff0b4;z-index:3;filter:drop-shadow(0 2px 2px #0008)}
+.shared-game-visuals .wheel-hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;display:grid;place-items:center;background:#f4d27e;color:#3e321c;border:4px solid #b6914d;border-radius:50%;font-weight:800}
+.shared-game-visuals .land-wheel{animation:prize-land 1.45s cubic-bezier(.12,.65,.12,1) both}.shared-game-visuals .rolling .wheel-hub{animation:hub-pulse .5s ease-in-out infinite alternate}
+.shared-game-visuals .duel-cards{display:flex;gap:62px;position:relative}.shared-game-visuals .duel-side{text-align:center}.shared-game-visuals .duel-side small{font-size:10px;letter-spacing:2px;color:#ba9f9b;display:block;margin-bottom:10px}.shared-game-visuals .duel-side.selected small{color:#ffd9b6}
+.shared-game-visuals .duel-card{width:80px;height:112px;perspective:700px}.shared-game-visuals .card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d}.shared-game-visuals .card-back,.shared-game-visuals .card-face{position:absolute;inset:0;border-radius:9px;backface-visibility:hidden;box-shadow:0 8px 15px #0004}
+.shared-game-visuals .card-back{display:grid;place-items:center;border:4px solid #ac8179;background:repeating-linear-gradient(45deg,#5a3443 0 5px,#482b3a 5px 10px)}.shared-game-visuals .card-back span{font-size:32px;color:#e5b99d;border:1px solid #b88772;border-radius:50%;padding:8px}
+.shared-game-visuals .card-face{background:#fff5e4;color:#27302d;transform:rotateY(180deg);padding:8px;display:flex;flex-direction:column;justify-content:space-between}.shared-game-visuals .card-face b{font-size:17px;align-self:flex-start}.shared-game-visuals .card-face b:last-child{align-self:flex-end;transform:rotate(180deg)}.shared-game-visuals .card-face>span{font-size:32px;line-height:1}.shared-game-visuals .card-1 .card-face{color:#b34b55}
+.shared-game-visuals .revealed .card-inner{animation:card-reveal .7s ease both}.shared-game-visuals .revealed .card-1 .card-inner{animation-delay:.4s}.shared-game-visuals .rolling .duel-card{animation:card-deal .5s ease-in-out infinite alternate}.shared-game-visuals .duel-vs{position:absolute;top:60%;left:50%;transform:translate(-50%,-50%);font-size:12px;color:#b58a83;font-weight:700}
+.shared-game-visuals .slot-machine{position:relative;width:90%;max-width:320px;padding:12px;border:2px solid #aa88c5;border-radius:18px;background:linear-gradient(#58426a,#30263e);box-shadow:0 10px 22px #0005}.shared-game-visuals .slot-marquee{display:flex;align-items:center;justify-content:space-around;color:#f3d68d;font-size:11px;letter-spacing:3px;font-weight:800;margin-bottom:10px}.shared-game-visuals .slot-marquee i{width:6px;height:6px;background:#ffeab0;border-radius:50%;box-shadow:0 0 8px #ffdf80}
+.shared-game-visuals .slot-reels{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.shared-game-visuals .slot-reel{height:72px;overflow:hidden;border-radius:8px;background:linear-gradient(#cfc9c4,#fff9ec 30% 70%,#cfc9c4);box-shadow:inset 0 2px 8px #0005}.shared-game-visuals .reel-strip>span{height:72px;display:grid;place-items:center;font-size:38px}.shared-game-visuals .rolling .reel-strip{animation:reel-roll .32s linear infinite;filter:blur(1px)}.shared-game-visuals .rolling .reel-1 .reel-strip{animation-duration:.25s}.shared-game-visuals .rolling .reel-2 .reel-strip{animation-duration:.2s}.shared-game-visuals .revealed .reel-strip{animation:reel-stop .5s ease both}.shared-game-visuals .revealed .reel-1 .reel-strip{animation-delay:.3s}.shared-game-visuals .revealed .reel-2 .reel-strip{animation-delay:.6s}.shared-game-visuals .slot-machine>small{display:flex;justify-content:space-between;color:#dbc5ee;font-size:9px;letter-spacing:1px;margin-top:10px}.shared-game-visuals .slot-payline{position:absolute;top:50%;left:3px;width:6px;height:6px;border-radius:50%;background:#ffd06e;box-shadow:0 0 8px #ffd06e}
+.shared-game-visuals .hand-duel{display:flex;align-items:center;gap:20px;text-align:center}.shared-game-visuals .hand-duel>div{width:100px}.shared-game-visuals .hand-duel small{font-size:9px;letter-spacing:1px;color:#a3b8cb}.shared-game-visuals .hand-duel span{display:grid;place-items:center;width:84px;height:84px;margin:10px auto;border:1px solid #adcbea33;border-radius:50%;background:#ffffff08;font-size:43px}.shared-game-visuals .hand-duel b{font-size:12px;text-transform:capitalize;color:#c5dff2}.shared-game-visuals .hand-duel em{font-style:normal;font-size:12px;color:#89a5ba}.shared-game-visuals .rolling .hand-duel span{animation:hand-shake .35s ease-in-out infinite alternate}.shared-game-visuals .rolling .opponent-hand{animation-delay:.15s}.shared-game-visuals .revealed .opponent-hand{animation:hand-reveal .65s ease both}
+.shared-game-visuals .game-theater.win{border-color:var(--accent);box-shadow:inset 0 0 25px #ffffff0b}.shared-game-visuals .win-sparks{position:absolute;inset:50%;pointer-events:none}.shared-game-visuals .win-sparks i{position:absolute;width:5px;height:9px;background:var(--accent);border-radius:2px;animation:spark-burst 1s ease-out both;transform:rotate(var(--spark-angle))}
+@keyframes dice-tumble{to{transform:rotate(351deg) scale(.85)}}
+@keyframes dice-land{0%{transform:translateY(-25px) rotate(160deg)}65%{transform:translateY(5px) rotate(-15deg)}100%{transform:rotate(-9deg)}}
+@keyframes prize-land{from{transform:rotate(0deg)}to{transform:rotate(var(--landing))}}
+@keyframes hub-pulse{to{filter:brightness(1.5)}}
+@keyframes card-reveal{to{transform:rotateY(180deg)}}
+@keyframes card-deal{to{transform:translateY(-7px) rotate(-4deg)}}
+@keyframes reel-roll{to{transform:translateY(-288px)}}
+@keyframes reel-stop{from{transform:translateY(-72px);filter:blur(3px)}70%{transform:translateY(6px)}to{transform:translateY(0);filter:blur(0)}}
+@keyframes hand-shake{to{transform:translateY(-12px) rotate(-15deg)}}
+@keyframes hand-reveal{from{transform:scale(.5) rotate(-30deg)}65%{transform:scale(1.15)}to{transform:scale(1)}}
+@keyframes spark-burst{from{transform:rotate(var(--spark-angle)) translateY(-25px);opacity:1}to{transform:rotate(var(--spark-angle)) translateY(-105px);opacity:0}}
+@media(max-width:800px){.shared-game-visuals .game-theater{height:155px}.shared-game-visuals .instant-shell .player-title h1{font-size:20px}.shared-game-visuals .prize-wheel-wrap{width:140px;height:140px}.shared-game-visuals .game-die{width:65px;height:65px;padding:11px;gap:5px;margin-bottom:22px;border-radius:13px}.shared-game-visuals .dice-orbit{bottom:30px;width:130px}.shared-game-visuals .theater-caption{bottom:7px}.shared-game-visuals .duel-card{width:64px;height:88px}.shared-game-visuals .duel-side small{margin-bottom:6px}.shared-game-visuals .card-face{padding:5px}.shared-game-visuals .card-face b{font-size:13px}.shared-game-visuals .card-face>span{font-size:25px}.shared-game-visuals .hand-duel span{width:65px;height:65px;font-size:34px;margin:7px auto}.shared-game-visuals .slot-machine{padding:9px}.shared-game-visuals .slot-marquee{margin-bottom:7px}.shared-game-visuals .slot-machine>small{margin-top:7px}}
+@media(prefers-reduced-motion:reduce){.shared-game-visuals .game-theater *{animation:none!important}.shared-game-visuals .revealed .card-inner{transform:rotateY(180deg)}.shared-game-visuals .land-wheel{transform:rotate(var(--landing))}.shared-game-visuals .win-sparks{display:none}}
+
+/* Lucky Flip and Roulette share the compact game theater. */
+.shared-game-visuals .instant-flip{--accent:#f0cf82;background:linear-gradient(150deg,#393728,#202a23)}
+.shared-game-visuals .theater-flip{perspective:800px}
+.shared-game-visuals .coin-halo{position:absolute;width:145px;height:145px;border:1px solid #efd18a22;border-radius:50%;box-shadow:0 0 0 20px #e5c77d05,0 0 0 40px #e5c77d04}
+.shared-game-visuals .coin-flight{position:relative;width:104px;height:104px;margin-bottom:15px;transform-style:preserve-3d}
+.shared-game-visuals .lucky-coin{position:relative;width:100%;height:100%;transform-style:preserve-3d;transform:rotateY(var(--coin-rest))}
+.shared-game-visuals .coin-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:50%;border:5px solid #d3a748;outline:2px solid #f6e3a8;outline-offset:-10px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 20%,#fff1ba,#e5bf62 55%,#bd8531);color:#75511d;box-shadow:inset 0 0 12px #9a681d66}
+.shared-game-visuals .coin-tails{transform:rotateY(180deg);background:radial-gradient(circle at 30% 20%,#fff1c6,#d8ab56 60%,#b47d2c)}
+.shared-game-visuals .coin-face small{font-size:7px;letter-spacing:2px}.shared-game-visuals .coin-face b{font-family:Georgia,serif;font-size:45px;line-height:1.1;text-shadow:1px 1px #fff2c4}.shared-game-visuals .coin-face>span{font-size:9px;font-weight:700;letter-spacing:2px}
+.shared-game-visuals .coin-shadow{position:absolute;bottom:35px;width:95px;height:13px;background:#0006;border-radius:50%;filter:blur(4px)}
+.shared-game-visuals .coin-caption{position:absolute;bottom:12px;font-size:9px;letter-spacing:2px;color:#d8c99e}
+.shared-game-visuals .tossing .coin-flight{animation:coin-lift .55s ease-in-out infinite alternate}.shared-game-visuals .tossing .lucky-coin{animation:coin-turn .45s linear infinite}.shared-game-visuals .tossing .coin-shadow{animation:coin-shadow-pulse .55s ease-in-out infinite alternate}
+.shared-game-visuals .coin-revealed .lucky-coin{animation:coin-finish 1.35s cubic-bezier(.15,.6,.18,1) both}.shared-game-visuals .coin-revealed .coin-flight{animation:coin-touchdown 1.35s ease both}
+.shared-game-visuals .instant-roulette{--accent:#ebcb83;background:linear-gradient(145deg,#263e33,#14251e);border-color:#8c784a}
+.shared-game-visuals .instant-roulette .roulette-stage{padding:10px 0 8px;border:1px solid #b3c9981a;border-radius:16px;background:radial-gradient(ellipse at center,#52774c33,#0002 70%);margin-bottom:12px}
+.shared-game-visuals .roulette-wheel-frame{position:relative;width:245px;height:245px;margin:0 auto;border-radius:50%;border:5px solid #b79752;box-shadow:0 0 0 3px #283c2a,0 0 0 5px #b7975244,0 10px 25px #0006;background:#17271f}
+.shared-game-visuals .roulette-wheel-frame img{display:block;width:100%;height:100%;transition:transform 2.2s cubic-bezier(.12,.72,.12,1);filter:none}
+.shared-game-visuals .roulette-wheel-frame .wheel-pointer{top:-8px;background:#ffe5a7;width:14px;height:19px;left:calc(50% - 7px)}
+.shared-game-visuals .roulette-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:29px;height:29px;border:3px solid #a17a39;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#f9dda0,#a47b34);color:#57401e;font-size:13px;font-weight:800;pointer-events:none}
+.shared-game-visuals .roulette-ball{position:absolute;top:7%;left:calc(50% - 3px);width:6px;height:6px;border-radius:50%;background:#fff9e8;box-shadow:0 0 5px #ffefb9;z-index:2}
+.shared-game-visuals .wheel-in-motion .roulette-center{animation:hub-pulse .5s ease-in-out infinite alternate}
+.shared-game-visuals .wheel-settled .roulette-result>b{animation:pocket-reveal .5s ease both}.shared-game-visuals .wheel-settled.win .roulette-wheel-frame{box-shadow:0 0 0 3px #283c2a,0 0 0 5px #e3c07888,0 0 30px #e3c07844}
+.shared-game-visuals .instant-roulette .roulette-market{transition:background .2s,border-color .2s,box-shadow .2s;box-shadow:0 3px 0 #0002}
+.shared-game-visuals .instant-roulette .roulette-market.winning-market{border-color:#e7d38a;background:#536039;box-shadow:inset 0 0 0 1px #f1db8d,0 0 12px #e8cb6540}
+.shared-game-visuals .instant-roulette .roulette-market em{animation:pocket-reveal .25s ease both}
+.shared-game-visuals .instant-roulette .chip-selector button{transition:transform .15s,background .15s}.shared-game-visuals .instant-roulette .chip-selector button.chosen{transform:translateY(-3px);border-color:#f2db9b;background:#8a733e;color:#fff2cb}
+@keyframes coin-lift{from{transform:translateY(5px) rotate(-12deg)}to{transform:translateY(-22px) rotate(8deg)}}
+@keyframes coin-turn{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+@keyframes coin-finish{from{transform:rotateY(0deg)}to{transform:rotateY(var(--coin-end))}}
+@keyframes coin-touchdown{0%{transform:translateY(-20px)}65%{transform:translateY(7px)}85%{transform:translateY(-4px)}100%{transform:translateY(0)}}
+@keyframes coin-shadow-pulse{to{transform:scale(.65);opacity:.4}}
+@keyframes pocket-reveal{from{transform:scale(.65);opacity:.3}to{transform:scale(1);opacity:1}}
+@media(max-width:800px){.shared-game-visuals .coin-flight{width:80px;height:80px}.shared-game-visuals .coin-face b{font-size:33px}.shared-game-visuals .coin-face small{font-size:6px}.shared-game-visuals .coin-face>span{font-size:7px}.shared-game-visuals .coin-halo{width:110px;height:110px}.shared-game-visuals .coin-shadow{bottom:24px;width:75px}.shared-game-visuals .coin-caption{bottom:8px}.shared-game-visuals .instant-roulette .roulette-stage{padding:9px 0 5px;margin-bottom:8px}.shared-game-visuals .roulette-wheel-frame{width:140px;height:140px;border-width:3px}.shared-game-visuals .roulette-wheel-frame img{width:100%;height:100%}.shared-game-visuals .roulette-center{width:22px;height:22px;font-size:10px;border-width:2px}}
+@media(prefers-reduced-motion:reduce){.shared-game-visuals .coin-revealed .lucky-coin{transform:rotateY(var(--coin-rest))}.shared-game-visuals .roulette-wheel-frame img{transition:none}.shared-game-visuals .instant-roulette *{animation:none!important;transition:none!important}}
+
+.shared-game-visuals{width:100%;height:100%;min-height:0;--accent:#ebcb83;display:grid;place-items:center}
+.shared-game-visuals .game-theater{width:100%;height:100%;min-height:0;border:0;background:transparent}
+.shared-game-visuals .prize-wheel-wrap{width:min(180px,85cqh);height:min(180px,85cqh)}
+.shared-game-visuals .roulette-wheel-frame{width:min(240px,85cqh);height:min(240px,85cqh)}
+.shared-game-visuals .coin-flight{width:min(104px,65cqh);height:min(104px,65cqh)}
+.shared-game-visuals .duel-card{height:min(112px,65cqh);width:min(80px,46cqh)}
+.shared-game-visuals .theater-highlow{--accent:#aee5b0}
+.shared-game-visuals .roulette-wheel-frame img{display:block;width:100%;height:100%;object-fit:contain}

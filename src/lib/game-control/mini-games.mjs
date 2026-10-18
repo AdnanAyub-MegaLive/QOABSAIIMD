@@ -1,9 +1,11 @@
+import { instantGames, resolveInstant } from "./instant-games.mjs";
 import {pizzaFoods,pizzaSettings,pizzaResult} from "./pizza.mjs";
 export const miniGames = {
-  pizza: {name:"Pizza",choices:pizzaFoods.map(f=>f.id),icon:"🍕",help:"Choose a food. Everyone in the room sees the same winning food. Returns and selection weights are configured by the admin. Free points only."},
+  ...Object.fromEntries(Object.entries(instantGames).filter(([engine]) => engine !== "rps").map(([engine,spec]) => [engine, {name:spec.name, choices:spec.choices, icon:spec.icon, help:spec.rules, fixedPayout:true}])),
+  pizza: {name:"Pizza",choices:pizzaFoods.map(f=>f.id),icon:"🍕",help:"Choose a food. Everyone in the room sees the same winning food. Returns and selection weights are configured by the admin. Uses the application coin wallet."},
   teenpatti: { name: "Teen Patti", choices: ["deal"], icon: "♠", help: "Solo three-card showdown versus the computer. Trail > pure sequence > sequence > colour > pair > high card. AKQ is the highest sequence, A23 second. Suits do not break ties. No betting streets or cash prizes." },
-  rps: { name: "Rock–Paper–Scissors", choices: ["rock", "paper", "scissors"], icon: "✊", help: "Play against the computer. Rock beats scissors, scissors beats paper, paper beats rock. A draw returns your points." },
-  dice: { name: "Lucky Dice", choices: ["1", "2", "3", "4", "5", "6"], icon: "⚄", help: "Pick a number from 1 to 6. Match the die to return six times your free points." },
+  rps: { name: "Rock–Paper–Scissors", choices: ["rock", "paper", "scissors"], icon: "✊", help: "Play against the computer. Rock beats scissors, scissors beats paper, paper beats rock. A draw returns your stake." },
+  dice: { name: "Lucky Dice", choices: ["1", "2", "3", "4", "5", "6"], icon: "⚄", help: "Pick a number from 1 to 6. Match the die to return six times your coins." },
   penalty: { name: "Penalty Shootout", choices: ["left", "centre", "right"], icon: "⚽", help: "Choose where to shoot. Score when the computer goalkeeper dives elsewhere." },
   reaction: { name: "Reaction Race", choices: [], icon: "⚡", help: "Start, wait for green, then tap. Early taps lose. Respond within one second to win. Network latency is included; this is not a competitive timing leaderboard." },
   trivia: { name: "Trivia Battle", choices: [], icon: "?", help: "10–100 points: 1 easy question. 500: 2 medium. 1,000: 3 hard. Custom: 5 expert. All answers must be correct. No repeats until the difficulty pool is exhausted." },
@@ -29,6 +31,7 @@ export function publicChallenge(engine, challenge) {
 export function resolveMini(game, bet, choice, draw, challenge, now = Date.now(), cards) {
   if (!miniGames[game.engine] || game.status !== "active") throw new Error("Game unavailable.");
   if (!Number.isSafeInteger(bet) || bet < game.minBet || bet > game.maxBet) throw new Error("Invalid free-point amount.");
+  if(instantGames[game.engine] && game.engine!=="rps") return resolveInstant(game,bet,choice,draw % instantGames[game.engine].drawSize);
   let won = false, tie = false, result, multiplier = 2;
   const choices = miniGames[game.engine].choices;
   if (choices.length && !choices.includes(choice)) throw new Error("Choose a valid option.");

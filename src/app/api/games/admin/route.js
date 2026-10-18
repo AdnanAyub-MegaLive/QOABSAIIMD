@@ -29,7 +29,7 @@ export async function POST(request) {
         prisma.gameSettingsAudit.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
         prisma.gameRound.count(),
       ]);
-      return gameJson({ games: games.map(serializeGame).filter(game => game.engine !== "external"), rounds: rounds.map((r) => r.payload), audit: audit.map((a) => a.payload), totalRounds, historicalFinancialRecords: true, integration: { database: true, wallet: false, currency: "PLAY_POINTS", redeemable: false, launch: true, live: true } });
+      return gameJson({ games: games.map(serializeGame).filter(game => game.engine !== "external"), rounds: rounds.map((r) => r.payload), audit: audit.map((a) => a.payload), totalRounds, historicalFinancialRecords: false, integration: { database: true, wallet: true, currency: "COINS", launch: true, live: true } });
     }
     if (body.action === "olderRounds") {
       if (typeof body.beforeId !== "string" || typeof body.before !== "string" || !Number.isFinite(Date.parse(body.before))) throw new GameError("Invalid log cursor.");
