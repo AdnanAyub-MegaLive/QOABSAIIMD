@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import PizzaEditor from "./pizza-editor";
 import {
   LayoutDashboard,
   Gamepad2,
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 import { formatCoins as fmt } from "@/lib/game-control/demo";
 import { markets, resultColor } from "@/lib/game-control/roulette/engine.mjs";
+import { miniGames } from "@/lib/game-control/mini-games.mjs";
 import { isBetWinner } from "@/lib/game-control/roulette/original-rules.mjs";
 import { summary } from "@/lib/game-control/rules.mjs";
 import { useStore } from "./store";
@@ -354,7 +356,7 @@ export default function Portal() {
               <ShieldCheck size={17} />
               <span>
                 {data.integration?.live
-                  ? "Active games settle against the Mega Live coin wallet."
+                  ? "Games now use free points only: no wallet, XP or redeemable rewards. Financial figures below are historical only."
                   : "Activate a game when its settings are ready."}
               </span>
               <button onClick={refresh}>
@@ -536,7 +538,7 @@ export default function Portal() {
                       <span className="game-engine">
                         {game.engine === "roulette"
                           ? "EXISTING GAME"
-                          : "FLIP ENGINE"}
+                          : miniGames[game.engine] ? "FREE PLAY" : "FLIP ENGINE"}
                       </span>
                     </div>
                     <div className="game-card-body">
@@ -544,7 +546,7 @@ export default function Portal() {
                       <p>
                         {game.engine === "roulette"
                           ? "The existing 37-pocket wheel, with eight familiar bet markets."
-                          : "Pick a side. Place a bet. See the result instantly."}
+                          : miniGames[game.engine]?.help || "Pick a side. Play with free points."}
                       </p>
                       {game.engine === "roulette" ? (
                         <div className="card-stats">
@@ -567,11 +569,11 @@ export default function Portal() {
                         <div className="card-stats">
                           <div>
                             <small>Win chance</small>
-                            <b>{game.winProbability}%</b>
+                            <b>{miniGames[game.engine] ? "Game rules" : `${game.winProbability}%`}</b>
                           </div>
                           <div>
                             <small>Gross payout</small>
-                            <b>{game.payoutMultiplier}×</b>
+                            <b>{miniGames[game.engine] ? "Free points" : `${game.payoutMultiplier}×`}</b>
                           </div>
                           <div>
                             <small>Bet range</small>
@@ -767,7 +769,7 @@ export default function Portal() {
                     </p>
                   </div>
                 </div>
-                {data.games.map((g) => (
+                {data.games.filter(g => !miniGames[g.engine]).map((g) => (
                   <div className="probability-row" key={g.id}>
                     <span className={"game-icon " + g.color}>
                       {g.engine === "roulette" ? (
@@ -887,7 +889,7 @@ export default function Portal() {
             <span>
               {isDemo
                 ? "Demo environment · Sample records"
-                : "PostgreSQL · Prisma · Mega Live wallet"}
+                : "Free play · Financial history preserved"}
             </span>
           </footer>
         </div>
@@ -1027,14 +1029,14 @@ function GameRows({ games, onEdit }) {
             <b>{g.name}</b>
             <small>
               {g.category} ·{" "}
-              {g.engine === "roulette" ? "37-pocket wheel" : "Flip engine"}
+              {g.engine === "roulette" ? "37-pocket wheel" : miniGames[g.engine] ? "Solo · Free points" : "Flip engine"}
             </small>
           </div>
           <Badge status={g.status} />
           <div className="game-stat">
             <small>Win probability</small>
             <b>
-              {g.winProbability === null ? "By market" : `${g.winProbability}%`}
+              {miniGames[g.engine] ? "Game rules" : g.winProbability === null ? "By market" : `${g.winProbability}%`}
             </b>
           </div>
           <div className="game-stat">
@@ -1210,11 +1212,19 @@ function ActivityChart({ rounds, period }) {
   );
 }
 function GameEditor(props) {
+  if (miniGames[props.game.engine]) return <MiniEditor {...props} />;
   return props.game.engine === "roulette" ? (
     <RouletteEditor {...props} />
   ) : (
     <FlipEditor {...props} />
   );
+}
+function MiniEditor({ game, onClose, onSave }) {
+  return game.engine==="pizza"?<Modal title="Configure Pizza" onClose={onClose}><PizzaEditor game={game} onClose={onClose} onSave={onSave}/></Modal>:<StandardMiniEditor game={game} onClose={onClose} onSave={onSave}/>;
+}
+function StandardMiniEditor({ game, onClose, onSave }) {
+  const [form, setForm] = useState(game), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  return <Modal title={`Configure ${game.name}`} onClose={onClose}><form onSubmit={async e => { e.preventDefault(); setBusy(true); try { await onSave(form); } catch (err) { setError(err.message); } finally { setBusy(false); } }}><div className="modal-body"><p>{miniGames[game.engine].help}</p><p>Free points only. Automatic room rounds; no wallet, purchases, XP or prizes.</p><div className="form-grid"><label>Name<input required maxLength={60} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label><label>Availability<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="paused">Paused</option><option value="active">Active</option></select></label>{["minBet", "maxBet"].map(field => <label key={field}>{field === "minBet" ? "Minimum free points" : "Maximum free points"}<input type="number" min={1} max={1000000} required value={form[field]} onChange={e => setForm({ ...form, [field]: Number(e.target.value) })} /></label>)}<label>Winning point return (includes points played)<input type="number" min={1} max={100} step={0.01} required value={form.pointReturnMultiplier??(game.engine==="dice"?6:2)} onChange={e=>setForm({...form,pointReturnMultiplier:Number(e.target.value)})} /></label>{game.engine==="reaction"&&<label>Reaction target (milliseconds)<input type="number" min={100} max={5000} required value={form.reactionWindowMs??1000} onChange={e=>setForm({...form,reactionWindowMs:Number(e.target.value)})} /></label>}{game.engine==="trivia"&&<label>Seconds per question (total round budget)<input type="number" min={5} max={120} required value={form.triviaSeconds??20} onChange={e=>setForm({...form,triviaSeconds:Number(e.target.value)})} /></label>}</div><p>Skill outcomes remain based on correct answers and timing. Random opponents and cards are fair; these controls never secretly force wins or losses.</p>{error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? "Saving…" : "Save game"}</button></div></form></Modal>;
 }
 function FlipEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState({ ...game }),
@@ -1293,12 +1303,13 @@ function FlipEditor({ game, onClose, onSave }) {
             </label>
           </div>
           <div className="odds-setting">
+            <p>Shared room rounds use a daily UTC settings snapshot. Limits and return changes take effect next day; pausing applies immediately. For Lucky Flip, this probability controls Heads (Tails is the remainder), not an individual player’s win chance. Preview uses the automatic countdown flow with isolated, temporary free points.</p>
             <label htmlFor="win-prob">
-              Win probability <b>{form.winProbability}%</b>
+              Heads probability (shared room rounds) <b>{form.winProbability}%</b>
             </label>
             <input
               id="win-prob"
-              aria-label="Win probability"
+              aria-label="Heads probability"
               type="range"
               min="0"
               max="100"
@@ -1405,7 +1416,7 @@ function FlipEditor({ game, onClose, onSave }) {
 function Integration() {
   const rows = [
     ["PostgreSQL & Prisma", "Game settings, round receipts and revision history are stored in this portal."],
-    ["Mega Live coin wallet", "Each accepted wager, payout and wallet entry commits together. Failed rounds make no balance change."],
+    ["Free play points", "Rounds use a separate free-point account. No wallet entries, Game XP, purchases, transfers or redemption. Existing financial logs are historical only."],
     ["Mobile account sessions", "Players launch from the Mega Live app. Account bans, device bans and revoked sessions apply to games too."],
     ["Practice preview", "Preview games with practice coins. Previews never change a player's wallet or round history."],
   ];
