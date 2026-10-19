@@ -102,7 +102,7 @@ export async function POST(request, { params }) {
       user,
       body?.body,
       senderPerks,
-      { clientMessageId: body?.clientMessageId },
+      { clientMessageId: body?.clientMessageId, mediaId: body?.mediaId },
     );
     await emitConversationEvent(globalThis.portalIo,membership.conversation.publicId,"message:new", {
         conversationId: membership.conversation.publicId,

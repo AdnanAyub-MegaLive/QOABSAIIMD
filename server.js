@@ -298,21 +298,21 @@ app.prepare().then(async()=>{
     for(const membership of conversationMemberships)socket.join(`conversation:${membership.conversation.publicId}`);
     const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
     socket.emit("session:status",{success:true,data:{sessionVersion:user.sessionVersion,forcedLogoutAt:user.forcedLogoutAt?.toISOString()??null,isVerified:Boolean(user.isVerified),isOfficial:Boolean(user.isOfficial),isBanned:Boolean(ban),banReason:ban?.reason??null,banExpiresAt:ban?.expiresAt?.toISOString()??null}});
-    socket.on("message:send",async({conversationId,body,clientMessageId}={},ack=()=>{})=>{
+    socket.on("message:send",async({conversationId,body,clientMessageId,mediaId}={},ack=()=>{})=>{
       try{
         const id=String(conversationId??"");
         const membership=await requireConversationParticipant(id,user.id);
         socket.join(`conversation:${id}`);
         const {chatSenderPerks}=await import("./src/lib/chat-perks-cache.js");
         const senderPerks=await chatSenderPerks(user,connectionOrigin);
-        const message=await createMessage(membership.conversation,user,body,senderPerks,{clientMessageId});
+        const message=await createMessage(membership.conversation,user,body,senderPerks,{clientMessageId,mediaId});
         const eventPayload={conversationId:id,message};
         await emitConversationEvent(io,id,"message:new",eventPayload);
         ack({success:true,data:eventPayload});
       }catch(error){
         const code=error?.code??error?.message;
         ack({success:false,error:{
-          code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD","MUTUAL_FOLLOW_REQUIRED","USER_BLOCKED","RATE_LIMITED","IDEMPOTENCY_CONFLICT"].includes(code)?code:"MESSAGE_SEND_FAILED",
+          code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD","MUTUAL_FOLLOW_REQUIRED","USER_BLOCKED","USER_NOT_FOUND","CHAT_MEDIA_UNAVAILABLE","RATE_LIMITED","IDEMPOTENCY_CONFLICT"].includes(code)?code:"MESSAGE_SEND_FAILED",
           message:error?.validationMessage??(code==="CONVERSATION_NOT_FOUND"?"Conversation not found.":"Unable to send this message."),
         }});
       }

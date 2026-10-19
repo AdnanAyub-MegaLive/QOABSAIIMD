@@ -20,6 +20,7 @@ import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { randomInt } from "node:crypto";
 import { getLiveCommerceRule, applyLiveGiftReward } from "@/lib/live-commerce";
 import { parseGiftBatchId } from "@/lib/gift-batch";
+import { requireChatGiftTarget, writeChatGiftMessage } from "@/lib/chat-gifts";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -29,7 +30,9 @@ export async function POST(request) {
   try {
     const sessionUser = await requireMobileUser(request);
     const body = await request.json();
-    const operation = giftOperation(body, request.headers.get("Idempotency-Key"), "PAID");
+    const conversationId = body?.conversationId ?? null;
+    if (conversationId && (typeof conversationId !== "string" || conversationId.length > 128 || body.roomId || body.liveId || typeof body.clientMessageId !== "string" || !/^[A-Za-z0-9._:-]{8,123}$/.test(body.clientMessageId))) throw Object.assign(new Error("Chat gifts require conversationId and an 8–123 character clientMessageId, without a room or live ID."), { code: "VALIDATION_ERROR" });
+    const operation = giftOperation(body, conversationId ? `chat:${body.clientMessageId}` : request.headers.get("Idempotency-Key"), "PAID");
     const replay = await priorGiftOperation(sessionUser.id, operation);
     if (replay) return mobileJson(replay, 201);
     const giftBatchId = parseGiftBatchId(body?.giftBatchId);
@@ -143,6 +146,7 @@ export async function POST(request) {
 
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
       await assertGiftRecipient(tx, recipientUser);
+      const chat = conversationId ? await requireChatGiftTarget(tx, conversationId, sessionUser.id, recipientUser.id) : null;
       if (live && !(await tx.videoLiveSession.findFirst({ where: { id: live.id, status: "LIVE" } }))) throw Object.assign(new Error("Live session has ended."), { code: "LIVE_NOT_FOUND" });
       const emitToUser = (id,event,payload) => appendOutbox(tx,`user:${id}`,event,payload.data);
       const emitToAudioRoom = (id,event,payload) => appendOutbox(tx,`audio-room:${id}`,event,payload.data);
@@ -298,6 +302,7 @@ export async function POST(request) {
     const realtimePayload = {
       success: true,
       data: {
+        ...(conversationId ? { conversationId, clientMessageId: body.clientMessageId } : {}),
         transactionId: result.gift.id,
         ...extras,
         giftBatchId: result.gift.giftBatchId,
@@ -317,6 +322,7 @@ export async function POST(request) {
         createdAt: result.gift.createdAt.toISOString(),
       },
     };
+    const message = chat ? await writeChatGiftMessage(tx, chat, sessionUser, body.clientMessageId, { ...realtimePayload.data, conversationId }) : null;
     if (roomId) {
       await emitToAudioRoom(roomId, "gift:received", realtimePayload);
       try {
@@ -345,6 +351,7 @@ export async function POST(request) {
         success: true,
         data: {
           transactionId: result.gift.id,
+          ...(message ? { message, conversationId } : {}),
           progression: result.progression,
           ...extras,
           giftBatchId: result.gift.giftBatchId,

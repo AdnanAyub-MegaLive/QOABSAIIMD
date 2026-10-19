@@ -1,4 +1,6 @@
 import { pruneVoiceObjects } from "./voice-storage.js";
+import { pruneChatMedia } from "./chat-media.js";
+import { pruneGroupIcons } from "./group-details.js";
 export const MESSAGE_RETENTION_DAYS = 30;
 export const MESSAGE_RETENTION_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -49,6 +51,8 @@ export function startMessageRetention(db, logger = console) {
     try {
       const result = await pruneExpiredMessages(db);
       await pruneVoiceObjects(db);
+      await pruneChatMedia(db);
+      await pruneGroupIcons(db);
       if (result.messages || result.roomMessages) logger.info("Expired chat messages permanently deleted", result);
     } catch (error) { logger.error("Message retention cleanup failed", error); }
     finally { running = false; }

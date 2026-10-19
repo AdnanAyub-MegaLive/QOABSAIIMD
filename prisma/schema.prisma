@@ -943,6 +943,10 @@ model FriendRequest {
 }
 
 model Conversation {
+  description String?
+  iconId String?
+  revision Int @default(0)
+  closedAt DateTime?
   id            String                    @id @default(cuid())
   publicId      String                    @unique
   kind          String                    @default("DIRECT")
@@ -959,6 +963,27 @@ model Conversation {
   @@index([kind, lastMessageAt])
   @@index([lastMessageAt])
   @@index([createdById])
+}
+
+model GroupChangeRequest {
+  id String @id @default(cuid())
+  actorId String
+  requestId String
+  fingerprint String
+  result Json
+  createdAt DateTime @default(now())
+  @@unique([actorId, requestId])
+}
+
+model GroupIcon {
+  id String @id @default(cuid())
+  conversationId String
+  key String @unique
+  mediaVersion String
+  publishedAt DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
 }
 
 model ConversationParticipant {
@@ -1024,6 +1049,10 @@ model VoiceObject {
 }
 
 model Message {
+  kind String @default("text")
+  mediaId String? @unique
+  media Json?
+  gift Json?
   clientMessageId String?
   requestHash String?
   voiceKey String?
@@ -1047,6 +1076,26 @@ model Message {
   @@index([senderId, createdAt])
   @@index([conversationId, deletedAt])
   @@index([createdAt])
+}
+
+model ChatMediaObject {
+  id String @id @default(cuid())
+  conversationId String
+  uploaderId String
+  key String @unique
+  posterKey String?
+  kind String
+  mimeType String
+  width Int
+  height Int
+  durationMs Int?
+  mediaVersion String
+  ready Boolean @default(false)
+  consumed Boolean @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
+  @@index([conversationId, uploaderId])
 }
 
 model MessageReceipt {

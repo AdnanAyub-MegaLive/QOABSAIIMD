@@ -12,6 +12,7 @@ import {
   resolveUserPerks,
 } from "../../../lib/user-perks";
 import { formatDateOnly } from "../../../lib/date-only";
+import { groupDetails } from "../../../lib/group-details";
 
 export const dynamic = "force-dynamic";
 export function OPTIONS() {
@@ -38,6 +39,7 @@ async function conversationPayload(conversation, user, perks) {
   return {
     id: conversation.publicId,
     type: conversation.kind,
+    ...(conversation.kind === "GROUP" ? groupDetails(conversation) : {}),
     name:
       conversation.kind === "WORLD"
         ? conversation.name
@@ -74,7 +76,8 @@ async function conversationPayload(conversation, user, perks) {
       ? {
           id: lastMessage.publicId,
           senderId: lastMessage.sender?.publicId ?? null,
-          body: lastMessage.body,
+          body: lastMessage.deletedAt ? null : ({ picture: "Photo", video: "Video", gift: "Gift" }[lastMessage.kind] ?? lastMessage.body),
+          type: lastMessage.voiceKey ? "voice" : lastMessage.kind ?? "text",
           createdAt: lastMessage.createdAt.toISOString(),
         }
       : null,
@@ -143,7 +146,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error("Conversation list failed", error);
+    if (!["SESSION_REVOKED", "INVALID_SESSION"].includes(error.code ?? error.message)) console.error("Conversation list failed", error);
     return mobileApiError(error, "CONVERSATIONS_FAILED");
   }
 }
