@@ -125,11 +125,6 @@ export async function resolveUserPerks(
     },
     orderBy: { createdAt: "desc" },
   });
-  const newestGlobal = new Map();
-  for (const asset of assets)
-    if (asset.isGlobal && !newestGlobal.has(asset.category))
-      newestGlobal.set(asset.category, asset);
-
   const equipped = await prisma.userEquippedProp.findMany({
     where: {
       userId: { in: userIds },
@@ -153,7 +148,9 @@ export async function resolveUserPerks(
               )),
           )
         : null;
-      const asset = selectedAsset ?? newestGlobal.get(category);
+      // Global availability permits equipping an asset; it is not a default.
+      // Match equippedProfileAssets: no valid selection means no decoration.
+      const asset = selectedAsset;
       if (asset && perkFields[category]) Object.assign(perks, namedDecoration(perkFields[category].replace(/Url$/, ""), decorationMedia(asset, origin)));
     }
   }
