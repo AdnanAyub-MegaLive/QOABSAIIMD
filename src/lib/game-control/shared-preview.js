@@ -1,3 +1,4 @@
+import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import {randomBytes} from "node:crypto";
 import {sharedClock,sharedDuration,sharedOutcome,sharedTrivia} from "./shared-engine.mjs";
 import {accepted,resolveSharedEntry,entryTotals} from "./shared-games.js";
@@ -23,9 +24,20 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
   if(input.dayId!==day.id||input.slot!==clock.slot||clock.phase!=="open")throw new GameError("Entry closed. Wait for the next round.",409);
 
   if(state.entries.filter(e=>e.slot===clock.slot).reduce((sum,e)=>sum+e.amount,0)+parsed.amount>day.settings.maxBet)throw new GameError("Total bets exceed this round’s limit.",409);
+  if(day.settings.engine==="rocket"&&state.entries.some(e=>e.slot===clock.slot))throw new GameError("You are already aboard this flight.",409);
   if(state.points<parsed.amount)throw new GameError("Use Free refill.",409);
-  const e={id:input.id,day,roomId,slot:clock.slot,amount:parsed.amount,input:parsed,answer:null,status:"PENDING",result:null,resolveAt:clock.revealsAt};
+  const e={id:input.id,day,roomId,slot:clock.slot,amount:parsed.amount,input:parsed,answer:null,status:"PENDING",result:null,resolveAt:day.settings.engine==="rocket"?rocketCrashAt(day,clock.slot,sharedOutcome(day,roomId,clock.slot).crashCents):clock.revealsAt};
   state.points-=BigInt(parsed.amount);state.entries.push(e);return view(e);
+ }
+ if(input.action==="shared-cashout"){
+  const e=state.entries.find(e=>e.id===input.id);
+  if(!e||day.settings.engine!=="rocket")throw new GameError("Rocket entry not found.",404);
+  if(e.status==="SETTLED"){
+    if(e.result?.cashedOut)return view(e);
+    throw new GameError("The rocket has crashed. Cash-out is closed.",409);
+  }
+  let result;try{result=rocketCashoutResult(e,now,sharedOutcome(day,roomId,e.slot).crashCents);}catch(error){throw new GameError(error.message,409);}
+  state.points+=BigInt(result.payout);e.result=result;e.status="SETTLED";return view(e);
  }
  if(input.action==="shared-answer"){
   const e=state.entries.find(e=>e.id===input.id);
@@ -44,6 +56,7 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
   if(day.settings.engine==="reaction")challenge={readyAt:clock.closesAt+sharedOutcome(day,roomId,clock.slot).delayMs};
   if(day.settings.engine==="trivia"){const quiz=sharedTrivia(day,roomId,clock.slot,mine.amount,mine.input.custom);challenge={tier:quiz.tier,questions:quiz.questions.map(({answer,...q})=>({...q,...(revealed?{answer}:{})}))};}
  }
+ const rocket=day.settings.engine==="rocket"?publicRocketState(day,clock.slot,sharedOutcome(day,roomId,clock.slot).crashCents,now):null;
  const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:slot+1,...sharedOutcome(day,roomId,slot)});
- return {serverTime:now,dayId:day.id,roomId,game:day.settings,...clock,availablePoints:String(state.points),mine:view(mine),mineEntries:mineEntries.map(view),myTotal:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),myTotals:entryTotals(mineEntries),recentEntries:state.entries.slice(-10).reverse().map(view),participants:mine?1:0,totalPoints:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),totals:entryTotals(mineEntries),challenge,history,outcome:revealed?sharedOutcome(day,roomId,clock.slot):null};
+ return {serverTime:now,rocket,dayId:day.id,roomId,game:day.settings,...clock,availablePoints:String(state.points),mine:view(mine),mineEntries:mineEntries.map(view),myTotal:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),myTotals:entryTotals(mineEntries),recentEntries:state.entries.slice(-10).reverse().map(view),participants:mine?1:0,totalPoints:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),totals:entryTotals(mineEntries),challenge,history,outcome:(revealed||rocket?.crashed)?sharedOutcome(day,roomId,clock.slot):null};
 }

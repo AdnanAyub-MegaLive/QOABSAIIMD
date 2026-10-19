@@ -11,7 +11,7 @@ export class GameError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
 }
 export const defaultGames = [
-  ...Object.entries(miniGames).map(([engine, value]) => ({ id: ({highlow:"dice-high-low",wheel:"lucky-wheel",dragon:"dragon-vs-tiger",slots:"mini-slot",pizza:"pizza",rps:"rock-paper-scissors",dice:"lucky-dice",penalty:"penalty-shootout",reaction:"reaction-race",trivia:"trivia-battle",teenpatti:"teen-patti"})[engine], name: value.name, engine, status: "paused", minBet: 10, maxBet: 10000 })),
+  ...Object.entries(miniGames).map(([engine, value]) => ({ id: ({rocket:"rocket",highlow:"dice-high-low",wheel:"lucky-wheel",dragon:"dragon-vs-tiger",slots:"mini-slot",pizza:"pizza",rps:"rock-paper-scissors",dice:"lucky-dice",penalty:"penalty-shootout",reaction:"reaction-race",trivia:"trivia-battle",teenpatti:"teen-patti"})[engine], name: value.name, engine, status: "paused", minBet: 10, maxBet: 10000 })),
   { id: "lucky-flip", name: "Lucky Flip", engine: "flip", status: "paused", winProbability: 45, payoutMultiplier: 2, minBet: 10, maxBet: 1000 },
   { id: "roulette", name: "Roulette", engine: "roulette", status: "paused", pocketWeights: Array(37).fill(1), minBet: 10, maxBet: 1000 },
 ];
@@ -88,6 +88,7 @@ export async function placeRound(identity, input) {
         challenge=saved?.payload;
         if (!saved || saved.userId !== user.id || challenge.gameId !== game.id || challenge.revision !== game.revision || challenge.roomId !== identity.roomId || challenge.bet!==request.bet) throw new Error("Invalid challenge. Start a new round.");
       }
+      if(game.engine==="rocket")throw new GameError("Rocket requires shared room rounds.",409);
       result = miniGames[game.engine] ? resolveMini(game, request.bet, request.choice, randomInt(120000), challenge, Date.now(), game.engine==="teenpatti"?dealTeenPatti(randomInt):undefined) : game.engine === "roulette"
         ? resolveRoulette(game, request.bets, randomInt(game.pocketWeights.reduce((sum, weight) => sum + weight, 0)))
         : resolveRound(game, request.bet, request.choice, randomInt(10000));

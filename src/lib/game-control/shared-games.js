@@ -1,3 +1,5 @@
+import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
+import { roundTiming } from "./round-timing.mjs";
 import { ledgerData } from "../wallet.js";
 import { instantGames, resolveInstant } from "./instant-games.mjs";
 import { createHash, randomBytes } from "node:crypto";
@@ -20,12 +22,18 @@ export async function requireGameRoom(db,identity){
  if(ban)throw new GameError("You cannot play in this room.",403);
  return user;
 }
-async function getDay(db,gameId,now){
+async function getDay(db,gameId,now,viewExistingRocket=false){
  if(typeof gameId!=="string")throw new GameError("Invalid game.");
  const gameRow=await db.gameDefinition.findUnique({where:{id:gameId}});
- if(!gameRow||gameRow.settings.status!=="active"||gameRow.settings.engine==="external")throw new GameError("Game paused or unavailable.",409);
+ if(!gameRow||gameRow.settings.engine==="external"||(gameRow.settings.status!=="active"&&!(viewExistingRocket&&gameRow.settings.engine==="rocket")))throw new GameError("Game paused or unavailable.",409);
  const date=new Date(now).toISOString().slice(0,10),id=`${gameId}:${date}`,settings=serializeGame(gameRow);
- return db.sharedGameDay.upsert({where:{id},create:{id,gameId,day:new Date(`${date}T00:00:00Z`),settings,seed:randomBytes(32).toString("hex"),durationMs:sharedDuration(settings)},update:{}});
+ if(gameRow.settings.status!=="active"){
+   const existing=await db.sharedGameDay.findUnique({where:{id}});
+   if(!existing)throw new GameError("Game paused or unavailable.",409);
+   return {...existing,acceptingBets:false};
+ }
+ const day=await db.sharedGameDay.upsert({where:{id},create:{id,gameId,day:new Date(`${date}T00:00:00Z`),settings,seed:randomBytes(32).toString("hex"),durationMs:sharedDuration(settings)},update:{}});
+ return {...day,acceptingBets:true};
 }
 export function accepted(game,input){
  const amount=input.amount;
@@ -33,6 +41,7 @@ export function accepted(game,input){
  if(input.custom!==undefined&&typeof input.custom!=="boolean")throw new GameError("Invalid custom selection.");
  const choice=input.choice??null;
  const options={...Object.fromEntries(Object.entries(instantGames).map(([engine,spec])=>[engine,spec.choices])),flip:["heads","tails"],dice:["1","2","3","4","5","6"],rps:["rock","paper","scissors"],penalty:["left","centre","right"],teenpatti:["1","2","3"]};
+ options.rocket=["board"];
  options.pizza=pizzaFoods.map(f=>f.id);
  let bets=null;
  if(game.engine==="roulette"){
@@ -55,13 +64,14 @@ export async function enterSharedRound(identity,input,db=prisma){
    if(existing){if(existing.userId!==identity.userId||existing.requestHash!==fingerprint)throw new GameError("Request ID conflict.",409);return receipt(existing);}
    const now=Date.now(),day=await getDay(tx,input.gameId,now),clock=sharedClock(day,now);
    if(input.dayId!==day.id||input.slot!==clock.slot||clock.phase!=="open")throw new GameError("Entry closed. Wait for the next round.",409);
+   if(day.settings.engine==="rocket"&&await tx.sharedGameEntry.findFirst({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId}}))throw new GameError("You are already aboard this flight.",409);
    const placed=await tx.sharedGameEntry.aggregate({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},_sum:{amount:true}});
    if((placed._sum.amount||0n)+BigInt(parsed.amount)>BigInt(day.settings.maxBet))throw new GameError("Total bets exceed this round's limit.",409);
    if(Date.now()>=clock.closesAt)throw new GameError("Entry closed. Wait for the next round.",409);
    const debit=await tx.user.updateMany({where:{id:identity.userId,coinBalance:{gte:BigInt(parsed.amount)}},data:{coinBalance:{decrement:BigInt(parsed.amount)}}});
    if(debit.count!==1)throw new GameError("Not enough coins in your application wallet.",409);
    await tx.walletTransaction.create({data:ledgerData({userId:identity.userId,type:"GAME_WAGER",direction:"DEBIT",title:`${day.settings.name} wager`,coins:BigInt(parsed.amount),referenceId:input.id,metadata:{gameId:input.gameId,roomId:identity.roomId,dayId:day.id,slot:clock.slot}})});
-   return receipt(await tx.sharedGameEntry.create({data:{id:input.id,dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId,amount:BigInt(parsed.amount),input:{...parsed,currency:"COINS"},requestHash:fingerprint,resolveAt:new Date(clock.revealsAt)}}));
+   return receipt(await tx.sharedGameEntry.create({data:{id:input.id,dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId,amount:BigInt(parsed.amount),input:{...parsed,currency:"COINS"},requestHash:fingerprint,resolveAt:new Date(day.settings.engine==="rocket"?rocketCrashAt(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents):clock.revealsAt)}}));
  });
 }
 export async function answerSharedRound(identity,input,db=prisma){
@@ -84,9 +94,32 @@ export async function answerSharedRound(identity,input,db=prisma){
    return receipt(await tx.sharedGameEntry.update({where:{id:entry.id},data:{answer:{value,at:now}}}));
  });
 }
+export async function cashOutRocket(identity,input,db=prisma){
+ if(typeof input.id!=="string")throw new GameError("Invalid entry.");
+ return db.$transaction(async tx=>{
+   // Same lock order as automatic settlement: entry, then wallet owner.
+   await tx.$queryRaw`SELECT id FROM "SharedGameEntry" WHERE id=${input.id} FOR UPDATE`;
+   const entry=await tx.sharedGameEntry.findUnique({where:{id:input.id},include:{day:true}});
+   if(!entry||entry.userId!==identity.userId||entry.roomId!==identity.roomId||entry.day.gameId!==input.gameId)throw new GameError("Entry not found.",404);
+   if(entry.day.settings.engine!=="rocket")throw new GameError("This game has no cash-out action.");
+   await tx.$queryRaw`SELECT id FROM "User" WHERE id=${identity.userId} FOR UPDATE`;
+   await requireGameRoom(tx,identity);
+   if(entry.status==="SETTLED"){
+     if(entry.result?.cashedOut)return receipt(entry);
+     throw new GameError("The rocket has crashed. Cash-out is closed.",409);
+   }
+   if(entry.status!=="PENDING")throw new GameError("Entry unavailable.",409);
+   const now=Date.now(),outcome=sharedOutcome(entry.day,entry.roomId,entry.slot);
+   let result;
+   try{result=rocketCashoutResult(entry,now,outcome.crashCents);}catch(error){throw new GameError(error.message,409);}
+   await settleEntry(tx,entry,result);
+   return receipt({...entry,status:"SETTLED",result});
+ });
+}
 export function resolveSharedEntry(entry){
  const day=entry.day,g=day.settings,input=entry.input,amount=Number(entry.amount),outcome=sharedOutcome(day,entry.roomId,entry.slot);
  let win=false,tie=false,payout=0,detail=outcome.result;
+ if(g.engine==="rocket")return {currency:input.currency==="COINS"?"COINS":"PLAY_POINTS",bet:amount,payout:0,outcome:"loss",result:`Crashed at ${outcome.result}`,cashedOut:false,crashMultiplier:outcome.crashCents/100};
  if(instantGames[g.engine]&&g.engine!=="rps"){
    const resolved=resolveInstant(g,amount,input.choice,outcome.draw);
    payout=BigInt(resolved.payout);win=resolved.outcome==="win";tie=resolved.outcome==="push";detail=resolved.result;
@@ -96,7 +129,7 @@ export function resolveSharedEntry(entry){
    else if(g.engine==="rps"){const choices=["rock","paper","scissors"];tie=input.choice===outcome.result;win=(choices.indexOf(input.choice)-choices.indexOf(outcome.result)+3)%3===1;}
    else if(g.engine==="penalty")win=input.choice!==outcome.result;
    else if(g.engine==="reaction"){
-     const opensAt=new Date(day.day).getTime()+entry.slot*day.durationMs,elapsed=(entry.answer?.at??Infinity)-(opensAt+20000+outcome.delayMs);
+     const opensAt=new Date(day.day).getTime()+entry.slot*day.durationMs,elapsed=(entry.answer?.at??Infinity)-(opensAt+roundTiming(day.settings).selectionSeconds*1000+outcome.delayMs);
      win=elapsed>=0&&elapsed<=(g.reactionWindowMs??1000);detail=Number.isFinite(elapsed)?elapsed<0?"Too early":`${elapsed} ms`:"No tap";
    }else if(g.engine==="trivia"){
      const quiz=sharedTrivia(day,entry.roomId,entry.slot,amount,input.custom),correct=quiz.questions.filter((q,i)=>entry.answer?.value?.[i]===q.answer).length;
@@ -107,14 +140,7 @@ export function resolveSharedEntry(entry){
  }
  return {currency:input.currency==="COINS"?"COINS":"PLAY_POINTS",bet:amount,payout:payout<=BigInt(Number.MAX_SAFE_INTEGER)?Number(payout):payout.toString(),outcome:win?"win":tie?"push":"loss",result:detail};
 }
-export async function settleSharedGames(db=prisma,now=new Date(),where={}){
- const due=await db.sharedGameEntry.findMany({where:{status:"PENDING",resolveAt:{lte:now},...where},orderBy:{resolveAt:"asc"},take:200,select:{id:true}});
- for(const item of due)await db.$transaction(async tx=>{
-   await tx.$queryRaw`SELECT id FROM "SharedGameEntry" WHERE id=${item.id} FOR UPDATE`;
-   const entry=await tx.sharedGameEntry.findUnique({where:{id:item.id},include:{day:true}});
-   if(!entry||entry.status!=="PENDING")return;
-   await tx.$queryRaw`SELECT id FROM "User" WHERE id=${entry.userId} FOR UPDATE`;
-   const result=resolveSharedEntry(entry);
+async function settleEntry(tx,entry,result){
    if(entry.input.currency==="COINS"){
      const payout=BigInt(result.payout);
      if(payout>0n){
@@ -130,12 +156,23 @@ export async function settleSharedGames(db=prisma,now=new Date(),where={}){
      await tx.gamePlayAccount.update({where:{userId:entry.userId},data:{points:{increment:BigInt(result.payout)}}});
    }
    await tx.sharedGameEntry.update({where:{id:entry.id},data:{status:"SETTLED",result}});
+}
+
+export async function settleSharedGames(db=prisma,now=new Date(),where={}){
+ const due=await db.sharedGameEntry.findMany({where:{status:"PENDING",resolveAt:{lte:now},...where},orderBy:{resolveAt:"asc"},take:200,select:{id:true}});
+ for(const item of due)await db.$transaction(async tx=>{
+   await tx.$queryRaw`SELECT id FROM "SharedGameEntry" WHERE id=${item.id} FOR UPDATE`;
+   const entry=await tx.sharedGameEntry.findUnique({where:{id:item.id},include:{day:true}});
+   if(!entry||entry.status!=="PENDING")return;
+   await tx.$queryRaw`SELECT id FROM "User" WHERE id=${entry.userId} FOR UPDATE`;
+   const result=resolveSharedEntry(entry);
+   await settleEntry(tx,entry,result);
  });
 }
 export async function sharedSnapshot(identity,input,db=prisma){
  await requireGameRoom(db,identity);
  await settleSharedGames(db,new Date(),{userId:identity.userId});
- const now=Date.now(),day=await getDay(db,input.gameId,now),clock=sharedClock(day,now);
+ const now=Date.now(),day=await getDay(db,input.gameId,now,true),clock=sharedClock(day,now);
  const entries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot},select:{userId:true,amount:true,input:true}});
  const mineEntries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},orderBy:[{createdAt:"asc"},{id:"asc"}]});
  const mine=mineEntries.find(e=>!e.answer)||mineEntries.at(-1);
@@ -150,5 +187,6 @@ export async function sharedSnapshot(identity,input,db=prisma){
  }
  const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:slot+1,...sharedOutcome(day,identity.roomId,slot)});
  const totals=entryTotals(entries);
- return {serverTime:now,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:["reveal","reset"].includes(clock.phase)?sharedOutcome(day,identity.roomId,clock.slot):null};
+ const rocket=day.settings.engine==="rocket"?publicRocketState(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents,now):null;
+ return {serverTime:now,rocket,acceptingBets:day.acceptingBets,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:(["reveal","reset"].includes(clock.phase)||rocket?.crashed)?sharedOutcome(day,identity.roomId,clock.slot):null};
 }

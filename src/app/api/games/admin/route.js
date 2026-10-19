@@ -15,7 +15,7 @@ export async function POST(request) {
     if (!session?.user) throw new GameError("Sign in to the main portal to manage games.", 401);
     const body = await jsonBody(request);
     if(body.action==="preview-round"){
-      if(!["shared-state","shared-enter","shared-answer","refill"].includes(body.request?.action)||typeof body.request?.gameId!=="string")throw new GameError("Invalid preview request.");
+      if(!["shared-state","shared-enter","shared-answer","shared-cashout","refill"].includes(body.request?.action)||typeof body.request?.gameId!=="string")throw new GameError("Invalid preview request.");
       const game=await prisma.gameDefinition.findUnique({where:{id:body.request.gameId}});
       if(!game||game.settings.engine==="external")throw new GameError("Game unavailable.",404);
       return gameJson(previewRound(session.user.id||session.user.email,game,body.request));

@@ -5,6 +5,6 @@ export function iconAssetSetting(value) {
   return value;
 }
 export const gameIconArtwork = Object.freeze(Object.fromEntries(
-  ['flip', 'roulette', 'pizza', 'teenpatti', 'rps', 'dice', 'penalty', 'reaction', 'trivia', 'highlow', 'wheel', 'dragon', 'slots']
-    .map(engine => [engine, `/games/icons/${engine}-v1.webp`]),
+  ['rocket', 'flip', 'roulette', 'pizza', 'teenpatti', 'rps', 'dice', 'penalty', 'reaction', 'trivia', 'highlow', 'wheel', 'dragon', 'slots']
+    .map(engine => [engine, `/games/icons/${engine}-${engine === "rocket" ? "v2" : "v1"}.webp`]),
 ));

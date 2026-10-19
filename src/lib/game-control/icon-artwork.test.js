@@ -7,12 +7,12 @@ import { visibleGames } from './catalog.mjs';
 it('returns absolute artwork URLs for all built-in mobile catalogue entries', () => {
   const games = Object.keys(gameIconArtwork).map(engine => ({id: engine, engine, status: 'active'}));
   const result = visibleGames(games, 'https://portal.megachat.live/');
-  expect(result).toHaveLength(13);
+  expect(result).toHaveLength(14);
   for (const game of result) {
     expect(game.iconUrl).toBe(`https://portal.megachat.live${gameIconArtwork[game.engine]}`);
     expect(game.imageUrl).toBe(game.iconUrl);
     expect(game.iconMimeType).toBe('image/webp');
-    expect(game.iconVersion).toBe('v1');
+    expect(game.iconVersion).toBe(game.engine === 'rocket' ? 'v2' : 'v1');
   }
 });
 
@@ -24,7 +24,7 @@ it('preserves external artwork and does not show paused games', () => {
 });
 
 it('bundles one optimized square icon for each game', async () => {
-  expect(Object.keys(gameIconArtwork)).toHaveLength(13);
+  expect(Object.keys(gameIconArtwork)).toHaveLength(14);
   for (const url of Object.values(gameIconArtwork)) {
     const buffer = await readFile(`public${url}`);
     const meta = await sharp(buffer).metadata();

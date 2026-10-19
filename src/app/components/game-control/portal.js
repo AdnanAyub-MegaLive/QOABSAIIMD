@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import OutcomeWeightFields from "./outcome-weight-fields";
+import { configurableRules, outcomeOddsText } from "@/lib/game-control/outcome-weights.mjs";
+import RoundTimingFields from "./round-timing-fields";
 import PizzaEditor from "./pizza-editor";
 import GameIcon from "./game-icon";
 import {
@@ -570,7 +573,7 @@ export default function Portal() {
                           </div>
                           <div>
                             <small>Gross payout</small>
-                            <b>{miniGames[game.engine] ? "Coins" : `${game.payoutMultiplier}×`}</b>
+                            <b>{game.engine === "rocket" ? "Cash-out" : miniGames[game.engine] ? "Coins" : `${game.payoutMultiplier}×`}</b>
                           </div>
                           <div>
                             <small>Bet range</small>
@@ -761,12 +764,11 @@ export default function Portal() {
                   <div>
                     <h2>Game probabilities</h2>
                     <p>
-                      Theoretical return = win probability × gross payout
-                      multiplier.
+                      Configure shared outcome probabilities per game. Returns depend on the chosen market and its payout.
                     </p>
                   </div>
                 </div>
-                {data.games.filter(g => !miniGames[g.engine]).map((g) => (
+                {data.games.filter(g => g.engine !== "external").map((g) => (
                   <div className="probability-row" key={g.id}>
                     <span className={"game-icon " + g.color}>
                       <GameIcon engine={g.engine} size={40} />
@@ -775,7 +777,9 @@ export default function Portal() {
                       <b>{g.name}</b>
                       <small>{`Revision ${g.revision} · ${statusLabel[g.status]}`}</small>
                     </div>
-                    {g.engine === "roulette" ? (
+                    {miniGames[g.engine] ? (
+                      <><p className="muted">{outcomeOddsText(g) || (g.engine === "pizza" ? "Food probabilities use selection weights." : "Skill-based outcomes")}</p><button className="button" onClick={() => setEditing(g)}>Configure probabilities</button></>
+                    ) : g.engine === "roulette" ? (
                       <>
                         <p className="muted">
                           Weighted 37-pocket wheel · Odds shown by market
@@ -1031,7 +1035,7 @@ function GameRows({ games, onEdit }) {
           <div className="game-stat">
             <small>Gross payout</small>
             <b>
-              {g.payoutMultiplier === null
+              {g.engine === "rocket" ? `0–${((g.rocketMaxMultiplier ?? 5)-0.01).toFixed(2)}×` : g.payoutMultiplier === null
                 ? "2–36×"
                 : `${g.payoutMultiplier.toFixed(2)}×`}
             </b>
@@ -1213,7 +1217,7 @@ function MiniEditor({ game, onClose, onSave }) {
 }
 function StandardMiniEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState(game), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  return <Modal title={`Configure ${game.name}`} onClose={onClose}><form onSubmit={async e => { e.preventDefault(); setBusy(true); try { await onSave(form); } catch (err) { setError(err.message); } finally { setBusy(false); } }}><div className="modal-body"><p>{miniGames[game.engine].help}</p><p>Automatic shared room rounds using the application coin wallet. Rule changes take effect in the next UTC daily schedule; pausing stops new bets immediately.</p><div className="form-grid"><label>Name<input required maxLength={60} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label><label>Availability<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="paused">Paused</option><option value="active">Active</option></select></label>{["minBet", "maxBet"].map(field => <label key={field}>{field === "minBet" ? "Minimum coins" : "Maximum coins"}<input type="number" min={1} max={1000000} required value={form[field]} onChange={e => setForm({ ...form, [field]: Number(e.target.value) })} /></label>)}{!miniGames[game.engine].fixedPayout&&<label>Winning return (includes stake)<input type="number" min={1} max={100} step={0.01} required value={form.pointReturnMultiplier??(game.engine==="dice"?6:2)} onChange={e=>setForm({...form,pointReturnMultiplier:Number(e.target.value)})} /></label>}{game.engine==="reaction"&&<label>Reaction target (milliseconds)<input type="number" min={100} max={5000} required value={form.reactionWindowMs??1000} onChange={e=>setForm({...form,reactionWindowMs:Number(e.target.value)})} /></label>}{game.engine==="trivia"&&<label>Seconds per question (total round budget)<input type="number" min={5} max={120} required value={form.triviaSeconds??20} onChange={e=>setForm({...form,triviaSeconds:Number(e.target.value)})} /></label>}</div><p>Skill outcomes remain based on correct answers and timing. Random opponents and cards are fair; these controls never secretly force wins or losses.</p>{error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? "Saving…" : "Save game"}</button></div></form></Modal>;
+  return <Modal title={`Configure ${game.name}`} onClose={onClose}><form onSubmit={async e => { e.preventDefault(); setBusy(true); try { await onSave(form); } catch (err) { setError(err.message); } finally { setBusy(false); } }}><div className="modal-body"><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><OutcomeWeightFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><p>{configurableRules[game.engine] || miniGames[game.engine].help}</p><p>Automatic shared room rounds using the application coin wallet. Rule changes take effect in the next UTC daily schedule; pausing stops new bets immediately.</p><div className="form-grid"><label>Name<input required maxLength={60} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label><label>Availability<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="paused">Paused</option><option value="active">Active</option></select></label>{["minBet", "maxBet"].map(field => <label key={field}>{field === "minBet" ? "Minimum coins" : "Maximum coins"}<input type="number" min={1} max={1000000} required value={form[field]} onChange={e => setForm({ ...form, [field]: Number(e.target.value) })} /></label>)}{!miniGames[game.engine].fixedPayout&&<label>Winning return (includes stake)<input type="number" min={1} max={100} step={0.01} required value={form.pointReturnMultiplier??(game.engine==="dice"?6:2)} onChange={e=>setForm({...form,pointReturnMultiplier:Number(e.target.value)})} /></label>}{game.engine==="reaction"&&<label>Reaction target (milliseconds)<input type="number" min={100} max={5000} required value={form.reactionWindowMs??1000} onChange={e=>setForm({...form,reactionWindowMs:Number(e.target.value)})} /></label>}</div><p>Skill outcomes remain based on correct answers and timing. Random outcomes use the configured weights, shared by everyone in the room.</p>{error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? "Saving…" : "Save game"}</button></div></form></Modal>;
 }
 function FlipEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState({ ...game }),
@@ -1240,6 +1244,7 @@ function FlipEditor({ game, onClose, onSave }) {
         }}
       >
         <div className="modal-body">
+          <RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} />
           <div className="form-grid">
             <label>
               Game name
@@ -1447,6 +1452,7 @@ function RouletteEditor({ game, onClose, onSave }) {
         }}
       >
         <div className="modal-body">
+          <RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} />
           <div className="form-grid">
             <label>
               Game name

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { assertPlayer, serializeGame, GameError } from "@/lib/game-control/service";
-import { sharedSnapshot, enterSharedRound, answerSharedRound } from "@/lib/game-control/shared-games";
+import { sharedSnapshot, enterSharedRound, answerSharedRound, cashOutRocket } from "@/lib/game-control/shared-games";
 import { sameOrigin, jsonBody, launchPlayer, playerSession, failure, gameJson, limit } from "@/lib/game-control/http";
 export const runtime = "nodejs";
 export async function POST(request) {
@@ -9,7 +9,7 @@ export async function POST(request) {
     const body = await jsonBody(request);
     if (body.action === "launch") limit(`launch:${request.headers.get("x-forwarded-for") || "local"}`, 30);
     const identity = body.action === "launch" ? await launchPlayer(body.token, body.roomId) : await playerSession();
-    limit(identity.userId);
+    if(body.action==="shared-state")limit(`${identity.userId}:state`,180);else limit(identity.userId);
     if (body.action === "refill") throw new GameError("Application coins cannot be refilled by a game.",400);
     if (["launch", "profile"].includes(body.action)) {
       const user = await assertPlayer(prisma, identity);
@@ -18,6 +18,7 @@ export async function POST(request) {
     }
     if (body.action === "shared-state") return gameJson(await sharedSnapshot(identity,body));
     if (body.action === "shared-enter") return gameJson({entry:await enterSharedRound(identity,body)});
+    if (body.action === "shared-cashout") return gameJson({entry:await cashOutRocket(identity,body)});
     if (body.action === "shared-answer") return gameJson({entry:await answerSharedRound(identity,body)});
     if (["bet","challenge"].includes(body.action)) throw new GameError("Update the game page to join shared room rounds.",409);
     if (body.action === "round") {

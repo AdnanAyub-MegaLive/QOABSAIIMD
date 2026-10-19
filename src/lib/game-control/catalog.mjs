@@ -17,7 +17,7 @@ export function catalogGame(game, origin) {
     iconUrl: new URL(iconPath, origin).href,
     imageUrl: new URL(iconPath, origin).href,
     iconMimeType: "image/webp",
-    iconVersion: "v1",
+    iconVersion: game.engine === "rocket" ? "v2" : "v1",
   } : {};
   return { ...game, sortOrder: game.sortOrder ?? 0,
     ...artwork,

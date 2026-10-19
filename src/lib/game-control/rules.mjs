@@ -1,3 +1,6 @@
+import { validateRocketSettings } from "./rocket.mjs";
+import { validateOutcomeWeights } from "./outcome-weights.mjs";
+import { validateRoundTiming } from "./round-timing.mjs";
 import { validateWeights } from "./roulette/engine.mjs";
 import { iconAssetSetting } from "./icon-artwork.js";
 import { validateLaunchUrl } from "./catalog.mjs";
@@ -82,6 +85,9 @@ export function validateGame(input) {
     payoutMultiplier: engine === "flip" ? payoutMultiplier : null,
     minBet,
     maxBet,
+    ...validateRoundTiming(input),
+    ...(engine === "rocket" ? validateRocketSettings(input) : {}),
+    ...validateOutcomeWeights(input),
     category: engine === "roulette" ? "Table game" : "Instant",
     ...(miniGames[engine]?controls:{}),
     ...(engine==="pizza"?pizzaSettings(input):{}),

@@ -1,6 +1,7 @@
 import { instantGames, resolveInstant } from "./instant-games.mjs";
 import {pizzaFoods,pizzaSettings,pizzaResult} from "./pizza.mjs";
 export const miniGames = {
+  rocket: { name:"Rocket", choices:["board"], icon:"🚀", fixedPayout:true, help:"Board before launch. The multiplier rises from 0× toward the configured maximum (up to 10×) and can crash anywhere in that range, including 0×. Cash out before the crash; below 1× returns less than your stake. Still aboard at the crash returns zero coins. There is no automatic cash-out at the maximum." },
   ...Object.fromEntries(Object.entries(instantGames).filter(([engine]) => engine !== "rps").map(([engine,spec]) => [engine, {name:spec.name, choices:spec.choices, icon:spec.icon, help:spec.rules, fixedPayout:true}])),
   pizza: {name:"Pizza",choices:pizzaFoods.map(f=>f.id),icon:"🍕",help:"Choose a food. Everyone in the room sees the same winning food. Returns and selection weights are configured by the admin. Uses the application coin wallet."},
   teenpatti: { name: "Teen Patti", choices: ["deal"], icon: "♠", help: "Solo three-card showdown versus the computer. Trail > pure sequence > sequence > colour > pair > high card. AKQ is the highest sequence, A23 second. Suits do not break ties. No betting streets or cash prizes." },
@@ -29,6 +30,7 @@ export function publicChallenge(engine, challenge) {
   return engine === "reaction" ? { readyAt: challenge.readyAt, expiresAt: challenge.expiresAt } : { text: questions[challenge.question].text, options: questions[challenge.question].options, expiresAt: challenge.expiresAt };
 }
 export function resolveMini(game, bet, choice, draw, challenge, now = Date.now(), cards) {
+  if(game.engine === "rocket") throw new Error("Rocket requires shared room rounds.");
   if (!miniGames[game.engine] || game.status !== "active") throw new Error("Game unavailable.");
   if (!Number.isSafeInteger(bet) || bet < game.minBet || bet > game.maxBet) throw new Error("Invalid free-point amount.");
   if(instantGames[game.engine] && game.engine!=="rps") return resolveInstant(game,bet,choice,draw % instantGames[game.engine].drawSize);
