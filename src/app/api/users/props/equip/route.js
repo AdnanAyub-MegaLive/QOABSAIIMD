@@ -21,6 +21,8 @@ export async function POST(request) {
     const requestedCategory = body?.category
       ? String(body.category).trim().toUpperCase()
       : null;
+    const roomFrameOnly = () => { throw Object.assign(new Error("Use the room frame endpoint with the target room ID."), {code:"VALIDATION_ERROR"}); };
+    if(requestedCategory === "ROOM_FRAMES") roomFrameOnly();
     if (!assetId) {
       if (!requestedCategory || !equippablePropCategories.has(requestedCategory)) {
         const error = new Error("A valid category is required to remove a prop.");
@@ -45,6 +47,7 @@ export async function POST(request) {
       select: { id: true, publicId: true, category: true },
     });
     if (!asset) throw new Error("PROP_NOT_FOUND");
+    if(asset.category === "ROOM_FRAMES") roomFrameOnly();
     if (!equippablePropCategories.has(asset.category))
       throw new Error("PROP_NOT_EQUIPPABLE");
     const ownership = await prisma.uploadAssetAssignment.findFirst({

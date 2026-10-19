@@ -332,7 +332,7 @@ model User {
   bdAgencies                 Agency[] @relation("AgencyBD")
   bdApplications             AgencyApplication[] @relation("ApplicationBD")
   bdReviewedApplications     AgencyApplication[] @relation("ApplicationBDReviewer")
-  ownedAgency                Agency?                       @relation("AgencyOwner")
+  ownedAgencies              Agency[]                      @relation("AgencyOwner")
 
   @@index([status])
   @@index([vipLevel])
@@ -880,7 +880,7 @@ model Agency {
   id                    String              @id @default(cuid())
   publicId              String              @unique
   name                  String
-  ownerUserId           String?             @unique
+  ownerUserId           String?
   bdUserId              String?
   bd                    User? @relation("AgencyBD", fields: [bdUserId], references: [id], onDelete: SetNull)
   status                String              @default("ACTIVE")
@@ -895,6 +895,7 @@ model Agency {
   joinRequests          AgencyJoinRequest[]
   settlements           GiftSettlement[]
 
+  @@index([ownerUserId])
   @@index([status, createdAt])
 }
 
@@ -1329,6 +1330,7 @@ model UploadAsset {
   purchases                   PropPurchase[]
   giftTransactions            GiftTransaction[]
   selectedForAudioRooms       AudioRoom[]                  @relation("AudioRoomBackground")
+  selectedAsRoomFrame AudioRoom[] @relation("AudioRoomFrame")
   selectedAsSeatStyle         AudioRoom[]                  @relation("AudioRoomSeatStyle")
   customBackgroundApproval    CustomRoomBackgroundRequest? @relation("CustomBackgroundApprovedAsset")
   giftInventories             UserGiftInventory[]
@@ -2093,6 +2095,9 @@ model AudioRoom {
   giftInteractions      Json?
   roomBackgroundAssetId String?
   roomBackgroundVersion Int                          @default(0)
+  roomFrameAssetId     String?
+  roomFrameVersion     Int @default(0)
+  roomFrameAsset       UploadAsset? @relation("AudioRoomFrame", fields: [roomFrameAssetId], references: [id], onDelete: SetNull)
   seatStyleAssetId      String?
   seatStyleVersion      Int                          @default(0)
   joiningDisabled       Boolean                      @default(false)
@@ -2127,6 +2132,7 @@ model AudioRoom {
   @@index([ownerId, startedAt])
   @@index([status, startedAt])
   @@index([roomBackgroundAssetId])
+  @@index([roomFrameAssetId])
   @@index([seatStyleAssetId])
 }
 

@@ -48,12 +48,12 @@ try {
   assert.equal(result.status, 403);
   result = await mobile(bd, `/api/v1/bd/applications/${applicationId}`, "PATCH", { decision: "APPROVED" });
   assert.equal(result.status, 200, JSON.stringify(result));
-  assert.equal((await prisma.agency.findUnique({ where: { ownerUserId: applicant.id } })).bdUserId, bd.id);
+  assert.equal((await prisma.agency.findFirst({ where: { ownerUserId: applicant.id } })).bdUserId, bd.id);
   result = await mobile(bd, `/api/v1/bd/applications/${applicationId}`, "PATCH", { decision: "APPROVED" });
   assert.equal(result.status, 409);
   result = await mobile(bd, "/api/v1/bd/agencies", "POST", { agencyName: "Direct agency", ownerPublicId: directOwner.publicId, bdCode: otherBD.publicId });
   assert.equal(result.status, 201, JSON.stringify(result));
-  assert.equal((await prisma.agency.findUnique({ where: { ownerUserId: directOwner.id } })).bdUserId, bd.id);
+  assert.equal((await prisma.agency.findFirst({ where: { ownerUserId: directOwner.id } })).bdUserId, bd.id);
   result = await mobile(bd, "/api/v1/bd/agencies", "POST", { agencyName: "Duplicate", ownerPublicId: directOwner.publicId });
   assert.equal(result.status, 409);
   const rejectedOwner = await user();
@@ -63,7 +63,7 @@ try {
   assert.equal(result.status, 422);
   result = await mobile(bd, `/api/v1/bd/applications/${rejectedId}`, "PATCH", { decision: "REJECTED", note: "Test rejection" });
   assert.equal(result.status, 200);
-  const linkedAgency = await prisma.agency.findUniqueOrThrow({ where: { ownerUserId: directOwner.id } });
+  const linkedAgency = await prisma.agency.findFirstOrThrow({ where: { ownerUserId: directOwner.id } });
   result = await mobile(otherBD, `/api/v1/bd/agencies/${linkedAgency.publicId}`, "DELETE");
   assert.equal(result.status, 404);
   result = await mobile(directOwner, `/api/v1/bd/agencies/${linkedAgency.publicId}`, "DELETE");

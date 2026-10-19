@@ -1,3 +1,4 @@
+import {roomFrameInclude} from "@/lib/room-frame";
 import { roomCoverDto } from "@/lib/room-cover";
 import { publicBanner } from "@/lib/room-banners";
 import { versionMediaPayload } from "@/lib/media-payload";
@@ -17,6 +18,7 @@ import { serializeRoomBackground } from "../../../lib/room-background";
 import { serializeRoomSeatStyle } from "../../../lib/room-seat-style";
 
 const roomBackgroundInclude = {
+  ...roomFrameInclude,
   banners: { where: { status: "ACTIVE" }, orderBy: [{ position: "asc" }, { id: "asc" }] },
   roomBackgroundAsset: {
     select: {

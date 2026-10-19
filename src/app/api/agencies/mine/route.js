@@ -17,8 +17,12 @@ export function OPTIONS() {
 export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
-    const agency = await prisma.agency.findUnique({
-      where: { ownerUserId: user.id },
+    const agencyId=new URL(request.url).searchParams.get("agencyId");
+    const agencies=await prisma.agency.findMany({where:{ownerUserId:user.id},select:{publicId:true,name:true,status:true},orderBy:{publicId:"asc"}});
+    if(!agencyId&&agencies.length>1)return mobileJson({success:true,data:{agency:null,agencies,requiresAgencySelection:true}});
+    if(agencyId&&!agencies.some(a=>a.publicId===agencyId))return mobileJson({success:false,error:{code:"AGENCY_NOT_FOUND",message:"You do not own this agency."}},404);
+    const agency = await prisma.agency.findFirst({
+      where: { ownerUserId: user.id,...(agencyId?{publicId:agencyId}:{}) },
       select: {
         id: true,
         country: true,
@@ -77,6 +81,7 @@ export async function GET(request) {
     return mobileJson({
       success: true,
       data: {
+        agencies,
         agency: agency
           ? {
               id: agency.publicId,

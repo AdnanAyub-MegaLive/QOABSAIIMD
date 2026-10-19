@@ -32,11 +32,11 @@ export default function CreateAgency() {
       {open && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
         <section role="dialog" aria-modal="true" aria-labelledby="create-agency-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
           <h2 id="create-agency-title" className="text-lg font-bold">Create agency</h2>
-          <p className="mt-2 text-sm text-[#71847f]">Grant an agency to an active user. The owner must not already own or belong to an agency or have a pending application.</p>
+          <p className="mt-2 text-sm text-[#71847f]">Grant an agency to an active user. Management accounts may own multiple agencies. Normal accounts may own one; a pending application must be resolved first.</p>
           <form onSubmit={submit} className="mt-5 space-y-4">
             <label className="block text-sm font-semibold">Agency name<input autoFocus name="agencyName" required maxLength={120} className={inputClass} /></label>
             <label className="block text-sm font-semibold">Owner user ID<input name="ownerPublicId" required maxLength={50} placeholder="USR-123456" className={inputClass} /></label>
-            <label className="block text-sm font-semibold">BD reference ID<input name="bdCode" required maxLength={50} placeholder="BD in the owner's country (required)" className={inputClass} /></label>
+            <label className="block text-sm font-semibold">Management supervisor ID<input name="bdCode" required maxLength={50} placeholder="Manager in the owner's country (required)" className={inputClass} /></label>
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-3">
               <button type="button" disabled={busy} onClick={() => setOpen(false)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>

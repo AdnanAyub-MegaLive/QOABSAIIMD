@@ -3,6 +3,7 @@ import { prisma } from "./prisma.js";
 import { notifyAction } from "./action-notifications.js";
 import { primaryLegacyRole } from "./user-roles.js";
 import { talentPublicIdForApprovedHost } from "./host-public-id.js";
+import { ownedAgencySelection } from "./agency-ownership.js";
 const fail=(code,message,status=409)=>{throw Object.assign(new Error(message),{code,status});};
 export function assertMembershipResponder(row,actorId){
   const allowed=row.direction==="OWNER_INVITE"?row.userId:row.agency.ownerUserId;
@@ -10,12 +11,12 @@ export function assertMembershipResponder(row,actorId){
 }
 export async function createMembership(actorId,{agencyId,userPublicId,invite=false},db=prisma){
  return db.$transaction(async tx=>{
-  const agency=await tx.agency.findUnique({where:invite?{ownerUserId:actorId}:{publicId:agencyId}});
+  const agency=invite?await ownedAgencySelection(tx,actorId,agencyId):await tx.agency.findUnique({where:{publicId:agencyId}});
   if(!agency)fail("AGENCY_NOT_FOUND","Agency not found.",404);
   if(agency.status!=="ACTIVE")fail("AGENCY_INACTIVE","Agency is not active.");
   const user=await tx.user.findUnique({where:invite?{publicId:userPublicId}:{id:actorId}});
   if(!user||user.deletedAt||user.status!=="ACTIVE")fail("USER_NOT_FOUND","An active user is required.",404);
-  if(user.agencyId||await tx.agency.findUnique({where:{ownerUserId:user.id}}))fail("ALREADY_HAS_AGENCY","User already belongs to or owns an agency.");
+  if(user.agencyId||await tx.agency.findFirst({where:{ownerUserId:user.id}}))fail("ALREADY_HAS_AGENCY","User already belongs to or owns an agency.");
   if(await tx.agencyJoinRequest.findFirst({where:{userId:user.id,status:"PENDING"}}))fail("ALREADY_REQUESTED","User already has a pending request or invitation.");
   const row=await tx.agencyJoinRequest.create({data:{publicId:`AGJ-${randomUUID()}`,userId:user.id,agencyId:agency.id,direction:invite?"OWNER_INVITE":"USER_REQUEST"}});
   await tx.auditLog.create({data:{action:invite?"AGENCY_USER_INVITED":"AGENCY_JOIN_REQUESTED",category:"AGENCY_MANAGEMENT",entityType:"AgencyJoinRequest",entityId:row.publicId,description:"Agency membership offered; awaiting receiving party consent.",metadata:{actorId,userId:user.id,agencyId:agency.id,direction:row.direction}}});
@@ -35,7 +36,7 @@ export async function respondMembership(actorId,requestId,accept,db=prisma){
   let userId=previousUserId;
   if(accept){
    if(row.agency.status!=="ACTIVE"||row.user.deletedAt||row.user.status!=="ACTIVE")fail("AGENCY_INACTIVE","Agency or user is no longer active.");
-   if(row.user.agencyId||await tx.agency.findUnique({where:{ownerUserId:row.userId}}))fail("ALREADY_HAS_AGENCY","User already belongs to or owns an agency.");
+   if(row.user.agencyId||await tx.agency.findFirst({where:{ownerUserId:row.userId}}))fail("ALREADY_HAS_AGENCY","User already belongs to or owns an agency.");
    userId=talentPublicIdForApprovedHost(previousUserId);
    const roles=[...new Set([...row.user.appRoles,"HOST"])];
    await tx.user.update({where:{id:row.userId},data:{publicId:userId,agencyId:row.agencyId,appRoles:roles,role:primaryLegacyRole(roles,row.user.role),...(userId!==previousUserId?{sessionVersion:{increment:1}}:{})}});

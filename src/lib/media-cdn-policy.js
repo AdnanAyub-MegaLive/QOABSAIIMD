@@ -1,6 +1,6 @@
 // Only public catalogue artwork. Private assignments, music and identity documents
 // must never become public simply because they are stored in UploadAsset.
-const categories = new Set(["USER_TAGS", "PROFILE_BG", "BANNERS", "GIFTS", "LIVE_GIFTS", "FRAMES", "BADGES", "ROOM_BACKGROUNDS", "SEAT_STYLES", "ENTRANCES", "RIDES", "TAIL_LIGHTS", "CHAT_BOXES", "BUSINESS_CARD", "VIP_STICKERS", "CAMPAIGN_WIDGETS", "PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"]);
+const categories = new Set(["ROOM_FRAMES","USER_TAGS", "PROFILE_BG", "BANNERS", "GIFTS", "LIVE_GIFTS", "FRAMES", "BADGES", "ROOM_BACKGROUNDS", "SEAT_STYLES", "ENTRANCES", "RIDES", "TAIL_LIGHTS", "CHAT_BOXES", "BUSINESS_CARD", "VIP_STICKERS", "CAMPAIGN_WIDGETS", "PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"]);
 const types = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "application/svga"]);
 export function canPublishMedia(asset) {
   return asset.active !== false && !asset.audioRoomId && (categories.has(asset.category) || asset.category === "GAME_ICONS")

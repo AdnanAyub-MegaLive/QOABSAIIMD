@@ -58,6 +58,7 @@ app.prepare().then(async()=>{
   const {canSendLockedRoomMessage,normalizeRoomPassword,roomControlError}=await import("./src/lib/audio-room-controls.js");
   const {readRoomChatHistory,serializeRoomChatMessages}=await import("./src/lib/audio-room-chat.js");
   const {nextRoomMusicState,serializeEntertainment,serializeRoomMusicForDelivery}=await import("./src/lib/room-entertainment.js");
+  const {roomFrameInclude}=await import("./src/lib/room-frame.js");
   const {roomCoverDto}=await import("./src/lib/room-cover.js");
   const {registerRoomTools,roomMixSnapshot}=await import("./src/lib/room-tools.js");
   const {isRateLimited}=await import("./src/lib/rate-limit.js");
@@ -415,7 +416,7 @@ app.prepare().then(async()=>{
         if(rtcProvider()==="TRTC")trtcConfiguration();
         const requestedRoomId=String(roomId??"");
         await reconcileExpiredAudioRoomRestrictions(requestedRoomId);
-        const room=await prisma.audioRoom.findUnique({where:{roomId:requestedRoomId},include:{owner:{select:{id:true,publicId:true,name:true,profileImage:true,gender:true,dob:true,isVerified:true,isOfficial:true}},roomBackgroundAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},seatStyleAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},entertainmentState:true,seats:{where:{occupantUserId:user.id},select:{id:true},take:1}}});
+        const room=await prisma.audioRoom.findUnique({where:{roomId:requestedRoomId},include:{...roomFrameInclude,owner:{select:{id:true,publicId:true,name:true,profileImage:true,gender:true,dob:true,isVerified:true,isOfficial:true}},roomBackgroundAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},seatStyleAsset:{select:{publicId:true,mimeType:true,active:true,isGlobal:true,assignments:{select:{userId:true,expiresAt:true}}}},entertainmentState:true,seats:{where:{occupantUserId:user.id},select:{id:true},take:1}}});
         if(!room)return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
         if(room.isBlocked)return ack({success:false,error:{code:"ROOM_BLOCKED",details:{reason:room.blockedReason,expiresAt:room.blockedUntil?.toISOString()??null}}});
         if(room.status==="TERMINATED")return ack({success:false,error:{code:"ROOM_TERMINATED",details:{expiresAt:room.terminatedUntil?.toISOString()??null}}});

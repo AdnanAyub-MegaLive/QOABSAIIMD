@@ -11,18 +11,21 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export async function GET(request) {
   return withV1Request(request, { path, methods }, async () => {
     try {
-      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD"]);
+      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD","MANAGER"]);
+      const cursor = new URL(request.url).searchParams.get("cursor");
       const agencies = await prisma.agency.findMany({ where: { bdUserId: bd.id },
         select: { publicId: true, name: true, status: true, owner: { select: { publicId: true, name: true } } },
-        orderBy: { createdAt: "desc" }, take: 100 });
-      return mobileJson({ success: true, data: { agencies } });
+        orderBy: { publicId: "asc" }, ...(cursor?{cursor:{publicId:cursor},skip:1}:{}), take: 101 });
+      const hasMore=agencies.length>100;
+      const page=agencies.slice(0,100);
+      return mobileJson({ success: true, data: { agencies:page, nextCursor:hasMore?page.at(-1).publicId:null } });
     } catch (error) { return mobileApiError(error); }
   });
 }
 export async function POST(request) {
   return withV1Request(request, { path, methods }, async () => {
     try {
-      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD"]);
+      const bd = await requireMobileRole(request, ["BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD","MANAGER"]);
       const body = await request.json();
       const agency = await prisma.$transaction(tx => grantAgency(tx, body, { bdUserId: bd.id, name: bd.name }), { isolationLevel: "Serializable" });
       return mobileJson({ success: true, data: { agency } }, 201);

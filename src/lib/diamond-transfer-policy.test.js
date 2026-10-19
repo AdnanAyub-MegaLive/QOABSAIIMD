@@ -62,9 +62,9 @@ it.each([[],["CS"],["CS_LEADER","HOST","RESELLER","ADMIN"]])("blocks restricted 
 });
 it("allows an active agency owner and rechecks current roles on submission",async()=>{
   const db=database();
-  db.tx.user.findUniqueOrThrow.mockResolvedValue({id:"u",publicId:"USR-1",status:"ACTIVE",country:"PK",ownedAgency:{status:"ACTIVE"}});
+  db.tx.user.findUniqueOrThrow.mockResolvedValue({id:"u",publicId:"USR-1",status:"ACTIVE",country:"PK",ownedAgencies:[{status:"ACTIVE"}]});
   await expect(createCurrencyRequest(db,"u",input,"request-1")).resolves.toMatchObject({diamonds:"50"});
-  expect(db.tx.user.findUniqueOrThrow).toHaveBeenCalledWith({where:{id:"u"},include:{ownedAgency:{select:{status:true}}}});
+  expect(db.tx.user.findUniqueOrThrow).toHaveBeenCalledWith({where:{id:"u"},include:{ownedAgencies:{select:{status:true}}}});
 });
 it("credits the reseller the full submitted amount with no fee", async () => {
   const db = database();

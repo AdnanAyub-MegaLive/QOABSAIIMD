@@ -1,4 +1,5 @@
 import { roomCoverDto } from "@/lib/room-cover";
+import { roomFrameInclude } from "@/lib/room-frame";
 import { decodeLiveCover } from "@/lib/video-cover";
 import { requireRoomPermission } from "@/lib/audio-room-management";
 import { prisma } from "@/lib/prisma";
@@ -122,7 +123,7 @@ export async function POST(request) {
           revision: { increment: 1 },
           coverRevision: { increment: 1 },
         },
-        select: { roomId: true, coverImageUrl: true, coverRevision: true, revision: true },
+        select: { ...roomFrameInclude, ownerId:true, roomFrameVersion:true, roomId: true, coverImageUrl: true, coverRevision: true, revision: true },
       });
       await tx.auditLog.create({
         data: {

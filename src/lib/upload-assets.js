@@ -13,6 +13,7 @@ export const uploadCategories = {
   "User Tags": "USER_TAGS",
   "Profile BG": "PROFILE_BG",
   "Chat Boxes": "CHAT_BOXES",
+  "Room Frames": "ROOM_FRAMES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
   "Seat Styles": "SEAT_STYLES",
   "Business Cards": "BUSINESS_CARD",
@@ -113,6 +114,7 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (category === "ROOM_BACKGROUNDS" && mimeType && !roomBackgroundMimeTypes.has(mimeType)) {
     throw validationError("Room backgrounds must be PNG, JPEG, WebP, or MP4.");
   }
+  if (category === "ROOM_FRAMES" && mimeType && !["image/png","image/jpeg","image/webp","image/gif","application/svga"].includes(mimeType)) throw validationError("Room frames must be PNG, JPEG, WebP, GIF or SVGA.");
   if (category === "SEAT_STYLES" && mimeType && !seatStyleMimeTypes.has(mimeType)) {
     throw validationError("Seat styles must be PNG, JPEG, or WebP images.");
   }

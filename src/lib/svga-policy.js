@@ -2,7 +2,7 @@
 export const SVGA_MIME = "application/svga";
 export const SVGA_MAX_BYTES = 8 * 1024 * 1024;
 export const SVGA_CATEGORIES = new Set([
-  "GIFTS", "LIVE_GIFTS", "FRAMES", "ENTRANCES", "RIDES", "BADGES",
+  "ROOM_FRAMES", "GIFTS", "LIVE_GIFTS", "FRAMES", "ENTRANCES", "RIDES", "BADGES",
   "CHAT_BOXES", "VIP_STICKERS", "CAMPAIGN_WIDGETS",
   "PROFILE_DRESS", "USER_TAGS", "PROFILE_BG",
 ]);

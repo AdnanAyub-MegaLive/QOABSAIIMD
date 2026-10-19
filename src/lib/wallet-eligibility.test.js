@@ -27,9 +27,9 @@ it.each(cases)("wallet response and shared eligibility agree for roles %j",(appR
 });
 it("uses active agency ownership, not mere membership or a Diamond balance",()=>{
   expect(walletEligibility({...ordinary,agencyId:"a"}).withdraw).toBe(false);
-  expect(walletEligibility({...ordinary,ownedAgency:{status:"ACTIVE"}}).withdraw).toBe(true);
-  expect(walletEligibility({...ordinary,ownedAgency:{status:"INACTIVE"}}).withdraw).toBe(false);
-  expect(walletEligibility({...ordinary,ownedAgency:{status:"ACTIVE"},appRoles:["CS"]}).withdraw).toBe(false);
+  expect(walletEligibility({...ordinary,ownedAgencies:[{status:"ACTIVE"}]}).withdraw).toBe(true);
+  expect(walletEligibility({...ordinary,ownedAgencies:[{status:"INACTIVE"}]}).withdraw).toBe(false);
+  expect(walletEligibility({...ordinary,ownedAgencies:[{status:"ACTIVE"}],appRoles:["CS"]}).withdraw).toBe(false);
 });
 it("denies inactive/deleted accounts and retains configured service switches",()=>{
   for(const change of [{status:"BANNED"},{status:"SUSPENDED"},{deletedAt:new Date()}]) {

@@ -1,4 +1,5 @@
 import { roomCoverDto } from "@/lib/room-cover";
+import { roomFrameInclude } from "@/lib/room-frame";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -103,6 +104,7 @@ export async function PATCH(request, { params }) {
       where: { id: room.id },
       data: { ...data, revision: { increment: 1 } },
       select: {
+        ...roomFrameInclude, ownerId:true, roomFrameVersion:true,
         roomId: true,
         title: true,
         coverImageUrl: true,
@@ -122,8 +124,9 @@ export async function PATCH(request, { params }) {
     return { updated, removed };
     });
     const { updated } = layoutResult;
+    const {roomFrameAsset: _frameAsset, ownerId: _ownerId, ...publicUpdated}=updated;
     const result = {
-      ...updated,
+      ...publicUpdated,
       ...roomCoverDto(updated, requestOrigin(request)),
       paidEntryCoins: updated.paidEntryCoins?.toString() ?? null,
       updatedAt: updated.updatedAt.toISOString(),

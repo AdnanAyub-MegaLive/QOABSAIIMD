@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ownedAgencySelection } from "@/lib/agency-ownership";
 import {
   mobileApiError,
   mobileJson,
@@ -44,10 +45,11 @@ export async function POST(request) {
         { success: false, error: { code: "VALIDATION_ERROR", message: "targetCoins must be a non-negative integer." } },
         400,
       );
-    const agency = await prisma.agency.findUnique({
-      where: { ownerUserId: owner.id },
+    const selected=await ownedAgencySelection(prisma,owner.id,body.agencyId);
+    const agency = selected?await prisma.agency.findUnique({
+      where: { id: selected.id },
       select: { id: true, publicId: true, monthlyTargetCoins: true },
-    });
+    }):null;
     if (!agency)
       return mobileJson(
         { success: false, error: { code: "AGENCY_NOT_FOUND", message: "You do not own an agency." } },

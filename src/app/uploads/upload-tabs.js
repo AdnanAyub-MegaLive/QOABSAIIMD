@@ -21,6 +21,7 @@ const categories = {
   "Profile BG": "PROFILE_BG",
   "Chat Boxes": "CHAT_BOXES",
   "Room Backgrounds": "ROOM_BACKGROUNDS",
+  "Room Frames": "ROOM_FRAMES",
   "Seat Styles": "SEAT_STYLES",
   "Business Cards": "BUSINESS_CARD",
   "VIP Stickers": "VIP_STICKERS",
@@ -899,7 +900,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
           <Field label="Media file">
             <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#cbded9] bg-[#f8fbfa] px-5 text-center">
               <strong className="text-xs text-[#087f74]">
-                {isMusic ? "Choose an MP3, M4A, AAC, OGG, or WAV file" : SVGA_CATEGORIES.has(categories[active]) ? "Choose image, GIF, WebP, video, or SVGA" : "Choose image, GIF, WebP, or video"}
+                {active === "Room Frames" ? "Choose PNG, JPEG, WebP, GIF or SVGA room-cover artwork" : isMusic ? "Choose an MP3, M4A, AAC, OGG, or WAV file" : SVGA_CATEGORIES.has(categories[active]) ? "Choose image, GIF, WebP, video, or SVGA" : "Choose image, GIF, WebP, or video"}
               </strong>
               <span className="mt-1 text-[10px] text-[#849691]">
                 Maximum {isMusic ? "50" : "15"} MB
@@ -907,7 +908,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
               </span>
               <input
                 type="file"
-                accept={isMusic ? "audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/x-wav" : isBanner ? "image/png,image/jpeg,image/webp" : `image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm${SVGA_CATEGORIES.has(categories[active]) ? ",.svga,application/svga,application/x-svga" : ""}`}
+                accept={active === "Room Frames" ? "image/png,image/jpeg,image/webp,image/gif,.svga,application/svga,application/x-svga" : isMusic ? "audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/x-wav" : isBanner ? "image/png,image/jpeg,image/webp" : `image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm${SVGA_CATEGORIES.has(categories[active]) ? ",.svga,application/svga,application/x-svga" : ""}`}
                 onChange={chooseFile}
                 required
                 className="sr-only"
@@ -1340,6 +1341,7 @@ function singular(value) {
     Badges: "Badge",
     "Chat Boxes": "Chat Box",
     "Room Backgrounds": "Room Background",
+    "Room Frames": "Room Frame",
     "Seat Styles": "Seat Style",
     "Business Cards": "Business Card",
     "VIP Stickers": "VIP Sticker",

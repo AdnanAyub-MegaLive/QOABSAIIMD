@@ -1,9 +1,8 @@
 import { normalizeSignupCountry } from './geo-country.js';
 import { validateAgencyReference } from './agency-reference.js';
 export async function selectedAgencyBd(db, publicId, country, actorId = null) {
- if (!publicId) throw Object.assign(new Error('Select the BD for this agency.'),{code:'BD_REFERENCE_INVALID',status:422});
+ if (!publicId) throw Object.assign(new Error('Select the management supervisor for this agency.'),{code:'BD_REFERENCE_INVALID',status:422});
  const bd=validateAgencyReference(await db.user.findUnique({where:{publicId:String(publicId).trim()}}),country);
- if(!bd.appRoles?.includes('BD')) throw Object.assign(new Error('Agencies must be assigned to a BD.'),{code:'BD_REFERENCE_INVALID',status:422});
  if(actorId) {
   let current=bd; const seen=new Set(); let allowed=false;
   while(current&&!seen.has(current.id)) {
@@ -11,7 +10,7 @@ export async function selectedAgencyBd(db, publicId, country, actorId = null) {
    if(current.id===actorId){allowed=true;break;}
    current=current.supervisorUserId?await db.user.findUnique({where:{id:current.supervisorUserId}}):null;
   }
-  if(bd.companyBdCountry||!allowed)throw Object.assign(new Error('Choose an eligible BD in your reporting team.'),{code:'BD_REFERENCE_INVALID',status:403});
+  if(bd.companyBdCountry||!allowed)throw Object.assign(new Error('Choose yourself or an eligible manager in your reporting team.'),{code:'BD_REFERENCE_INVALID',status:403});
  }
  return bd;
 }

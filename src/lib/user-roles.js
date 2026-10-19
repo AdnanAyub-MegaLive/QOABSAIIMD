@@ -27,6 +27,7 @@ export function managementIdentity(user) {
 }
 
 export const APPLICATION_ROLE_PERMISSIONS = {
+    MANAGER: ["agencies.reference"],
   BD: ["agencies.reference"], ADMIN: ["agencies.reference"], JUNIOR_ADMIN: ["agencies.reference"],
   SENIOR_ADMIN: ["agencies.reference"], SUPER_ADMIN: ["agencies.reference"], COUNTRY_HEAD: ["agencies.reference"],
 };

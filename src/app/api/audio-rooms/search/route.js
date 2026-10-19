@@ -1,3 +1,4 @@
+import {roomFrameInclude} from "@/lib/room-frame";
 import { roomCoverDto } from "@/lib/room-cover";
 import { versionMediaPayload } from "@/lib/media-payload";
 import { prisma } from "../../../../lib/prisma";
@@ -75,6 +76,7 @@ export async function GET(request) {
         roomBackgroundVersion: true,
         roomBackgroundAsset: { select: { publicId: true, mimeType: true, active: true, isGlobal: true, assignments: { select: { userId: true, expiresAt: true } } } },
         seatStyleVersion: true,
+        ...roomFrameInclude, roomFrameVersion:true,
         seatStyleAsset: { select: { publicId: true, mimeType: true, active: true, isGlobal: true, assignments: { select: { userId: true, expiresAt: true } } } },
         status: true,
         startedAt: true,

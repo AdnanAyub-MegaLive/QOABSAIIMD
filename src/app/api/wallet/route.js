@@ -26,7 +26,7 @@ export async function GET(request) {
         appRoles: true,
         role: true,
         agencyId: true,
-        ownedAgency: { select: { status: true } },
+        ownedAgencies: { select: { status: true } },
         hostSalaryCoinBalance: true,
         couponBalance: true,
         totalTopUp: true,

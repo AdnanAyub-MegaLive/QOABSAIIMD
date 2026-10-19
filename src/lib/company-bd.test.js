@@ -5,7 +5,8 @@ const db={user:{findUnique:vi.fn(async({where})=>users.find(u=>Object.entries(wh
 it('requires a BD selection and permits a downstream BD',async()=>{
  await expect(selectedAgencyBd(db,null,'PK','admin')).rejects.toMatchObject({code:'BD_REFERENCE_INVALID'});
  expect((await selectedAgencyBd(db,'USR-B','PK','admin')).id).toBe('bd');
- await expect(selectedAgencyBd(db,'USR-A','PK')).rejects.toMatchObject({code:'BD_REFERENCE_INVALID'});
+ expect((await selectedAgencyBd(db,'USR-A','PK','admin')).id).toBe('admin');
+ await expect(selectedAgencyBd(db,'USR-A','PK','bd')).rejects.toMatchObject({status:403});
 });
 it('Company remains outside every personal chain',async()=>{
  await expect(selectedAgencyBd(db,'COMPANY-BD-PK','PK','admin')).rejects.toMatchObject({status:403});

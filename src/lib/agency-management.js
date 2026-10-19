@@ -4,6 +4,7 @@ import { findAgencyReference, validateAgencyReference } from "./agency-reference
 import { normalizeSignupCountry } from "./geo-country.js";
 import { agencyReferenceRole } from "./user-roles.js";
 import { companyBd, selectedAgencyBd } from './company-bd.js';
+import { canOwnMultipleAgencies } from './agency-ownership.js';
 
 export function agencyError(code) { throw new Error(code); }
 
@@ -42,11 +43,11 @@ export async function findBD(client, code, country) {
 }
 
 async function eligibleOwner(client, publicId, applicationId) {
-  const user = await client.user.findUnique({ where: { publicId }, include: { ownedAgency: true } });
+  const user = await client.user.findUnique({ where: { publicId }, include: { ownedAgencies: {select:{id:true}} } });
   if (!user || user.deletedAt || user.status !== "ACTIVE") agencyError("AGENCY_OWNER_UNAVAILABLE");
-  if (user.ownedAgency || user.agencyId) agencyError("ALREADY_HAS_AGENCY");
+  if (user.companyBdCountry || (!canOwnMultipleAgencies(user) && (user.ownedAgencies.length || user.agencyId))) agencyError("ALREADY_HAS_AGENCY");
   const pending = await client.agencyApplication.findFirst({
-    where: { userId: user.id, status: { in: ["PENDING", "APPROVED"] }, ...(applicationId ? { id: { not: applicationId } } : {}) },
+    where: { userId: user.id, status: { in: canOwnMultipleAgencies(user) ? ["PENDING"] : ["PENDING", "APPROVED"] }, ...(applicationId ? { id: { not: applicationId } } : {}) },
   });
   if (pending) agencyError("ALREADY_APPLIED");
   return user;

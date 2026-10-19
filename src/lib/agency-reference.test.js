@@ -12,7 +12,7 @@ describe("country-scoped agency references", () => {
     expect(() => validateAgencyReference(user, null)).toThrow();
   });
   it("keeps name searches inside country and role restrictions", () => {
-    expect(referenceWhere("Pakistan", "Ref")).toMatchObject({ country: "PK", status: "ACTIVE", deletedAt: null, appRoles: { hasSome: ["BD"] }, OR: [{ name: { contains: "Ref", mode: "insensitive" } }, { publicId: { contains: "Ref", mode: "insensitive" } }] });
+    expect(referenceWhere("Pakistan", "Ref")).toMatchObject({ country: "PK", status: "ACTIVE", deletedAt: null, appRoles: { hasSome: applicationRolesWithPermission("agencies.reference") }, OR: [{ name: { contains: "Ref", mode: "insensitive" } }, { publicId: { contains: "Ref", mode: "insensitive" } }] });
     expect(referenceWhere(null).country).toBe("__UNASSIGNED__");
   });
   it("returns explicit frame and role fields", () => {

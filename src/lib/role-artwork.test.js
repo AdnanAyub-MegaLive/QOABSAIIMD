@@ -9,9 +9,10 @@ it("returns graphical role metadata without replacing equipped badges",async()=>
   expect(tags.get("USR-1").find(t=>t.role==="BD").imageUrl).toBeNull();
 });
 it("validates salary drafts without inventing rates",()=>{
-  const row={role:"BD",targetCoins:"1000",salaryAmount:"10",salaryCurrency:"USD",scope:"OWN"};
+  const row={role:"BD",targetDiamonds:"1000",salaryAmount:"10",salaryCurrency:"USD",scope:"OWN"};
   expect(validateTopUpTargets([row])).toEqual([row]);
   expect(()=>validateTopUpTargets([row,row])).toThrow();
-  expect(()=>validateTopUpTargets([{...row,targetCoins:"-1"}])).toThrow();
+  expect(()=>validateTopUpTargets([{...row,targetDiamonds:"-1"}])).toThrow();
+  expect(()=>validateTopUpTargets([{...row,scope:"SUBTREE"}])).toThrow();
   expect(()=>validateTopUpTargets([{...row,salaryCurrency:"COINS",salaryAmount:"1.5"}])).toThrow();
 });

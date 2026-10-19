@@ -40,7 +40,7 @@ export async function managementPerformance(userId,month,agencyPublicId,db=prism
   const agencies=await db.agency.findMany({where:{country:scope.country,bdUserId:{in:scope.ids}},select:{id:true,publicId:true,name:true,bdUserId:true,bd:{select:{publicId:true,name:true}},_count:{select:{userHosts:true,talents:true}}}});
   if(agencyPublicId){const agency=agencies.find(a=>a.publicId===agencyPublicId);if(!agency)throw managementFailure("Agency is outside your team.");return getAgencySalary(agency.id,period.month,db);}
   const workReports=await agencyWorkReports(db,agencies,period);
-  const targetMap=await managementTargets(db,[scope.me,...scope.members],agencies,period);
+  const targetMap=await managementTargets(db,[scope.me,...scope.members],workReports);
   const hierarchy=hierarchyWork([scope.me,...scope.members],workReports).map(row=>({...row,target:targetMap.get(row.publicId)??null}));
   const totals=await db.giftSettlement.groupBy({by:["agencyId"],where:{agencyId:{in:agencies.map(a=>a.id)},giftTransaction:{reversedAt:null},createdAt:{gte:period.start,lt:period.end}},_sum:{grossCoins:true,hostSalaryCoins:true,agencyCoins:true}});
   const rows=agencies.map(a=>{const sum=totals.find(t=>t.agencyId===a.id)?._sum;return {work:workReports.find(r=>r.id===a.id).work,publicId:a.publicId,name:a.name,supervisor:a.bd,hostCount:a._count.userHosts+a._count.talents,giftCoins:String(sum?.grossCoins??0n),salaryCoins:String(sum?.hostSalaryCoins??0n),commissionCoins:String(sum?.agencyCoins??0n)};});

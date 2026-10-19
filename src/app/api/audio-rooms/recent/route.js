@@ -1,3 +1,4 @@
+import {roomFrameInclude} from "@/lib/room-frame";
 import { roomCoverDto } from "@/lib/room-cover";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
@@ -20,6 +21,7 @@ export async function GET(request) {
       where: recentRoomWhere(user.id, cursor),
       orderBy: [{ lastVisitedAt: "desc" }, { audioRoomId: "desc" }], take: limit + 1,
       select: { audioRoomId: true, lastVisitedAt: true, audioRoom: { select: {
+        ...roomFrameInclude, roomFrameVersion:true,
         roomId: true, title: true, coverImageUrl: true, coverRevision: true, ownerId: true, status: true, participantCount: true,
         privacyMode: true, passwordHash: true, paidEntryCoins: true,
         roomBackgroundVersion: true, roomBackgroundAsset: artwork, seatStyleVersion: true, seatStyleAsset: artwork,

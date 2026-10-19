@@ -71,6 +71,7 @@ export async function requireMobileRole(request, allowedRoles) {
 }
 
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
+  if (["AGENCY_SELECTION_REQUIRED","AGENCY_NOT_FOUND"].includes(error?.code) && error.status) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {

@@ -14,6 +14,7 @@ export const equippablePropCategories = new Set([
   "TAIL_LIGHTS",
   "BADGES",
   "CHAT_BOXES",
+  "ROOM_FRAMES",
   "ROOM_BACKGROUNDS",
   "SEAT_STYLES",
   "BUSINESS_CARD",
