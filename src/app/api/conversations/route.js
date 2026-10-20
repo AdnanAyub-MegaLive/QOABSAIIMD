@@ -13,6 +13,8 @@ import {
 } from "../../../lib/user-perks";
 import { formatDateOnly } from "../../../lib/date-only";
 import { groupDetails } from "../../../lib/group-details";
+import { memberArtwork } from "../../../lib/group-member-artwork";
+import { userChatCountry, countryMessageFilter } from "../../../lib/country-chat";
 
 export const dynamic = "force-dynamic";
 export function OPTIONS() {
@@ -26,10 +28,12 @@ async function conversationPayload(conversation, user, perks) {
   const membership = conversation.participants.find(
     (participant) => participant.userId === user.id,
   );
-  const lastMessage = conversation.messages[0] ?? null;
+  const countryFilter=conversation.kind==="WORLD"?countryMessageFilter(await userChatCountry(prisma,user.id)):{};
+  const lastMessage = conversation.kind==="WORLD"?await prisma.message.findFirst({where:{conversationId:conversation.id,...countryFilter},orderBy:[{createdAt:"desc"},{id:"desc"}],include:{sender:{select:{publicId:true}}}}):conversation.messages[0] ?? null;
   const unreadCount = await prisma.message.count({
     where: {
       conversationId: conversation.id,
+      ...countryFilter,
       senderId: { not: user.id },
       ...(membership?.lastReadAt
         ? { createdAt: { gt: membership.lastReadAt } }
@@ -42,7 +46,7 @@ async function conversationPayload(conversation, user, perks) {
     ...(conversation.kind === "GROUP" ? groupDetails(conversation) : {}),
     name:
       conversation.kind === "WORLD"
-        ? conversation.name
+        ? "Country Chat"
         : conversation.kind === "GROUP"
           ? conversation.name ?? "Group chat"
         : other?.name ?? "Deleted user",
@@ -63,6 +67,7 @@ async function conversationPayload(conversation, user, perks) {
     participants:
       conversation.kind === "GROUP"
         ? conversation.participants.map((participant) => ({
+            ...memberArtwork(perks.get(participant.user.publicId)),
             id: participant.user.publicId,
             name: participant.user.name,
             profileImage: participant.user.profileImage ?? null,
@@ -75,13 +80,14 @@ async function conversationPayload(conversation, user, perks) {
     lastMessage: lastMessage
       ? {
           id: lastMessage.publicId,
+          senderCountry: lastMessage.senderCountry ?? null,
           senderId: lastMessage.sender?.publicId ?? null,
           body: lastMessage.deletedAt ? null : ({ picture: "Photo", video: "Video", gift: "Gift" }[lastMessage.kind] ?? lastMessage.body),
           type: lastMessage.voiceKey ? "voice" : lastMessage.kind ?? "text",
           createdAt: lastMessage.createdAt.toISOString(),
         }
       : null,
-    lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
+    lastMessageAt: (conversation.kind==="WORLD"?lastMessage?.createdAt:conversation.lastMessageAt)?.toISOString() ?? null,
     unreadCount,
   };
 }

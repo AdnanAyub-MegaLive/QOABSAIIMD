@@ -8,6 +8,7 @@ import { equippedProfileAssets } from "./public-profile.js";
 import { serializeRoomChatMessages } from "./audio-room-chat.js";
 import { chatSenderPerks, invalidateChatPerks } from "./chat-perks-cache.js";
 import { GET as conversations } from "../app/api/conversations/route.js";
+import { groupConversationWithArtwork } from "./messaging.js";
 
 const users = [1,2,3].map(n => ({ id:`u${n}`, publicId:`USR-${n}`, name:`User ${n}` }));
 let assets, equipped;
@@ -23,6 +24,25 @@ beforeEach(() => {
   users.forEach(u=>invalidateChatPerks(u.id));
 });
 afterEach(()=>vi.unstubAllEnvs());
+
+it("group list and details include the same equipped-only artwork for mixed members",async()=>{
+  equipped.push({userId:"u1",category:"FRAMES",assetId:"global-FRAMES"});
+  const group={id:"group",publicId:"CONV-group",kind:"GROUP",createdAt:new Date(),messages:[],participants:users.map(user=>({userId:user.id,user,role:"MEMBER",joinedAt:new Date()}))};
+  db.conversation.findMany=async()=>[group];
+  const response=await conversations(new Request("https://portal.test/api/conversations"));
+  expect(response.status).toBe(200);
+  const list=(await response.json()).data.conversations[0];
+  db.userEquippedProp.findMany.mockClear();
+  const details=await groupConversationWithArtwork(group,"https://portal.test",db);
+  expect(db.userEquippedProp.findMany).toHaveBeenCalledTimes(1);
+  for(const dto of [list,details]){
+    expect(dto.participants[0]).toMatchObject({frameMimeType:"image/png",badgeUrl:null});
+    expect(dto.participants[0].frameUrl).toContain("AST-global-FRAMES");
+    expect(dto.participants[1]).toMatchObject({frameUrl:null,badgeUrl:null});
+    expect(dto.participants[2]).toMatchObject({frameUrl:null,badgeMimeType:"application/svga"});
+    expect(dto.participants[2].badgeUrl).toContain("displaySig=");
+  }
+});
 
 it("chat list, room chat and profile show no badge without equipment despite a global badge",async()=>{
   const response=await conversations(new Request("https://portal.test/api/conversations"));

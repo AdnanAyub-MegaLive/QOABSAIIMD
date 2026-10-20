@@ -1,5 +1,6 @@
 import { prisma } from "../../../../lib/prisma.js";
 import { resolvePublishedFile } from "../../../../lib/events/storage.js";
+import { createHash } from "node:crypto";
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -37,13 +38,40 @@ export async function GET(request, { params }) {
       where: { slug: values.slug, status: "PUBLISHED" },
     });
     if (!event) return unavailable();
+    const segments=values.path??[];
+    const versioned=segments[0]==="_v" && /^[1-9]\d*$/.test(segments[1]??"");
+    const selectedVersion=versioned?Number(segments[1]):event.version;
+    if(!Number.isSafeInteger(selectedVersion))return unavailable();
+    if(versioned && selectedVersion!==event.version){
+      const requested=segments.slice(2).join("/");
+      if(requested.endsWith(".html")){
+        const url=new URL(request.url);
+        url.pathname=`/event/${encodeURIComponent(values.slug)}/_v/${event.version}/${segments.slice(2).map(encodeURIComponent).join("/")}`;
+        return new Response(null,{status:307,headers:{Location:url.toString(),"Cache-Control":"no-cache"}});
+      }
+      // Never expose an unpublished draft by guessing a version number.
+      return unavailable();
+    }
     const version = await prisma.eventVersion.findUnique({
-      where: { eventId_version: { eventId: event.id, version: event.version } },
+      where: { eventId_version: { eventId: event.id, version: selectedVersion } },
     });
     if (!version) return unavailable();
-    const requested = values.path?.length ? values.path.join("/") : version.entryFile;
+    const parts=versioned?segments.slice(2):segments;
+    const requested = parts.length ? parts.join("/") : version.entryFile;
     const file = await resolvePublishedFile(version.folderName, requested);
     const isHtml = file.extension === ".html";
+    // HTML follows the current publication; relative JS/CSS/media resolve under
+    // a pinned version directory, including imports and CSS url() references.
+    if(isHtml && (!versioned || selectedVersion!==event.version)){
+      const url=new URL(request.url);
+      url.pathname=`/event/${encodeURIComponent(values.slug)}/_v/${event.version}/${requested.split("/").map(encodeURIComponent).join("/")}`;
+      return new Response(null,{status:307,headers:{Location:url.toString(),"Cache-Control":"no-cache"}});
+    }
+    const cacheControl=isHtml||file.extension===".json"?"no-cache":versioned?"public, max-age=31536000, immutable":"no-cache";
+    const etag=`"${createHash("sha256").update(file.buffer).digest("hex")}"`;
+    if(request.headers.get("if-none-match")?.split(",").map(v=>v.trim().replace(/^W\//,"")).includes(etag)){
+      return new Response(null,{status:304,headers:{"ETag":etag,"Cache-Control":cacheControl}});
+    }
     const range = request.headers.get("range");
     let body = file.buffer;
     let status = 200;
@@ -64,7 +92,8 @@ export async function GET(request, { params }) {
         "Content-Type": contentTypes[file.extension] || "application/octet-stream",
         "Content-Length": String(body.byteLength),
         "Accept-Ranges": "bytes",
-        "Cache-Control": isHtml ? "no-cache, no-store, must-revalidate" : "public, max-age=300",
+        "Cache-Control": cacheControl,
+        "ETag": etag,
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
           "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors *",

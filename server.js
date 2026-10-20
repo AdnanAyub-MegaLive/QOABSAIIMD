@@ -1,6 +1,7 @@
 // Set mode before Next imports its environment-dependent server modules.
 process.env.NODE_ENV = process.argv.includes("--dev") ? "development" : (process.env.NODE_ENV || "production");
 const { createServer } = require("node:http");
+const { applyWebCacheHeaders } = require("./src/lib/web-cache.cjs");
 const { setRequestClientIp } = require("./src/lib/request-ip.cjs");
 const { randomUUID } = require("node:crypto");
 const next = require("next");
@@ -65,7 +66,7 @@ app.prepare().then(async()=>{
   const {resolveCatalogTrack}=await import("./src/lib/music-catalog.js");
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileExpiredAudioRoomControls,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
-  const httpServer=createServer((request,response)=>{setRequestClientIp(request);return handle(request,response)});
+  const httpServer=createServer((request,response)=>{setRequestClientIp(request);applyWebCacheHeaders(request,response);return handle(request,response)});
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
@@ -295,14 +296,16 @@ app.prepare().then(async()=>{
       where:{userId:user.id},
       select:{conversation:{select:{publicId:true}}},
     });
-    for(const membership of conversationMemberships)socket.join(`conversation:${membership.conversation.publicId}`);
+    for(const membership of conversationMemberships)if(membership.conversation.publicId!=="CONV-WORLD")socket.join(`conversation:${membership.conversation.publicId}`);
+    const {refreshCountryChatRooms}=await import("./src/lib/country-chat.js");
+    await refreshCountryChatRooms(prisma,io);
     const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
     socket.emit("session:status",{success:true,data:{sessionVersion:user.sessionVersion,forcedLogoutAt:user.forcedLogoutAt?.toISOString()??null,isVerified:Boolean(user.isVerified),isOfficial:Boolean(user.isOfficial),isBanned:Boolean(ban),banReason:ban?.reason??null,banExpiresAt:ban?.expiresAt?.toISOString()??null}});
     socket.on("message:send",async({conversationId,body,clientMessageId,mediaId}={},ack=()=>{})=>{
       try{
         const id=String(conversationId??"");
         const membership=await requireConversationParticipant(id,user.id);
-        socket.join(`conversation:${id}`);
+        if(id!=="CONV-WORLD")socket.join(`conversation:${id}`);
         const {chatSenderPerks}=await import("./src/lib/chat-perks-cache.js");
         const senderPerks=await chatSenderPerks(user,connectionOrigin);
         const message=await createMessage(membership.conversation,user,body,senderPerks,{clientMessageId,mediaId});
@@ -311,6 +314,7 @@ app.prepare().then(async()=>{
         ack({success:true,data:eventPayload});
       }catch(error){
         const code=error?.code??error?.message;
+        if(["COUNTRY_REQUIRED","LINK_NOT_ALLOWED"].includes(code))return ack({success:false,error:{code,message:error.message}});
         ack({success:false,error:{
           code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD","MUTUAL_FOLLOW_REQUIRED","USER_BLOCKED","USER_NOT_FOUND","CHAT_MEDIA_UNAVAILABLE","RATE_LIMITED","IDEMPOTENCY_CONFLICT"].includes(code)?code:"MESSAGE_SEND_FAILED",
           message:error?.validationMessage??(code==="CONVERSATION_NOT_FOUND"?"Conversation not found.":"Unable to send this message."),
@@ -342,7 +346,7 @@ app.prepare().then(async()=>{
       }catch(error){
         const code=error?.code??error?.message;
         ack({success:false,error:{
-          code:["CONVERSATION_NOT_FOUND","MESSAGE_NOT_FOUND","MESSAGE_EDIT_FORBIDDEN","MESSAGE_EDIT_WINDOW_EXPIRED","MESSAGE_DELETED","USER_BLOCKED","VALIDATION_ERROR","INAPPROPRIATE_WORD"].includes(code)?code:"MESSAGE_EDIT_FAILED",
+          code:["CONVERSATION_NOT_FOUND","MESSAGE_NOT_FOUND","MESSAGE_EDIT_FORBIDDEN","MESSAGE_EDIT_WINDOW_EXPIRED","MESSAGE_DELETED","USER_BLOCKED","VALIDATION_ERROR","INAPPROPRIATE_WORD","COUNTRY_REQUIRED","LINK_NOT_ALLOWED"].includes(code)?code:"MESSAGE_EDIT_FAILED",
           message:error?.validationMessage??(code==="MESSAGE_EDIT_FORBIDDEN"?"You can only edit your own messages.":code==="MESSAGE_EDIT_WINDOW_EXPIRED"?"Messages can only be edited during the first 15 minutes.":"Unable to edit this message."),
         }});
       }
@@ -367,6 +371,7 @@ app.prepare().then(async()=>{
       try{
         const id=String(conversationId??"");
         await requireConversationParticipant(id,user.id);
+        if(id==="CONV-WORLD")return ack({success:true,data:{conversationId:id,isTyping:false}});
         const now=Date.now();
         const previous=socket.data.lastTypingAt??0;
         if(now-previous<500)return ack({success:true,data:{conversationId:id,throttled:true}});

@@ -20,7 +20,7 @@ export async function reverseGiftXp(tx, giftId, origin) {
     if (!row || row.lifetimePoints < award.deltaPoints) throw new Error("XP ledger requires reconciliation; reversal would create a negative total.");
     const previousLevel = row.currentLevel;
     const snapshot = levelSnapshot({ ...row, lifetimePoints: row.lifetimePoints - award.deltaPoints, revision: row.revision + 1 }, row.configuration.levels, origin);
-    Object.assign(snapshot,tagBackground(await levelTagBackgrounds(tx,origin),award.track,snapshot.level));
+    Object.assign(snapshot,tagBackground(await levelTagBackgrounds(tx,origin,[{track:award.track,level:snapshot.level}]),award.track,snapshot.level));
     await tx.progressLedger.create({ data: {
       userId: award.userId, track: award.track, sourceType: "GIFT_REVERSAL", sourceId: giftId, sourceLineId: award.id,
       deltaPoints: -award.deltaPoints, reversalOfId: award.id, ruleVersion: award.ruleVersion,

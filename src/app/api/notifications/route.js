@@ -17,7 +17,9 @@ export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
     const { limit, boundary } = notificationPage(new URL(request.url));
-    const visibility = inboxWhere(user.id);
+    const types=String(new URL(request.url).searchParams.get("types")??"").split(",").map(s=>s.trim()).filter(Boolean);
+    if(types.length>30||types.some(t=>!/^[A-Z_]{1,60}$/.test(t)))throw Object.assign(new Error("Invalid notification types."),{code:"VALIDATION_ERROR"});
+    const visibility = { ...inboxWhere(user.id), ...(types.length?{type:{in:types}}:{}) };
     const [records, unreadCount] = await Promise.all([
       prisma.notification.findMany({ where: { AND: [visibility, boundary] }, include: { reads: { where: { userId: user.id }, select: { readAt: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit + 1 }),
       prisma.notification.count({ where: { AND: [visibility, { reads: { none: { userId: user.id } } }] } }),

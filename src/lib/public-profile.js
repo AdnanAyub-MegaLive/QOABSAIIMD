@@ -1,4 +1,6 @@
 import { prisma } from "./prisma.js";
+import { activeSpecialIds } from "./special-id.js";
+import { profileAgency } from "./profile-agency.js";
 import { equippablePropCategories } from "./props-store.js";
 import { decorationMedia, namedDecoration } from "./decoration-media.js";
 import { activityProgress } from "./activity-levels.js";
@@ -92,7 +94,9 @@ export async function ownedProfileBadges(userId, origin, db = prisma) {
 }
 
 export async function profileExtras(target, viewer, origin, db = prisma) {
-  const roles = [...new Set(target.appRoles)].filter(r => APPLICATION_ROLES.includes(r));
+  const agency = await profileAgency(db,target.id,target.agency);
+  const specialIds = await activeSpecialIds([target.id],db);
+  const roles = [...new Set([...(target.appRoles??[]),...(agency?.isOwner?["HOST"]:[])])].filter(r => APPLICATION_ROLES.includes(r));
   const [equipment, progress, roleRows, medals, gifts, supporters, relationships, ownedBadges, ownedProps] = await Promise.all([
     equippedProfileAssets([target], origin, db), publicProgression([target], origin, db, true),
     db.roleBadge.findMany({ where: { code: { in: roles } } }), medalWall(target.id, origin, { limit: 50 }, db), receivedGiftWall(target.id, origin, {}, db),
@@ -107,14 +111,13 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
   const hidden = new Set(blocked.map(b => b.blockerId === viewer.id ? b.blockedId : b.blockerId));
   const decorations = await equippedProfileAssets([...people, ...related], origin, db);
   const identity = p => ({ publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), ...namedDecoration("frame", decorations.get(p.id)?.avatarFrame), ...namedDecoration("badge", decorations.get(p.id)?.profileBadge) });
-  const agency = target.agency?.status === "ACTIVE" ? target.agency : null;
   const assets = await displayAssets([...roleRows.map(r => r.assetPublicId), agency?.logoAssetPublicId, agency?.badgeAssetPublicId], origin, db);
   const equippedAssets = equipment.get(target.id);
   const levels = progress.get(target.publicId);
   const game = await activityProgress("GAME", target.id, origin, db);
   const agencyProgress = agency ? await activityProgress("AGENCY", agency.id, origin, db) : null;
-  const cardArt = await profileCardArtwork(db,target.id,levels?.charmLevel??0,origin);
-  return { roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
+  const cardArt = await profileCardArtwork(db,target.id,levels?.charmLevel??0,origin,agency);
+  return { specialId: specialIds.get(target.id)??null, roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
     ownedBadges, ownedProps, equippedAssets, frameUrl: equippedAssets.avatarFrame?.url ?? null, badgeUrl: equippedAssets.profileBadge?.url ?? null,
     userTagUrl: equippedAssets.userTag?.url ?? null,
     profileBackgroundUrl: equippedAssets.profileBackground?.url ?? null, profileBackgroundPosterUrl: equippedAssets.profileBackground?.posterUrl ?? null, profileBackgroundMimeType: equippedAssets.profileBackground?.mimeType ?? null,

@@ -61,7 +61,7 @@ export async function changeVip(userId,{action,tierId,requestKey},db=prisma) {
     const balance=await tx.user.findUnique({where:{id:userId},select:{coinBalance:true}});
     const result={tierId,expiresAt:owned.expiresAt.toISOString(),coinBalance:balance.coinBalance.toString()};
     if(action==="PURCHASE")await tx.vipPurchase.create({data:{userId,requestKey,tierId,result}});
-    await tx.auditLog.create({data:{action:`VIP_${action}`,category:"USER_MANAGEMENT",entityType:"User",entityId:userId,description:`VIP ${action.toLowerCase()}`,metadata:{tierId,requestKey:requestKey??null}}});
+    await tx.auditLog.create({data:{action:`VIP_${action}`,category:"USER_MANAGEMENT",entityType:"User",entityId:userId,description:`VIP ${action.toLowerCase()}`,metadata:{actorUserId:userId,outcome:"SUCCESS",tierId,requestKey:requestKey??null,expiresAt:result.expiresAt}}});
     return result;
   },{isolationLevel:"Serializable"});}catch(e){if(!["P2034","P2002"].includes(e.code)||attempt===3)throw e;}
 }

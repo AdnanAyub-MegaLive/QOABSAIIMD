@@ -44,7 +44,7 @@ export async function POST(request, { params }) {
       create: { followerId: viewer.id, followedId: target.id }, update: {},
     });
     const mutual = await tx.userFollow.findUnique({ where: { followerId_followedId: { followerId: target.id, followedId: viewer.id } } });
-    await notifyAction(tx, { userId: target.id, key: `follow:${viewer.id}`, type: mutual ? "FOLLOW_BACK" : "FOLLOW", title: mutual ? "New follow back" : "New follower", body: `${viewer.name} ${mutual ? "followed you back" : "started following you"}.`, action: { screen: "PROFILE", publicId: viewer.publicId } });
+    await notifyAction(tx, { userId: target.id, key: `follow:${viewer.id}`, type: "NEW_FOLLOWER", title: mutual ? "New follow back" : "New follower", body: `${viewer.name} ${mutual ? "followed you back" : "started following you"}.`, action: { screen: "PROFILE", publicId: viewer.publicId, mutual:Boolean(mutual), actor:{publicId:viewer.publicId,name:viewer.name,profileImage:viewer.profileImage??null} } });
     });
     globalThis.portalIo?.to(`user:${target.publicId}`).emit("profile:followed", { success: true, data: { userId: viewer.publicId } });
     return mobileJson({ success: true, data: await state(viewer.id, target.id) });

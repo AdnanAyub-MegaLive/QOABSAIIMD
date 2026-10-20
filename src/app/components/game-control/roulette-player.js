@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import rouletteImage from "../../../../public/games/roulette/wheel.png";
 import {
   ArrowLeft,
   FlaskConical,
@@ -149,7 +150,8 @@ export default function RoulettePlayer({
           <div className="wheel-pointer" />
           <Image
             loading="eager"
-            src="/games/roulette/wheel.png"
+            src={rouletteImage}
+            unoptimized
             alt="Mega’s 37-pocket roulette wheel"
             style={{ transform: `rotate(${rotation}deg)` }}
             width={265}

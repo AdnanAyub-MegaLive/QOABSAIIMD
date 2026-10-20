@@ -1,4 +1,5 @@
-import { createGroupConversation, emitConversationEvent, serializeGroupConversation } from "@/lib/messaging";
+import { createGroupConversation, emitConversationEvent, groupConversationWithArtwork } from "@/lib/messaging";
+import { requestOrigin } from "@/lib/user-perks";
 import { mobileApiError, requireMobileUser } from "@/lib/mobile-api";
 import { v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
 
@@ -14,7 +15,7 @@ export async function POST(request) {
       const user = await requireMobileUser(request);
       const body = await request.json();
       const conversation = await createGroupConversation(user, body?.name, body?.participantIds);
-      const data = { conversation: serializeGroupConversation(conversation) };
+      const data = { conversation: await groupConversationWithArtwork(conversation, requestOrigin(request)) };
       await emitConversationEvent(globalThis.portalIo, conversation.publicId, "conversation:created", data);
       return v1Json(request, requestId, { success: true, data }, 201, methods);
     } catch (error) {

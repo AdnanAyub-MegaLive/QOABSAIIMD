@@ -1,3 +1,4 @@
+import {auditFilters,auditRow} from "@/lib/audit-view";
 import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
@@ -13,32 +14,15 @@ export default async function AuditLogsPage({ searchParams }) {
   const session = await auth();
   if (!session?.user) redirect("/");
   const params = await searchParams;
-  const query = String(params?.q ?? "").trim().slice(0, 200);
-  const requestedCategory = String(params?.category ?? "All").trim();
-  const category = requestedCategory === "All" ? "All" : requestedCategory;
-  const requestedPage = Number.parseInt(String(params?.page ?? "1"), 10);
-  const currentPage = Number.isSafeInteger(requestedPage) && requestedPage > 0
-    ? requestedPage
-    : 1;
-  const where = {
-    ...(category !== "All" ? { category } : {}),
-    ...(query
-      ? {
-          OR: [
-            { action: { contains: query, mode: "insensitive" } },
-            { description: { contains: query, mode: "insensitive" } },
-            { entityId: { contains: query, mode: "insensitive" } },
-            { admin: { is: { name: { contains: query, mode: "insensitive" } } } },
-            { admin: { is: { email: { contains: query, mode: "insensitive" } } } },
-          ],
-        }
-      : {}),
-  };
+  const filters=auditFilters(params);
+  const {where,query,category}=filters;
+  const requestedPage=Number.parseInt(String(params?.page??"1"),10);
+  const currentPage=Number.isSafeInteger(requestedPage)&&requestedPage>0?requestedPage:1;
   const [filteredTotal, totalRecords, totalToday, securityCount] = await Promise.all([
     prisma.auditLog.count({ where }),
     prisma.auditLog.count(),
     prisma.auditLog.count({
-      where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+      where: { createdAt: { gte: new Date(new Date().toISOString().slice(0,10)+"T00:00:00.000Z") } },
     }),
     prisma.auditLog.count({ where: { category: "SECURITY" } }),
   ]);
@@ -46,29 +30,13 @@ export default async function AuditLogsPage({ searchParams }) {
   const page = Math.min(currentPage, totalPages);
   const records = await prisma.auditLog.findMany({
       where,
-      include: { admin: true },
+      include: { admin: {select:{name:true,email:true}} },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
-  const logs = records.map((log) => ({
-    id: log.id,
-    createdAt: log.createdAt.toLocaleString("en-US"),
-    adminName: log.admin?.name ?? "System",
-    adminEmail: log.admin?.email ?? "Automated process",
-    category: log.category,
-    action: log.action,
-    entityId: log.entityId,
-    description: log.description
-      .replace(/\btalents\b/gi, "hosts")
-      .replace(/\btalent\b/gi, "host"),
-    reason:
-      log.metadata &&
-      typeof log.metadata === "object" &&
-      !Array.isArray(log.metadata)
-        ? (log.metadata.reason ?? null)
-        : null,
-  }));
+  const categories=await prisma.auditLog.findMany({distinct:["category"],select:{category:true},orderBy:{category:"asc"}});
+  const logs = records.map(auditRow);
   return (
     <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
       <PortalSidebar />
@@ -98,13 +66,13 @@ export default async function AuditLogsPage({ searchParams }) {
           <div className="mb-7">
             <h2 className="text-2xl font-bold">Portal activity history</h2>
             <p className="mt-1.5 text-sm text-[#71847f]">
-              A permanent record of administrative and system activity.
+              Recorded portal, user and system activity. Details are redacted for security; missing historical actions cannot be reconstructed.
             </p>
           </div>
           <div className="mb-6 grid gap-3 sm:grid-cols-3">
             {[
               ["Total records", totalRecords, "Complete audit history"],
-              ["Activity today", totalToday, "Actions since midnight"],
+              ["Activity today", totalToday, "Actions since midnight UTC"],
               ["Security events", securityCount, "Bans and restrictions"],
             ].map(([label, value, note]) => (
               <div
@@ -121,6 +89,8 @@ export default async function AuditLogsPage({ searchParams }) {
           </div>
           <AuditLogTable
             logs={logs}
+            categories={categories.map(row=>row.category)}
+            filters={filters}
             query={query}
             category={category}
             page={page}

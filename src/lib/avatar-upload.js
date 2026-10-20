@@ -13,6 +13,10 @@ function invalid(message, code = "VALIDATION_ERROR") {
 
 // Bound the body even when Content-Length is absent or dishonest.
 export async function readAvatarFile(request, maxBytes = AVATAR_MAX_BYTES, fields = ["image"]) {
+  return (await readAvatarUpload(request, maxBytes, fields)).file;
+}
+
+export async function readAvatarUpload(request, maxBytes = AVATAR_MAX_BYTES, fields = ["image"]) {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data;"))
     throw invalid("Send multipart/form-data with one image field.");
   const limit = maxBytes + 65536;
@@ -42,7 +46,7 @@ export async function readAvatarFile(request, maxBytes = AVATAR_MAX_BYTES, field
   if (files.length !== 1 || !(files[0] instanceof File) || !files[0].size)
     throw invalid("Exactly one non-empty image file is required.");
   if (files[0].size > maxBytes) throw invalid(`Image cannot exceed ${maxBytes / 1024 / 1024} MB.`, "FILE_TOO_LARGE");
-  return files[0];
+  return { file: files[0], form };
 }
 
 export async function decodeAvatar(file) {

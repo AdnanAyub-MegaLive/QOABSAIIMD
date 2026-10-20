@@ -45,8 +45,9 @@ export async function mobileUserProfile(userId, origin = null) {
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const perks = origin ? (await resolveUserPerks([user], origin, ["FRAMES", "BADGES", "BUSINESS_CARD"])).get(user.publicId) : null;
   const equippedAssets = origin ? (await equippedProfileAssets([user], origin)).get(user.id) : null;
+  const card = await profileCardArtwork(prisma,user.id,(await publicProgression([user],origin)).get(user.publicId)?.charmLevel??0,origin);
   return {
-    ...await profileCardArtwork(prisma,user.id,(await publicProgression([user],origin)).get(user.publicId)?.charmLevel??0,origin),
+    ...card,
     ...await activityProgress("GAME", user.id, origin).then(p=>({gameLevel:p.level,gameLevelBadgeUrl:p.badgeUrl,gameLevelBackground:p.background,gameLevelBackgroundUrl:p.backgroundUrl,gameLevelBackgroundMimeType:p.backgroundMimeType,gameLevelBackgroundMediaVersion:p.backgroundMediaVersion,gameProgression:p})),
     ...await profileCoverDto(prisma, user.id, user.id, origin),
     ...profileEditPermissions(user),
@@ -77,7 +78,7 @@ export async function mobileUserProfile(userId, origin = null) {
     isVerified: Boolean(user.isVerified),
     isOfficial: Boolean(user.isOfficial),
     role: user.role,
-    roles: user.appRoles,
+    roles: [...new Set([...(user.appRoles??[]),...(card.agency?.isOwner?["HOST"]:[])])],
     ...managementIdentity(user),
     status: user.status,
     vipLevel: user.vipLevel,

@@ -9,11 +9,12 @@ const categoryStyles = {
   SYSTEM: "bg-slate-100 text-slate-700",
 };
 
-export default function AuditLogTable({ logs, query, category, page, pageSize, total, totalPages }) {
+export default function AuditLogTable({ logs, query, category, page, pageSize, total, totalPages, categories=[], filters={} }) {
   const pageHref = (target) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (category !== "All") params.set("category", category);
+    for(const key of ["action","entity","from","to"])if(filters[key])params.set(key,filters[key]);
     params.set("page", String(target));
     return `/audit-logs?${params}`;
   };
@@ -21,6 +22,7 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
     { length: Math.min(5, totalPages) },
     (_, index) => Math.max(1, Math.min(page - 2, totalPages - 4)) + index,
   );
+  const exportHref=pageHref(1).replace('/audit-logs?','/api/admin/audit-logs?');
   return (
     <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
       <form method="GET" className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:justify-between">
@@ -40,26 +42,23 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
             aria-label="Search audit logs"
           />
         </div>
-        <div className="flex gap-2"><select
+        <div className="flex flex-wrap gap-2">
+          {["action","entity","from","to"].map(key=><input key={key} name={key} aria-label={key+" filter (dates UTC)"} placeholder={key==="entity"?"Target ID":key} type={["from","to"].includes(key)?"date":"text"} defaultValue={filters[key]??""} className="h-10 rounded-lg border px-2 text-xs" />)}
+          <select
           name="category"
           defaultValue={category}
           className="h-10 rounded-lg border border-[#dce6e4] bg-white px-3 text-xs text-[#536863]"
         >
           <option>All</option>
-          <option>USER_MANAGEMENT</option>
-          <option value="TALENT_MANAGEMENT">HOST_MANAGEMENT</option>
-          <option>FINANCE</option>
-          <option>SECURITY</option>
-          <option>AUTHENTICATION</option>
-          <option>SYSTEM</option>
-        </select><button className="rounded-lg bg-[#087f74] px-4 text-xs font-bold text-white">Search</button>{(query || category !== "All") && <Link href="/audit-logs" className="grid place-items-center rounded-lg border border-[#dce6e4] px-3 text-xs font-bold">Clear</Link>}</div>
+          {categories.map(value=><option key={value} value={value}>{displayAuditLabel(value)}</option>)}
+        </select><button className="rounded-lg bg-[#087f74] px-4 text-xs font-bold text-white">Search</button><a href={exportHref} className="grid place-items-center rounded-lg border px-3 text-xs">Export JSON (up to 500)</a>{(query || category !== "All" || filters.action || filters.entity || filters.from || filters.to) && <Link href="/audit-logs" className="grid place-items-center rounded-lg border border-[#dce6e4] px-3 text-xs font-bold">Clear</Link>}</div>
       </form>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[950px] text-left">
           <thead>
             <tr className="bg-[#f8fbfa] text-[10px] tracking-wider text-[#748883] uppercase">
-              <th className="px-5 py-3.5">Date & Time</th>
-              <th>Administrator</th>
+              <th className="px-5 py-3.5">Date & Time (UTC)</th>
+              <th>Actor</th>
               <th>Category</th>
               <th>Action</th>
               <th>Record</th>
@@ -85,10 +84,11 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
                   {displayAuditLabel(log.action)}
                 </td>
                 <td className="font-mono text-[10px] text-[#087f74]">
-                  {log.entityId ?? "—"}
+                  {log.entityType && <span className="block">{log.entityType}</span>}{log.entityId ?? "—"}
                 </td>
                 <td className="max-w-sm px-5 text-[#60736f]">
                   <p>{log.description}</p>
+                  <details className="mt-2"><summary className="cursor-pointer text-[#087f74]">Audit details</summary><p>Record: {log.id}</p><p>Outcome: {log.outcome}</p><p>IP: {log.ipAddress??"Not recorded"}</p><pre className="max-h-80 max-w-lg overflow-auto whitespace-pre-wrap break-all rounded bg-slate-50 p-2">{JSON.stringify(log.details,null,2)??"No additional details recorded"}</pre></details>
                   {log.reason && (
                     <p className="mt-1 text-[10px] text-[#899995]">
                       <span className="font-semibold">Reason:</span>{" "}

@@ -1,5 +1,17 @@
 import { prisma } from "./prisma.js";
 
+export async function activeSpecialIds(userIds, db = prisma) {
+  if (!userIds.length) return new Map();
+  const now = new Date();
+  const rows = await db.specialIdAssignment.findMany({
+    where: { userId: { in: [...new Set(userIds)] }, status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, expiresAt: { gt: now } },
+    select: { userId: true, specialId: true }, orderBy: [{ expiresAt: "desc" }, { id: "asc" }],
+  });
+  const result = new Map();
+  for (const row of rows) if (!result.has(row.userId)) result.set(row.userId, row.specialId);
+  return result;
+}
+
 export function normalizeSpecialId(value) {
   const code=String(value??"").trim().toUpperCase();
   if(!/^[A-Z0-9]{4,7}$/.test(code))throw new Error("SPECIAL_ID_MUST_BE_4_TO_7_CHARACTERS");
@@ -15,7 +27,7 @@ export async function reconcileExpiredSpecialIds() {
 
 export async function getEffectiveUserId(userId, publicId) {
   const assignment=await prisma.specialIdAssignment.findFirst({
-    where:{userId,status:"ACTIVE",revokedAt:null,expiresAt:{gt:new Date()}},
+    where:{userId,status:"ACTIVE",revokedAt:null,startsAt:{lte:new Date()},expiresAt:{gt:new Date()}},
     orderBy:{expiresAt:"desc"},
   });
   return {normalId:publicId,effectiveId:assignment?.specialId??publicId,specialId:assignment?.specialId??null,specialIdExpiresAt:assignment?.expiresAt??null};

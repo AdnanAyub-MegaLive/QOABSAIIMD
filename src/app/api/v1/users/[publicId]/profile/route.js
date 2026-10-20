@@ -30,7 +30,7 @@ export async function GET(request, { params }) {
       resolveUserPerks([target], origin, ["BUSINESS_CARD"]),
     ]);
     after(() => recordProfileVisit(target.id, viewer.id).catch(error => console.error("Profile visit failed", error.message)));
-    const roleTags = (await resolveRoleTags([target], origin)).get(target.publicId) ?? [];
+    const roleTags = (await resolveRoleTags([{...target,appRoles:extras.roles}], origin)).get(target.publicId) ?? [];
     const visibleDob = isSelf || isFriend || target.showDateOfBirth;
     return mobileJson({ success: true, data: { user: {
       roleTags, roles: target.appRoles,

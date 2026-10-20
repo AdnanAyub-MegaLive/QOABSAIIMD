@@ -6,6 +6,13 @@ module.exports = (phase) => ({
   // dev server's manifests outside that tree so builds cannot remove them.
   distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-development' : '.next',
   allowedDevOrigins: ['192.168.88.49'],
+  async headers() {
+    return [
+      // public/games files currently have stable names (pepper.svg, wheel.png).
+      // Revalidate these rather than freezing them for a year.
+      { source: '/games/:path*', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
+    ];
+  },
   experimental: {
     serverActions: {
       // Allow 50 MiB media + a 5 MiB poster and multipart overhead.

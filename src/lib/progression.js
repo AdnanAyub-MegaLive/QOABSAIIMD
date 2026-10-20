@@ -1,6 +1,7 @@
 import { prisma } from "./prisma.js";
 import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
+import { validateProgressionThresholds } from "./progression-thresholds.js";
 export const TRACKS = ["USER", "CHARM"];
 const MAX = 9223372036854775807n;
 export const jsonSafe = value => JSON.parse(JSON.stringify(value, (_, v) => typeof v === "bigint" ? v.toString() : v));
@@ -8,17 +9,13 @@ export function progressionError(message) { return Object.assign(new Error(messa
 export function unsigned(value) { if (!/^\d+$/.test(String(value))) throw progressionError("Amounts must be non-negative integer strings."); const n = BigInt(value); if (n > MAX) throw progressionError("Amount exceeds supported range."); return n; }
 
 export function validateProgressionConfig(input) {
-  if (typeof input.enabled !== "boolean" || !Array.isArray(input.levels) || !Array.isArray(input.rules) || input.levels.length > 1000 || input.rules.length > 32) throw progressionError("Invalid progression configuration.");
+  if (!input || typeof input.enabled !== "boolean" || !Array.isArray(input.levels) || !Array.isArray(input.rules) || input.levels.length > 1000 || input.rules.length > 32) throw progressionError("Invalid progression configuration.");
+  validateProgressionThresholds(input.levels);
   const levels = input.levels.map(l => {
     if (!TRACKS.includes(l.track) || !Number.isSafeInteger(l.level) || l.level < 0 || !Array.isArray(l.benefits) || l.benefits.length > 20 || l.benefits.some(b => typeof b !== "string" || b.length > 200)) throw progressionError("Invalid level or display benefits.");
     if (l.badgeAssetId != null && (typeof l.badgeAssetId !== "string" || !/^AST-[A-Za-z0-9-]+$/.test(l.badgeAssetId))) throw progressionError("Choose an uploaded badge public ID.");
     return { track: l.track, level: l.level, thresholdPoints: unsigned(l.thresholdPoints), badgeAssetId: l.badgeAssetId || null, benefits: l.benefits };
   });
-  for (const track of TRACKS) {
-    const rows = levels.filter(l => l.track === track).sort((a,b) => a.level-b.level);
-    if (!rows.length || rows[0].level !== 0 || rows[0].thresholdPoints !== 0n) throw progressionError("Each track needs a level 0, zero-point baseline.");
-    if (rows.some((l,i) => i && (l.level <= rows[i-1].level || l.thresholdPoints <= rows[i-1].thresholdPoints))) throw progressionError("Levels and thresholds must strictly increase.");
-  }
   const keys = new Set();
   const rules = input.rules.map(r => {
     const key = `${r.track}:${r.source}:${r.recipientType}`;
@@ -47,8 +44,9 @@ import { namedDecoration } from './decoration-media.js';
 export async function currentConfiguration(db=prisma) { return db.progressionConfiguration.findFirst({ where:{active:true}, include:{levels:true} }); }
 export async function progressionSnapshots(userId, origin, db=prisma) {
   const [active, rows] = await Promise.all([currentConfiguration(db), db.userProgress.findMany({where:{userId},include:{configuration:{include:{levels:true}}}})]);
-  const backgrounds=await levelTagBackgrounds(db,origin);
-  return TRACKS.map(track => { const row=rows.find(r=>r.track===track); const config=row?.configuration??active; const snapshot=levelSnapshot(row??{track,configurationVersion:config?.version??0,revision:0,lifetimePoints:0n}, config?.levels??[], origin);return {...snapshot,...tagBackground(backgrounds,track,snapshot.level)}; });
+  const snapshots=TRACKS.map(track => { const row=rows.find(r=>r.track===track); const config=row?.configuration??active; return levelSnapshot(row??{track,configurationVersion:config?.version??0,revision:0,lifetimePoints:0n}, config?.levels??[], origin); });
+  const backgrounds=await levelTagBackgrounds(db,origin,snapshots.map((s,i)=>({track:TRACKS[i],level:s.level})));
+  return snapshots.map((snapshot,i)=>({...snapshot,...tagBackground(backgrounds,TRACKS[i],snapshot.level)}));
 }
 export async function appendOutbox(tx,channel,event,data) {
   const row=await tx.realtimeOutbox.create({data:{channel,event,payload:jsonSafe({success:true,data})}});
@@ -91,7 +89,7 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
     const updated=levelSnapshot({...row,lifetimePoints:total,revision:row.revision+1},config.levels,origin);
     await tx.progressLedger.create({data:{...key,deltaPoints:points,ruleVersion:config.version,eligibleAmount:amount,numerator:BigInt(rule.numerator),denominator:BigInt(rule.denominator),basis:rule.basis}});
     await tx.userProgress.update({where:{userId_track:{userId:user.id,track}},data:{lifetimePoints:total,currentLevel:updated.level,revision:{increment:1}}});
-    const snapshot={...updated,...tagBackground(await levelTagBackgrounds(tx,origin),track,updated.level),previousLevel,levelsGained:config.levels.filter(l=>l.track===track&&l.level>previousLevel&&l.level<=updated.level).map(l=>l.level).sort((a,b)=>a-b)};
+    const snapshot={...updated,...tagBackground(await levelTagBackgrounds(tx,origin,[{track,level:updated.level}]),track,updated.level),previousLevel,levelsGained:config.levels.filter(l=>l.track===track&&l.level>previousLevel&&l.level<=updated.level).map(l=>l.level).sort((a,b)=>a-b)};
     await appendOutbox(tx,`user:${user.publicId}`,"progression:updated",{...snapshot,track,userId:user.publicId,sourceTransactionId:gift.id});
     if(track==="USER") senderSnapshot=snapshot;
   }
@@ -99,10 +97,12 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
 }
 
 export async function publicProgression(users,origin,db=prisma,includeTotals=false) {
-  const backgrounds=await levelTagBackgrounds(db,origin);
   const rows=await db.userProgress.findMany({where:{userId:{in:users.map(u=>u.id).filter(Boolean)}},include:{configuration:{include:{levels:true}}}});
+  const snapshots=new Map(users.map(user=>[user.id,rows.filter(r=>r.userId===user.id).map(r=>levelSnapshot(r,r.configuration.levels,origin))]));
+  const needed=users.flatMap(user=>TRACKS.map(track=>({track,level:snapshots.get(user.id).find(s=>s.type===track)?.level??0})));
+  const backgrounds=await levelTagBackgrounds(db,origin,needed);
   return new Map(users.map(user=>{
-    const tracks=rows.filter(r=>r.userId===user.id).map(r=>levelSnapshot(r,r.configuration.levels,origin));
+    const tracks=snapshots.get(user.id);
     const u=tracks.find(t=>t.type==="USER"),c=tracks.find(t=>t.type==="CHARM");
     return [user.publicId,{...namedDecoration('userLevelBackground',backgrounds.get(`USER:${u?.level??0}`)),...namedDecoration('charmLevelBackground',backgrounds.get(`CHARM:${c?.level??0}`)),level:u?.level??0,userLevel:u?.level??0,charmLevel:c?.level??0,anchorLevel:c?.level??0,userLevelBadgeUrl:u?.badgeUrl??null,charmLevelBadgeUrl:c?.badgeUrl??null,...(includeTotals?{progression:{user:{level:u?.level??0,lifetimePoints:u?.lifetimePoints??"0",badgeUrl:u?.badgeUrl??null},charm:{level:c?.level??0,lifetimePoints:c?.lifetimePoints??"0",badgeUrl:c?.badgeUrl??null}}}:{})}];
   }));

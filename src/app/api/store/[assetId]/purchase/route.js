@@ -58,6 +58,7 @@ export async function POST(request, { params }) {
             durationMinutes: asset.defaultGrantDurationMinutes,
             expiresAt,
             source: "STORE",
+            giftedByUserId: null,
             sourceReference: purchaseId,
             purchasePrice: price,
           },
@@ -97,6 +98,7 @@ export async function POST(request, { params }) {
           where: { id: user.id },
           select: { coinBalance: true },
         });
+        await tx.auditLog.create({data:{action:"STORE_PROP_PURCHASED",category:"FINANCE",entityType:"PropPurchase",entityId:purchaseId,description:"User purchased a store prop.",metadata:{actorPublicId:user.publicId,actorUserId:user.id,outcome:"SUCCESS",assetId:asset.publicId,propCategory:asset.category,priceCoins:price.toString(),expiresAt:expiresAt?.toISOString()??null,balanceAfter:updated.coinBalance.toString()}}});
         return { asset, purchaseId, price, expiresAt, balance: updated.coinBalance };
       },
       { isolationLevel: "Serializable" },

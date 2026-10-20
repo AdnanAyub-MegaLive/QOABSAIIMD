@@ -1,4 +1,5 @@
-import { emitConversationEvent, removeGroupMember, serializeGroupConversation } from "@/lib/messaging";
+import { emitConversationEvent, removeGroupMember, groupConversationWithArtwork } from "@/lib/messaging";
+import { requestOrigin } from "@/lib/user-perks";
 import { mobileApiError, requireMobileUser } from "@/lib/mobile-api";
 import { v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
 
@@ -18,7 +19,7 @@ export async function DELETE(request, { params }) {
         user.id,
         decodeURIComponent(userId),
       );
-      const data = { conversation: serializeGroupConversation(conversation) };
+      const data = { conversation: await groupConversationWithArtwork(conversation, requestOrigin(request)) };
       await emitConversationEvent(globalThis.portalIo, conversation.publicId, "conversation:updated", data);
       return v1Json(request, requestId, { success: true, data }, 200, methods);
     } catch (error) {

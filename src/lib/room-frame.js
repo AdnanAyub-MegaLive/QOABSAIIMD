@@ -24,7 +24,7 @@ export async function changeRoomFrame(db,user,roomId,assetId,origin) {
   const asset=assetId?await tx.uploadAsset.findFirst({where:{publicId:assetId,category:"ROOM_FRAMES",active:true,assignments:{some:{userId:user.id,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}}},select:{id:true}}):null;
   if(assetId&&!asset)fail("PROP_NOT_OWNED",403,"An active, owned Room Frame is required.");
   const updated=await tx.audioRoom.update({where:{id:room.id},data:{roomFrameAssetId:asset?.id??null,roomFrameVersion:{increment:1}},include:roomFrameInclude});
-  await tx.auditLog.create({data:{action:"AUDIO_ROOM_FRAME_CHANGED",category:"USER_MANAGEMENT",entityType:"AudioRoom",entityId:roomId,description:"Room owner changed the cover frame.",metadata:{userId:user.publicId,assetId,version:updated.roomFrameVersion}}});
+  await tx.auditLog.create({data:{action:"AUDIO_ROOM_FRAME_CHANGED",category:"USER_MANAGEMENT",entityType:"AudioRoom",entityId:roomId,description:"Room owner changed the cover frame.",metadata:{actorPublicId:user.publicId,actorUserId:user.id,outcome:"SUCCESS",before:{assetId:room.roomFrameAssetId??null,version:room.roomFrameVersion??0},after:{assetId,version:updated.roomFrameVersion}}}});
   return {roomId,roomFrame:serializeRoomFrame(updated,origin),roomFrameVersion:updated.roomFrameVersion};
  },{isolationLevel:"Serializable"});
 }

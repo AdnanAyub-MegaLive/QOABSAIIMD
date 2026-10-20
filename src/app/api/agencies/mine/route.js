@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { agencyLogoUrl } from "@/lib/agency-logo";
 import { referenceDto } from "@/lib/agency-reference";
 import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 import {
@@ -26,6 +27,7 @@ export async function GET(request) {
       select: {
         id: true,
         country: true,
+        logoAssetPublicId: true,
         bd: { select: { id: true, publicId: true, name: true, profileImage: true, appRoles: true, country: true } },
         publicId: true,
         name: true,
@@ -88,6 +90,7 @@ export async function GET(request) {
               country: agency.country,
               bdReference: referenceDto(agency.bd, referencePerks),
               name: agency.name,
+              logoUrl: await agencyLogoUrl(prisma, agency.logoAssetPublicId, requestOrigin(request)),
               status: agency.status,
               createdAt: agency.createdAt.toISOString(),
               commissionCoinBalance: agency.commissionCoinBalance.toString(),

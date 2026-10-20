@@ -10,6 +10,7 @@ beforeEach(()=>{
   const users=["a","b"].map(id=>({id,publicId:`USR-${id}`,name:id.toUpperCase()}));
   state={group:{id:"c",publicId:"CONV-c",kind:"GROUP",name:"Old name",description:null,revision:0,createdAt:new Date(),participants:users.map((user,i)=>({id:`p${i}`,userId:user.id,user,role:i?"MEMBER":"OWNER",joinedAt:new Date()}))},requests:[],messages:[],events:[],icons:[]};
   db={
+    userEquippedProp:{findMany:vi.fn(async()=>[])},
     user:{findFirst:vi.fn(async({where})=>users.find(u=>u.id===where.id))},
     conversation:{findUnique:async()=>structuredClone(state.group),update:async({data})=>{const {revision,...rest}=data;Object.assign(state.group,rest);if(revision)state.group.revision++;return structuredClone(state.group);}},
     conversationParticipant:{update:async({where,data})=>Object.assign(state.group.participants.find(p=>p.id===where.id),data),delete:async({where})=>{state.group.participants=state.group.participants.filter(p=>p.id!==where.id);}},

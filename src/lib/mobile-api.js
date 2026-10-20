@@ -75,6 +75,8 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {
+      COUNTRY_REQUIRED: [403,"COUNTRY_REQUIRED","Set your country in your profile to use Country Chat."],
+      LINK_NOT_ALLOWED: [422,"LINK_NOT_ALLOWED","Links are not allowed in Country Chat."],
       MUTUAL_FOLLOW_REQUIRED: [403,"MUTUAL_FOLLOW_REQUIRED","You can message each other once you both follow each other."],
       VOICE_STORAGE_UNAVAILABLE: [503,"VOICE_STORAGE_UNAVAILABLE","Voice uploads are temporarily unavailable."],
       RATE_LIMITED: [429,"RATE_LIMITED","Please wait before trying again."],

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { safeAuditDetails } from "@/lib/audit-view";
 import { validationResult } from "@/lib/action-validation";
 import { adminProfileFields } from "../lib/admin-profile-input";
 import { rolesWithOfficial } from "../lib/admin-role-update";
@@ -37,7 +38,7 @@ async function logActivity(admin, data) {
       entityType: data.entityType,
       entityId: data.entityId,
       description: data.description,
-      metadata: data.metadata,
+      metadata: safeAuditDetails(data.metadata),
     },
   });
   revalidatePath("/audit-logs");

@@ -16,6 +16,17 @@ beforeEach(()=>{
  ].filter(row=>!where.OR||where.OR.some(s=>s.track===row.track&&s.level===row.level)));
 });
 afterEach(()=>vi.unstubAllEnvs());
+it('includes the owner agency logo as a public display URL',async()=>{
+ const original=m.db.agency.findFirst;
+ m.db.agency.findFirst=async()=>({...await original(),logoAssetPublicId:'AST-logo'});
+ m.db.uploadAsset={findFirst:async()=>({publicId:'AST-logo',mediaVersion:'abc123'})};
+ const response=await dashboard(new Request('https://portal.test/api/agencies/mine'));
+ expect(response.status).toBe(200);
+ const json=await response.json();
+ expect(json.data.agency.logoUrl).toContain('/api/uploads/AST-logo/file?');
+ expect(json.data.agency.logoUrl).toContain('displaySig=');
+ expect(json.data.agency.logoUrl).toContain('v=abc123');
+});
 it.each([['dashboard',dashboard,'/api/agencies/mine'],['browse',browse,'/api/agencies'],['salary',salary,'/api/agencies/mine/salary']])('returns 200 for %s with stored level-background fixtures',async(name,handler,path)=>{
  const response=await handler(new Request('https://portal.test'+path));
  expect(response.status).toBe(200);const json=await response.json();expect(json.success).toBe(true);

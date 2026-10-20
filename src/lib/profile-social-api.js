@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { activeSpecialIds } from "./special-id.js";
 import { vipIsActive } from "./vip-contract.js";
 import { requireMobileUser, mobileJson, mobileApiError } from "./mobile-api.js";
 import { requestOrigin } from "./user-perks.js";
@@ -34,7 +35,8 @@ export async function profileSocialList(request, params, type) {
       rows = (await prisma.userFollow.findMany({ where: { [followers ? "followedId" : "followerId"]: target.id, [relation]: visible }, include: { [relation]: { select: publicPerson } }, orderBy: [{ createdAt: "desc" }, { followerId: "asc" }, { followedId: "asc" }], skip: offset, take: limit + 1 })).map(r => r[relation]);
     }
     const origin = requestOrigin(request), page = rows.slice(0, limit);
+    const specialIds = await activeSpecialIds(page.map(p => p.id));
     const [equipment, follows] = await Promise.all([equippedProfileAssets(page, origin), prisma.userFollow.findMany({ where: { followerId: viewer.id, followedId: { in: page.map(p => p.id) } }, select: { followedId: true } })]);
-    return mobileJson({ success: true, data: { items: page.map(p => ({ publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), frameUrl: equipment.get(p.id)?.avatarFrame?.url ?? null, badgeUrl: equipment.get(p.id)?.profileBadge?.url ?? null, isOfficial: p.isOfficial, isFollowing: follows.some(f => f.followedId === p.id), ...(type === "visitors" ? { firstVisitedAt: p.firstVisitedAt, lastVisitedAt: p.lastVisitedAt, visitCount: p.visitCount, artwork: equipment.get(p.id) ?? null } : {}) })), nextCursor: rows.length > limit ? (type === "visitors" ? profileVisitCursor(visits[limit - 1]) : wallCursor(offset + limit)) : null } });
+    return mobileJson({ success: true, data: { items: page.map(p => ({ specialId: specialIds.get(p.id) ?? null, publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), frameUrl: equipment.get(p.id)?.avatarFrame?.url ?? null, badgeUrl: equipment.get(p.id)?.profileBadge?.url ?? null, isOfficial: p.isOfficial, isFollowing: follows.some(f => f.followedId === p.id), ...(type === "visitors" ? { firstVisitedAt: p.firstVisitedAt, lastVisitedAt: p.lastVisitedAt, visitCount: p.visitCount, artwork: equipment.get(p.id) ?? null } : {}) })), nextCursor: rows.length > limit ? (type === "visitors" ? profileVisitCursor(visits[limit - 1]) : wallCursor(offset + limit)) : null } });
   } catch (error) { return mobileApiError(error, "PROFILE_SOCIAL_FAILED"); }
 }

@@ -1,4 +1,5 @@
 import { prisma } from "../../../../../lib/prisma";
+import { userChatCountry, countryMessageFilter } from "@/lib/country-chat";
 import { chatSenderPerks } from "@/lib/chat-perks-cache";
 import {
   mobileApiError,
@@ -36,8 +37,10 @@ export async function GET(request, { params }) {
       100,
     );
     const cursor = url.searchParams.get("cursor");
+    const visibility={conversationId:membership.conversationId,...(membership.conversation.kind==="WORLD"?countryMessageFilter(await userChatCountry(prisma,user.id)):{})};
+    if(cursor&&!await prisma.message.findFirst({where:{...visibility,publicId:cursor},select:{id:true}}))throw Object.assign(new Error("Invalid message cursor."),{code:"INVALID_CURSOR"});
     const records = await prisma.message.findMany({
-      where: { conversationId: membership.conversationId },
+      where: visibility,
       include: {
         sender: {
           select: {

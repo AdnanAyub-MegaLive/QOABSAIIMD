@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyMentions } from "@/lib/discover-notifications";
 import {
   mobileApiError,
   mobileJson,
@@ -156,6 +157,7 @@ export async function POST(request) {
           metadata: { userId: author.publicId, hasDescription: Boolean(description), hasImage: Boolean(imageData) },
         },
       });
+      await notifyMentions(tx,{actorId:author.id,text:description,postId:post.publicId});
       return post;
     });
     return mobileJson({ success: true, data: { id: created.publicId, createdAt: created.createdAt.toISOString() } }, 201);

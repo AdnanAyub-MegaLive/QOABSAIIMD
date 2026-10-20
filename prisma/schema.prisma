@@ -70,6 +70,8 @@ enum WalletTransactionType {
   GIFT_SENT
   GIFT_RECEIVED
   STORE_PURCHASE
+  STORE_GIFT_SENT
+  STORE_GIFT_RECEIVED
   REFUND
   TRANSFER_SENT
   TRANSFER_RECEIVED
@@ -303,6 +305,7 @@ model User {
   posts                      Post[]
   postLikes                  PostLike[]
   postComments               PostComment[]
+  postCommentLikes           PostCommentLike[]
   createdConversations       Conversation[]                @relation("ConversationCreator")
   conversationParticipants   ConversationParticipant[]
   sentMessages               Message[]
@@ -1049,6 +1052,7 @@ model VoiceObject {
 }
 
 model Message {
+  senderCountry String? @db.VarChar(2)
   kind String @default("text")
   mediaId String? @unique
   media Json?
@@ -1072,6 +1076,7 @@ model Message {
   receipts       MessageReceipt[]
 
   @@index([conversationId, createdAt])
+  @@index([conversationId, senderCountry, createdAt, id])
   @@unique([senderId, clientMessageId])
   @@index([senderId, createdAt])
   @@index([conversationId, deletedAt])
@@ -1394,6 +1399,7 @@ model UploadAsset {
 }
 
 model UploadAssetAssignment {
+  giftedByUserId  String?
   assetId         String
   userId          String
   durationMinutes Int?
@@ -1490,6 +1496,21 @@ model PropPurchase {
   @@index([assetId, purchasedAt])
 }
 
+model PropGift {
+  id String @id @default(cuid())
+  publicId String @unique
+  senderUserId String
+  recipientUserId String
+  recipientPublicId String
+  assetPublicId String
+  requestId String
+  price BigInt
+  result Json
+  createdAt DateTime @default(now())
+  @@unique([senderUserId, requestId])
+  @@index([recipientUserId, createdAt])
+}
+
 model AgencyApplication {
   bdUserId        String?
   reviewedByUserId String?
@@ -1576,6 +1597,10 @@ model PostLike {
 }
 
 model PostComment {
+  parentId String?
+  parent PostComment? @relation("CommentReplies",fields:[parentId],references:[id],onDelete:Cascade)
+  replies PostComment[] @relation("CommentReplies")
+  likes PostCommentLike[]
   id String @id @default(cuid())
   postId String
   authorId String
@@ -1586,6 +1611,16 @@ model PostComment {
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
   @@index([postId, createdAt, id])
   @@index([authorId])
+  @@index([parentId])
+}
+
+model PostCommentLike {
+  commentId String
+  userId String
+  comment PostComment @relation(fields:[commentId],references:[id],onDelete:Cascade)
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  @@id([commentId,userId])
+  @@index([userId])
 }
 
 model Talent {

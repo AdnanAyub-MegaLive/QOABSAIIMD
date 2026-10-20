@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
 import Image from "next/image";
+import rouletteImage from "../../../../public/games/roulette/wheel.png";
 import {api} from "./store";
 import {miniGames} from "@/lib/game-control/mini-games.mjs";
 import {markets} from "@/lib/game-control/roulette/engine.mjs";
@@ -64,7 +65,7 @@ export default function SharedPlayer({gameId,preview=false}){
  return <section className={`${styles.panel} ${engine==="teenpatti"?styles.teenPanel:""}`} aria-label="Shared room coin game">
    <header className={styles.header}><div><small>{preview?"ADMIN PREVIEW · AUTOMATIC ROUNDS":"COIN WALLET · SHARED ROOM ROUNDS"}</small><h1>{game?.name||"Connecting…"}</h1><small>Round {state?.roundNumber||"—"} · Completed today {state?.totalRounds||0}</small></div><button onClick={()=>setHelp(true)} aria-label="Rules and round history">?</button></header>
    <div className={styles.stage}>
-     {engine==="roulette"?<div className="shared-game-visuals"><div className="roulette-wheel-frame"><div className="wheel-pointer"/><Image key={outcome?`${state.dayId}:${state.slot}`:"idle"} src="/games/roulette/wheel.png" alt={outcome?`Roulette result ${outcome.result}`:"Roulette wheel"} width={300} height={300} className={outcome?styles.rouletteLanding:""} style={{"--wheel-landing":`${rotation}deg`}}/><span className="roulette-center">M</span></div></div>
+     {engine==="roulette"?<div className="shared-game-visuals"><div className="roulette-wheel-frame"><div className="wheel-pointer"/><Image key={outcome?`${state.dayId}:${state.slot}`:"idle"} src={rouletteImage} unoptimized alt={outcome?`Roulette result ${outcome.result}`:"Roulette wheel"} width={300} height={300} className={outcome?styles.rouletteLanding:""} style={{"--wheel-landing":`${rotation}deg`}}/><span className="roulette-center">M</span></div></div>
       :instantGames[engine]?<div className="shared-game-visuals"><InstantStage engine={engine==="highlow"?"dice":engine} busy={waiting} result={visualResult} choice={mine?.input.choice||choice||options[0]}/></div>
       :engine==="teenpatti"?<TeenPattiTable phase={phase} remaining={remaining} outcome={outcome} totals={state?.totals} myTotals={state?.myTotals} mine={mine} onPlace={placeChoice} disabled={locked} roundNumber={state?.roundNumber}/>
       :engine==="flip"?<div className="shared-game-visuals"><FlipStage busy={waiting} result={visualResult} choice={mine?.input.choice||choice||"heads"}/></div>

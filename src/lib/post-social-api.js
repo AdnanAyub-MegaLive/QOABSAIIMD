@@ -1,14 +1,15 @@
 import { prisma } from "./prisma";
 import { mobileApiError, mobileJson, requireMobileUser } from "./mobile-api";
 import { isRateLimited } from "./rate-limit";
-import { addPostComment, deletePostComment, listPostComments, setPostLike } from "./post-social";
+import { addPostComment, deletePostComment, listPostComments, setPostLike, setCommentLike } from "./post-social";
 
 export async function postSocialRequest(request, params, action) {
   try {
     const user = await requireMobileUser(request);
     const { postId, commentId } = await params;
     let data;
-    if (action === "like" || action === "unlike") data = await setPostLike(prisma, postId, user.id, action === "like");
+    if(action==="comment-like"||action==="comment-unlike")data=await setCommentLike(prisma,postId,user.id,commentId,action==="comment-like");
+    else if (action === "like" || action === "unlike") data = await setPostLike(prisma, postId, user.id, action === "like");
     else if (action === "list") data = await listPostComments(prisma, postId, new URL(request.url).searchParams.get("cursor")?.trim());
     else if (action === "delete") data = await deletePostComment(prisma, postId, user.id, commentId);
     else {
@@ -20,7 +21,8 @@ export async function postSocialRequest(request, params, action) {
       let body;
       try { body = await request.json(); }
       catch { return mobileJson({ success: false, error: { code: "INVALID_JSON", message: "Request body must be valid JSON." } }, 400); }
-      data = await addPostComment(prisma, postId, user.id, body?.text);
+      if(body?.parentCommentId!=null&&(typeof body.parentCommentId!=="string"||body.parentCommentId.length>128))throw Object.assign(new Error("Invalid parent comment."),{status:422,code:"VALIDATION_ERROR"});
+      data = await addPostComment(prisma, postId, user.id, body?.text,body?.parentCommentId);
     }
     return mobileJson({ success: true, data }, action === "create" ? 201 : 200);
   } catch (error) {

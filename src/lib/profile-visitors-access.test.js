@@ -35,3 +35,11 @@ it("does not change followers or following access", async () => {
 it("requires authentication before accessing records", async () => {
   mocks.auth.mockRejectedValue(Error("INVALID_SESSION")); expect((await get()).status).toBe(401); expect(mocks.db.userProfileVisit.findMany).not.toHaveBeenCalled();
 });
+it("includes active special ID in follower items with a batched lookup",async()=>{
+  mocks.db.specialIdAssignment={findMany:vi.fn(async()=>[{userId:"v",specialId:"123456"}])};
+  mocks.db.userFollow.findMany.mockResolvedValue([{follower:{id:"v",publicId:"USR-v",name:"Visitor"}}]);
+  const response=await get("","followers");
+  expect(response.status).toBe(200);
+  expect((await response.json()).data.items[0]).toMatchObject({publicId:"USR-v",specialId:"123456"});
+  expect(mocks.db.specialIdAssignment.findMany).toHaveBeenCalledTimes(1);
+});

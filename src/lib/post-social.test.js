@@ -4,6 +4,9 @@ let db, likes, comments, blocked;
 beforeEach(() => {
   likes = new Set(); comments = []; blocked = false;
   db = {
+    user:{findUnique:async()=>({publicId:"USR-actor",name:"Actor",profileImage:null})},
+    notification:{upsert:vi.fn(async({create})=>create)},
+    chatWordPolicy:{findUnique:async()=>null},
     post: { findFirst: vi.fn(async () => ({ id: "post", authorId: "owner" })) },
     userBlock: { findFirst: vi.fn(async () => blocked ? {} : null) },
     postLike: {

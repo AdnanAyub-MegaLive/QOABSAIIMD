@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { prisma } from "./prisma.js";
 import { assertChatWordsAllowed } from "./chat-word-policy.js";
 import { chatError, privateChatObject } from "./chat-media.js";
-import { normalizeGroupName, serializeGroupConversation, serializeMessage } from "./messaging.js";
+import { normalizeGroupName, groupConversationWithArtwork, serializeMessage } from "./messaging.js";
 
 export const groupInclude = { participants: { include: { user: { select: { id: true, publicId: true, name: true, profileImage: true, isVerified: true, isOfficial: true } } }, orderBy: { joinedAt: "asc" } } };
 export function groupDetails(conversation) {
@@ -27,7 +27,7 @@ export async function groupTransaction(work, db = prisma) {
     catch (error) { if (!["P2034","P2002"].includes(error.code) || attempt === 3) throw error; }
   }
 }
-export async function changeGroup(publicId, actorId, requestId, input, db = prisma) {
+export async function changeGroup(publicId, actorId, requestId, input, db = prisma, origin = process.env.MOBILE_API_BASE_URL || process.env.AUTH_URL) {
   if (typeof requestId !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(requestId)) throw chatError("VALIDATION_ERROR", "Supply an 8–128 character Idempotency-Key.");
   const fingerprint = createHash("sha256").update(JSON.stringify({ publicId, name: input.name, description: input.description, ownerPublicId: input.ownerPublicId, icon: input.icon?.mediaVersion, removeIcon: input.removeIcon })).digest("hex");
   return groupTransaction(async tx => {
@@ -79,10 +79,10 @@ export async function changeGroup(publicId, actorId, requestId, input, db = pris
       const members=updated.participants.map(p=>({messageId:message.id,userId:p.userId}));
       if(members.length)await tx.messageReceipt.createMany({data:members});
       await tx.realtimeOutbox.create({data:{channel:`conversation:${publicId}`,event:"message:new",payload:{conversationId:publicId,message:serializeMessage(message)}}});
-      await tx.realtimeOutbox.create({data:{channel:`conversation:${publicId}`,event:"conversation:updated",payload:{conversation:serializeGroupConversation(updated)}}});
       await tx.auditLog.create({data:{action:"GROUP_UPDATED",category:"MESSAGING",entityType:"Conversation",entityId:group.id,description:`${actor.publicId} updated group details.`,metadata:{actorUserId:actorId,requestId,changes}}});
     }
-    const result={conversation:serializeGroupConversation(updated)};
+    const result={conversation:await groupConversationWithArtwork(updated,origin,tx)};
+    if(changes.length)await tx.realtimeOutbox.create({data:{channel:`conversation:${publicId}`,event:"conversation:updated",payload:result}});
     await tx.groupChangeRequest.create({data:{actorId,requestId,fingerprint,result}});
     return result;
   },db);

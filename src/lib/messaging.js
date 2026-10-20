@@ -7,6 +7,8 @@ import { assertConversationMessagingAllowed } from "./user-blocks.js";
 import { claimChatMedia, chatError } from "./chat-media.js";
 import { chatMessageNotifications } from "./chat-gifts.js";
 import { groupDetails, removeGroupMemberSafely, addGroupMemberSafely } from "./group-details.js";
+import { groupMemberArtwork, memberArtwork } from "./group-member-artwork.js";
+import { userChatCountry, countryMessageFilter, assertNoCountryLinks, refreshCountryChatRooms } from "./country-chat.js";
 
 export const WORLD_CONVERSATION_ID = "CONV-WORLD";
 
@@ -52,7 +54,11 @@ export function normalizeGroupMemberIds(rawPublicIds, creatorPublicId) {
   return ids;
 }
 
-export function serializeGroupConversation(conversation) {
+export async function groupConversationWithArtwork(conversation, origin, db = prisma) {
+  return serializeGroupConversation(conversation, await groupMemberArtwork(db, conversation.participants, origin));
+}
+
+export function serializeGroupConversation(conversation, artwork = new Map()) {
   return {
     id: conversation.publicId,
     type: "GROUP",
@@ -60,6 +66,7 @@ export function serializeGroupConversation(conversation) {
     ...groupDetails(conversation),
     createdAt: conversation.createdAt.toISOString(),
     participants: conversation.participants.map((participant) => ({
+      ...memberArtwork(artwork.get(participant.user.publicId)),
       id: participant.user.publicId,
       name: participant.user.name,
       profileImage: participant.user.profileImage ?? null,
@@ -133,7 +140,7 @@ export async function ensureWorldConversation(userId) {
     create: {
       publicId: WORLD_CONVERSATION_ID,
       kind: "WORLD",
-      name: "World Chat",
+      name: "Country Chat",
     },
   });
   if (userId)
@@ -164,6 +171,7 @@ export async function requireConversationParticipant(publicId, userId) {
 
 export function serializeMessage(message, senderPerks) {
   return {
+    senderCountry: message.senderCountry ?? null,
     id: message.publicId,
     clientMessageId: message.clientMessageId ?? null,
     type: message.voiceKey ? "voice" : message.kind ?? "text",
@@ -195,14 +203,17 @@ export async function createMessage(
   options = {},
 ) {
   await assertConversationMessagingAllowed(conversation, sender.id, prisma, true);
+  const senderCountry = conversation.kind==="WORLD" ? await userChatCountry(prisma,sender.id,true) : null;
   const clientMessageId = options.clientMessageId ?? null;
   if(clientMessageId!==null&&(typeof clientMessageId!=="string"||!clientMessageId.trim()||clientMessageId.length>128))throw Object.assign(new Error("Invalid client message ID."),{code:"VALIDATION_ERROR"});
   if (options.mediaId && (typeof options.mediaId !== "string" || options.mediaId.length > 128 || options.voice || !clientMessageId)) throw chatError("VALIDATION_ERROR", "Provide mediaId and clientMessageId without voice content.");
   const body = options.mediaId ? "Sent media" : options.voice ? "Voice message" : String(rawBody ?? "").trim();
+  if(conversation.kind==="WORLD")assertNoCountryLinks(body);
   const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null,...(options.mediaId?{mediaId:options.mediaId}:{})})).digest("hex");
   const replay=async()=>{
     const prior=await prisma.message.findUnique({where:{senderId_clientMessageId:{senderId:sender.id,clientMessageId}},include:messageSenderInclude});
     if(prior&&prior.requestHash!==requestHash)throw Object.assign(new Error("Client message ID already used for different content."),{code:"IDEMPOTENCY_CONFLICT"});
+    if(prior&&conversation.kind==="WORLD"&&prior.senderCountry!==senderCountry)throw countryChatErrorForReplay();
     return prior;
   };
   if(clientMessageId){const prior=await replay();if(prior)return serializeMessage(prior,senderPerks);}
@@ -219,12 +230,15 @@ export async function createMessage(
   let message;
   try { message = await prisma.$transaction(async (tx) => {
     await assertConversationMessagingAllowed(conversation,sender.id,tx,true);
+    const currentCountry=conversation.kind==="WORLD"?await userChatCountry(tx,sender.id,true):null;
+    if(currentCountry!==senderCountry)throw countryChatErrorForReplay();
     const media = options.mediaId ? await claimChatMedia(tx, options.mediaId, conversation, sender.id) : null;
     const record = await tx.message.create({
       data: {
         publicId: `MSG-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`,
         conversationId: conversation.id,
         senderId: sender.id,
+        senderCountry,
         body: media ? (media.kind === "picture" ? "Sent a photo" : "Sent a video") : body,
         kind: options.voice ? "voice" : media?.kind ?? "text",
         ...(media ?? {}),
@@ -302,6 +316,8 @@ const messageSenderInclude = {
   },
 };
 
+function countryChatErrorForReplay(){return Object.assign(new Error("Country changed. Reload Country Chat."),{code:"COUNTRY_REQUIRED"});}
+
 export async function editMessage(conversationPublicId, messagePublicId, userId, rawBody) {
   const membership = await requireConversationParticipant(conversationPublicId, userId);
   await assertConversationMessagingAllowed(membership.conversation,userId,prisma,true);
@@ -327,6 +343,12 @@ export async function editMessage(conversationPublicId, messagePublicId, userId,
     throw error;
   }
   const body = validatedMessageBody(rawBody);
+  if(membership.conversation.kind==="WORLD"){
+    assertNoCountryLinks(body);
+    const country=await userChatCountry(prisma,userId,true);
+    const visible=await prisma.message.findFirst({where:{id:message.id,...countryMessageFilter(country)},select:{id:true}});
+    if(!visible)throw new Error("MESSAGE_NOT_FOUND");
+  }
   await assertChatWordsAllowed(prisma, body);
   return prisma.message.update({
     where: { id: message.id },
@@ -337,8 +359,9 @@ export async function editMessage(conversationPublicId, messagePublicId, userId,
 
 export async function deleteMessage(conversationPublicId, messagePublicId, userId) {
   const membership = await requireConversationParticipant(conversationPublicId, userId);
+  const visibility=membership.conversation.kind==="WORLD"?countryMessageFilter(await userChatCountry(prisma,userId,true)):{};
   const message = await prisma.message.findFirst({
-    where: { publicId: messagePublicId, conversationId: membership.conversationId },
+    where: { publicId: messagePublicId, conversationId: membership.conversationId,...visibility },
     select: { id: true, senderId: true, deletedAt: true, kind: true, voiceKey: true, createdAt: true },
   });
   if (!message) throw new Error("MESSAGE_NOT_FOUND");
@@ -432,7 +455,12 @@ export async function markMessageDelivered(conversationPublicId, messagePublicId
 
 export async function emitConversationEvent(io, conversationId, event, payload) {
   if (!io) return;
-  if(conversationId===WORLD_CONVERSATION_ID){io.to(`conversation:${conversationId}`).emit(event,payload);return;}
+  if(conversationId===WORLD_CONVERSATION_ID){
+    const country=payload.message?.senderCountry;
+    if(!country)return; // No global typing/read/receipt broadcasts.
+    await refreshCountryChatRooms(prisma,io);
+    io.to(`conversation:${conversationId}:${country}`).emit(event,payload);return;
+  }
   const conversation=await prisma.conversation.findUnique({where:{publicId:conversationId},select:{kind:true}});
   if(conversation?.kind==="GROUP"){io.to(`conversation:${conversationId}`).emit(event,payload);return;}
   const participants = await prisma.conversationParticipant.findMany({
@@ -453,12 +481,15 @@ export function messageSyncLimit(value) {
 }
 
 export async function syncMessagesForUser(userId, { cursor = null, limit = 50 } = {}) {
+  const country=await userChatCountry(prisma,userId);
+  const countryVisibility={OR:[{conversation:{kind:{not:"WORLD"}}},{conversation:{kind:"WORLD"},...countryMessageFilter(country)}]};
   let cursorRecord = null;
   if (cursor) {
     cursorRecord = await prisma.message.findFirst({
       where: {
         publicId: cursor,
         conversation: { participants: { some: { userId } } },
+        AND:[countryVisibility],
       },
       select: { id: true, createdAt: true },
     });
@@ -471,6 +502,7 @@ export async function syncMessagesForUser(userId, { cursor = null, limit = 50 } 
   const records = await prisma.message.findMany({
     where: {
       conversation: { participants: { some: { userId } } },
+      AND:[countryVisibility],
       ...(cursorRecord
         ? {
             OR: [
