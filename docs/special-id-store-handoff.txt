@@ -1,0 +1,125 @@
+SPECIAL ID STORE AND SEQUENTIAL IDENTITIES — APP HANDOFF
+
+Deployment prerequisite
+Apply migration 20261020100000_sequential_special_ids, regenerate Prisma,
+rebuild and restart. These contracts are not available until deployment.
+Existing account IDs, agency IDs, assignments and balances are not rewritten.
+
+NORMAL IDENTITIES
+New users: USR-2030140 onward, seven numeric digits.
+Hosts retain the same digits when switching between USR- and TLN-.
+New agencies: AGN-10200 onward, five numeric digits, separate sequence.
+Agency IDs have no special-number exclusions.
+Room IDs are unchanged.
+Treat IDs as opaque strings. Never calculate or predict an ID on the phone.
+Failed transactions can leave sequence gaps; numbers are never recycled.
+Sequences stop at their digit limit instead of wrapping.
+
+USER SPECIAL RESERVATIONS
+Seven-digit user numbers ending in 804 or containing three or more identical
+adjacent digits (222, 3333, etc.) are skipped and added to the admin catalogue
+as the allocator reaches them. Ascending runs such as 123 are not excluded.
+Manual seven-digit numeric Special IDs are also permanently reserved.
+Four-to-six-character IDs and alphanumeric Special IDs do not reserve normal
+numeric sequence numbers. Deleting/expiring a Special ID does not free its
+normal-number reservation.
+Already-issued normal IDs cannot be newly registered as Special IDs.
+
+ADMIN
+VIP Management > Special ID > Store settings:
+- Set a positive integer Coin price.
+- Set ownership duration in minutes.
+- Enable Available for purchase.
+New automatically reserved definitions are unpublished and have no price.
+Their initial duration is 30 days; Admin must review/save store settings.
+An active assignment prevents another purchase.
+This preserves the current one-selected-Special-ID model: buying a different
+Special ID replaces the current assignment, without refunding its unused time.
+Show this warning before confirming a purchase.
+
+CATALOGUE
+GET /api/store/special-ids
+Authorization: Bearer <mobile-session-token>
+Optional query: cursor=<nextCursor from previous response>
+
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "AUTO-2030222",
+        "code": "2030222",
+        "coinPrice": "100000",
+        "durationMinutes": 43200
+      }
+    ],
+    "nextCursor": null
+  }
+}
+
+Pages contain at most 50 entries ordered by code.
+Only active, published, priced and unassigned definitions are listed.
+An empty list is valid. Do not generate candidate Special IDs on the phone.
+Coin amounts are decimal strings, not floating-point numbers.
+Do not assume every Special ID has seven digits: manual 4–7-character IDs
+continue to exist.
+
+PURCHASE
+POST /api/store/special-ids
+Authorization: Bearer <mobile-session-token>
+Content-Type: application/json
+Idempotency-Key: <unique 8–128 character client request ID>
+
+{ "definitionId": "AUTO-2030222" }
+
+{
+  "success": true,
+  "data": {
+    "assignmentId": "<assignment ID>",
+    "specialId": "2030222",
+    "normalId": "USR-2030140",
+    "expiresAt": "<ISO-8601 UTC timestamp>",
+    "coinBalance": "900000",
+    "price": "100000"
+  }
+}
+
+Persist the request key before sending. If the response is lost, retry the
+same body with the same key; the backend returns the original successful
+result without another debit. A changed definition with the same key returns
+IDEMPOTENCY_CONFLICT. Replayed balance/expiry values are the original result,
+not a fresh wallet snapshot.
+
+The server checks current account status, current price, availability and
+balance and records the debit, assignment, purchase result and audit atomically.
+The server price is authoritative; refresh the catalogue before confirmation.
+After success, refresh the wallet, own profile and catalogue.
+Use the existing profile specialId/effective-ID fields for display.
+Keep normalId/publicId for account identity; never rewrite cached message
+ownership, wallet IDs or relationships to use the Special ID.
+Wallet history type: SPECIAL_ID_PURCHASE; label: Special ID purchase.
+
+ERRORS
+{ "success": false, "error": { "code": "...", "message": "..." } }
+SPECIAL_ID_NOT_FOR_SALE (409)
+SPECIAL_ID_ALREADY_ASSIGNED (409)
+INSUFFICIENT_COINS (409)
+IDEMPOTENCY_CONFLICT (409)
+VALIDATION_ERROR (422)
+RATE_LIMITED (429; purchases limited to 20 requests/minute/user)
+Existing authentication/session errors remain unchanged.
+For an unknown network outcome, retry with the original key; do not invent
+a second request key until the first outcome is resolved.
+
+PHONE QA
+1. Verify seven-digit user IDs and five-digit agency IDs are not truncated.
+2. Confirm host USR/TLN changes preserve the numeric suffix.
+3. Confirm unpublished/unpriced IDs do not appear in the Store.
+4. Verify pagination and empty/loading/error states.
+5. Verify displayed price, duration and current-ID replacement warning.
+6. Double tap/retry the same purchase: one debit, one assignment.
+7. Two accounts attempt the same code: only one succeeds.
+8. Insufficient balance/unavailable account: no debit or assignment.
+9. After purchase, profile display and wallet history update.
+10. After expiry, normal ID is displayed again; the normal allocation
+    sequence still never uses the reserved Special ID.

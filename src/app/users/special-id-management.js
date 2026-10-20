@@ -13,6 +13,7 @@ import {
 import usePortalData from "../hooks/use-portal-data";
 import DurationPicker from "../components/duration-picker";
 import { formatDurationMinutes } from "../utils/duration";
+import SpecialIdStoreSettings from "../vip-management/special-id-store-settings";
 
 export default function SpecialIdAssignments({ initialAssignments, canManage = true, onChanged = () => {} }) {
   const [rows, setRows] = usePortalData(initialAssignments);
@@ -196,6 +197,7 @@ export function SpecialIdCatalog({ initialCatalog, canManage = true, onAssign, o
                 </td>
                 <td className="px-5 text-right">
                   {canManage && <div className="flex justify-end gap-2">
+                    <SpecialIdStoreSettings item={item} onSaved={updated => { setCatalog(current => current.map(row => row.id === updated.id ? updated : row)); onChanged(); }}/>
                     {onAssign && <button type="button" disabled={Boolean(item.assignedTo)} onClick={() => onAssign(item)} className="rounded-lg bg-[#087f74] px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Assign</button>}
                     <button type="button" onClick={() => setDeleting(item)} className="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-600">Delete</button>
                   </div>}

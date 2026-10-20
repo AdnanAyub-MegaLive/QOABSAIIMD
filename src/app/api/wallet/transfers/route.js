@@ -17,7 +17,7 @@ export async function POST(request) {
     const coins = parsePositiveCoins(body?.coins);
     if (recipientPublicId === sender.publicId) throw new Error("SELF_TRANSFER");
     const minimum = integerSetting("WALLET_TRANSFER_MIN_COINS", 100);
-    const maximum = integerSetting("WALLET_TRANSFER_MAX_COINS", 100000);
+    const maximum = integerSetting("WALLET_TRANSFER_MAX_COINS", 500000000);
     if (coins < minimum || coins > maximum) throw new Error("TRANSFER_LIMIT");
     const result = await prisma.$transaction(
       async (tx) => {

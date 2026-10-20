@@ -180,6 +180,8 @@ export default async function UsersPage() {
   };
   const specialIdCatalog = specialIdDefinitions.map((item) => ({
     id: item.id,
+    coinPrice: item.coinPrice?.toString() ?? null,
+    storeVisible: item.storeVisible,
     code: item.code,
     category: item.category,
     minimumVipLevel: item.minimumVipLevel,

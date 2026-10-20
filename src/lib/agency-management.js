@@ -54,7 +54,7 @@ async function eligibleOwner(client, publicId, applicationId) {
 }
 
 async function newAgency(client, user, name, bdUserId) {
-  const publicId = await generateNumericPublicId("AGN", candidate => client.agency.findUnique({ where: { publicId: candidate }, select: { id: true } }));
+  const publicId = await generateNumericPublicId("AGN", candidate => client.agency.findUnique({ where: { publicId: candidate }, select: { id: true } }), { db: client });
   return client.agency.create({ data: { publicId, name, ownerUserId: user.id, country: normalizeSignupCountry(user.country), bdUserId } });
 }
 

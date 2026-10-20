@@ -9,6 +9,6 @@ export async function loadVipIdData() {
   ]);
   return {
     assignments:users.flatMap(user=>user.specialIds.map(item=>({id:item.id,userId:user.publicId,user:user.name,specialId:item.specialId,category:item.definition?.category??"LEGACY",source:item.source,status:item.status,durationMinutes:item.expiresAt?Math.max(1,Math.round((item.expiresAt-item.startsAt)/60000)):null,starts:item.startsAt.toLocaleString("en-US"),expires:item.expiresAt?.toLocaleString("en-US")??"Legacy"}))),
-    catalog:definitions.map(item=>({id:item.id,code:item.code,category:item.category,minimumVipLevel:item.minimumVipLevel,minimumTopUpAmount:Number(item.minimumTopUpAmount??0),defaultDurationMinutes:item.defaultDurationMinutes,active:item.active,assignedTo:item.assignments[0]?.user.publicId??null,expiresAt:item.assignments[0]?.expiresAt?.toISOString()??null})),
+    catalog:definitions.map(item=>({id:item.id,code:item.code,coinPrice:item.coinPrice?.toString()??null,storeVisible:item.storeVisible,category:item.category,minimumVipLevel:item.minimumVipLevel,minimumTopUpAmount:Number(item.minimumTopUpAmount??0),defaultDurationMinutes:item.defaultDurationMinutes,active:item.active,assignedTo:item.assignments[0]?.user.publicId??null,expiresAt:item.assignments[0]?.expiresAt?.toISOString()??null})),
   };
 }

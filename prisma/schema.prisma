@@ -59,6 +59,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  SPECIAL_ID_PURCHASE
   ROOM_BANNER_PURCHASE
   VIP_PURCHASE
   LIVE_TARGET_REWARD
@@ -1998,6 +1999,8 @@ model SpecialIdAssignment {
 model SpecialIdDefinition {
   id                     String                @id @default(cuid())
   code                   String                @unique
+  coinPrice              BigInt?
+  storeVisible           Boolean               @default(false)
   category               String                @default("STANDARD")
   minimumVipLevel        Int?
   minimumTopUpAmount     BigInt?
@@ -2010,6 +2013,21 @@ model SpecialIdDefinition {
   @@index([category, active])
   @@index([minimumVipLevel])
   @@index([minimumTopUpAmount])
+}
+
+model SpecialIdPurchase {
+  id String @id @default(cuid())
+  userId String
+  requestKey String
+  definitionId String
+  result Json
+  createdAt DateTime @default(now())
+  @@unique([userId, requestKey])
+}
+
+model PublicNumberReservation {
+  number String @id
+  kind String
 }
 
 model ActivityLevelRule {

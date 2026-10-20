@@ -2,12 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 import { generateNumericPublicId } from "./public-id";
 
 describe("numeric public IDs", () => {
-  it("creates the requested prefix with exactly six digits", async () => {
-    const id = await generateNumericPublicId("USR", async () => false, {
+  it("keeps random six-digit IDs for rooms", async () => {
+    const id = await generateNumericPublicId("ROOM", async () => false, {
       nextNumber: () => 123456,
     });
 
-    expect(id).toBe("USR-123456");
+    expect(id).toBe("ROOM-123456");
+  });
+  it.each([["USR","2030140"],["TLN","2030141"],["AGN","10200"]])("uses atomic database allocation for %s", async (prefix, number) => {
+    const db = { $queryRaw: vi.fn(async () => [{ number }]) };
+    expect(await generateNumericPublicId(prefix, async () => false, { db })).toBe(`${prefix}-${number}`);
+    expect(db.$queryRaw).toHaveBeenCalledOnce();
   });
 
   it("retries when a generated ID already exists", async () => {

@@ -1,5 +1,10 @@
 // Set mode before Next imports its environment-dependent server modules.
 process.env.NODE_ENV = process.argv.includes("--dev") ? "development" : (process.env.NODE_ENV || "production");
+// Next 16 route modules use this flag (not NODE_ENV) to choose dev manifests.
+// Set it before @next/env snapshots the environment; otherwise a forced
+// config reload removes the flag that NextCustomServer.prepare() sets later.
+if (process.argv.includes("--dev")) process.env.__NEXT_DEV_SERVER = "1";
+else delete process.env.__NEXT_DEV_SERVER;
 const { createServer } = require("node:http");
 const { applyWebCacheHeaders } = require("./src/lib/web-cache.cjs");
 const { setRequestClientIp } = require("./src/lib/request-ip.cjs");

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ db: {}, sender: {}, currentSender: {} }));
 vi.mock("@/lib/prisma", () => ({ prisma: state.db }));
@@ -12,7 +12,8 @@ vi.mock("@/lib/mobile-api", () => ({
 import { POST } from "../app/api/wallet/transfers/route.js";
 
 beforeEach(() => {
-  state.sender = { id: "sender", publicId: "USR-S", name: "Reseller", appRoles: ["RESELLER"] };
+  vi.stubEnv("WALLET_TRANSFER_MAX_COINS", "");
+  state.sender = { id: "sender", publicId: "USR-S", name: "Reseller", appRoles: ["RESELLER"], status: "ACTIVE", deletedAt: null };
   state.currentSender = { appRoles: ["RESELLER"], status: "ACTIVE", deletedAt: null };
   Object.assign(state.db, {
     user: {
@@ -22,15 +23,31 @@ beforeEach(() => {
       update: vi.fn(async () => ({})),
     },
     walletTransaction: { create: vi.fn(async ({ data }) => ({ ...data, publicId: "TX-1" })) },
+    notification: { upsert: vi.fn(async () => ({})) },
     $transaction: vi.fn(async (callback) => callback(state.db)),
   });
 });
+afterEach(() => vi.unstubAllEnvs());
 
 const send = (body = {}) => POST(new Request("http://localhost/api/wallet/transfers", {
   method: "POST", body: JSON.stringify({ recipientPublicId: "USR-R", coins: "200", ...body }),
 }));
 
 describe("Reseller coin transfers", () => {
+  it("accepts 500 million Coins and records matching ledger amounts", async () => {
+    expect((await send({ coins: "500000000" })).status).toBe(201);
+    expect(state.db.user.updateMany.mock.calls[0][0].data.coinBalance).toEqual({ decrement: 500000000n });
+    expect(state.db.walletTransaction.create.mock.calls.map(([arg]) => arg.data.coins)).toEqual([500000000n, 500000000n]);
+  });
+  it("rejects amounts above 500 million before starting a transaction", async () => {
+    expect((await (await send({ coins: "500000001" })).json()).error).toBe("TRANSFER_LIMIT");
+    expect(state.db.$transaction).not.toHaveBeenCalled();
+  });
+  it("continues to honor an explicitly configured maximum", async () => {
+    vi.stubEnv("WALLET_TRANSFER_MAX_COINS", "1000");
+    expect((await (await send({ coins: "1001" })).json()).error).toBe("TRANSFER_LIMIT");
+    expect(state.db.$transaction).not.toHaveBeenCalled();
+  });
   it("blocks a non-reseller before any balance mutation", async () => {
     state.sender.appRoles = ["LISTENER"];
     expect((await (await send()).json()).error).toBe("RESELLER_REQUIRED");
