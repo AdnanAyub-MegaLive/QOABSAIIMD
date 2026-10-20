@@ -11,7 +11,7 @@ import FeatureSearch from "../components/feature-search";
 import RulesManager from "./rules-manager";
 import ProgressionSettings from "./progression-settings";
 import { currentConfiguration, jsonSafe } from "@/lib/progression";
-import TeamSettings from "./team-settings";
+import TeamSettings from "./management-tabs";
 import CurrencySettings from "./currency-settings";
 import ProhibitedWords from "./prohibited-words";
 import { currencyPolicy } from "@/lib/currency-policy";
