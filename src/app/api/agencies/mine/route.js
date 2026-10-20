@@ -97,7 +97,7 @@ export async function GET(request) {
               ),
               totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n),
               rechargeBasis: "CURRENT_HOSTS_LIFETIME",
-              ...await activityProgress("AGENCY",agency.id).then(p=>({agencyLevel:p.level,level:p.level,nextLevelThreshold:p.nextThreshold,progression:p})),
+              ...await activityProgress("AGENCY",agency.id,requestOrigin(request)).then(p=>({agencyLevel:p.level,level:p.level,nextLevelThreshold:p.nextThreshold,progression:p})),
               totalGiftingCoins: String(
                 lifetimeGifting._sum.grossCoins ?? 0n,
               ),

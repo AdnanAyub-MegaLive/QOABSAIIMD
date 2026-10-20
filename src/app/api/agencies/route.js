@@ -1,4 +1,5 @@
 import { activityProgress } from "@/lib/activity-levels";
+import { requestOrigin } from "@/lib/user-perks";
 import { prisma } from "@/lib/prisma";
 import { normalizeCountryCode } from "@/lib/geo-country";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
@@ -21,7 +22,8 @@ export async function GET(request) {
       orderBy: [{ userHosts: { _count: "desc" } }, { name: "asc" }, { publicId: "asc" }],
       take: 100,
     });
-    return mobileJson({ success: true, data: { agencies: await Promise.all(agencies.map(async (agency) => ({ id: agency.publicId, name: agency.name, hostCount: agency._count.userHosts, country: normalizeCountryCode(agency.country), level: (await activityProgress("AGENCY",agency.id)).level }))) } });
+    const origin = requestOrigin(request);
+    return mobileJson({ success: true, data: { agencies: await Promise.all(agencies.map(async (agency) => ({ id: agency.publicId, name: agency.name, hostCount: agency._count.userHosts, country: normalizeCountryCode(agency.country), level: (await activityProgress("AGENCY",agency.id,origin)).level }))) } });
   } catch (error) {
     console.error("Agency browse failed", error);
     return mobileApiError(error, "AGENCY_LIST_FAILED");

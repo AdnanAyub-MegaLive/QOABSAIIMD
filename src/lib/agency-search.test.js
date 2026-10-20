@@ -1,12 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks=vi.hoisted(()=>({findMany:vi.fn(),auth:vi.fn()}));
+const mocks=vi.hoisted(()=>({findMany:vi.fn(),auth:vi.fn(),progress:vi.fn(async()=>({level:58}))}));
+vi.mock("@/lib/activity-levels",()=>({activityProgress:mocks.progress}));
+vi.mock("@/lib/user-perks",()=>({requestOrigin:request=>new URL(request.url).origin}));
 vi.mock("@/lib/prisma",()=>({prisma:{agency:{findMany:mocks.findMany}}}));
 vi.mock("@/lib/geo-country",()=>({normalizeCountryCode:value=>String(value??"").trim().toUpperCase()==="PK"?"PK":null}));
 vi.mock("@/lib/mobile-api",()=>({requireMobileUser:mocks.auth,mobileJson:(body,status=200)=>Response.json(body,{status}),mobileOptions:()=>new Response(null),mobileApiError:()=>Response.json({success:false},{status:401})}));
 import { GET } from "../app/api/agencies/route.js";
-beforeEach(()=>{vi.clearAllMocks();mocks.auth.mockResolvedValue({id:"user"});mocks.findMany.mockResolvedValue([{publicId:"AGN-3165",name:"Star Agency",country:"PK",level:58,_count:{userHosts:12}}]);});
+beforeEach(()=>{vi.clearAllMocks();mocks.auth.mockResolvedValue({id:"user"});mocks.findMany.mockResolvedValue([{id:"agency-internal",publicId:"AGN-3165",name:"Star Agency",country:"PK",level:58,_count:{userHosts:12}}]);});
 it.each(["3165","agn-3165","star"])("searches name and ID in database for %s",async q=>{
  const response=await GET(new Request(`https://portal.example/api/agencies?q=${q}`));
+ expect(mocks.progress).toHaveBeenCalledWith("AGENCY","agency-internal","https://portal.example");
  expect(mocks.findMany.mock.calls[0][0]).toMatchObject({where:{status:"ACTIVE",OR:[{name:{contains:q,mode:"insensitive"}},{publicId:{contains:q,mode:"insensitive"}}]},take:100});
  expect((await response.json()).data.agencies[0]).toEqual({id:"AGN-3165",name:"Star Agency",country:"PK",level:58,hostCount:12});
 });

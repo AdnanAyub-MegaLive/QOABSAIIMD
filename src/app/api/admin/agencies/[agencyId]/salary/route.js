@@ -1,3 +1,4 @@
+import {requestOrigin} from "@/lib/user-perks";
 import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { getAgencySalary } from "@/lib/agency-salary";
@@ -8,7 +9,7 @@ export async function GET(request, context) {
     const { agencyId } = await context.params;
     const agency = await prisma.agency.findUnique({ where: { publicId: agencyId }, select: { id: true } });
     if (!agency) throw new Error("AGENCY_NOT_FOUND");
-    return Response.json({ success: true, data: await getAgencySalary(agency.id, new URL(request.url).searchParams.get("month")) });
+    return Response.json({ success: true, data: await getAgencySalary(agency.id, new URL(request.url).searchParams.get("month"), prisma, requestOrigin(request)) });
   } catch (error) {
     if (error.status) return Response.json({ success: false, error: { code: error.code, message: error.message } }, { status: error.status });
     return mobileApiError(error, "AGENCY_SALARY_FAILED");
