@@ -425,7 +425,8 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
   if (value <= 0n) throw new Error("INVALID_COIN_ADJUSTMENT");
   const { user, after } = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUniqueOrThrow({ where: { publicId } });
-    if (operation === "add" && user.appRoles.includes("RESELLER")) throw new Error("Use Manage reseller business wallet to recharge this reseller. Personal Coins can only be recharged from their business wallet.");
+    // Admin adjustments target personal Coins for every role, including resellers.
+    // Business inventory is funded separately through the reseller wallet action.
     const after =
       operation === "add"
         ? user.coinBalance + value
@@ -459,7 +460,7 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
         description: reason,
         coins: operation === "add" ? value : user.coinBalance - after,
         referenceId: `COIN-ADJUSTMENT:${user.publicId}:${Date.now()}`,
-        metadata: { adminId: admin.id, operation },
+        metadata: { adminId: admin.id, operation, wallet: "PERSONAL" },
       }),
     });
     return { user, after };
@@ -470,7 +471,7 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
     entityType: "User",
     entityId: publicId,
     description: `${admin.name} ${operation === "add" ? "added" : "removed"} ${amount} coins ${operation === "add" ? "to" : "from"} user ${publicId}`,
-    metadata: { amount, operation, reason, balanceAfter: Number(after) },
+    metadata: { amount, operation, reason, balanceAfter: Number(after), wallet: "PERSONAL" },
   });
   if (operation === "add") {
     await syncProgressionProps(user.id);

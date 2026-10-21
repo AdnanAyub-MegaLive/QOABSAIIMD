@@ -1,4 +1,5 @@
 import { prisma } from "../../../../lib/prisma";
+import { searchUsers } from "../../../../lib/user-search";
 import {
   mobileApiError,
   mobileJson,
@@ -25,31 +26,7 @@ export async function GET(request) {
     if (!query)
       return mobileJson({ success: true, data: { users: [] } });
 
-    const users = await prisma.user.findMany({
-      where: {
-        deletedAt: null,
-        status: "ACTIVE",
-        bans: { none: { target: "USER", revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } },
-        id: { not: user.id },
-        OR: [
-          { publicId: { contains: query, mode: "insensitive" } },
-          { name: { contains: query, mode: "insensitive" } },
-        ],
-      },
-      select: {
-        id: true,
-        publicId: true,
-        name: true,
-        profileImage: true,
-        gender: true,
-        dob: true,
-        isVerified: true,
-        isOfficial: true,
-        appRoles: true,
-      },
-      orderBy: [{ name: "asc" }, { publicId: "asc" }],
-      take: 20,
-    });
+    const users = await searchUsers(prisma, user.id, query);
     const perks = await resolveUserPerks(
       users,
       requestOrigin(request),
@@ -59,9 +36,10 @@ export async function GET(request) {
     return mobileJson({
       success: true,
       data: {
-        users: users.map((result) =>
-          publicUserWithPerks(result, perks.get(result.publicId)),
-        ),
+        users: users.map((result) => ({
+          ...publicUserWithPerks(result, perks.get(result.publicId)),
+          specialId: result.specialId,
+        })),
       },
     });
   } catch (error) {

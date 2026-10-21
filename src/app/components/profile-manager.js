@@ -825,7 +825,9 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
     setPending(true);
     setSaveError("");
     try { await onSave(updates); }
-    catch { setSaveError("Unable to save changes. Check the email/phone is not already used and that your account has permission to edit this profile."); }
+    catch { setSaveError(type === "coins"
+      ? "Unable to confirm the personal Coin adjustment. Check the balance and transaction history before trying again, and verify your finance permission."
+      : "Unable to save changes. Check the email/phone is not already used and that your account has permission to edit this profile."); }
     finally { setPending(false); }
   }
   const roleChoices = APPLICATION_ROLES;
@@ -916,12 +918,13 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
             </div>
           ) : type === "coins" ? (
             <>
+              <p className="mb-4 rounded-lg bg-teal-50 p-3 text-xs text-teal-900">This adjusts personal Coins only. The reseller business-wallet balance stays unchanged.</p>
               <Select
                 label="Operation"
                 name="operation"
                 options={["add", "remove"]}
               />
-              <Input label="Coin amount" name="amount" type="number" />
+              <Input label="Personal Coin amount" name="amount" type="number" />
               <Reason />
             </>
           ) : (

@@ -1,4 +1,5 @@
 import { getDailyTasksOverview } from "@/lib/daily-tasks";
+import { requestOrigin } from "@/lib/user-perks";
 import {
   mobileApiError,
   mobileJson,
@@ -13,7 +14,7 @@ export function OPTIONS() {
 export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
-    return mobileJson({ success: true, data: await getDailyTasksOverview(user) });
+    return mobileJson({ success: true, data: await getDailyTasksOverview(user, new Date(), requestOrigin(request)) });
   } catch (error) {
     console.error("Daily task overview failed", error);
     return mobileApiError(error, "DAILY_TASKS_FAILED");

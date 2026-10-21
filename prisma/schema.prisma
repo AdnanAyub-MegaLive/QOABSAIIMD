@@ -2574,6 +2574,10 @@ model AudioRoomSeat {
 
 model DailyTaskDefinition {
   id           String              @id
+  deletedAt    DateTime?
+  metric       String?
+  config       Json?
+  rewardSpec   Json?
   type         String              @unique
   title        String
   description  String?
@@ -2618,6 +2622,10 @@ model DailyTaskInstance {
   state         String              @default("PROGRESS")
   completedAt   DateTime?
   claimedAt     DateTime?
+  claimResult   Json?
+  evidence      String?
+  reviewStatus  String?
+  reviewReason  String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2625,6 +2633,11 @@ model DailyTaskInstance {
 
   @@unique([userId, definitionId, periodStart])
   @@index([userId, periodStart, state])
+}
+
+model TaskTimerCursor {
+  userId String @id
+  sampledAt DateTime
 }
 
 model DailyTaskStreak {

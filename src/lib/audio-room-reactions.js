@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 
-const REACTION_IDS = new Set(Array.from({ length: 22 }, (_, index) => `gif_${index}`));
+const REACTION_IDS = new Set(Array.from({ length: 53 }, (_, index) => `gif_${index}`));
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
 
 export const audioRoomReactionErrors = {

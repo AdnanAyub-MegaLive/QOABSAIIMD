@@ -6,15 +6,21 @@ import {
 } from "./audio-room-reactions";
 
 describe("audio room reactions", () => {
-  it("accepts exactly the gif_0 through gif_21 catalogue", () => {
-    for (let index = 0; index <= 21; index += 1) {
+  it.each(["gif_22", "gif_52"])("creates %s as a shared animation without rolling dice", reactionId => {
+    const dice = vi.fn();
+    const data = createAudioRoomReaction({ roomId: "ROOM-1", senderId: "USR-1", seatId: "row1-seat1", reactionId, requestId: "request-new", nextDiceValue: dice });
+    expect(data).toMatchObject({ reactionId, kind: "ANIMATION", diceValue: null, seatId: "row1-seat1" });
+    expect(dice).not.toHaveBeenCalled();
+  });
+  it("accepts exactly the gif_0 through gif_52 catalogue", () => {
+    for (let index = 0; index <= 52; index += 1) {
       expect(parseAudioRoomReactionInput({
         roomId: "ROOM-123",
         reactionId: `gif_${index}`,
         requestId: `request-${index}`,
       }).reactionId).toBe(`gif_${index}`);
     }
-    for (const reactionId of ["gif_-1", "gif_22", "GIF_1", "vip_1", "gif_01"]) {
+    for (const reactionId of ["gif_-1", "gif_53", "GIF_1", "vip_1", "gif_01"]) {
       expect(() => parseAudioRoomReactionInput({
         roomId: "ROOM-123",
         reactionId,

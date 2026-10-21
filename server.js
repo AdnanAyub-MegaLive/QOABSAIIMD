@@ -75,6 +75,9 @@ app.prepare().then(async()=>{
   const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
+  const {createTaskTimer}=await import("./src/lib/task-center-timer.js");
+  const sampleTaskTime=createTaskTimer(prisma,io);
+  const taskTimer=setInterval(()=>void sampleTaskTime().catch(e=>console.error("Task timer failed",e.code??e.name)),15000);taskTimer.unref();
   const {settleSharedGames}=await import("./src/lib/game-control/shared-games.js");
   let sharedGamesRunning=false;
   const runSharedGames=async()=>{if(sharedGamesRunning)return;sharedGamesRunning=true;try{await settleSharedGames(prisma)}catch(e){console.error("Shared coin round settlement failed",e.code??e.name)}finally{sharedGamesRunning=false}};
@@ -260,6 +263,7 @@ app.prepare().then(async()=>{
       const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});
       if(ban){const error=new Error("ACCOUNT_BANNED");error.data={banReason:ban.reason,banExpiresAt:ban.expiresAt?.toISOString()??null};return nextSocket(error);}
       socket.data.userId=user.publicId;
+      socket.data.internalUserId=user.id;
       socket.data.sessionVersion=payload.sessionVersion;
       nextSocket();
     }catch(error){nextSocket(new Error(error.message||"UNAUTHORIZED"));}

@@ -23,7 +23,7 @@ export async function previewGiftRefund(giftId, db=prisma) {
   ]);
   if(!gift)throw error("Gift not found.",404);
   const plan=snapshot?.data??null;
-  const claimedReward=await db.dailyTaskInstance.findFirst({where:{userId:gift.senderId,claimedAt:{gte:gift.createdAt},definition:{type:{in:["SEND_GIFTS","TOP_SUPPORTER"]}}},select:{id:true}});
+  const claimedReward=await db.dailyTaskInstance.findFirst({where:{userId:{in:[gift.senderId,gift.recipientUserId].filter(Boolean)},claimedAt:{gte:gift.createdAt},definition:{OR:[{type:{in:["SEND_GIFTS","TOP_SUPPORTER"]}},{metric:{in:["SEND_GIFTS","GIFT_COINS_SENT","GIFT_COINS_RECEIVED","COMPLETE_TASKS"]}}]}},select:{id:true}});
   const hash=createHash("sha256").update(JSON.stringify({giftId,plan})).digest("hex");
   return {giftId,confirmation:hash,plan,status:existing?.status??"NOT_REQUESTED",manualReason:plan?.manualReason??(!plan?"Historical gift has no recovery snapshot; explicit reconciliation approval is required.":claimedReward?"A gift-related task reward was claimed; its eligibility requires manual review.":null),alreadyReversed:Boolean(gift.reversedAt)};
 }

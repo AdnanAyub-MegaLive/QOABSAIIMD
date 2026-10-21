@@ -1,0 +1,103 @@
+TASK CENTER — BEGINNER, DAILY, MONTHLY AND CHECK-IN
+
+Implementation status: local code; not deployed or enabled on production by this change.
+No existing user balances, claims or ledger history have been rewritten.
+
+ADMIN SETUP
+1. Apply migrations and regenerate Prisma before starting the updated portal.
+2. Room Management > Daily Tasks > Install screenshot task catalogue.
+   This audited action adds missing templates; repeating it does not overwrite edits or revive deleted tasks.
+3. Review rewards and activate desired tasks. All reward amounts, targets and durations are editable.
+   Rose / Gold Beans use an exact, unique, active gift-name match during installation.
+   Otherwise select the actual gift asset and enable the task manually.
+   Beginner completion uses VIP 4 for 7 days, and 7M monthly recharge uses VIP 6 for 15 days,
+   if those active tiers exist. Otherwise those tasks remain inactive until configured.
+4. Check-in defaults: 77, 477, 477, 577, 777, 1777, 1777 Coins. Days 3 and 7 are
+   deliberately editable placeholders, not arbitrary frame/ride assignments: choose the intended
+   prop and 3-day duration in the editor to reproduce the reference artwork rewards.
+   An already-active check-in definition is retained instead of installing a duplicate.
+5. Daily completion bonus defaults to 1 Coin; Monthly completion bonus defaults to 10 Coins
+   after 4 completed tasks. These replace the reference's Chest Keys and can be changed.
+   Other bean rewards are represented by the same numeric Coin amount in the templates.
+6. Delete archives the definition; its instances, reward claims and financial records stay intact.
+   Cadence is fixed once created to prevent resetting an existing reward claim through editing.
+
+AUTOMATIC VS REVIEWED PROGRESS
+Automatic: non-reversed gift quantity/value sent or received; current agency membership;
+active CP; room creation; distinct current Moments likes and user follows; completed exchanges;
+completed personal recharge records. Personal reseller recharges count; business funding and
+bonuses do not. Beginner measurements are lifetime/current-state; Daily/Monthly use UTC.
+On-mic: conservative 15-second server samples for connected, seated users. Multi-socket users
+are counted once. No historical on-mic time or time during server downtime is fabricated.
+The separate owner header seat is not an audience seat and is not sampled by ON_MIC.
+
+External review, room sharing/following, phone binding, referral verification and a free-game
+experience use explicitly labelled MANUAL tasks because this portal has no trustworthy event
+record for those exact conditions. They require user evidence and Admin verification. This is
+not an automatic client-reported completion API. Admin checks the stated quantity (e.g. 5 referrals).
+The template game task is free-points only; no reward for wagering.
+
+MOBILE CONTRACT (Bearer/session/device/account checks retained)
+GET /api/tasks/daily
+POST /api/tasks/sign-in   { "taskId": "<instance id>" }
+POST /api/tasks/claim     { "taskId": "<instance id>" }
+POST /api/tasks/evidence  { "taskId": "<instance id>", "evidence": "plain text, 1–2000 characters" }
+
+Overview retains categories[].tasks, featured, topSupporter, today, streak and coinBalance.
+New: timezone='UTC', checkIn, categories[].completionBonus. Render checkIn separately and avoid
+duplicating SIGN_IN tasks still present in categories for backward compatibility.
+Each task includes:
+ id, title, description, type (unique code), metric (progress source), cadence,
+ state ('progress'|'claim'|'completed'|'locked'), progressValue, targetValue,
+ reward (legacy numeric Coins; 0 for VIP/props), rewardDetails,
+ resetsAt (ISO; null for Beginner), requiresReview, reviewStatus, reviewReason.
+Incomplete tasks also have progress and progressLabel. Completion bonuses include
+completionProgress { completed, required } while unclaimed. Claim the bonus using its own id.
+
+rewardDetails:
+ { kind:'COINS', coins:'100' }
+ { kind:'VIP', id:'<tier id>', days:7, name:'VIP 4', level:4 }
+ { kind:'PROP', id:'AST-...', days:3, name:'...', assetId:'AST-...', url:'...',
+   mimeType:'application/svga', mediaVersion:'...', posterUrl:null, ... }
+Use public media URLs and existing version-aware cache; don't construct URLs from IDs.
+Missing artwork means use a generic reward icon, not an unrelated asset.
+
+checkIn.days and streak.days have day (1–7), done, current and reward.
+Miss a UTC calendar day: restart at day 1. After day 7: wrap to day 1.
+Only one check-in payment per user per UTC day, even if two definitions are active.
+
+For MANUAL tasks: show Submit evidence, Pending review, or Rejected with reviewReason.
+Admin approval changes eligibility; it does not auto-credit. User then claims normally.
+Submitting while PENDING/APPROVED returns the existing review status. Rejected evidence may be resubmitted.
+Approval/rejection requires tasks.manage permission and a reason; changes are audited.
+
+Claims return coinBalance (string), reward, task; sign-in also returns streak.
+Repeat the same taskId after an unknown outcome: new-system claims replay the exact saved response
+without another payment. Its returned balance is the original post-claim balance; refetch wallet
+for the latest balance if other transactions happened. Historical pre-change claims retain
+TASK_ALREADY_CLAIMED because no original response was saved.
+Coin credit, prop/VIP grant, claim, ledger and notification commit in one serializable transaction.
+VIP rewards extend ownership; they do not replace another active selected VIP.
+Temporary props extend existing temporary ownership and never shorten permanent ownership.
+Gift-related claims make a subsequent gift refund require manual review instead of silently
+leaving unrecovered task rewards. Gifts are re-measured before an unclaimed reward is paid.
+
+ERRORS
+Existing success/error envelope. TASK_NOT_FOUND (404), TASK_EXPIRED (409), TASK_NOT_READY (409),
+TASK_ALREADY_CLAIMED (409), TASK_CLAIM_ROUTE_INVALID (422). Evidence validation: VALIDATION_ERROR
+(422), RATE_LIMITED (429); normal authentication/device/account errors apply.
+
+PHONE ACCEPTANCE CHECKS
+- Check-in day reward and claim state match; repeat the claim without duplicate Coins.
+- Verify midnight UTC daily reset, calendar-month reset, lifetime Beginner claim and day-7 wrap.
+- A sent Rose counts only against configured Rose tasks; reversed gifts do not count.
+- Confirm distinct follows/likes, minimum recharge size and level-10 follow filter.
+- Be seated for 5/15 minutes with live sockets and refetch; two devices must not double credit.
+- Submit evidence, reject, resubmit, approve, then claim; another account cannot submit your task.
+- Complete all active Daily tasks / four Monthly tasks and claim the separate bonus once.
+- Confirm VIP and prop ownership/expiry, SVGA artwork and cache versions after claim.
+- Disable/delete a task; it disappears and cannot be newly claimed. Prior payments remain.
+- Reconnect after a lost claim response and retry the same task instance.
+
+Deployment requires both task_archive and task_center migrations, Prisma generation, build and restart.
+The RN/Kotlin screen and evidence form are app-side work; this repository implements the API and admin UI.

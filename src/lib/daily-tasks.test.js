@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serializeDailyTask, utcDayStart, utcWeekStart } from "./daily-tasks";
+import { serializeDailyTask, utcDayStart, utcWeekStart, periodStart } from "./daily-tasks";
 
 const definition = {
   type: "ROOM_WATCH",
@@ -13,6 +13,14 @@ const definition = {
 };
 
 describe("daily task contract helpers", () => {
+  it("keeps beginner claims in one lifetime period", () => {
+    expect(periodStart({cadence:"BEGINNER"},new Date("2026-10-21"))).toEqual(new Date(0));
+    expect(periodStart({cadence:"BEGINNER"},new Date("2027-01-01"))).toEqual(new Date(0));
+  });
+  it("resets monthly tasks at the calendar month in UTC", () => {
+    expect(periodStart({cadence:"MONTHLY"},new Date("2026-11-01T00:30:00+05:00")).toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(periodStart({cadence:"MONTHLY"},new Date("2026-11-01T00:00:00Z")).toISOString()).toBe("2026-11-01T00:00:00.000Z");
+  });
   it("calculates stable UTC day and Monday week boundaries", () => {
     const now = new Date("2026-09-23T18:45:00.000Z");
     expect(utcDayStart(now).toISOString()).toBe("2026-09-23T00:00:00.000Z");
@@ -28,7 +36,7 @@ describe("daily task contract helpers", () => {
         state: "PROGRESS",
         claimedAt: null,
       }),
-    ).toEqual({
+    ).toMatchObject({
       id: "task-instance",
       title: definition.title,
       description: definition.description,

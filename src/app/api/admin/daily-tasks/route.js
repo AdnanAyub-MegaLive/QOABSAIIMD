@@ -1,6 +1,10 @@
 import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../auth";
 import { prisma } from "@/lib/prisma";
+import { validateTaskOptions, metricOf } from "@/lib/task-center-config";
+import { validateRewardReferences } from "@/lib/task-center-rewards";
+import { installTaskCenter } from "@/lib/task-center-templates";
+import { periodStart } from "@/lib/daily-tasks";
 
 function json(body, status = 200) {
   return Response.json(body, { status });
@@ -68,6 +72,10 @@ export async function POST(request) {
   try {
     const admin = await requireAdmin();
     const body = await request.json();
+    if (body.entity === "templates") {
+      await prisma.$transaction(async tx=>{await installTaskCenter(tx);await audit(tx,admin,"TASK_CENTER_INSTALLED","DailyTaskDefinition","templates",{existingConfigurationPreserved:true});},{timeout:20000});
+      return json({success:true});
+    }
     if (body?.entity === "category") {
       const key = text(body.key, "Category name", 40);
       const icon = text(body.icon, "Category icon", 40);
@@ -85,7 +93,9 @@ export async function POST(request) {
     const category = await prisma.dailyTaskCategory.findUnique({ where: { key: categoryKey } });
     if (!category) throw Object.assign(new Error("The selected category does not exist."), { status: 422 });
     const id = `TASKDEF-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-    const data = taskData(body, category);
+    const data = taskData({ ...body, type }, category);
+    await validateRewardReferences(prisma,[data.rewardSpec,...(data.config.days??[])]);
+    await validateGift(data);
     const task = await prisma.$transaction(async (tx) => {
       if (data.featured) await tx.dailyTaskDefinition.updateMany({ where: { featured: true }, data: { featured: false } });
       if (data.topSupporter) await tx.dailyTaskDefinition.updateMany({ where: { topSupporter: true }, data: { topSupporter: false } });
@@ -106,6 +116,18 @@ export async function PATCH(request) {
   try {
     const admin = await requireAdmin();
     const body = await request.json();
+    if(body.entity==="review"){
+      const id=text(body.id,"Task instance ID",100),decision=body.decision;
+      if(!["APPROVED","REJECTED"].includes(decision))throw Object.assign(new Error("Choose approve or reject."),{status:422});
+      const reason=text(body.reason,"Review reason",500);
+      await prisma.$transaction(async tx=>{
+        const row=await tx.dailyTaskInstance.findUnique({where:{id},include:{definition:true}});
+        if(!row||row.claimedAt||row.reviewStatus!=="PENDING"||metricOf(row.definition)!=="MANUAL"||!row.definition.active||row.definition.deletedAt||row.periodStart.getTime()!==periodStart(row.definition,new Date()).getTime())throw Object.assign(new Error("This evidence is no longer awaiting review."),{status:409});
+        await tx.dailyTaskInstance.update({where:{id},data:{reviewStatus:decision,reviewReason:reason,progressValue:decision==="APPROVED"?row.definition.targetValue:0}});
+        await audit(tx,admin,"TASK_EVIDENCE_REVIEWED","DailyTaskInstance",id,{decision,reason});
+      },{isolationLevel:"Serializable"});
+      return json({success:true});
+    }
     if (body?.entity === "category") {
       const key = text(body.key, "Category name", 40);
       const category = await prisma.$transaction(async (tx) => {
@@ -124,15 +146,18 @@ export async function PATCH(request) {
     }
     const id = text(body.id, "Task ID", 100);
     const current = await prisma.dailyTaskDefinition.findUnique({ where: { id } });
-    if (!current) throw Object.assign(new Error("Task definition was not found."), { status: 404 });
+    if (!current || current.deletedAt) throw Object.assign(new Error("Task definition was not found."), { status: 404 });
     const categoryKey = text(body.categoryKey, "Category", 40);
     const category = await prisma.dailyTaskCategory.findUnique({ where: { key: categoryKey } });
     if (!category) throw Object.assign(new Error("The selected category does not exist."), { status: 422 });
-    const data = taskData(body, category);
+    const data = taskData({ ...body, type: current.type }, category);
+    if(data.cadence!==current.cadence)throw Object.assign(new Error("Create a new task to change its period; existing claim periods are preserved."),{status:422});
+    await validateRewardReferences(prisma,[data.rewardSpec,...(data.config.days??[])]);
+    await validateGift(data);
     const task = await prisma.$transaction(async (tx) => {
       if (data.featured) await tx.dailyTaskDefinition.updateMany({ where: { id: { not: id }, featured: true }, data: { featured: false } });
       if (data.topSupporter) await tx.dailyTaskDefinition.updateMany({ where: { id: { not: id }, topSupporter: true }, data: { topSupporter: false } });
-      const updated = await tx.dailyTaskDefinition.update({ where: { id }, data });
+      const updated = await tx.dailyTaskDefinition.update({ where: { id, deletedAt: null }, data });
       await audit(tx, admin, "DAILY_TASK_UPDATED", "DailyTaskDefinition", id, serializableTaskData(data));
       return updated;
     });
@@ -142,17 +167,38 @@ export async function PATCH(request) {
   }
 }
 
+export async function DELETE(request) {
+  const permissionDenied = await portalPermissionError("tasks.manage");
+  if (permissionDenied) return permissionDenied;
+  try {
+    const admin = await requireAdmin();
+    const body = await request.json();
+    const id = text(body.id, "Task ID", 100);
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.dailyTaskDefinition.findUnique({ where: { id } });
+      if (!current) throw Object.assign(new Error("Task definition was not found."), { status: 404 });
+      if (current.deletedAt) return;
+      await tx.dailyTaskDefinition.update({ where: { id }, data: { active: false, deletedAt: new Date(), featured: false, topSupporter: false } });
+      await audit(tx, admin, "DAILY_TASK_DELETED", "DailyTaskDefinition", id, { title: current.title, historyPreserved: true });
+    }, { isolationLevel: "Serializable" });
+    return json({ success: true, data: { id } });
+  } catch (error) { return adminError(error); }
+}
+
 function taskData(body, category) {
   const cadence = String(body.cadence ?? "DAILY").toUpperCase();
   const unit = String(body.unit ?? "COUNT").toUpperCase();
-  if (!new Set(["DAILY", "WEEKLY"]).has(cadence)) throw Object.assign(new Error("Cadence must be DAILY or WEEKLY."), { status: 422 });
+  if (!new Set(["BEGINNER", "DAILY", "WEEKLY", "MONTHLY"]).has(cadence)) throw Object.assign(new Error("Cadence must be BEGINNER, DAILY, WEEKLY or MONTHLY."), { status: 422 });
+  if (body.type === "SIGN_IN" && cadence !== "DAILY") throw Object.assign(new Error("Sign-in tasks must be daily."), { status: 422 });
   if (!new Set(["COUNT", "SECONDS"]).has(unit)) throw Object.assign(new Error("Unit must be COUNT or SECONDS."), { status: 422 });
+  const options=validateTaskOptions({...body,cadence});
   return {
+    ...options,
     title: text(body.title, "Title", 120),
     description: String(body.description ?? "").trim().slice(0, 500) || null,
-    rewardCoins: rewardCoins(body.rewardCoins),
+    rewardCoins: rewardCoins(options.rewardSpec.kind==="COINS"?options.rewardSpec.coins:"0"),
     targetValue: wholeNumber(body.targetValue, "Target", { min: 1 }),
-    unit,
+    unit: ["ON_MIC","ROOM_WATCH","LIVE_GO_LIVE"].includes(options.metric)?"SECONDS":unit,
     cadence,
     categoryKey: category.key,
     categoryIcon: category.icon,
@@ -167,6 +213,9 @@ function taskData(body, category) {
 
 function serializeTask(task) {
   return { ...task, rewardCoins: task.rewardCoins.toString(), createdAt: task.createdAt.toISOString(), updatedAt: task.updatedAt.toISOString() };
+}
+async function validateGift(data){
+  if(data.config.giftAssetId&&!await prisma.uploadAsset.findFirst({where:{publicId:data.config.giftAssetId,category:"GIFTS",active:true},select:{id:true}}))throw Object.assign(new Error("Choose an active gift asset."),{status:422});
 }
 function serializableTaskData(data) { return { ...data, rewardCoins: data.rewardCoins.toString() }; }
 
