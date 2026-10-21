@@ -425,6 +425,7 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
   if (value <= 0n) throw new Error("INVALID_COIN_ADJUSTMENT");
   const { user, after } = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUniqueOrThrow({ where: { publicId } });
+    if (operation === "add" && user.appRoles.includes("RESELLER")) throw new Error("Use Manage reseller business wallet to recharge this reseller. Personal Coins can only be recharged from their business wallet.");
     const after =
       operation === "add"
         ? user.coinBalance + value

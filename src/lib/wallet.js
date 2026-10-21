@@ -40,6 +40,7 @@ export function serializeWalletTransaction(item) {
   return {
     id: item.publicId,
     type: item.type,
+    wallet: item.metadata?.wallet ?? "PERSONAL",
     typeLabel: item.type === "VIP_PURCHASE" ? "VIP purchase" : item.title,
     direction: item.direction,
     title: item.title,

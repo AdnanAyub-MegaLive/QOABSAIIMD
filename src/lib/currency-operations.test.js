@@ -5,7 +5,7 @@ function database(kind="REDEMPTION") {
  let row={id:"request",userId:"user",kind,status:"PENDING",diamonds:90000n,quotedCoins:50000n};
  const tx={
   currencyRequest:{findUnique:vi.fn(async()=>null),findUniqueOrThrow:async()=>row,create:async({data})=>(row={...row,...data}),update:async({data})=>(row={...row,...data})},
-  user:{findUniqueOrThrow:async()=>({id:"user",publicId:"USR-QA",status:"ACTIVE",appRoles:["RESELLER"]}),updateMany:vi.fn(async()=>({count:1}))},
+  user:{findUnique:vi.fn(async()=>({id:"user",status:"ACTIVE",appRoles:["RESELLER"]})),findUniqueOrThrow:async()=>({id:"user",publicId:"USR-QA",status:"ACTIVE",appRoles:["RESELLER"]}),updateMany:vi.fn(async()=>({count:1}))},
   currencyPolicy:{findUnique:async()=>({version:1,rules:{redemptionEnabled:true}})},
   walletTransaction:{create:vi.fn()},auditLog:{create:vi.fn()},notification:{upsert:vi.fn()}
  };
@@ -23,5 +23,15 @@ it.each(["APPROVE","REJECT"])("uses exchange wording for %s",async action=>{
 it("keeps USDT approval distinct from exchange",async()=>{
  const db=database("USDT");await reviewCurrencyRequest(db,{id:"admin"},"request","APPROVE","Reviewed");
  expect(db.notification.upsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({title:"Withdrawal approved",action:{screen:"WALLET",requestId:"request",kind:"USDT"}})}));
+ expect(db.user.updateMany).not.toHaveBeenCalled();
+});
+it("approved redemption credits only business Coins",async()=>{
+ const db=database();await reviewCurrencyRequest(db,{id:"admin"},"request","APPROVE","Reviewed");
+ expect(db.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{resellerCoinBalance:{increment:50000n}}}));
+ expect(db.walletTransaction.create).toHaveBeenCalledWith({data:expect.objectContaining({metadata:expect.objectContaining({wallet:"BUSINESS"})})});
+});
+it("rejects approval after a reseller acquires a restricted support role",async()=>{
+ const db=database();db.user.findUnique.mockResolvedValue({status:"ACTIVE",appRoles:["RESELLER","CS"]});
+ await expect(reviewCurrencyRequest(db,{id:"admin"},"request","APPROVE","Reviewed")).rejects.toMatchObject({code:"REDEMPTION_DISABLED"});
  expect(db.user.updateMany).not.toHaveBeenCalled();
 });

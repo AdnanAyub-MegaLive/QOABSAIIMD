@@ -8,6 +8,7 @@ export function reportInput(input) {
     return value.trim();
   };
   const result = { targetType: input.targetType, targetId: text(input.targetId, "Target ID", 100), roomId: text(input.roomId, "Room ID", 100, true) || null, reason: text(input.reason, "Reason", 120), details: text(input.details, "Details", 500, true), requestId: text(input.requestId, "Request ID", 128) };
+  if (!["SPAM", "HARASSMENT", "SEXUAL", "VIOLENCE", "SCAM", "OTHER"].includes(result.reason)) throw reportError("VALIDATION_ERROR", "Choose a supported report reason.");
   if (!/^[A-Za-z0-9._:-]+$/.test(result.requestId)) throw reportError("VALIDATION_ERROR", "Request ID contains unsupported characters.");
   return result;
 }
@@ -19,18 +20,28 @@ export async function submitSafetyReport(db, reporterUserId, input) {
     if (old.fingerprint !== fingerprint) throw reportError("IDEMPOTENCY_CONFLICT", "This request ID was already used for a different report.", 409);
     return { reportId: old.publicId };
   };
-  const old = await db.safetyReport.findUnique({ where }); if (old) return replay(old);
-  const target = data.targetType === "USER"
-    ? await db.user.findUnique({ where: { publicId: data.targetId }, select: { id: true } })
-    : await db.audioRoom.findUnique({ where: { roomId: data.targetId }, select: { id: true } });
-  if (!target) throw reportError("REPORT_TARGET_NOT_FOUND", "The reported user or room could not be found.", 404);
-  if (data.roomId && !await db.audioRoom.findUnique({ where: { roomId: data.roomId }, select: { id: true } })) throw reportError("REPORT_TARGET_NOT_FOUND", "The referenced room could not be found.", 404);
   try {
-    const report = await db.safetyReport.create({ data: { ...data, reporterUserId, fingerprint, targetInternalId: target.id, publicId: `RPT-${randomUUID()}` } });
-    return { reportId: report.publicId };
+    return await db.$transaction(async tx => {
+      // Serialize this reporter's submissions and moderator reopen operations.
+      // ReadCommitted sees the preceding committed report after acquiring the lock.
+      await lockReporter(tx, reporterUserId);
+      const old = await tx.safetyReport.findUnique({ where }); if (old) return replay(old);
+      const target = data.targetType === "USER"
+        ? await tx.user.findUnique({ where: { publicId: data.targetId }, select: { id: true } })
+        : await tx.audioRoom.findUnique({ where: { roomId: data.targetId }, select: { id: true } });
+      if (!target) throw reportError("TARGET_NOT_FOUND", "The reported user or room could not be found.", 404);
+      if (data.targetType === "USER" && target.id === reporterUserId) throw reportError("VALIDATION_ERROR", "You cannot report yourself.");
+      if (data.roomId && !await tx.audioRoom.findUnique({ where: { roomId: data.roomId }, select: { id: true } })) throw reportError("TARGET_NOT_FOUND", "The referenced room could not be found.", 404);
+      if (await tx.safetyReport.findFirst({ where: { reporterUserId, targetType:data.targetType, targetInternalId:target.id, status:{in:["OPEN","REVIEWING"]} } })) throw reportError("DUPLICATE_REPORT", "You already have an open report for this target.",409);
+      const report = await tx.safetyReport.create({ data: { ...data, reporterUserId, fingerprint, targetInternalId: target.id, publicId: `RPT-${randomUUID()}` } });
+      return { reportId: report.publicId };
+    }, {isolationLevel:"ReadCommitted"});
   } catch (error) {
     if (error.code !== "P2002") throw error;
     const saved = await db.safetyReport.findUnique({ where }); if (!saved) throw error;
     return replay(saved);
   }
+}
+export async function lockReporter(tx, reporterUserId) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`safety-reports:${reporterUserId}`}, 0))::text`;
 }

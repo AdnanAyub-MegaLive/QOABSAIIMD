@@ -199,6 +199,16 @@ model SafetyReport {
   @@index([status, createdAt, id])
 }
 
+model ResellerRechargeRequest {
+  id String @id @default(cuid())
+  actorId String
+  requestId String
+  fingerprint String
+  result Json
+  createdAt DateTime @default(now())
+  @@unique([actorId, requestId])
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   adminId     String?
@@ -276,6 +286,7 @@ model User {
   status                     AccountStatus                 @default(ACTIVE)
   vipLevel                   Int                           @default(0)
   coinBalance                BigInt                        @default(0)
+  resellerCoinBalance        BigInt                        @default(0)
   couponBalance              Int                           @default(0)
   hostSalaryCoinBalance      BigInt                        @default(0)
   totalSpent                 BigInt                        @default(0)

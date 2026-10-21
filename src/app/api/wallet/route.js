@@ -22,6 +22,7 @@ export async function GET(request) {
         country: true,
         deletedAt: true,
         coinBalance: true,
+        resellerCoinBalance: true,
         diamondExchangeEnabled: true,
         appRoles: true,
         role: true,
@@ -43,6 +44,9 @@ export async function GET(request) {
       success: true,
       data: {
         coins: user.coinBalance.toString(),
+        personalCoins: user.coinBalance.toString(),
+        businessCoins: user.resellerCoinBalance.toString(),
+        coinRecharge: { sourceWallet:"BUSINESS", destinationWallet:"PERSONAL", selfRechargeAllowed:reseller && walletEligibility(user).transfer, reverseTransferAllowed:false, idempotencyKeyRequired:true },
         currencyPolicy: policy,
         canWithdraw: withdrawal.canWithdraw,
         withdrawal,

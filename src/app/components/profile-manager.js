@@ -49,6 +49,7 @@ export default function ProfileManager({ profile, type }) {
 
   return (
     <>
+      {!isTalent && data.roleCodes?.includes("RESELLER") && can("finance.adjust") && <a className="mb-4 block rounded border p-3 font-bold" href={`/reseller-wallet?userId=${encodeURIComponent(data.id)}`}>Manage reseller business wallet (separate from personal Coins)</a>}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {stats.map(([label, value]) => (
           <div

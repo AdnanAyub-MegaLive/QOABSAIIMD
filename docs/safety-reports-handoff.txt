@@ -1,0 +1,53 @@
+Spec 129 — User and audio-room reports
+Status: updated locally, not pushed or deployed. Production/app verification pending.
+
+POST /api/reports
+Authorization: Bearer <mobile token>
+{ "targetType":"USER", "targetId":"USR-2030140", "roomId":"ROOM-...",
+  "reason":"HARASSMENT", "details":"Plain-text evidence", "requestId":"unique-client-id" }
+
+targetType: USER or AUDIO_ROOM. LIVE_ROOM returns VALIDATION_ERROR for now.
+targetId: public user ID or audio room ID, respectively; must exist.
+roomId: optional context; if supplied, the room must exist.
+reason: SPAM, HARASSMENT, SEXUAL, VIOLENCE, SCAM or OTHER (uppercase).
+details: optional, at most 500 Unicode characters, rendered as plain text.
+requestId: required, 1–128 letters, digits, period, underscore, colon or hyphen.
+Reporter identity always comes from the session, never the request body.
+Normal mobile authentication, account/session and device checks apply.
+
+201 {"success":true,"data":{"reportId":"RPT-..."}}
+An identical same-reporter/requestId retry returns the same reportId, even if
+moderators have closed the report. It never creates a second report.
+A different key for the same target while OPEN or REVIEWING returns
+409 DUPLICATE_REPORT. Duplicate checks use internal identity, so a public ID
+change does not evade them. Concurrent submissions are serialized per reporter
+with a transaction-scoped database lock. Closing a report permits a new report.
+
+422 VALIDATION_ERROR: unsupported type/reason, invalid text, self-report or JSON.
+404 TARGET_NOT_FOUND: target or context room does not exist.
+409 DUPLICATE_REPORT: same reporter already has an open report for that target.
+409 IDEMPOTENCY_CONFLICT: same key reused with different report contents.
+429 RATE_LIMITED: existing per-user limiter, 10 attempts/minute (including retries).
+Existing mobile 401/403 errors: expired/revoked session or blocked device/account.
+500 REPORT_FAILED: unexpected service failure, never display as success.
+
+Portal: Content Moderation -> User and room reports
+/content-moderation/reports
+content.view permits listing; content.manage permits review updates.
+Moderators see reporter name/public ID, target, optional room, reason, details,
+timestamp and review notes. Statuses: OPEN, REVIEWING, RESOLVED, DISMISSED.
+RESOLVED means reviewed/closed; it does not automatically ban a user or room.
+Updates are audited. Reopening cannot create another open report for the same
+reporter/target. Existing reports are preserved, not deleted or reclassified.
+Reporter information is never sent to the reported user or room sockets.
+
+Schema dependency: existing migration 20261021010000_safety_reports.
+No new migration is required for these validation/concurrency changes.
+Deploy the prerequisite migration if the environment is still on b28ad2e.
+
+Verified locally: 22 focused tests plus ESLint. Tests cover USER/AUDIO_ROOM,
+same-key replay, changed payload conflict, duplicate target across public-ID
+rename, self-report rejection, reason validation, missing target, authentication
+and rate limit. Live concurrent/database and phone testing remain pending.
+After deployment, test room-member, room and chat-sender reports with dedicated
+accounts; check moderator context and owner privacy; retry and self-report tests.

@@ -110,9 +110,11 @@ export async function reviewCurrencyRequest(db,admin,id,action,note,hash,payment
       if(row.status!=="PENDING")throw currencyError("Request is already approved.");
       status="APPROVED";
       if(row.kind==="REDEMPTION"){
-        const credited=await tx.user.updateMany({where:{id:row.userId,coinBalance:{lte:9223372036854775807n-row.quotedCoins}},data:{coinBalance:{increment:row.quotedCoins}}});
+        const reseller = await tx.user.findUnique({where:{id:row.userId}});
+        if (!reseller || !isReseller(reseller) || !walletEligibility(reseller).withdraw) throw currencyError("Reseller redemption eligibility changed; review this request.","REDEMPTION_DISABLED");
+        const credited=await tx.user.updateMany({where:{id:row.userId,status:"ACTIVE",deletedAt:null,appRoles:{has:"RESELLER"},resellerCoinBalance:{lte:9223372036854775807n-row.quotedCoins}},data:{resellerCoinBalance:{increment:row.quotedCoins}}});
         if(!credited.count)throw currencyError("Coin balance limit exceeded.");
-        await tx.walletTransaction.create({data:ledgerData({userId:row.userId,type:"DIAMOND_EXCHANGE_CREDIT",direction:"CREDIT",title:"Approved reseller Diamond redemption",coins:row.quotedCoins,referenceId:row.id,metadata:{policy:row.policySnapshot}})});
+        await tx.walletTransaction.create({data:ledgerData({userId:row.userId,type:"DIAMOND_EXCHANGE_CREDIT",direction:"CREDIT",title:"Approved redemption credited to business wallet",coins:row.quotedCoins,referenceId:row.id,metadata:{policy:row.policySnapshot,wallet:"BUSINESS"}})});
         status="COMPLETED";
       }
     }else{
