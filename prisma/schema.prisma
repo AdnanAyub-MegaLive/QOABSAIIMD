@@ -1018,6 +1018,8 @@ model RoomBannerObject {
 }
 
 model RoomBanner {
+  name String @default("")
+  description String @default("")
   remindedAt DateTime?
   id String @id @default(cuid())
   audioRoomId String

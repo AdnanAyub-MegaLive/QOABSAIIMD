@@ -3,6 +3,7 @@ import { prisma } from "./prisma.js";
 import { ledgerData } from "./wallet.js";
 import { bannerError, bannerObject } from "./room-banner-media.js";
 import { notifyAction } from "./action-notifications.js";
+import { normalizeBannerText, validateBannerText } from "./room-banner-text.js";
 
 export function validateBannerSettings(input) {
   if (typeof input.enabled !== "boolean" || !Array.isArray(input.packages) || input.packages.length > 20) throw bannerError("VALIDATION_ERROR", "Provide enabled and up to 20 duration packages.");
@@ -15,9 +16,10 @@ export function validateBannerSettings(input) {
   return { enabled: input.enabled, packages };
 }
 export async function bannerSettings(db = prisma) {
-  return { enabled: false, packages: [], revision: 0, ...(await db.roomBannerSettings.findUnique({ where: { id: "default" } })), maxBanners: 2, maxBytes: 5 * 1024 * 1024, moderationRequired: true };
+  return { enabled: false, packages: [], revision: 0, ...(await db.roomBannerSettings.findUnique({ where: { id: "default" } })), maxBanners: 2, maxBytes: 5 * 1024 * 1024, moderationRequired: true,
+    textLimits: { nameRequired: true, nameMaxCharacters: 60, descriptionMaxWords: 200, descriptionMaxCharacters: 2000, descriptionMaxLineBreaks: 10, linksAllowed: false } };
 }
-export function publicBanner(b) { return { id: b.id, imageUrl: b.imageUrl, mimeType: b.mimeType, mediaVersion: b.mediaVersion, position: b.position, expiresAt: b.expiresAt }; }
+export function publicBanner(b) { return { id: b.id, name: b.name ?? "", description: b.description ?? "", imageUrl: b.imageUrl, mimeType: b.mimeType, mediaVersion: b.mediaVersion, position: b.position, expiresAt: b.expiresAt }; }
 export function ownerBanner(b) { return { ...publicBanner(b), status: b.status, createdAt: b.createdAt, reason: b.reason, coins: b.coins.toString(), durationDays: b.durationDays, refundedAt: b.refundedAt, previewUrl: `/api/room-banners/${b.id}/preview` }; }
 export async function roomBannerSnapshot(roomId, db = prisma) {
   const room = await db.audioRoom.findUnique({ where: { roomId }, select: { bannerRevision: true, banners: { where: { status: "ACTIVE", expiresAt: { gt: new Date() } }, orderBy: [{ position: "asc" }, { id: "asc" }], take: 2 } } });
@@ -35,15 +37,17 @@ async function lockRoom(tx, roomId, ownerId) {
   return room;
 }
 async function bump(tx, room) { await tx.audioRoom.update({ where: { id: room.id }, data: { bannerRevision: { increment: 1 } } }); }
-export async function submitBanner({ roomId, userId, requestId, packageId, settingsRevision, media }, db = prisma) {
+export async function submitBanner({ roomId, userId, requestId, packageId, settingsRevision, media, name, description }, db = prisma) {
   if (typeof requestId !== "string" || !/^[\w-]{1,128}$/.test(requestId)) throw bannerError("VALIDATION_ERROR", "Provide a unique requestId (1–128 letters, numbers, underscores or hyphens).");
-  const fingerprint = createHash("sha256").update(JSON.stringify([roomId, packageId, settingsRevision, media.mimeType])).update(media.bytes).digest("hex");
+  const normalizedText = normalizeBannerText({ name, description });
+  const fingerprint = createHash("sha256").update(JSON.stringify([roomId, packageId, settingsRevision, media.mimeType, normalizedText.name, normalizedText.description])).update(media.bytes).digest("hex");
   // A private staging object is never publicly accessible; failed transactions cannot charge the user.
   const key = `private-room-banners/${randomUUID()}.webp`;
   return transaction(async tx => {
     const room = await lockRoom(tx, roomId, userId);
     const old = await tx.roomBanner.findUnique({ where: { ownerId_requestId: { ownerId: userId, requestId } } });
     if (old) { if (old.fingerprint !== fingerprint) throw bannerError("IDEMPOTENCY_CONFLICT", "This request ID was used with different content.", 409); return ownerBanner(old); }
+    const text = await validateBannerText(tx, { name, description });
     const settings = await bannerSettings(tx), pack = settings.packages.find(p => p.id === packageId);
     if (!settings.enabled) throw bannerError("BANNERS_DISABLED", "Room banners are currently disabled.", 403);
     if (!pack || settings.revision !== settingsRevision) throw bannerError("BANNER_PRICE_CHANGED", "Banner prices changed. Refresh and confirm the price again.", 409);
@@ -52,9 +56,22 @@ export async function submitBanner({ roomId, userId, requestId, packageId, setti
     const paid = await tx.user.updateMany({ where: { id: userId, status: "ACTIVE", deletedAt: null, coinBalance: { gte: BigInt(pack.coins) } }, data: { coinBalance: { decrement: BigInt(pack.coins) } } });
     if (!paid.count) throw bannerError("INSUFFICIENT_COINS", "Your account is unavailable or has insufficient Coins.", 409);
     await bannerObject("put", key, media.bytes, media.mimeType);
-    const banner = await tx.roomBanner.create({ data: { audioRoomId: room.id, ownerId: userId, requestId, fingerprint, position: occupied.some(b => b.position === 1) ? 2 : 1, coins: BigInt(pack.coins), durationDays: pack.durationDays, packageName: pack.name, storageKey: key, mimeType: media.mimeType, mediaVersion: media.mediaVersion } });
+    const banner = await tx.roomBanner.create({ data: { ...text, audioRoomId: room.id, ownerId: userId, requestId, fingerprint, position: occupied.some(b => b.position === 1) ? 2 : 1, coins: BigInt(pack.coins), durationDays: pack.durationDays, packageName: pack.name, storageKey: key, mimeType: media.mimeType, mediaVersion: media.mediaVersion } });
     await tx.walletTransaction.create({ data: ledgerData({ userId, type: "ROOM_BANNER_PURCHASE", direction: "DEBIT", title: "Room banner submitted for review", coins: banner.coins, referenceId: banner.id }) });
     await bump(tx, room); return ownerBanner(banner);
+  }, db);
+}
+export async function editBannerText({ roomId, id, userId, adminId, name, description }, db = prisma) {
+  return transaction(async tx => {
+    const room = await lockRoom(tx, roomId, adminId ? null : userId);
+    const banner = await tx.roomBanner.findFirst({ where: { id, audioRoomId: room.id } });
+    if (!banner) throw bannerError("BANNER_NOT_FOUND", "Banner not found.", 404);
+    if (banner.status !== "PENDING") throw bannerError("BANNER_TEXT_LOCKED", "Only banners in review can have their text changed.", 409);
+    const text = await validateBannerText(tx, { name, description }, { allowBlankName: Boolean(adminId) });
+    const updated = await tx.roomBanner.update({ where: { id }, data: text });
+    await tx.auditLog.create({ data: { ...(adminId ? { adminId } : {}), action: "ROOM_BANNER_TEXT_UPDATED", category: "CONTENT_MANAGEMENT", entityType: "RoomBanner", entityId: id, description: "Updated pending banner text", metadata: { roomId, actorUserId: userId ?? null, before: { name: banner.name ?? "", description: banner.description ?? "" }, after: text } } });
+    await bump(tx, room);
+    return ownerBanner(updated);
   }, db);
 }
 export async function changeBanner({ roomId, id, action, userId, adminId, reason }, db = prisma) {

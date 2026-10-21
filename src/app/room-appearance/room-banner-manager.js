@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
+import BannerTextEditor from "./banner-text-editor";
 const input = "w-full rounded-xl border border-[#d9e5e2] bg-white px-3 py-2 text-sm";
 export default function RoomBannerManager() {
   const [data, setData] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [reasons, setReasons] = useState({});
@@ -25,6 +26,7 @@ export default function RoomBannerManager() {
     </section>
     <section className="rounded-2xl border border-[#dfe9e7] bg-white p-5"><h3 className="font-bold">Review & moderation</h3><p className="text-xs text-[#71847f]">Latest 200 submissions. Private previews are visible only to the owner and authorized portal staff.</p><div className="mt-4 space-y-4">{data.items.map(b => <article key={b.id} className="grid gap-4 rounded-xl border p-4 md:grid-cols-[180px_1fr_240px]">
       <img src={b.previewUrl} alt="Submitted room banner" className="h-28 w-full rounded-lg object-contain bg-slate-50"/>
+      <BannerTextEditor key={`${b.id}:${b.name}:${b.description}`} banner={b} busy={busy} save={save}/>
       <div><p className="font-semibold">{b.room.title} <span className="text-xs">{b.room.roomId}</span></p><p className="text-sm">{b.owner.name} · {b.owner.publicId}</p><p className="text-sm">{b.status} · {b.coins} Coins · {b.durationDays} days</p>{b.expiresAt && <p className="text-xs">Expires {new Date(b.expiresAt).toLocaleString()}</p>}{b.reason && <p className="mt-2 text-sm text-red-700">{b.reason}</p>}{b.refundedAt && <p className="text-xs text-emerald-700">Refund completed</p>}</div>
       {["PENDING", "ACTIVE"].includes(b.status) && <div className="space-y-2"><input className={input} aria-label="Moderation reason" placeholder="Reason for rejection/removal" maxLength={500} value={reasons[b.id] || ""} onChange={e => setReasons({ ...reasons, [b.id]: e.target.value })}/>{b.status === "PENDING" && <button disabled={busy} className="mr-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm text-white" onClick={() => save({ action: "APPROVE", bannerId: b.id, roomId: b.room.roomId })}>Approve</button>}<button disabled={busy || !reasons[b.id]?.trim()} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 disabled:opacity-50" onClick={() => save({ action: b.status === "PENDING" ? "REJECT" : "DELETE", bannerId: b.id, roomId: b.room.roomId, reason: reasons[b.id] })}>{b.status === "PENDING" ? "Reject & refund" : "Remove (no refund)"}</button></div>}
     </article>)}{!data.items.length && <p className="py-8 text-center text-sm text-[#71847f]">No banner submissions yet.</p>}</div></section>

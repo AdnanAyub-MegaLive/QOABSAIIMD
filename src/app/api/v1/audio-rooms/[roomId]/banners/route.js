@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireMobileUser, mobileJson, mobileApiError, mobileOptions } from "@/lib/mobile-api";
-import { bannerSettings, ownerBanner, roomBannerSnapshot, submitBanner, changeBanner, reorderBanners } from "@/lib/room-banners";
+import { bannerSettings, ownerBanner, roomBannerSnapshot, submitBanner, changeBanner, reorderBanners, editBannerText } from "@/lib/room-banners";
 import { bannerError, bannerForm, decodeBanner } from "@/lib/room-banner-media";
 import { isRateLimited } from "@/lib/rate-limit";
 import { activeRoomBan } from "@/lib/audio-room-management";
@@ -35,7 +35,7 @@ export async function POST(request, { params }) {
     const form = await bannerForm(request), file = form.get("image");
     if (!(file instanceof File) || form.getAll("image").length !== 1) throw bannerError("INVALID_BANNER", "Provide one image.");
     const media = await decodeBanner(Buffer.from(await file.arrayBuffer()), file.type);
-    const banner = await submitBanner({ roomId, userId: user.id, requestId: request.headers.get("Idempotency-Key") || form.get("requestId"), packageId: form.get("packageId"), settingsRevision: Number(form.get("settingsRevision")), media });
+    const banner = await submitBanner({ roomId, userId: user.id, requestId: request.headers.get("Idempotency-Key") || form.get("requestId"), packageId: form.get("packageId"), settingsRevision: Number(form.get("settingsRevision")), media, name: form.get("name"), description: form.get("description") ?? "" });
     return mobileJson({ success: true, data: { banner } }, 201);
   } catch (e) { return fail(e); }
 }
@@ -43,5 +43,10 @@ export async function DELETE(request, { params }) {
   try { const { user, roomId } = await context(request, params); const { bannerId } = await request.json(); return mobileJson({ success: true, data: { banner: await changeBanner({ roomId, id: bannerId, action: "DELETE", userId: user.id }) } }); } catch (e) { return fail(e); }
 }
 export async function PATCH(request, { params }) {
-  try { const { user, roomId } = await context(request, params); const { bannerIds } = await request.json(); await reorderBanners(roomId, user.id, bannerIds); return mobileJson({ success: true, data: await roomBannerSnapshot(roomId) }); } catch (e) { return fail(e); }
+  try {
+    const { user, roomId } = await context(request, params), body = await request.json();
+    if (body.action === "EDIT_TEXT") return mobileJson({ success: true, data: { banner: await editBannerText({ roomId, id: body.bannerId, userId: user.id, name: body.name, description: body.description }) } });
+    await reorderBanners(roomId, user.id, body.bannerIds);
+    return mobileJson({ success: true, data: await roomBannerSnapshot(roomId) });
+  } catch (e) { return fail(e); }
 }

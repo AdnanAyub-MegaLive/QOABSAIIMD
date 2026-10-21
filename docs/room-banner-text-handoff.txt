@@ -1,0 +1,68 @@
+Room banner text (specs 118 / 128)
+
+Repository implementation verified 21 October 2026. Production deployment and
+owner/listener end-to-end verification remain pending; do not infer deployment
+from the presence of this document.
+
+Deploy migration 20261020110000_room_banner_text, generate Prisma, rebuild
+and restart before sending these fields. Existing banners return empty strings.
+
+POST /api/v1/audio-rooms/{roomId}/banners
+Alias: /api/audio-rooms/{roomId}/banners (same methods and access checks).
+Same Bearer session, image, packageId, settingsRevision and requestId /
+Idempotency-Key as before. Add multipart:
+  name: required, 1–60 Unicode characters, one line
+  description: optional string, at most 200 whitespace-separated words,
+               2,000 Unicode characters and 10 line breaks
+Both fields are cleaned of control/invisible characters and checked against
+the current prohibited-word policy before charging. No links in either field,
+matching the existing public Country Chat policy. Lengths are never truncated.
+For retries, retain the original text, image, settings revision and request ID.
+Changing text on an upload retry returns IDEMPOTENCY_CONFLICT.
+
+Pending owner edits:
+PATCH /api/v1/audio-rooms/{roomId}/banners
+Content-Type: application/json
+{ "action":"EDIT_TEXT", "bannerId":"...", "name":"Room news",
+  "description":"Full description" }
+Send both text fields. Omit description or send "" to clear it.
+Returns {success:true,data:{banner:{...}}}.
+Edits preserve createdAt, position, package, price and original request result
+identity. No further charge. Live/rejected/expired/deleted banners reject edits.
+Existing PATCH {bannerIds:[...]} reorder contract remains unchanged.
+
+Admin review displays the submitted text and allows saving corrected or blank
+text for pending banners, then approval using the existing Approve button.
+Live banner text cannot be edited even by an admin.
+
+All owner/public banner DTOs now include name and description, including
+room join roomBanners and audio-room:banners-changed snapshots.
+Treat both as plain text; never render as HTML.
+On tap, show image, name if nonempty, and full description if nonempty.
+Build the owner word counter using trim().split(/\s+/), with zero for empty.
+Refresh owner data after editing to display the normalized text.
+Admin-approved text is authoritative.
+
+Errors (HTTP 422 except BANNER_TEXT_LOCKED = 409):
+BANNER_NAME_REQUIRED
+BANNER_NAME_TOO_LONG
+BANNER_NAME_SINGLE_LINE
+BANNER_DESCRIPTION_TOO_LONG
+BANNER_DESCRIPTION_TOO_MANY_WORDS
+BANNER_DESCRIPTION_TOO_MANY_LINES
+BANNER_LINK_NOT_ALLOWED
+BANNER_TEXT_INVALID
+INAPPROPRIATE_WORD
+BANNER_TEXT_LOCKED
+Use error.message for the readable validation reason.
+Existing ownership, rate, balance, package-revision and slot errors are unchanged.
+
+QA:
+- Accept exactly 200 words / reject 201 without debit.
+- Reject blocked words in either field without debit.
+- Reject missing name, 61 characters, 2,001 description characters, 11 line breaks.
+- Pending owner edit does not charge or change queue position.
+- Another owner and live edits are refused.
+- Admin can blank/correct pending text before approval.
+- Approve then verify join snapshot/live update contains final text.
+- Verify tapping detail card on RN/Kotlin devices; this UI requires app changes.
