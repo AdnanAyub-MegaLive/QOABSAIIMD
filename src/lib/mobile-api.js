@@ -19,7 +19,7 @@ export function mobileOptions() {
   return new Response(null, { status: 204, headers: mobileCorsHeaders });
 }
 
-export async function requireMobileUser(request) {
+export async function requireMobileUser(request, { syncVip = true } = {}) {
   const token = request.headers
     .get("authorization")
     ?.replace(/^Bearer\s+/i, "");
@@ -56,7 +56,7 @@ export async function requireMobileUser(request) {
     if (!device) throw new Error("DEVICE_NOT_REGISTERED");
     if (device.isBanned) throw new Error("DEVICE_BANNED");
   }
-  const vipLevel = await synchronizeVip(user.id);
+  const vipLevel = syncVip ? await synchronizeVip(user.id) : null;
   if (vipLevel !== null) user.vipLevel = vipLevel;
   return user;
 }

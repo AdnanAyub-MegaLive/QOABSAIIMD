@@ -1,0 +1,53 @@
+Spec 119 — first implementation batch (local; not deployed)
+
+Reports
+POST /api/reports (Bearer mobile session)
+{targetType:"USER"|"AUDIO_ROOM",targetId,roomId?:string,reason,details?:string,requestId}
+Reason: 1–120 characters. Details: at most 500 characters.
+requestId: 1–128 letters, numbers, dots, underscores, colons or hyphens.
+Returns 201 {success:true,data:{reportId:"RPT-..."}}.
+Same reporter/key/content returns the same report ID; changed content returns
+409 IDEMPOTENCY_CONFLICT. Requests limited to 10/minute per user.
+Reporter identity is always taken from the authenticated session.
+Unknown target: 404 REPORT_TARGET_NOT_FOUND. Validation: 422 VALIDATION_ERROR.
+Reports intentionally accept evidence containing prohibited words.
+Reports are private to portal staff; reporting does not automatically ban anyone.
+
+Admin: Content & Social Safety > User & room reports
+/content-moderation/reports
+content.view permits reading; content.manage permits review updates.
+Statuses: OPEN, REVIEWING, RESOLVED, DISMISSED. Review changes are audit logged.
+Migration: 20261021010000_safety_reports.
+
+Reseller directories
+GET /api/wallet/coin-agents
+GET /api/v1/wallet/diamond-transfer/resellers
+GET /api/wallet/diamond-transfer/resellers
+All use the existing authenticated reseller directory and server-side account
+country, active/nondeleted/banned-account eligibility and self-exclusion.
+Query: page (20 per page), q. Response data retains page, hasMore and items.
+Coin-agent response also has data.agents; each includes
+contact:{type:"CHAT",publicId:"USR-..."}. This references the existing reseller
+chat flow; no personal phone/email contact details are exposed.
+Diamond-transfer response has data.resellers as requested.
+Records contain publicId, displayId (Special ID preferred), name, country and
+profileImage. No eligibility or transfer authorization was weakened.
+
+Activity Center
+GET /api/v1/events (Bearer)
+{success:true,data:{events:[{publicId,name,slug,bannerUrl:null,startsAt:null,
+endsAt:null,url:"https://portal.../event/slug"}]}}
+Only PUBLISHED events. Existing event page session handshake still applies.
+Event model has no banner/schedule fields yet; nulls mean not configured,
+not an implied start/end date. No draft files/admin data are exposed.
+
+Still pending from specs 119–121
+- Full Room Rocket seasons, transactional progress/rewards and results.
+- Stories storage, moderation, visibility, expiry and chat replies.
+- Password-reset flow and a real SMS provider (temporary signup OTP must not
+  be used for account recovery).
+- Remaining socket events and per-user delivery audit.
+- Spec 115 exact agency search/owner contract needs comparison.
+- Production deployment, dedicated-account end-to-end checks and phone QA.
+Spec 118 banner text implementation and migration are separate local changes.
+Do not treat this batch as completion of the full handoff.

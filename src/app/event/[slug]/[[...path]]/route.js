@@ -31,6 +31,13 @@ function unavailable() {
   return new Response("Not Found", { status: 404, headers: { "Cache-Control": "no-store" } });
 }
 
+function publishedRedirect(request, slug, version, parts) {
+  // A relative Location stays on the browser's public origin behind a proxy.
+  // Never copy the internal request host (or untrusted forwarded headers).
+  const location = `/event/${encodeURIComponent(slug)}/_v/${version}/${parts.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
+  return new Response(null, { status: 307, headers: { Location: location, "Cache-Control": "no-cache" } });
+}
+
 export async function GET(request, { params }) {
   try {
     const values = await params;
@@ -45,9 +52,7 @@ export async function GET(request, { params }) {
     if(versioned && selectedVersion!==event.version){
       const requested=segments.slice(2).join("/");
       if(requested.endsWith(".html")){
-        const url=new URL(request.url);
-        url.pathname=`/event/${encodeURIComponent(values.slug)}/_v/${event.version}/${segments.slice(2).map(encodeURIComponent).join("/")}`;
-        return new Response(null,{status:307,headers:{Location:url.toString(),"Cache-Control":"no-cache"}});
+        return publishedRedirect(request, values.slug, event.version, segments.slice(2));
       }
       // Never expose an unpublished draft by guessing a version number.
       return unavailable();
@@ -63,9 +68,7 @@ export async function GET(request, { params }) {
     // HTML follows the current publication; relative JS/CSS/media resolve under
     // a pinned version directory, including imports and CSS url() references.
     if(isHtml && (!versioned || selectedVersion!==event.version)){
-      const url=new URL(request.url);
-      url.pathname=`/event/${encodeURIComponent(values.slug)}/_v/${event.version}/${requested.split("/").map(encodeURIComponent).join("/")}`;
-      return new Response(null,{status:307,headers:{Location:url.toString(),"Cache-Control":"no-cache"}});
+      return publishedRedirect(request, values.slug, event.version, requested.split("/"));
     }
     const cacheControl=isHtml||file.extension===".json"?"no-cache":versioned?"public, max-age=31536000, immutable":"no-cache";
     const etag=`"${createHash("sha256").update(file.buffer).digest("hex")}"`;

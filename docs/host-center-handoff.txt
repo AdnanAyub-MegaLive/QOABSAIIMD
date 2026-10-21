@@ -1,0 +1,101 @@
+HOST CENTER — MOBILE HANDOFF
+Implementation date: 2026-10-21
+Deployment status: Implemented locally; not pushed, deployed or production-verified.
+No database migration is required for this endpoint.
+
+GET /api/v1/me/host-center?month=2026-10
+Authorization: Bearer <mobile session token>
+OPTIONS is supported. Responses use the existing v1 envelope and no-store headers.
+Month is optional (current UTC month). Valid range: 2000-01 through current UTC month.
+No user ID, agency ID or host ID is accepted as a reporting selector.
+Only an active, non-deleted account with HOST in appRoles and current agency membership may read this report.
+Normal mobile session/version/device restrictions apply. Agency ownership and portal permissions are not required.
+
+Illustrative response (figures are not production data):
+{
+  "success": true,
+  "data": {
+    "hostPublicId": "TLN-2030140",
+    "agency": { "publicId": "AGN-10200", "name": "Example Agency" },
+    "month": "2026-10",
+    "timezone": "UTC",
+    "period": { "start": "2026-10-01T00:00:00.000Z", "endExclusive": "2026-11-01T00:00:00.000Z" },
+    "earnings": {
+      "monthlyReceivedGiftDiamonds": "1000000",
+      "recordedGiftDiamonds": "1000000",
+      "unit": "DIAMONDS",
+      "coverage": "RECORDED_SETTLEMENTS",
+      "unvaluedGiftCount": 0,
+      "missingSettlementCount": 0
+    },
+    "attendance": {
+      "liveMinutes": 120,
+      "activeDays": 1,
+      "coverage": "RECORDED_VIDEO_AND_LEGACY_LIVE_SESSIONS",
+      "qualifyingDays": null,
+      "notice": "Recorded activity only; missing historical audio attendance cannot be reconstructed. No qualifying attendance rules are applied."
+    },
+    "targets": {
+      "type": "AGENCY_COMMISSION_NOT_HOST_SALARY",
+      "policyConfigured": true,
+      "policyVersion": 1,
+      "tiers": [{ "minDiamonds": "1000000", "commissionBps": 1000 }],
+      "bySettlementAgency": [{
+        "agency": { "publicId": "AGN-10200", "name": "Example Agency" },
+        "recordedGiftDiamonds": "1000000",
+        "achievedTier": { "minDiamonds": "1000000", "commissionBps": 1000 },
+        "estimatedAgencyCommission": { "amount": "100000", "unit": "DIAMONDS" }
+      }],
+      "personalTarget": null,
+      "remainingPersonalTarget": null,
+      "requiredDays": null,
+      "requiredHours": null,
+      "hostSalaryLevel": null
+    },
+    "salary": {
+      "estimated": null,
+      "finalized": null,
+      "payable": null,
+      "policyStatus": "NO_APPROVED_PERSONAL_HOST_SALARY_POLICY"
+    },
+    "reportingBasis": {
+      "earnings": "NON_REVERSED_SETTLEMENTS_BY_SETTLEMENT_CREATED_AT",
+      "identity": "EXACT_USER_TALENT_PUBLIC_ID",
+      "agencyChanges": "HOST_MONTH_ACROSS_AGENCIES_COMMISSION_GROUPED_BY_SETTLEMENT_AGENCY",
+      "hostRemoval": "SELF_SERVICE_ACCESS_REVOKED_HISTORICAL_RECORDS_PRESERVED"
+    },
+    "revision": "0123456789abcdef",
+    "generatedAt": "2026-10-21T09:00:00.000Z"
+  }
+}
+
+FIELD RULES
+- Monetary amounts and monetary thresholds are decimal strings; never parse them through floating-point arithmetic.
+- Earnings reuse agencyWork with recorded recipientDiamonds. Reversed gifts are excluded.
+- monthlyReceivedGiftDiamonds is null if any qualifying settlement lacks valuation or any non-reversed gift in the month lacks settlement. recordedGiftDiamonds remains the known subtotal, not a guaranteed full total.
+- Zero means no recorded qualifying earnings. It does not certify completeness of historical imports that left no records.
+- Attendance reuses sessionAttendance: merged overlapping video/legacy sessions, clipped to reporting period and current time, whole recorded minutes and distinct UTC days. No audio attendance reconstruction or qualifying-hours rule is invented.
+- Agency commission tiers reuse AgencySalaryPolicy for the selected month. commissionBps=1000 means 10%; these are NOT personal salary tiers.
+- bySettlementAgency contains ONLY this host's contribution and its tier/estimated agency commission. It contains no other members or agency-wide totals. No achieved tier means null. No recorded contributions means an empty list.
+- Missing monthly commission policy gives tiers=null, policyConfigured=false and no commission estimates. Missing agency attribution or incomplete valuation also prevents commission estimates.
+- No approved personal target/attendance/salary policy is wired to this report. Personal target, remaining target, required days/hours, salary level, estimated/finalized/payable salary are null, never zero or agency commission substitutes. Legacy hostSalaryCoins accounting and SalaryHistory changes are not treated as a payable salary bill.
+- Current agency is returned at the top. Historical gifts stay attributed to the agency stored on their settlement; moving agency does not reassign prior earnings. The host's entire month remains visible while they are an eligible host, including contributions under a previous agency.
+- After removal (HOST removed or no agency), access is forbidden even for historical months. Existing records remain unchanged. Exact matching public IDs map legacy Talent to User; names/email/numeric suffixes are never used. Unverifiable old identities are not guessed.
+- revision is a hash of the report excluding generatedAt, not a monotonically increasing integer. It changes when displayed data/policy changes, including recorded ongoing attendance. Do not compare revisions numerically.
+- Read uses a RepeatableRead snapshot. It does not settle gifts, debit balances, create payouts, synchronize VIP rewards or change user data. Standard API request logging/rate limiting still applies.
+
+ERRORS (existing {success:false,error:{code,message}} envelope)
+422 VALIDATION_ERROR: invalid or future month (shared salaryMonth validation).
+403 HOST_CENTER_FORBIDDEN: not an active agency-linked host, including removed hosts.
+401 INVALID_SESSION / SESSION_REVOKED / DEVICE_NOT_REGISTERED: existing session rules.
+403 DEVICE_BANNED: existing device restriction.
+429 RATE_LIMITED: retry later (60 requests/minute via existing v1 limiter).
+500 HOST_CENTER_FAILED: unexpected server/report failure; do not render this as zero earnings.
+Account inactivity may be rejected as SESSION_REVOKED before host eligibility is evaluated.
+
+APP CHECKS
+Cache by authenticated account + month, clearing on logout/account switch. Pull-to-refresh always calls the endpoint.
+Render null as unavailable/not configured, and label agency estimates as agency commission, never host salary.
+Show recorded attendance coverage notice. Do not label activeDays as qualifying days.
+Test host without agency ownership; non-host rejection; expired session; cross-user query ignored; month changes; agency transfer; removed host; reversed/unvalued gifts; incomplete attendance and missing policy.
+Production deployment and real-device verification are still pending. Rebuild/restart after deploying code; no settlement or historical repair script is required.

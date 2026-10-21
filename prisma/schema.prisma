@@ -178,6 +178,27 @@ model ChatWordPolicy {
   updatedAt DateTime @updatedAt
 }
 
+model SafetyReport {
+  id String @id @default(cuid())
+  publicId String @unique
+  reporterUserId String
+  requestId String
+  fingerprint String
+  targetType String
+  targetId String
+  targetInternalId String
+  roomId String?
+  reason String
+  details String @default("")
+  status String @default("OPEN")
+  reviewNote String @default("")
+  reviewedById String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([reporterUserId, requestId])
+  @@index([status, createdAt, id])
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   adminId     String?

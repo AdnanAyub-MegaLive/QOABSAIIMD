@@ -1,0 +1,43 @@
+Spec 122: dynamic profile card backgrounds and medals
+
+Admin: Platform Rules > Profile card artwork.
+SUPPORTER ranges use the profile owner's Charm level, not a contributor's level.
+Fields: backgroundAssetId, top1MedalAssetId, top2MedalAssetId, top3MedalAssetId.
+AGENCY ranges use Agency level; fields: backgroundAssetId, badgeAssetId.
+Only active global artwork is accepted. Ranges cannot overlap per track.
+Uploads remain in the existing Uploads workflow; enter their AST IDs here.
+Image/video previews are shown. SVGA previews show posters or an asset link.
+
+Own and public profile additions:
+cardBackgrounds.supporter: {url,mimeType,version,mediaVersion,posterUrl,posterMimeType}|null
+supporterMedals: {top1: <same media object>|null,top2: ...|null,top3: ...|null}
+agency.badgeUrl, agency.badgeMimeType, agency.badgeVersion
+agency.cardBackgroundUrl, agency.cardBackgroundMimeType, agency.cardBackgroundVersion
+
+URLs use public display signatures and v=<mediaVersion>; no Bearer header is
+needed. Keep v in local cache keys; signing parameters may change independently.
+All new versions are taken from the existing stored byte hashes. Previously
+unversioned rows need the existing media-version backfill; no fake revision is used.
+Null fields mean use built-in artwork. Agency badge falls back to the current
+agency level badge when no valid range medal exists.
+MP4 backgrounds must play muted and looping. Do not play sound from artwork.
+Background formats: PNG/JPEG/WebP/GIF/SVGA/MP4.
+New medal selections: PNG/WebP/GIF/SVGA. Legacy JPEG medals remain readable.
+Recommended backgrounds: Agency 1200x375; Supporter 1200x600.
+Medals should be square artwork with a transparent centre.
+
+Migration 20261021020000_supporter_medals preserves SUPPORTER.badgeAssetId as
+top1MedalAssetId, unless top1 is already explicitly set (including null).
+AGENCY badge settings stay unchanged. Revision increases when conversion occurs.
+Read-time compatibility also handles legacy rows before conversion.
+
+QA on phone after deployment:
+- Verify the owner's Charm range controls all three medals and background.
+- Verify agency level controls its background/medal and fallback.
+- Replace file bytes: version and URL v change; app fetches once then reuses cache.
+- Remove a range: Supporter fields/background become null; Agency medal uses
+  its existing progression fallback. App built-ins handle remaining nulls.
+- Play PNG/WebP/GIF/SVGA medals and muted video backgrounds on both platforms.
+- Compare own and another viewer's profile responses.
+
+Local tests do not substitute for deployment/device playback verification.
