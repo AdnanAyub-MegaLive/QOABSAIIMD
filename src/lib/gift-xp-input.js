@@ -8,3 +8,11 @@ export function giftXpInput(input) {
   }
   return result;
 }
+
+export function hostDiamondsInput(value) {
+  if (value == null || String(value).trim() === "") return null;
+  const text = String(value).trim();
+  if (!/^\d+$/.test(text) || BigInt(text) > 1000000000000n)
+    throw Object.assign(new Error("Host Diamonds must be blank or a whole number from 0 to 1000000000000."), { code: "VALIDATION_ERROR", status: 422 });
+  return BigInt(text);
+}

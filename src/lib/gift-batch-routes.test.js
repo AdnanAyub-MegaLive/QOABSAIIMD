@@ -42,6 +42,9 @@ beforeEach(() => {
     walletTransaction: { create: async ({ data }) => { mocks.ledger.push(data); return data; } },
     auditLog: { create: async () => ({}) },
     userGiftInventory: { updateMany: vi.fn(async () => ({ count: 1 })) },
+    luckyGiftPolicy: { findUnique: async () => ({ id: "GLOBAL", poolContributionBps: 6000, bigWinMinCoins: 10000n, multipliers: [{ multiplierBps: 0, weight: 1 }], version: 1 }) },
+    luckyGiftPool: { upsert: async () => ({}), findUniqueOrThrow: async () => ({ id: "GLOBAL", balance: 0n }), update: async () => ({}) },
+    $queryRaw: async () => [],
     $transaction: async fn => fn(mocks.db),
   });
 });

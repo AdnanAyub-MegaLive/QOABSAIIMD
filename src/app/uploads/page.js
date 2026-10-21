@@ -39,6 +39,7 @@ export default async function UploadsPage() {
         coinPrice: true,
         senderXp: true,
         receiverXp: true,
+        hostDiamonds: true,
         giftTier: true,
         giftCategory: true,
         minimumVipLevel: true,

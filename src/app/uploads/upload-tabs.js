@@ -355,6 +355,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
   const [giftTier, setGiftTier] = useState(asset.giftTier ?? "CLASSIC");
   const [senderXp,setSenderXp]=useState(asset.senderXp ?? "0");
   const [receiverXp,setReceiverXp]=useState(asset.receiverXp ?? "0");
+  const [hostDiamonds,setHostDiamonds]=useState(asset.hostDiamonds ?? "");
   const [minimumVipLevel, setMinimumVipLevel] = useState(
     asset.minimumVipLevel ?? 1,
   );
@@ -400,7 +401,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
       ...(isBanner
         ? { actionUrl: actionUrl.trim(), placement, sortOrder: Number(sortOrder) }
         : isGift
-          ? { giftCategory, giftTier, coinPrice, senderXp, receiverXp, distribution: "STORE", storeVisible: false }
+          ? { giftCategory, giftTier, coinPrice, senderXp, receiverXp, hostDiamonds, distribution: "STORE", storeVisible: false }
         : isMusic
           ? { distribution: "FREE", storeVisible: false, isRoomBackground: false }
         : {
@@ -506,7 +507,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
             )}
           </div>
           {isGift && (
-            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
+            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp} hostDiamonds={hostDiamonds} onHostDiamonds={setHostDiamonds}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
@@ -712,8 +713,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
   const [giftTier, setGiftTier] = useState("CLASSIC");
   const [senderXp,setSenderXp]=useState("");
   const [receiverXp,setReceiverXp]=useState("");
-  const [giftRewardMinBps, setGiftRewardMinBps] = useState("0");
-  const [giftRewardMaxBps, setGiftRewardMaxBps] = useState("20000");
+  const [hostDiamonds,setHostDiamonds]=useState("");
   const [minimumVipLevel, setMinimumVipLevel] = useState(1);
   const [minimumRecharge, setMinimumRecharge] = useState("1");
   const [defaultGrantDuration, setDefaultGrantDuration] = useState(null);
@@ -778,8 +778,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
       form.set("giftCategory", giftCategory);
       form.set("senderXp",senderXp);
       form.set("receiverXp",receiverXp);
-      form.set("giftRewardMinBps", giftRewardMinBps);
-      form.set("giftRewardMaxBps", giftRewardMaxBps);
+      form.set("hostDiamonds", hostDiamonds);
       form.set("coinPrice", String(coinPrice));
       form.set("distribution", "STORE");
       form.set("storeVisible", "false");
@@ -936,15 +935,11 @@ function UploadModal({ active, users, onClose, onCreated }) {
             </Field>
           )}
           {isGift && (
-            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp}
+            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp} hostDiamonds={hostDiamonds} onHostDiamonds={setHostDiamonds}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
               onCoinPrice={setCoinPrice}
-              giftRewardMinBps={giftRewardMinBps}
-              onGiftRewardMinBps={setGiftRewardMinBps}
-              giftRewardMaxBps={giftRewardMaxBps}
-              onGiftRewardMaxBps={setGiftRewardMaxBps}
             />
           )}
           {!isBanner && !isGift && !isMusic && (
@@ -1115,7 +1110,7 @@ function AssignmentPeriod({ value, onChange }) {
   );
 }
 
-function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderXp, receiverXp, onReceiverXp, giftTier, onGiftTier, coinPrice, onCoinPrice, giftRewardMinBps, onGiftRewardMinBps, giftRewardMaxBps, onGiftRewardMaxBps }) {
+function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderXp, receiverXp, onReceiverXp, hostDiamonds, onHostDiamonds, giftTier, onGiftTier, coinPrice, onCoinPrice }) {
   return (
     <fieldset className="rounded-xl border border-[#cadbd7] bg-[#f8fbfa] p-4">
       <legend className="px-2 text-xs font-bold text-[#294a45]">
@@ -1149,7 +1144,8 @@ function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderX
           />
         </Field>
       </div>
-      {giftTier === "LUCKY" && onGiftRewardMinBps && <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Minimum reward (basis points)"><input type="number" min="0" max="50000" value={giftRewardMinBps} onChange={(event)=>onGiftRewardMinBps(event.target.value)} className={inputClass}/></Field><Field label="Maximum reward (basis points)"><input type="number" min="0" max="50000" value={giftRewardMaxBps} onChange={(event)=>onGiftRewardMaxBps(event.target.value)} className={inputClass}/></Field></div>}
+      <div className="mt-4"><Field label="Host receives (Diamonds per gift, optional)"><input type="number" min="0" max="1000000000000" step="1" value={hostDiamonds ?? ""} placeholder="Blank = use the profit split" onChange={e=>onHostDiamonds(e.target.value)} className={inputClass}/></Field><p className="mt-1.5 text-[10px] text-[#7b8e89]">Diamonds credited to the recipient for each unit sent. Leave blank to use Platform Rules → profit split.</p></div>
+      {giftTier === "LUCKY" && <p className="mt-3 rounded-lg bg-[#fff6e5] px-3 py-2 text-[11px] leading-4 text-[#7a5a12]">Sender returns for Lucky Gifts come from the Lucky pool and multiplier table in Platform Rules → Lucky Gifts.</p>}
       <p className="mt-3 text-[10px] leading-4 text-[#748681]">
         Gifts are consumable. Users spend this price each time they send one;
         gifts are never owned, assigned, or equipped.

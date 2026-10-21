@@ -1,0 +1,20 @@
+ALTER TABLE "UploadAsset" ADD COLUMN "hostDiamonds" BIGINT;
+ALTER TABLE "GiftSettlement" ADD COLUMN "luckyPoolCoins" BIGINT NOT NULL DEFAULT 0;
+CREATE TABLE "LuckyGiftPolicy" (
+ "id" TEXT PRIMARY KEY DEFAULT 'GLOBAL',
+ "poolContributionBps" INTEGER NOT NULL DEFAULT 6000,
+ "bigWinMinCoins" BIGINT NOT NULL DEFAULT 10000,
+ "multipliers" JSONB NOT NULL,
+ "version" INTEGER NOT NULL DEFAULT 1,
+ "updatedByAdminId" TEXT,
+ "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ "updatedAt" TIMESTAMP(3) NOT NULL
+);
+CREATE TABLE "LuckyGiftPool" (
+ "id" TEXT PRIMARY KEY DEFAULT 'GLOBAL',
+ "balance" BIGINT NOT NULL DEFAULT 0,
+ "paidOut" BIGINT NOT NULL DEFAULT 0,
+ "collected" BIGINT NOT NULL DEFAULT 0,
+ "updatedAt" TIMESTAMP(3) NOT NULL
+);
+INSERT INTO "LuckyGiftPool" ("id","balance","paidOut","collected","updatedAt") VALUES ('GLOBAL',0,0,0,CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;

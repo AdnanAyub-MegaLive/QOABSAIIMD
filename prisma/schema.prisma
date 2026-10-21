@@ -1370,6 +1370,7 @@ model UploadAsset {
   vipBenefits VipBenefitAsset[]
   senderXp BigInt @default(0)
   receiverXp BigInt @default(0)
+  hostDiamonds BigInt?
   id                          String                       @id @default(cuid())
   publicId                    String                       @unique
   name                        String
@@ -1788,6 +1789,7 @@ model GiftSettlement {
   agencyCoins       BigInt          @default(0)
   companyCoins      BigInt          @default(0)
   reusableCoins     BigInt          @default(0)
+  luckyPoolCoins    BigInt          @default(0)
   hostShareBps      Int
   agencyShareBps    Int
   companyShareBps   Int
@@ -1799,6 +1801,25 @@ model GiftSettlement {
 
   @@index([agencyId, createdAt])
   @@index([recipientType, createdAt])
+}
+
+model LuckyGiftPolicy {
+  id                  String   @id @default("GLOBAL")
+  poolContributionBps Int      @default(6000)
+  bigWinMinCoins      BigInt   @default(10000)
+  multipliers         Json
+  version             Int      @default(1)
+  updatedByAdminId    String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model LuckyGiftPool {
+  id        String   @id @default("GLOBAL")
+  balance   BigInt   @default(0)
+  paidOut   BigInt   @default(0)
+  collected BigInt   @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 model CoinAdjustment {

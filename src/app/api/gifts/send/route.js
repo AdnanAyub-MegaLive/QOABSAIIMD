@@ -1,4 +1,4 @@
-import { calculateGiftSettlement, assertGiftRecipient } from "@/lib/gift-currency-settlement";
+import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { currencyPolicy } from "@/lib/currency-policy";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
@@ -9,7 +9,7 @@ import {
   mobileOptions,
   requireMobileUser,
 } from "@/lib/mobile-api";
-import { coinsForShare, getProfitSplitRule } from "@/lib/profit-rules";
+import { getProfitSplitRule } from "@/lib/profit-rules";
 import { audioRoomParticipantIds } from "@/lib/realtime";
 import { giftMedia } from "@/lib/gift-media";
 import { requestOrigin } from "@/lib/user-perks";
@@ -20,6 +20,7 @@ import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { randomInt } from "node:crypto";
 import { getLiveCommerceRule, applyLiveGiftReward } from "@/lib/live-commerce";
 import { parseGiftBatchId } from "@/lib/gift-batch";
+import { luckyPolicy, settleLuckyReward, multiplierLabel } from "@/lib/lucky-gifts";
 import { requireChatGiftTarget, writeChatGiftMessage } from "@/lib/chat-gifts";
 
 export function OPTIONS() {
@@ -78,8 +79,7 @@ export async function POST(request) {
           mediaVersion: true,
           posterMediaVersion: true,
           coinPrice: true,
-          giftRewardMinBps: true,
-          giftRewardMaxBps: true,
+          hostDiamonds: true,
         },
       }),
       prisma.user.findFirst({
@@ -120,14 +120,6 @@ export async function POST(request) {
       }
     }
     const grossCoins = giftAsset.coinPrice * BigInt(quantity);
-    let luckyRewardBps = 0;
-    let requestedLuckyReward = 0n;
-    if (giftAsset.giftTier === "LUCKY") {
-      const min = Math.max(0, Math.min(50_000, giftAsset.giftRewardMinBps ?? 0));
-      const max = Math.max(min, Math.min(50_000, giftAsset.giftRewardMaxBps ?? 10_000));
-      luckyRewardBps = randomInt(min, max + 1);
-      requestedLuckyReward = coinsForShare(grossCoins, luckyRewardBps);
-    }
     const blindBoxReward = giftAsset.giftTier === "BLIND_BOX"
       ? await prisma.uploadAsset.findFirst({
           where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } },
@@ -161,8 +153,11 @@ export async function POST(request) {
       if (!debited.count) throw new Error("INSUFFICIENT_COINS");
 
       const currency = await currencyPolicy(tx);
-      const { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins, luckyRewardCoins, receivedDiamonds } =
-        calculateGiftSettlement(grossCoins, isHost, policy, currency, requestedLuckyReward);
+      const lucky = giftAsset.giftTier === "LUCKY" ? await luckyPolicy(tx) : null;
+      const { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins, luckyPoolCoins, receivedDiamonds } =
+        calculateGiftSettlement(grossCoins, isHost, policy, currency, 0n, { fixedDiamonds: fixedGiftDiamonds(giftAsset.hostDiamonds, quantity), luckyPoolBps: lucky?.poolContributionBps ?? null });
+      const luckyOutcome = lucky ? await settleLuckyReward(tx, { gross: grossCoins, contribution: luckyPoolCoins, policy: lucky }) : null;
+      const luckyRewardCoins = luckyOutcome?.rewardCoins ?? 0n;
       const gift = await tx.giftTransaction.create({
         data: {
           senderId: sessionUser.id,
@@ -236,6 +231,7 @@ export async function POST(request) {
           agencyCoins,
           companyCoins,
           reusableCoins,
+          luckyPoolCoins,
           hostShareBps: isHost ? policy.hostShareBps : 0,
           agencyShareBps: isHost ? policy.agencyShareBps : 0,
           companyShareBps: isHost
@@ -269,7 +265,7 @@ export async function POST(request) {
           },
         },
       });
-      if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); await tx.walletTransaction.create({ data: ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps: luckyRewardBps } }) }); }
+      if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); await tx.walletTransaction.create({ data: ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps: luckyOutcome.multiplierBps, multiplier: multiplierLabel(luckyOutcome.multiplierBps), limitedByPool: luckyOutcome.limitedByPool } }) }); }
       const sender = await tx.user.findUniqueOrThrow({
         where: { id: sessionUser.id },
         select: { coinBalance: true },
@@ -277,13 +273,13 @@ export async function POST(request) {
       const liveTotals = live ? await tx.videoLiveSession.update({ where: { id: live.id }, data: { giftIncome: { increment: grossCoins }, revision: { increment: 1 } }, select: { giftIncome: true, revision: true } }) : null;
       if (live) await applyLiveGiftReward(tx, live, sessionUser.id, grossCoins);
       const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:receivedDiamonds,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request)});
-      const result = { gift, settlement, sender, luckyRewardCoins, liveTotals, progression };
+      const result = { gift, settlement, sender, luckyRewardCoins, luckyOutcome, liveTotals, progression };
 
     const origin = requestOrigin(request);
     const giftSender = { ...await resolveGiftSender(sessionUser, origin), ...(await publicProgression([sessionUser], origin, tx)).get(sessionUser.publicId) };
     const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, quantity, ...giftMedia(blindBoxReward, origin) } : null;
     const giftDetails = { publicId: giftAsset.publicId, name: giftAsset.name, ...giftMedia(giftAsset, origin), coinPrice: giftAsset.coinPrice.toString() };
-    const extras = { requestId: operation.key, recipientIds: [recipientId], transactionIds: [result.gift.id], giftTier: giftAsset.giftTier, catalogCategory: giftAsset.giftCategory, giftBatchId: result.gift.giftBatchId, comboId, lucky: giftAsset.giftTier === "LUCKY" ? { rewardCoins: result.luckyRewardCoins.toString(), rewardBps: luckyRewardBps } : null, blindBox: revealedGift ? { revealedGift } : null };
+    const extras = { requestId: operation.key, recipientIds: [recipientId], transactionIds: [result.gift.id], giftTier: giftAsset.giftTier, catalogCategory: giftAsset.giftCategory, giftBatchId: result.gift.giftBatchId, comboId, lucky: result.luckyOutcome ? { rewardCoins: result.luckyRewardCoins.toString(), rewardBps: result.luckyOutcome.multiplierBps, multiplier: multiplierLabel(result.luckyOutcome.multiplierBps), bigWin: result.luckyOutcome.bigWin } : null, blindBox: revealedGift ? { revealedGift } : null };
     if (live) {
       const updatedLive = result.liveTotals;
       const liveGiftData = { liveId: live.publicId, transactionId: result.gift.id, createdAt: result.gift.createdAt.toISOString(), giftIncome: updatedLive.giftIncome.toString(), revision: updatedLive.revision, sender: giftSender, gift: giftDetails, ...extras, recipientId, giftId: giftAsset.publicId, quantity, totalCoins: grossCoins.toString() };
@@ -374,6 +370,9 @@ export async function POST(request) {
           senderCoinBalance: result.sender.coinBalance.toString(),
           createdAt: result.gift.createdAt.toISOString(),
           luckyRewardCoins: result.luckyRewardCoins.toString(),
+          luckyRewardBps: result.luckyOutcome?.multiplierBps ?? null,
+          luckyMultiplier: result.luckyOutcome ? multiplierLabel(result.luckyOutcome.multiplierBps) : null,
+          luckyBigWin: result.luckyOutcome?.bigWin ?? false,
           revealedGift,
         },
       }

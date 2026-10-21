@@ -424,7 +424,7 @@ export async function POST(request) {
           giftCategory: selectedGiftCategory,
           giftRewardMinBps,
           giftRewardMaxBps,
-          ...(isGift ? giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")}) : {}),
+          ...(isGift ? { ...giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")}), hostDiamonds: hostDiamondsInput(form.get("hostDiamonds")) } : {}),
           // Gifts created here are shared catalogue artwork, not private grants.
           // Their price/VIP requirements still apply to sending the gift.
           isGlobal: isBanner || isGift || distribution.distribution === "FREE",
@@ -689,7 +689,7 @@ export async function PATCH(request) {
           ...(Array.isArray(body?.tags) ? { tags: cleanTags(body.tags) } : {}),
           ...(actionUrl !== undefined ? { actionUrl } : {}),
           ...(isBanner ? { placement, sortOrder } : {}),
-          ...(isGift ? { giftTier, giftCategory: normalizeGiftCategory(body.giftCategory ?? current.giftCategory, giftTier), ...giftXpInput(body) } : {}),
+          ...(isGift ? { giftTier, giftCategory: normalizeGiftCategory(body.giftCategory ?? current.giftCategory, giftTier), ...giftXpInput(body), ...("hostDiamonds" in body ? { hostDiamonds: hostDiamondsInput(body.hostDiamonds) } : {}) } : {}),
           ...(updatesAssignments ? { isGlobal: false } : {}),
           ...(typeof body?.isRoomBackground === "boolean"
             ? { isRoomBackground: body.isRoomBackground }
@@ -891,4 +891,4 @@ export async function DELETE(request) {
     );
   }
 }
-import { giftXpInput } from "@/lib/gift-xp-input";
+import { giftXpInput, hostDiamondsInput } from "@/lib/gift-xp-input";

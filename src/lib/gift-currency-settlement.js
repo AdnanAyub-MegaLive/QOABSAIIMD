@@ -12,13 +12,29 @@ export async function assertGiftRecipient(tx, recipient) {
 
 // All gift sources use the same integer, per-recipient settlement calculation.
 // Coin allocations describe platform accounting; recipients always receive Diamonds.
-export function calculateGiftSettlement(gross, host, policy, currency, requestedReward = 0n) {
-  const hostSalaryCoins = host ? coinsForShare(gross, policy.hostShareBps) : 0n;
+export function fixedGiftDiamonds(perUnit, quantity) {
+  return perUnit == null ? null : BigInt(perUnit) * BigInt(quantity);
+}
+
+export function calculateGiftSettlement(gross, host, policy, currency, requestedReward = 0n, options = {}) {
   const agencyCoins = host ? coinsForShare(gross, policy.agencyShareBps) : 0n;
-  const reusableCoins = host ? 0n : coinsForShare(gross, policy.normalUserReusableShareBps);
+  let recipientCoins = host ? coinsForShare(gross, policy.hostShareBps) : coinsForShare(gross, policy.normalUserReusableShareBps);
+  let receivedDiamonds = null;
+  if (options.fixedDiamonds != null) {
+    const numerator = BigInt(currency.rules.giftDiamondsNumerator), denominator = BigInt(currency.rules.giftCoinsDenominator);
+    const room = gross - agencyCoins;
+    const wanted = BigInt(options.fixedDiamonds);
+    const wantedCoins = (wanted * denominator + numerator - 1n) / numerator;
+    recipientCoins = wantedCoins > room ? room : wantedCoins;
+    receivedDiamonds = wantedCoins > room ? (room * numerator) / denominator : wanted;
+  }
+  const hostSalaryCoins = host ? recipientCoins : 0n;
+  const reusableCoins = host ? 0n : recipientCoins;
   const available = gross - hostSalaryCoins - agencyCoins - reusableCoins;
   if (gross < 0n || available < 0n || requestedReward < 0n) throw new Error("Invalid gift settlement policy.");
-  const luckyRewardCoins = requestedReward > available ? available : requestedReward;
-  return { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins: available - luckyRewardCoins,
-    luckyRewardCoins, receivedDiamonds: giftDiamonds(gross, hostSalaryCoins + reusableCoins, currency) };
+  const luckyPoolCoins = options.luckyPoolBps == null ? 0n : (() => { const share = coinsForShare(gross, options.luckyPoolBps); return share > available ? available : share; })();
+  const remaining = available - luckyPoolCoins;
+  const luckyRewardCoins = requestedReward > remaining ? remaining : requestedReward;
+  return { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins: remaining - luckyRewardCoins, luckyPoolCoins,
+    luckyRewardCoins, receivedDiamonds: receivedDiamonds ?? giftDiamonds(gross, hostSalaryCoins + reusableCoins, currency) };
 }

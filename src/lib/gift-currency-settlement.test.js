@@ -13,3 +13,15 @@ it("rejects unavailable recipients and changed membership",async()=>{
  await expect(assertGiftRecipient({user:{findFirst:async()=>null}},{id:"u"})).rejects.toMatchObject({code:"USER_NOT_FOUND"});
  await expect(assertGiftRecipient({user:{findFirst:async()=>({agencyId:"new",appRoles:["HOST"]})}},{id:"u",agencyId:"old",appRoles:["HOST"]})).rejects.toMatchObject({code:"GIFT_RECIPIENT_CHANGED"});
 });
+it("credits the gift's fixed host Diamonds and keeps the rest for agency and company",()=>{
+ const result=calculateGiftSettlement(100n,true,split,{...currency,rules:{...currency.rules,giftDiamondsNumerator:"1",giftCoinsDenominator:"1"}},0n,{fixedDiamonds:30n});
+ expect(result).toMatchObject({receivedDiamonds:30n,hostSalaryCoins:30n,agencyCoins:20n,companyCoins:50n});
+});
+it("caps fixed host Diamonds at what the gift value can cover",()=>{
+ const result=calculateGiftSettlement(100n,true,split,{...currency,rules:{...currency.rules,giftDiamondsNumerator:"1",giftCoinsDenominator:"1"}},0n,{fixedDiamonds:500n});
+ expect(result).toMatchObject({receivedDiamonds:80n,hostSalaryCoins:80n,agencyCoins:20n,companyCoins:0n});
+});
+it("moves the lucky pool share out of the company share",()=>{
+ const result=calculateGiftSettlement(100n,true,split,currency,0n,{luckyPoolBps:3000});
+ expect(result).toMatchObject({luckyPoolCoins:30n,companyCoins:10n,luckyRewardCoins:0n});
+});
