@@ -1,5 +1,6 @@
 import {createHash, createHmac, timingSafeEqual} from 'node:crypto';
 import {isDatabaseOwner} from './database-management-access.js';
+import {containsDatabaseReference} from './database-reference-scan.js';
 
 const protectedTables = new Set(['Admin', '_prisma_migrations']);
 const quote = name => '"' + name.replaceAll('"','""') + '"';
@@ -24,7 +25,7 @@ export function openDatabasePreview(token,adminId,now=Date.now()) {
   return payload;
 }
 export async function databaseTables(db) {
-  const rows=await db.$queryRawUnsafe(`SELECT tablename AS name FROM pg_tables WHERE schemaname='public' ORDER BY tablename`);
+  const rows=await db.$queryRawUnsafe(`SELECT tablename::text AS name FROM pg_tables WHERE schemaname='public' ORDER BY tablename`);
   return rows.map(row=>row.name).filter(name=>!protectedTables.has(name));
 }
 function selection(input,names) {
@@ -38,9 +39,9 @@ function selection(input,names) {
 // real FK graph. All identifiers below come from these catalogues, never SQL input.
 export async function databaseDeletionPlan(tx,input) {
   const names=await databaseTables(tx),scope=selection(input,names);
-  const relations=await tx.$queryRawUnsafe(`SELECT child.relname AS child, parent.relname AS parent,
-    array_agg(ca.attname ORDER BY k.ord) AS "childColumns",
-    array_agg(pa.attname ORDER BY k.ord) AS "parentColumns"
+  const relations=await tx.$queryRawUnsafe(`SELECT child.relname::text AS child, parent.relname::text AS parent,
+    array_agg(ca.attname::text ORDER BY k.ord) AS "childColumns",
+    array_agg(pa.attname::text ORDER BY k.ord) AS "parentColumns"
     FROM pg_constraint fk JOIN pg_class child ON child.oid=fk.conrelid
     JOIN pg_namespace cn ON cn.oid=child.relnamespace
     JOIN pg_class parent ON parent.oid=fk.confrelid
@@ -61,13 +62,19 @@ export async function databaseDeletionPlan(tx,input) {
   for(const name of scope.mode==='RESET'?names:[scope.table]) {
     let condition='',args=[];
     if(scope.mode==='ROW'){
-      const columns=await tx.$queryRawUnsafe(`SELECT column_name AS name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND column_name IN ('id','publicId')`,name);
+      const columns=await tx.$queryRawUnsafe(`SELECT column_name::text AS name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND column_name IN ('id','publicId')`,name);
       if(!columns.length)throw fail('This table has no single ID. Use table deletion.');
       condition=' WHERE '+columns.map(c=>`${quote(c.name)}::text=$1`).join(' OR ');args=[scope.id];
     }
     add(name,await tx.$queryRawUnsafe(`SELECT ctid::text AS locator, xmin::text AS version FROM ${table(name)}${condition} LIMIT 100001`,...args));
   }
   if(scope.mode==='ROW'&&total!==1)throw fail('Expected exactly one matching record.','NOT_FOUND',404);
+  // Include denormalized outbox payloads, snapshots, audit metadata, URL/text
+  // references and identifier arrays, not just declared foreign keys.
+  const columns=scope.mode==='RESET'?[]:await tx.$queryRawUnsafe(`SELECT table_name::text AS "table", column_name::text AS name FROM information_schema.columns WHERE table_schema='public' AND (data_type IN ('text','character varying','json','jsonb') OR data_type='ARRAY') ORDER BY table_name,column_name`);
+  const byTable=new Map();
+  for(const col of columns)if(names.includes(col.table)){if(!byTable.has(col.table))byTable.set(col.table,[]);byTable.get(col.table).push(col.name);}
+  const identifiers=new Set();
   let changed=true;
   while(changed){
     changed=false;
@@ -76,6 +83,20 @@ export async function databaseDeletionPlan(tx,input) {
       const join=relation.childColumns.map((col,i)=>`c.${quote(col)}=p.${quote(relation.parentColumns[i])}`).join(' AND ');
       const rows=await tx.$queryRawUnsafe(`SELECT DISTINCT c.ctid::text AS locator, c.xmin::text AS version FROM ${table(relation.child)} c JOIN ${table(relation.parent)} p ON ${join} WHERE p.ctid::text=ANY($1::text[]) LIMIT 100001`,[...parents]);
       if(add(relation.child,rows))changed=true;
+    }
+    if(scope.mode!=='RESET'){
+      for(const [name,ids] of selected){
+        const fields=(byTable.get(name)??[]).filter(field=>['id','publicId','roomId'].includes(field));
+        if(!fields.length)continue;
+        const rows=await tx.$queryRawUnsafe(`SELECT ${fields.map(quote).join(',')} FROM ${table(name)} WHERE ctid::text=ANY($1::text[])`,[...ids]);
+        for(const row of rows)for(const [field,value] of Object.entries(row))if(typeof value==='string'&&(value.length>=20||/^[A-Z]{2,12}-/.test(value)||(name==='User'&&field==='publicId')||field==='roomId'))identifiers.add(value);
+      }
+      for(const [name,fields] of byTable){
+        // Bounded scan: refuse rather than silently skip a large table.
+        const rows=await tx.$queryRawUnsafe(`SELECT ctid::text AS locator,xmin::text AS version,(SELECT to_jsonb(d) FROM (SELECT ${fields.map(quote).join(',')}) d) AS document FROM ${table(name)} LIMIT 100001`);
+        if(rows.length>100000)throw fail('Reference scan exceeds 100,000 rows in a table. Use an offline maintenance plan.','SELECTION_TOO_LARGE',409);
+        for(const row of rows)if(!selected.get(name)?.has(row.locator)&&containsDatabaseReference(row.document,identifiers))if(add(name,[row]))changed=true;
+      }
     }
   }
   const entries=[...selected].sort(([a],[b])=>a.localeCompare(b)).map(([name,ids])=>[name,[...ids].sort()]);

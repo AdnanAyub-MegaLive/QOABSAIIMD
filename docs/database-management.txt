@@ -4,10 +4,11 @@ Route: /database-management. API: /api/admin/database-management.
 Only the active SUPER_ADMIN whose email matches ADMIN_EMAIL may access it.
 This is not a delegable permission. It is available in both dev and production.
 
-No deletion was executed during implementation. Deletion is gated by
+No existing application data was deleted during implementation. Deletion is gated by
 DATABASE_MANAGEMENT_DELETE_ENABLED=true, intentionally unset by this change.
-Keep it disabled until the service is verified against an isolated copy of the
-actual schema. Restart after configuring it. Preview works without enabling it.
+The service has been verified against the full schema in a disposable PostgreSQL
+18 database on a separate temporary cluster. Restart after configuring it.
+Preview works without enabling it; this change does not enable production deletion.
 
 Choose one exact id/publicId, a whole table, or all public application tables.
 Review counts of ALL foreign-key dependants. Relationships may connect other
@@ -21,17 +22,21 @@ reversal or archive is created. DELETE statements execute in one transaction;
 any failure rolls back the whole operation. All ordinary archive controls are
 unchanged. This feature does not perform refunds or recalculate other balances.
 
-Limits: FK discovery does not discover arbitrary identities embedded in JSON,
-strings or files. Single-user deletion is therefore not yet a guarantee of total
-erasure of all logical references. Whole-data reset clears public application
+Reference scanning also follows nested JSON, arrays, object keys, identifier
+fields and delimited IDs in text/URLs/channels. Matching records appear in the
+preview and their own FK dependants are included. Substring matches and ordinary
+numeric amounts do not count; numeric IDs require typed/contextual references.
+It does not infer identity from a display name, encrypted/compressed blob, or
+unrecorded historical alias. Whole-data reset clears public application
 tables but preserves administrator accounts and migration metadata. Custom
 triggers and cross-schema dependencies cause execution to refuse safely.
 Backups/WAL, CDN/object storage, files, process caches and phone caches are not
 purged. An already sent message or downloaded file cannot be recalled here.
 
-Validation performed: unit tests, static checks, and a real PostgreSQL statement
-test with session-local temporary tables (cyclic RESTRICT dependencies, rolled
-back). A full service test against an isolated copy remains required before
-enabling. Use a maintenance window with background writers paused: workers can
+Validation performed: unit tests plus full-schema isolated PostgreSQL integration:
+read-only preview, stale-plan rollback, device/prop/ledger removal, JSON/text
+cleanup, unrelated user balance and shared-asset preservation, complete data
+reset, protected administrator survival. Disposable database was dropped after
+each run. No Docker was used. Use a maintenance window with background writers paused: workers can
 otherwise recreate default records after a reset. Deleted users' sockets are
 disconnected best-effort after commit.
