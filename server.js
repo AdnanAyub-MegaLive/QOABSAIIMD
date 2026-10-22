@@ -783,7 +783,7 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:"SEAT_LOCK_FAILED"}});
       }
     });
-    socket.on("audio-room:seat-kick",async({roomId,seatId}={},ack=()=>{})=>{
+    socket.on("audio-room:seat-kick",async({roomId,seatId,reason}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");
         const targetSeatId=String(seatId??"");
@@ -801,7 +801,11 @@ app.prepare().then(async()=>{
           liveKitAccessFor(targetUser,id,false),
           updateLiveKitPublishPermission(id,kickedUserId,false),
         ]);
-        const result=await leaveAudioRoomSeat(room.id,targetSeat.occupantUserId,targetSeatId);
+        const result=await prisma.$transaction(async tx=>{
+          const removed=await leaveAudioRoomSeat(room.id,targetSeat.occupantUserId,targetSeatId,tx);
+          if(removed.count)await tx.audioRoomModerationLog.create({data:{id:`MOD-${randomUUID()}`,audioRoomId:room.id,actorId:user.id,targetId:targetSeat.occupantUserId,action:"SEAT_KICK",reason:String(reason??"").trim().slice(0,300)||null,durationMinutes:null,expiresAt:null}});
+          return removed;
+        });
         if(!result.count)return ack({success:false,error:{code:"SEAT_NOT_OCCUPIED"}});
         const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
         io.to(`user:${kickedUserId}`).emit("audio-room:seat-kicked",{

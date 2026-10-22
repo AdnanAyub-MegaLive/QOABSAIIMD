@@ -15,9 +15,9 @@ export async function GET(request) {
   const rows = await prisma.$queryRaw(Prisma.sql`
     SELECT * FROM (
       SELECT 'room-' || m."id" AS id, m."action", m."reason", m."createdAt",
-        u."name" AS actor, t."name" AS target
+        COALESCE(m."adminActorName", u."name", 'System') AS actor, t."name" AS target
       FROM "AudioRoomModerationLog" m
-      JOIN "User" u ON u.id = m."actorId"
+      LEFT JOIN "User" u ON u.id = m."actorId"
       LEFT JOIN "User" t ON t.id = m."targetId"
       WHERE m."audioRoomId" = ${room.id}
       UNION ALL

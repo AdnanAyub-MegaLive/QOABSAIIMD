@@ -1,0 +1,25 @@
+Room Management: All rooms · Bans and kicks
+
+GET /api/admin/room-management/moderation requires rooms.view.
+Filters: type=ALL|KICK|BAN|SEAT_KICK; status=ALL|ACTIVE|EXPIRED|REVOKED;
+q searches target name/public ID and room title/ID. from/to use UTC, with a
+date-only to including the entire day. page starts at 1; 50 rows per page,
+hasMore indicates another page. Kicks and unbans have status COMPLETED and
+appear under status ALL. Ban rows use authoritative ban state, including old
+expired and revoked records. No historical backfill or deletion is performed.
+
+DELETE /api/admin/room-management?banId=RBAN-... requires rooms.manage.
+Revocation, ROOM_UNBANNED log with Portal Admin attribution, and audit are
+atomic. Retrying an already-revoked ban does not create duplicate logs.
+Other restrictions (account bans, blocks, paid/private access) still apply.
+
+audio-room:seat-kick accepts optional reason (300 characters). The seat update
+and SEAT_KICK moderation log commit together. Existing canManageSeats checks
+remain unchanged. No VIP benefit settings are added, removed or broadened.
+
+Apply migration 20261022140000_room_moderation_admin, generate Prisma Client,
+rebuild and restart before use. Local implementation is not production verified.
+Dedicated-account deployment checks: room kick, one-hour ban, seat kick;
+search all rooms; confirm actor/reason/time; unban and retry unban; confirm
+one moderation log and audit, successful join when otherwise permitted;
+confirm view-only admins cannot unban and expired/revoked rows remain visible.

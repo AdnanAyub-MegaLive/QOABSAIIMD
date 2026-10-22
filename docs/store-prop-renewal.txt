@@ -1,0 +1,28 @@
+Store property renewal (spec 139)
+
+POST /api/store/{assetId}/renew
+Alias: POST /api/v1/store/{assetId}/renew
+Use the existing mobile Bearer session/device headers. Empty body.
+Required Idempotency-Key: 8–128 characters, letters/digits/dot/underscore/colon/hyphen.
+Reuse the same key on retries; use a new key for each intentional renewal.
+
+Success: {success:true,data:{assetId,purchaseId,expiresAt,addedDays,price,coinBalance}}
+Amounts are decimal strings; expiresAt is an ISO UTC timestamp.
+Expiry extends from the later of the old expiry and the current server time.
+Equipped rows are not changed. Price is the current catalog Coin price.
+Catalog now includes renewable and grantDays; expired assignments retain ownership
+metadata but owned remains false. Permanent properties have grantDays:null.
+
+Errors: STORE_ITEM_NOT_FOUND (404), NOT_OWNED (409), NOT_RENEWABLE (409),
+INSUFFICIENT_COINS (402), IDEMPOTENCY_CONFLICT (409), VALIDATION_ERROR (422),
+RATE_LIMITED (429), RENEWAL_BUSY (409; retry with the same key).
+Existing authentication/account-status errors remain unchanged.
+Ledger uses the existing STORE_PURCHASE type, title "Store property renewal",
+and metadata.kind=RENEWAL. PropPurchase.kind is RENEWAL.
+The existing purchase endpoint is unchanged; this contract covers renewal only.
+
+Deployment: apply 20261022130000_prop_renewal using prisma migrate deploy,
+generate Prisma Client, rebuild and restart. No existing balances are rewritten.
+Not production-verified. Verify running and expired renewal, identical replay,
+different-asset key conflict, permanent rejection and concurrent requests using
+dedicated test accounts before announcing availability to apps.

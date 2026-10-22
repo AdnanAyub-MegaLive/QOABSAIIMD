@@ -32,4 +32,16 @@ export async function PATCH(request) {
 export async function DELETE(request){
   const permissionDenied = await portalPermissionError("rooms.manage");
   if (permissionDenied) return permissionDenied;
-const admin=await requirePortalAdmin();if(!admin)return unauthorized();const id=new URL(request.url).searchParams.get("banId");const ban=await prisma.audioRoomBan.findUnique({where:{publicId:id},include:{audioRoom:true,user:true}});if(!ban)return Response.json({success:false,error:{code:"NOT_FOUND",message:"Ban not found."}},{status:404});await prisma.$transaction(async tx=>{await tx.audioRoomBan.update({where:{id:ban.id},data:{revokedAt:new Date()}});await tx.auditLog.create({data:{adminId:admin.id,action:"ROOM_BAN_REVOKED",category:"USER_MANAGEMENT",entityType:"AudioRoomBan",entityId:ban.publicId,description:`${admin.name} revoked ${ban.user.publicId}'s ban from ${ban.audioRoom.roomId}.`}})});return Response.json({success:true,data:{id}})}
+  const admin=await requirePortalAdmin();if(!admin)return unauthorized();
+  const id=new URL(request.url).searchParams.get("banId");
+  if(!id)return Response.json({success:false,error:{code:"VALIDATION_ERROR",message:"Choose a ban."}},{status:422});
+  const ban=await prisma.audioRoomBan.findUnique({where:{publicId:id},include:{audioRoom:true,user:true}});
+  if(!ban)return Response.json({success:false,error:{code:"NOT_FOUND",message:"Ban not found."}},{status:404});
+  await prisma.$transaction(async tx=>{
+    const changed=await tx.audioRoomBan.updateMany({where:{id:ban.id,revokedAt:null},data:{revokedAt:new Date()}});
+    if(!changed.count)return;
+    await tx.audioRoomModerationLog.create({data:{id:`MOD-${crypto.randomUUID()}`,audioRoomId:ban.audioRoomId,adminActorId:admin.id,adminActorName:admin.name,targetId:ban.userId,action:"ROOM_UNBANNED",reason:`Portal unban of ${ban.publicId}`,durationMinutes:null,expiresAt:null}});
+    await tx.auditLog.create({data:{adminId:admin.id,action:"ROOM_BAN_REVOKED",category:"USER_MANAGEMENT",entityType:"AudioRoomBan",entityId:ban.publicId,description:`${admin.name} revoked ${ban.user.publicId}'s ban from ${ban.audioRoom.roomId}.`}});
+  });
+  return Response.json({success:true,data:{id}});
+}

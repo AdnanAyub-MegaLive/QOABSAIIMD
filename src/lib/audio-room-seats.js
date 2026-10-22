@@ -281,10 +281,10 @@ export async function moveAudioRoomSeat(room, userId, fromSeatId, toSeatId) {
   });
 }
 
-export async function leaveAudioRoomSeat(roomId, userId, seatId = null) {
+export async function leaveAudioRoomSeat(roomId, userId, seatId = null, client = prisma) {
   const where = { audioRoomId: roomId, occupantUserId: userId };
   if (seatId) where.seatId = seatId;
-  return prisma.audioRoomSeat.updateMany({
+  return client.audioRoomSeat.updateMany({
     where,
     data: {
       occupantUserId: null,

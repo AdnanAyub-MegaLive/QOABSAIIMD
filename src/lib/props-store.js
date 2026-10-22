@@ -114,6 +114,9 @@ export function mobileAssetUrl(request, asset, user) {
 }
 
 export function storeAssetPayload(asset, user, entitlement, equipped) {
+  const renewable = Boolean(asset.active && !asset.archivedAt && asset.storeVisible && asset.distribution === "STORE" && asset.defaultGrantDurationMinutes > 0 && entitlement?.expiresAt);
+  const ownershipRecord = entitlement;
+  if (entitlement?.expiresAt && entitlement.expiresAt <= new Date()) entitlement = null;
   const lockedReason = entitlement
     ? null
     : roleArtworkLabel(asset.distribution)
@@ -143,13 +146,15 @@ export function storeAssetPayload(asset, user, entitlement, equipped) {
     minimumVipLevel: asset.minimumVipLevel,
     minimumRecharge: asset.minimumRecharge?.toString() ?? null,
     defaultGrantDurationMinutes: asset.defaultGrantDurationMinutes,
+    grantDays: asset.defaultGrantDurationMinutes > 0 ? asset.defaultGrantDurationMinutes / 1440 : null,
+    renewable,
     owned: Boolean(entitlement),
-    ownership: entitlement
+    ownership: ownershipRecord
       ? {
-          source: entitlement.source,
-          acquiredAt: entitlement.assignedAt.toISOString(),
-          expiresAt: entitlement.expiresAt?.toISOString() ?? null,
-          permanent: entitlement.expiresAt === null,
+          source: ownershipRecord.source,
+          acquiredAt: ownershipRecord.assignedAt.toISOString(),
+          expiresAt: ownershipRecord.expiresAt?.toISOString() ?? null,
+          permanent: ownershipRecord.expiresAt === null,
         }
       : null,
     equipped: equipped?.assetId === asset.id,

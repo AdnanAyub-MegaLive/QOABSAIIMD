@@ -1,6 +1,6 @@
 import { ledgerData } from "./wallet.js";
 import { setTimeout as retryDelay } from "node:timers/promises";
-function retryableConflict(error) {
+export function retryableConflict(error) {
   if (["P2034", "P2002"].includes(error?.code)) return true;
   if (error?.code !== "P2010") return false;
   const values = [error.meta], seen = new Set();

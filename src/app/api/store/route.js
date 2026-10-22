@@ -39,7 +39,6 @@ export async function GET(request) {
       error.code = "VALIDATION_ERROR";
       throw error;
     }
-    const now = new Date();
     const assets = await prisma.uploadAsset.findMany({
       where: {
         active: true,
@@ -51,7 +50,6 @@ export async function GET(request) {
         assignments: {
           where: {
             userId: user.id,
-            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
           },
           take: 1,
         },

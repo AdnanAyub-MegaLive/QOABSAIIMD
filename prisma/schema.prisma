@@ -1448,6 +1448,7 @@ model UploadAsset {
 }
 
 model UploadAssetAssignment {
+  renewedAt DateTime?
   giftedByUserId  String?
   assetId         String
   userId          String
@@ -1530,6 +1531,9 @@ model UserEquippedProp {
 }
 
 model PropPurchase {
+  kind String @default("PURCHASE")
+  requestKey String?
+  result Json?
   id            String       @id @default(cuid())
   publicId      String       @unique
   userId        String
@@ -1542,6 +1546,7 @@ model PropPurchase {
   asset         UploadAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([userId, purchasedAt])
+  @@unique([userId, requestKey])
   @@index([assetId, purchasedAt])
 }
 
@@ -2401,7 +2406,9 @@ model AudioRoomBan {
 model AudioRoomModerationLog {
   id              String    @id
   audioRoomId     String
-  actorId         String
+  actorId         String?
+  adminActorId    String?
+  adminActorName  String?
   targetId        String?
   action          String
   reason          String?
@@ -2409,10 +2416,11 @@ model AudioRoomModerationLog {
   expiresAt       DateTime?
   createdAt       DateTime  @default(now())
   audioRoom       AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
-  actor           User      @relation("AudioRoomModerationActor", fields: [actorId], references: [id], onDelete: Restrict)
+  actor           User?     @relation("AudioRoomModerationActor", fields: [actorId], references: [id], onDelete: Restrict)
   target          User?     @relation("AudioRoomModerationTarget", fields: [targetId], references: [id], onDelete: SetNull)
 
   @@index([audioRoomId, createdAt])
+  @@index([createdAt, id])
 }
 
 model AudioRoomMember {
