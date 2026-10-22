@@ -1,0 +1,35 @@
+Gift delivery / multi-send correction — 22 October 2026
+
+Production diagnosis (read-only):
+- Nginx recorded six POST /api/v1/gifts/send-multi responses with status 500
+  between 08:23:05 and 08:23:40 UTC.
+- The route did not log its exception. An exact historic stack is unavailable.
+- The route wrote WalletTransaction.type MULTI_GIFT_SENT, absent from both
+  schema.prisma and the deployed generated client. This is a definite validation
+  failure before transaction commit. Use GIFT_SENT with source MULTI metadata;
+  the MULTI_GIFT_SENT audit action is unchanged. No migration is required.
+- Production HEAD was 78b99cd; the migration table had no unfinished entries.
+
+Changes:
+- Keep Serializable, conditional debit, recipient eligibility and per-sender
+  idempotency unchanged. Schedule same-sender transactions within the process
+  to avoid repeated conflicting snapshots; database protections remain final.
+- Resolve sender artwork before the transaction. Rebuild ordinary/backpack room
+  leaderboards via durable outbox delivery rather than holding wallet locks.
+- Share outbox dispatch ownership by Socket.IO instance across Prisma wrappers.
+  Remember successful emits (bounded to 20,000 IDs / five minutes), suppress
+  stale poll duplicates, and retry marker writes without immediate re-emission.
+- Gift HTTP serialization does not query media after commit. Immediate delivery
+  failures remain isolated from the committed response.
+- Exhausted transaction conflicts return 503 GIFT_RETRY_REQUIRED. Retry the SAME
+  idempotency key. Unexpected route failures retain stable GIFT_SEND_FAILED,
+  MULTI_GIFT_FAILED or BACKPACK_SEND_FAILED envelopes and are logged server-side.
+
+Guarantees / limits:
+- No historical records or existing balances are changed by deployment.
+- Single-process deduplication is not an exactly-once network guarantee. After
+  restart, a crash between emit and deliveredAt can still produce a replay.
+  Apps must retain eventId deduplication and confirmed-event catch-up.
+- Deploy and repeat the isolated burst test before claiming a latency SLA.
+  The earlier 20-gift production test exercised ordinary gifts, not Lucky pool
+  contention. This patch does not change Lucky probabilities or reward rules.

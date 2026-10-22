@@ -9,6 +9,24 @@ function database(commit) {
   db.$transaction = vi.fn(async fn => { const result = await fn(db); await commit(); return result; }); return db;
 }
 const work = async () => { captureGiftEvent({ id: "event", channel: "audio-room:r", event: "gift:received", payload: { success: true, data: {} } }); return { data: {} }; };
+it("queues simultaneous sender transactions and releases the queue after failure", async () => {
+  let active=0,peak=0;
+  const db=database(()=>{});
+  const operation={key:"queue-test",fingerprint:"fp"};
+  const slow=async()=>{active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,10));active--;return {data:{}};};
+  await Promise.all(Array.from({length:4},()=>runGiftOperation("queue-sender",operation,slow,db)));
+  expect(peak).toBe(1);
+  await expect(runGiftOperation("queue-sender",operation,async()=>{throw Error("rejected");},db)).rejects.toThrow("rejected");
+  await expect(runGiftOperation("queue-sender",operation,slow,db)).resolves.toEqual({data:{}});
+});
+it("keeps a committed response successful when immediate delivery throws", async () => {
+  const log=vi.spyOn(console,"error").mockImplementation(()=>{});
+  globalThis.portalIo={to:()=>{throw Error("socket unavailable");}};
+  const db=database(()=>{});
+  await expect(runGiftOperation("delivery-sender",{key:"delivery-key",fingerprint:"fp"},work,db)).resolves.toEqual({data:{}});
+  expect(db.$transaction).toHaveBeenCalledOnce();
+  log.mockRestore();
+});
 it("emits only after commit and never for a rolled-back transaction", async () => {
   let committed = false;
   const emit = vi.fn(() => expect(committed).toBe(true)); globalThis.portalIo = { to: () => ({ emit }) };
@@ -64,7 +82,7 @@ it.each(conflicts)("retries aborted raw-query conflicts with one committed charg
 it("stops after four conflicts without emitting", async () => {
   const emit = vi.fn(); globalThis.portalIo = { to: () => ({ emit }) };
   const db = database(() => { throw conflicts[0]; });
-  await expect(runGiftOperation("sender", { key: "key", fingerprint: "fp" }, work, db)).rejects.toBe(conflicts[0]);
+  await expect(runGiftOperation("sender", { key: "key", fingerprint: "fp" }, work, db)).rejects.toMatchObject({code:"GIFT_RETRY_REQUIRED",cause:conflicts[0]});
   expect(db.$transaction).toHaveBeenCalledTimes(4);
   expect(emit).not.toHaveBeenCalled();
 });

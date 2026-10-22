@@ -33,6 +33,20 @@ export async function priorGiftOperation(senderId, operation, db=prisma) {
   return previous?.result??null;
 }
 export async function runGiftOperation(senderId,operation,work,db=prisma) {
+  // Avoid conflicting snapshots for simultaneous taps from the same sender.
+  // This is process-local scheduling only; Serializable and conditional debits
+  // remain authoritative across processes and for different senders.
+  const queues = globalThis[Symbol.for("portal.giftSenderQueues")] ??= new Map();
+  const previous = queues.get(senderId) ?? Promise.resolve();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const tail = previous.then(() => gate);
+  queues.set(senderId, tail);
+  await previous;
+  try { return await executeGiftOperation(senderId, operation, work, db); }
+  finally { release(); if (queues.get(senderId) === tail) queues.delete(senderId); }
+}
+async function executeGiftOperation(senderId,operation,work,db) {
   for(let attempt=0;attempt<4;attempt++) try {
     const events = [];
     const committed = await giftOutboxContext.run(events, () => db.$transaction(async tx=>{
@@ -51,10 +65,11 @@ export async function runGiftOperation(senderId,operation,work,db=prisma) {
     },{isolationLevel:"Serializable",timeout:20000}));
     // Only after commit, outside the transaction retry block's awaited work.
     // Delivery failure must never retry a committed charge or fail its response.
-    void deliverCommittedGiftEvents(events, globalThis.portalIo, db).catch(error => console.error("Immediate gift delivery failed", error.message));
+    void Promise.resolve().then(() => deliverCommittedGiftEvents(events, globalThis.portalIo, db)).catch(error => console.error("Immediate gift delivery failed", error?.message));
     return committed;
   } catch(error) {
-    if (!isRetryableGiftConflict(error) || attempt === 3) throw error;
+    if (!isRetryableGiftConflict(error)) throw error;
+    if (attempt === 3) throw Object.assign(new Error("Gift is busy. Retry with the same request ID."), { code: "GIFT_RETRY_REQUIRED", cause: error });
     // Wait outside the rolled-back transaction; stagger competing combo taps.
     await retryDelay(25 * 2 ** attempt + Math.floor(Math.random() * 25));
   }

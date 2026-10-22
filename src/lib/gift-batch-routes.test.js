@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { WalletTransactionType } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({ db: {}, emit: vi.fn(), rows: [], ledger: [] }));
 vi.mock("@/lib/currency-policy",async()=>({...await import("./currency-policy.js"),currencyPolicy:async()=>({version:1,rules:{giftBasis:"GROSS",giftDiamondsNumerator:"1",giftCoinsDenominator:"1"}})}));
@@ -10,6 +11,7 @@ vi.mock("@/lib/mobile-api", () => ({
   requireMobileUser: async () => ({ id: "sender", publicId: "USR-S", name: "Sender" }),
   mobileOptions: () => new Response(null, { status: 204 }),
   mobileJson: (body, status = 200) => Response.json(body, { status }),
+  giftJson: (body, status = 200) => Response.json(body, { status }),
   mobileApiError: e => Response.json({ success: false, error: { code: e.code } }, { status: 422 }),
 }));
 vi.mock("@/lib/profit-rules", () => ({ coinsForShare: (n, b) => n * BigInt(b) / 10000n, getProfitSplitRule: async () => ({ normalUserReusableShareBps: 1000, version: 1 }) }));
@@ -60,6 +62,8 @@ it("multi-send credits ordinary recipients in Diamonds, never reusable Coins",as
  expect(settlements.every(s=>s.recipientDiamonds===100n&&s.currencyPolicyVersion===1)).toBe(true);
  expect(updates.every(u=>u.data.hostSalaryCoinBalance.increment===100n&&!u.data.coinBalance)).toBe(true);
  expect(mocks.ledger.filter(r=>r.type==="GIFT_RECEIVED").every(r=>r.diamonds===100n&&!r.coins)).toBe(true);
+ expect(mocks.ledger.find(r=>r.direction==="DEBIT")).toMatchObject({type:"GIFT_SENT",metadata:{source:"MULTI"}});
+ expect(mocks.ledger.every(r=>Object.values(WalletTransactionType).includes(r.type))).toBe(true);
 });
 describe.each([["standard", standard], ["backpack", backpack], ["lucky", lucky]])("%s gift batching", (_name, send) => {
   it("allows room self-gifts while keeping the debit and recipient credit", async () => {

@@ -1,11 +1,21 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const media = vi.hoisted(() => ({ version: vi.fn(async p => p), refresh: vi.fn(async p => p) }));
+const leaderboard = vi.hoisted(() => vi.fn(async () => ({topGifters:[],topReceivers:[]})));
+vi.mock("./gift-leaderboard.js", () => ({getRoomGiftLeaderboard:leaderboard}));
 vi.mock("./media-payload.js", () => ({ versionMediaPayload: media.version }));
 vi.mock("./activity-event-media.js", () => ({ refreshActivityEventMedia: media.refresh }));
 import { deliverCommittedGiftEvents, flushRealtimeOutbox } from "./realtime-outbox.js";
 const row = id => ({ id, channel: "audio-room:room", event: "gift:received", payload: { success: true, data: { transactionId: id, mediaVersion: "abc" } } });
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 beforeEach(() => vi.clearAllMocks());
+it("builds deferred leaderboard payloads outside the gift transaction", async () => {
+  const emit=vi.fn(),io={to:()=>({emit})};
+  const item={...row("board"),event:"audio-room:gift-leaderboard",payload:{success:true,data:{roomId:"room",refreshLeaderboard:true,origin:"https://portal.test"}}};
+  const db={realtimeOutbox:{findMany:vi.fn().mockResolvedValue([item]),updateMany:vi.fn()}};
+  await flushRealtimeOutbox(io,db);
+  expect(leaderboard).toHaveBeenCalledWith("room","https://portal.test",db);
+  expect(emit).toHaveBeenCalledWith("audio-room:gift-leaderboard",{success:true,data:{roomId:"room",topGifters:[],topReceivers:[],eventId:"board"}});
+});
 it("emits a 20-tap batch before one delivery write, without gift media queries", async () => {
   const emit = vi.fn(), io = { to: vi.fn(() => ({ emit })) };
   const db = { realtimeOutbox: { updateMany: vi.fn(async () => { expect(emit).toHaveBeenCalledTimes(20); }) } };
@@ -53,7 +63,18 @@ it("drains more than 100 pending events without waiting for the timer", async ()
 });
 it("can retry after the delivery marker write fails", async () => {
   const emit=vi.fn(),db={realtimeOutbox:{findMany:vi.fn().mockResolvedValue([row("same")]),updateMany:vi.fn().mockRejectedValueOnce(Error("database offline")).mockResolvedValueOnce({count:1})}};
-  await expect(flushRealtimeOutbox({to:()=>({emit})},db)).rejects.toThrow("database offline");
-  await flushRealtimeOutbox({to:()=>({emit})},db);
-  expect(emit.mock.calls.map(call=>call[1].data.eventId)).toEqual(["same","same"]);
+  const io={to:()=>({emit})};
+  await expect(flushRealtimeOutbox(io,db)).rejects.toThrow("database offline");
+  await flushRealtimeOutbox(io,db);
+  expect(emit.mock.calls.map(call=>call[1].data.eventId)).toEqual(["same"]);
+  expect(db.realtimeOutbox.updateMany).toHaveBeenCalledTimes(2);
+});
+it("suppresses a stale poll after immediate delivery across Prisma wrappers", async () => {
+  const gate=deferred(),emit=vi.fn(),io={to:()=>({emit})};
+  const serverDb={realtimeOutbox:{findMany:vi.fn(()=>gate.promise),updateMany:vi.fn()}};
+  const routeDb={realtimeOutbox:{updateMany:vi.fn()}};
+  const poll=flushRealtimeOutbox(io,serverDb);
+  await deliverCommittedGiftEvents([row("stale")],io,routeDb);
+  gate.resolve([row("stale")]);await poll;
+  expect(emit).toHaveBeenCalledOnce();
 });

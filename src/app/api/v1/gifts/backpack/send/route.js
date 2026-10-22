@@ -3,12 +3,11 @@ import { currencyPolicy } from "@/lib/currency-policy";
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
-import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
+import { mobileApiError, giftJson as mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { audioRoomParticipantIds } from "@/lib/realtime";
 import { getProfitSplitRule } from "@/lib/profit-rules";
 import { ledgerData } from "@/lib/wallet";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
-import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 import { giftMedia } from "@/lib/gift-media";
 import { requestOrigin } from "@/lib/user-perks";
 import { resolveGiftSender } from "@/lib/gift-sender";
@@ -35,6 +34,7 @@ export async function POST(request) {
     if (!participants.has(sender.publicId) || !participants.has(recipient.publicId)) throw new Error("ROOM_PARTICIPANT_REQUIRED");
     const gross = gift.coinPrice * BigInt(quantity), host = recipient.appRoles.includes("HOST");
     if (host && !recipient.agencyId) throw new Error("HOST_AGENCY_REQUIRED");
+    const senderArtwork = await resolveGiftSender(sender, requestOrigin(request));
     const response = await runGiftOperation(sender.id,operation,async (tx) => {
       await assertGiftRecipient(tx, recipient);
       const emitToAudioRoom=(id,event,payload)=>appendOutbox(tx,`audio-room:${id}`,event,payload.data);
@@ -51,19 +51,18 @@ export async function POST(request) {
       await tx.auditLog.create({ data: { action: "BACKPACK_GIFT_SENT", category: "FINANCE", entityType: "GiftTransaction", entityId: giftTx.id, description: `${sender.publicId} sent backpack gift ${gift.publicId} to ${recipient.publicId}.`, metadata: { roomId, quantity, grossCoins: gross.toString() } } });
       const progression=await awardGiftProgress(tx,{sender,recipient,gift:giftTx,source:"BACKPACK",gross,credit,recipientType:host?"HOST":"NORMAL_USER",origin:requestOrigin(request)});
       const result=giftTx;
-    const origin = requestOrigin(request), giftSender = { ...await resolveGiftSender(sender, origin), ...(await publicProgression([sender],origin,tx)).get(sender.publicId) }, data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, ...giftMedia(gift, origin) } };
+    const origin = requestOrigin(request), giftSender = { ...senderArtwork, ...(await publicProgression([sender],origin,tx)).get(sender.publicId) }, data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, ...giftMedia(gift, origin) } };
     data.giftBatchId = result.giftBatchId;
     Object.assign(data, { requestId: operation.key, transactionIds: [result.id], recipientIds: [recipientId], giftTier: gift.giftTier, catalogCategory: gift.giftCategory, createdAt: result.createdAt.toISOString() });
     await emitToAudioRoom(roomId, "gift:received", { success: true, data });
     const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: true, rightRoom: true } });
     if (pk) { const side = pk.leftRoomId === room.id ? "leftScore" : "rightScore", updated = await tx.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: gross }, revision: { increment: 1 } } }), payload = { id: pk.id, leftRoomId: pk.leftRoom.roomId, rightRoomId: pk.rightRoom.roomId, leftScore: updated.leftScore.toString(), rightScore: updated.rightScore.toString(), revision: updated.revision }; await emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); await emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); }
-    const leaderboard = await getRoomGiftLeaderboard(roomId, origin, tx);
-    await emitToAudioRoom(roomId, "audio-room:gift-leaderboard", { success: true, data: { roomId, ...leaderboard } });
+    await emitToAudioRoom(roomId, "audio-room:gift-leaderboard", { success: true, data: { roomId, refreshLeaderboard: true, origin } });
     await addDailyTaskProgress(sender.id,"SEND_GIFTS",quantity,new Date(),tx);
     await addDailyTaskProgress(sender.id,"TOP_SUPPORTER",quantity,new Date(),tx);
     return {...data,progression};
     });
     void flushRealtimeOutbox().catch(error=>console.error("Outbox flush failed",error.message));
     return mobileJson({success:true,data:response},201);
-  } catch (error) { return mobileApiError(error, error?.message === "BACKPACK_INSUFFICIENT" ? "BACKPACK_INSUFFICIENT" : "BACKPACK_SEND_FAILED"); }
+  } catch (error) { console.error("Backpack gift send failed", error); return mobileApiError(error, error?.message === "BACKPACK_INSUFFICIENT" ? "BACKPACK_INSUFFICIENT" : "BACKPACK_SEND_FAILED"); }
 }

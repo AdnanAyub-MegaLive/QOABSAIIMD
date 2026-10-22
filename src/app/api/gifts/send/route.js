@@ -5,7 +5,7 @@ import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progre
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
-  mobileJson,
+  giftJson as mobileJson,
   mobileOptions,
   requireMobileUser,
 } from "@/lib/mobile-api";
@@ -15,7 +15,6 @@ import { giftMedia } from "@/lib/gift-media";
 import { requestOrigin } from "@/lib/user-perks";
 import { resolveGiftSender } from "@/lib/gift-sender";
 import { ledgerData } from "@/lib/wallet";
-import { getRoomGiftLeaderboard } from "@/lib/gift-leaderboard";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { randomInt } from "node:crypto";
 import { getLiveCommerceRule, applyLiveGiftReward } from "@/lib/live-commerce";
@@ -136,6 +135,7 @@ export async function POST(request) {
       throw error;
     }
 
+    const senderArtwork = await resolveGiftSender(sessionUser, requestOrigin(request));
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
       await assertGiftRecipient(tx, recipientUser);
       const chat = conversationId ? await requireChatGiftTarget(tx, conversationId, sessionUser.id, recipientUser.id) : null;
@@ -276,7 +276,7 @@ export async function POST(request) {
       const result = { gift, settlement, sender, luckyRewardCoins, luckyOutcome, liveTotals, progression };
 
     const origin = requestOrigin(request);
-    const giftSender = { ...await resolveGiftSender(sessionUser, origin), ...(await publicProgression([sessionUser], origin, tx)).get(sessionUser.publicId) };
+    const giftSender = { ...senderArtwork, ...(await publicProgression([sessionUser], origin, tx)).get(sessionUser.publicId) };
     const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, quantity, ...giftMedia(blindBoxReward, origin) } : null;
     const giftDetails = { publicId: giftAsset.publicId, name: giftAsset.name, ...giftMedia(giftAsset, origin), coinPrice: giftAsset.coinPrice.toString() };
     const extras = { requestId: operation.key, recipientIds: [recipientId], transactionIds: [result.gift.id], giftTier: giftAsset.giftTier, catalogCategory: giftAsset.giftCategory, giftBatchId: result.gift.giftBatchId, comboId, lucky: result.luckyOutcome ? { rewardCoins: result.luckyRewardCoins.toString(), rewardBps: result.luckyOutcome.multiplierBps, multiplier: multiplierLabel(result.luckyOutcome.multiplierBps), bigWin: result.luckyOutcome.bigWin } : null, blindBox: revealedGift ? { revealedGift } : null };
@@ -332,10 +332,9 @@ export async function POST(request) {
         }
       } catch (pkError) { console.error("PK gift score update failed", pkError); }
       try {
-        const leaderboard = await getRoomGiftLeaderboard(roomId, origin, tx);
         await emitToAudioRoom(roomId, "audio-room:gift-leaderboard", {
           success: true,
-          data: { roomId, ...leaderboard },
+          data: { roomId, refreshLeaderboard: true, origin },
         });
       } catch (leaderboardError) {
         console.error("Room gift leaderboard update failed", leaderboardError);

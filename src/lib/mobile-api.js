@@ -15,6 +15,12 @@ export async function mobileJson(body, status = 200) {
   return Response.json(await versionMediaPayload(body), { status, headers: mobileCorsHeaders });
 }
 
+// Gift results already contain versioned artwork from their builders. Never
+// introduce another database dependency after a committed wallet operation.
+export function giftJson(body, status = 200) {
+  return Response.json(body, { status, headers: mobileCorsHeaders });
+}
+
 export function mobileOptions() {
   return new Response(null, { status: 204, headers: mobileCorsHeaders });
 }
@@ -75,6 +81,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {
+      GIFT_RETRY_REQUIRED: [503, "GIFT_RETRY_REQUIRED", "Gift is busy. Retry with the same request ID."],
       COUNTRY_REQUIRED: [403,"COUNTRY_REQUIRED","Set your country in your profile to use Country Chat."],
       LINK_NOT_ALLOWED: [422,"LINK_NOT_ALLOWED","Links are not allowed in Country Chat."],
       MUTUAL_FOLLOW_REQUIRED: [403,"MUTUAL_FOLLOW_REQUIRED","You can message each other once you both follow each other."],
