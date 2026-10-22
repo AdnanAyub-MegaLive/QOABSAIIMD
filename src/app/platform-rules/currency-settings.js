@@ -1,7 +1,8 @@
 "use client";
 import { useState, useTransition } from "react";
 import ResellerPayoutReview from "./reseller-payout-review";
-import { saveCurrencyPolicy, reviewCurrency } from "./currency-actions";
+import { saveCurrencyPolicy } from "./currency-actions";
+import CurrencyReviewQueue from "./currency-review-queue";
 const inputClass="mt-2 h-11 w-full rounded-lg border border-[#dce6e4] bg-white px-3 text-sm";
 const groups={
   "Gift & Recharge":[["giftDiamondsNumerator","Diamonds awarded"],["giftCoinsDenominator","Per gift Coins"],["rechargeCoinsPerUsd","Recharge Coins per USD"],["withdrawalDiamondsPerUsd","Salary Diamonds per USD"]],
@@ -11,12 +12,11 @@ const groups={
 };
 groups.Exchange.push(["exchangeMaxDiamonds","Maximum exchange Diamonds"],["exchangeMultiple","Exchange amount multiple"],["exchangeDailyLimit","Daily exchange limit (UTC, debited Diamonds)"],["exchangeMonthlyLimit","Monthly exchange limit (UTC, debited Diamonds)"]);
 groups.Resellers.push(["transferMinDiamonds","Minimum transfer Diamonds"],["transferMaxDiamonds","Maximum transfer Diamonds"],["transferMultiple","Transfer amount multiple"],["transferDailyLimit","Daily transfer limit (UTC, Diamonds)"],["transferMonthlyLimit","Monthly transfer limit (UTC, Diamonds)"]);
-export default function CurrencySettings({initial,version,requests,canManage,canReview}){
+export default function CurrencySettings({initial,version,canManage,canReview}){
   const [rules,setRules]=useState(initial),[tab,setTab]=useState("Gift & Recharge"),[notice,setNotice]=useState(""),[pending,start]=useTransition();
   const change=(key,value)=>setRules(old=>({...old,[key]:value}));
   const toggle=(key,label)=><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={rules[key]} onChange={e=>change(key,e.target.checked)} />{label}</label>;
   function save(e){e.preventDefault();start(async()=>{try{await saveCurrencyPolicy(rules);setNotice("Currency policy saved. Historical transactions remain unchanged.");}catch{setNotice("Unable to save: check required rates, limits, commission chart and permissions.");}});}
-  function review(e,id){e.preventDefault();const form=new FormData(e.currentTarget);start(async()=>{try{await reviewCurrency({id,action:form.get("action"),note:form.get("note"),hash:form.get("hash"),paymentVerified:form.get("paymentVerified")==="on"});setNotice("Request reviewed.");}catch{setNotice("Review failed. Check status, transaction hash and permissions.");}});}
   return <section className="rounded-2xl border border-[#dce8e5] bg-white p-6">
     <p className="text-xs font-semibold uppercase tracking-widest text-[#16877d]">Version {version} · Coins / Diamonds</p><h3 className="mt-1 text-xl font-bold">Currency & Salary Rules</h3>
     <p className="mt-2 text-sm text-[#71847f]">Only future transactions use new settings. Blank financial rules cannot be enabled. Diamond balances are never automatically revalued.</p>
@@ -31,7 +31,7 @@ export default function CurrencySettings({initial,version,requests,canManage,can
         {rules.commissionChart.map((row,index)=><div key={index} className="grid gap-2 rounded-xl bg-[#f4f8f7] p-3 md:grid-cols-5">{[["minUsdMicros","Minimum USD micros"],["bps","Commission bps"],["fixedUsdtMicros","Fixed USDT micros"],["networkUsdtMicros","Network fee micros"]].map(([key,label])=><label key={key} className="text-xs">{label}<input className={inputClass} required pattern="[0-9]+" value={row[key]} onChange={e=>change("commissionChart",rules.commissionChart.map((item,i)=>i===index?{...item,[key]:e.target.value}:item))}/></label>)}<button type="button" onClick={()=>change("commissionChart",rules.commissionChart.filter((_,i)=>i!==index))}>Remove</button></div>)}
         <button type="button" className="rounded-lg border px-4 py-2 text-sm" onClick={()=>change("commissionChart",[...rules.commissionChart,{minUsdMicros:"",bps:"",fixedUsdtMicros:"",networkUsdtMicros:""}])}>Add commission bracket</button></>}
       <button className="rounded-lg bg-[#087f74] px-5 py-3 text-sm font-bold text-white">{pending?"Saving…":"Save currency rules"}</button>
-    </fieldset></form>:<div className="space-y-4">{requests.length===0&&<p className="text-sm text-[#71847f]">No requests yet.</p>}{requests.map(row=><article key={row.id} className="rounded-xl border p-4"><p className="font-semibold">{row.user?.name} · {row.user?.publicId} · {row.kind}</p><p className="mt-1 text-sm">{row.diamonds} Diamonds · {row.status} · Coins: {row.quotedCoins} · Net USDT micros: {row.netUsdtMicros}</p><p className="break-all text-xs">{row.destination??row.recipientPublicId}</p>{row.payoutHash&&<p className="break-all text-xs">TRON hash: {row.payoutHash}</p>}{["PENDING","APPROVED"].includes(row.status)&&canReview&&<form onSubmit={e=>review(e,row.id)} className="mt-3 grid gap-2 md:grid-cols-2"><select name="action" className={inputClass}>{row.status==="PENDING"&&<option value="APPROVE">Approve</option>}<option value="REJECT">Reject and refund</option>{row.status==="APPROVED"&&row.kind==="USDT"&&<option value="MARK_PAID">Confirm manually paid</option>}</select><label className="flex items-center gap-2 text-xs"><input name="paymentVerified" type="checkbox"/>I verified the successful TRC20 payment, destination and amount (required to mark paid).</label><input name="hash" placeholder="TRON transaction hash (when paid)" className={inputClass}/><input name="note" required maxLength={1000} placeholder="Review reason / verification note" className={inputClass}/><button disabled={pending} className="rounded-lg bg-[#087f74] text-white">Submit review</button></form>}</article>)}</div>}
+    </fieldset></form>:canReview?<CurrencyReviewQueue/>:<p>Currency review requires withdrawal-review permission.</p>}
     {tab==="Review Queue"&&canReview&&<ResellerPayoutReview/>}
     {notice&&<p role="status" className="mt-5 rounded-lg bg-[#f4f8f7] p-3 text-sm">{notice}</p>}
   </section>;

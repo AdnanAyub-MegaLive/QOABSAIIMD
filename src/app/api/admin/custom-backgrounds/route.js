@@ -1,22 +1,28 @@
 import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
+import { reviewPage } from "@/lib/review-pagination";
 import { requirePortalAdmin } from "@/lib/portal-admin";
 import { getCustomBackgroundConfiguration } from "@/lib/custom-room-backgrounds";
 
-const json = (body, status = 200) => Response.json(body, { status });
+const json = (body, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 const fail = (error) => json({ success: false, error: { code: error?.status === 422 ? "VALIDATION_ERROR" : error?.status === 401 ? "UNAUTHORIZED" : "CUSTOM_BACKGROUND_ADMIN_FAILED", message: error?.status ? error.message : "Unable to save custom background settings." } }, error?.status ?? 500);
 const integer = (value, label, min, max) => { const n = Number(value); if (!Number.isSafeInteger(n) || n < min || n > max) throw Object.assign(new Error(`${label} must be between ${min} and ${max}.`), { status: 422 }); return n; };
 const coins = (value) => { const text = String(value ?? ""); if (!/^\d+$/.test(text) || BigInt(text) < 1n) throw Object.assign(new Error("Coins must be a positive whole number."), { status: 422 }); return BigInt(text); };
 async function admin() { const value = await requirePortalAdmin(); if (!value) throw Object.assign(new Error("Administrator access is required."), { status: 401 }); return value; }
 
-export async function GET() {
+export async function GET(request) {
   const permissionDenied = await portalPermissionError("appearance.view");
   if (permissionDenied) return permissionDenied;
 
   try {
     await admin();
-    const [configuration, requests] = await Promise.all([getCustomBackgroundConfiguration({ includeInactive: true }), prisma.customRoomBackgroundRequest.findMany({ include: { user: { select: { publicId: true, name: true, profileImage: true } }, reviewedBy: { select: { name: true } }, approvedAsset: { select: { publicId: true } } }, orderBy: { submittedAt: "desc" }, take: 200 })]);
-    return json({ success: true, data: { ...configuration, requests: requests.map((item) => ({ id: item.publicId, status: item.status, user: item.user, priceName: item.priceName, durationDays: item.durationDays, coins: item.coins.toString(), mimeType: item.mimeType, fileSize: item.fileSize, submittedAt: item.submittedAt.toISOString(), reviewedAt: item.reviewedAt?.toISOString() ?? null, reviewedBy: item.reviewedBy?.name ?? null, rejectionReason: item.rejectionReason, assetId: item.approvedAsset?.publicId ?? null, previewUrl: `/api/room-backgrounds/custom/${item.publicId}/preview` })) } });
+    const params = new URL(request.url).searchParams, status = params.get("status") ?? "PENDING";
+    if (!["ALL", "PENDING", "APPROVED", "REJECTED"].includes(status)) throw Object.assign(new Error("Invalid background status."), { status: 422 });
+    const page = reviewPage(params, `backgrounds:${status}`, "submittedAt", status === "PENDING" ? "asc" : "desc");
+    const [configuration, rows] = await Promise.all([getCustomBackgroundConfiguration({ includeInactive: true }), prisma.customRoomBackgroundRequest.findMany({ where: { AND: [status === "ALL" ? {} : { status }, page.after] }, include: { user: { select: { publicId: true, name: true, profileImage: true } }, reviewedBy: { select: { name: true } }, approvedAsset: { select: { publicId: true } } }, orderBy: page.orderBy, take: page.take })]);
+    const result = page.result(rows), requests = result.items;
+    const items = requests.map((item) => ({ id: item.publicId, status: item.status, user: item.user, priceName: item.priceName, durationDays: item.durationDays, coins: item.coins.toString(), mimeType: item.mimeType, fileSize: item.fileSize, submittedAt: item.submittedAt.toISOString(), reviewedAt: item.reviewedAt?.toISOString() ?? null, reviewedBy: item.reviewedBy?.name ?? null, rejectionReason: item.rejectionReason, assetId: item.approvedAsset?.publicId ?? null, previewUrl: `/api/room-backgrounds/custom/${item.publicId}/preview` }));
+    return json({ success: true, data: { ...configuration, requests: items, items, nextCursor: result.nextCursor } });
   } catch (error) { return fail(error); }
 }
 

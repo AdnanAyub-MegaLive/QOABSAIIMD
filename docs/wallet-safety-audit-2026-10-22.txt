@@ -1,0 +1,46 @@
+Wallet reconciliation and adjustment safety — first audit remediation phase
+
+Production read-only dry run: 22 October 2026, 11:24:37 PKT / 06:24:37 UTC.
+Accounts checked: 321 non-deleted users.
+Matched: 321. Requiring investigation: 0. Changes applied: 0.
+The query compares complete completed/pending ledger history, separates business
+and personal Coins, and compares Diamonds independently. Untagged legacy Coin
+entries retain their existing personal-wallet interpretation. A match does not
+certify the economic validity of every historical transaction.
+
+No balance correction, historical ledger modification or baseline insertion is
+proposed. The former UI's 13 alerts cannot be used as a balance-correction list:
+that calculation was limited to the latest 1,000 ledger entries and mixed wallets.
+
+Implemented locally:
+- One-snapshot full-history reconciliation for all non-deleted users.
+- Separate personal/business Coin totals and Diamond totals in the finance UI.
+- Database aggregates for finance counters, rather than capped history lists;
+  daily boundary is UTC. Withdrawal count still refers to the legacy Finance
+  withdrawal queue, not the separate CurrencyRequest review queue.
+- Future personal adjustments require an admin-scoped idempotency key and reason.
+  Same key/details return the original balance; conflicting details are refused.
+- Balance, adjustment record, ledger, audit and saved result commit atomically.
+- Insufficient removals fail without silently clamping; values remain decimal
+  strings and amounts are checked against PostgreSQL bigint bounds.
+- Derived refresh failures cannot turn a committed adjustment into a failed credit.
+
+New migration creates AdminCoinAdjustmentRequest only. It has NOT been applied
+to any database by this task. Existing rows and balances remain untouched.
+Local database integration check is blocked by an older missing resellerCoinBalance
+column. The production reconciliation query itself was verified read-only.
+
+After review/deployment, run:
+  node scripts/audit-wallet-reconciliation.mjs --summary
+Omit --summary for account-level differences. This script uses a READ ONLY
+transaction and has no repair/apply mode. Review any future differences before
+proposing corrections. Never interpret differences as automatic adjustments.
+
+Admin retry instructions: keep the adjustment dialog open and retry identical
+details after an uncertain response; it retains the request ID. Check history
+before closing/reopening and starting a NEW adjustment.
+
+Still outstanding from the wider audit: consolidated payout review, queue
+pagination/expiry handling, management/VIP configuration decisions, task automation,
+host salary policy, offline push, and other explicitly identified integration gaps.
+No production deployment, purchase, payout or balance adjustment was performed.

@@ -2,6 +2,8 @@ import { prisma } from "./prisma.js";
 import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 import { validateProgressionThresholds } from "./progression-thresholds.js";
+import { versionMediaPayload } from "./media-payload.js";
+import { captureGiftEvent, isGiftEvent } from "./gift-outbox-context.js";
 export const TRACKS = ["USER", "CHARM"];
 const MAX = 9223372036854775807n;
 export const jsonSafe = value => JSON.parse(JSON.stringify(value, (_, v) => typeof v === "bigint" ? v.toString() : v));
@@ -49,7 +51,10 @@ export async function progressionSnapshots(userId, origin, db=prisma) {
   return snapshots.map((snapshot,i)=>({...snapshot,...tagBackground(backgrounds,TRACKS[i],snapshot.level)}));
 }
 export async function appendOutbox(tx,channel,event,data) {
-  const row=await tx.realtimeOutbox.create({data:{channel,event,payload:jsonSafe({success:true,data})}});
+  const raw = jsonSafe({success:true,data});
+  const payload = isGiftEvent(event) ? await versionMediaPayload(raw, tx) : raw;
+  const row=await tx.realtimeOutbox.create({data:{channel,event,payload}});
+  captureGiftEvent({id:row.id,channel,event,payload});
   return row.id;
 }
 export async function resolveGiftProgressRecipient(tx, gift, recipient) {

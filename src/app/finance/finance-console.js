@@ -1,21 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import PagedRecords from "../components/paged-records";
 import GiftRefunds from "./gift-refunds";
+import CurrencyReviewQueue from "../platform-rules/currency-review-queue";
+import ResellerPayoutReview from "../platform-rules/reseller-payout-review";
 
-const tabs = ["Payout review", "Reconciliation", "Top-ups", "Gift settlements", "Gift refunds", "Immutable ledger", "Mobile integration"];
+const tabs = ["Payout review", "Currency & reseller review", "Reconciliation", "Top-ups", "Gift settlements", "Gift refunds", "Immutable ledger", "Mobile integration"];
 
-export default function FinanceConsole({ stats, withdrawals, reconciliations, topUps, gifts, packages, ledger, integration, canRefund=false }) {
+export default function FinanceConsole({ stats, reconciliations, packages, integration, canRefund=false, canReview=false }) {
+  const [revision, setRevision] = useState(0);
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
   const [onlyAlerts, setOnlyAlerts] = useState(true);
   return (
     <>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Payouts to review" value={stats.pendingWithdrawals} note="Pending or approved" tone="amber" />
-        <Metric label="Top-ups today" value={stats.completedTopUpsToday} note={`PKR ${stats.topUpAmountToday}`} tone="emerald" />
-        <Metric label="Gifts today" value={formatNumber(stats.giftsToday)} note="Gross coin value" tone="violet" />
+        <Metric label="Legacy payouts to review" value={stats.pendingWithdrawals} note="WalletWithdrawal only; currency requests are reviewed in Rules & Profit Split" tone="amber" />
+        <Metric label="Top-ups today (UTC)" value={stats.completedTopUpsToday} note={stats.topUpAmountsToday} tone="emerald" />
+        <Metric label="Gifts today (UTC)" value={formatNumber(stats.giftsToday)} note="Gross sent Coin value, before refunds" tone="violet" />
         <Metric label="Reconciliation alerts" value={stats.reconciliationAlerts} note="Baseline or investigation" tone={stats.reconciliationAlerts ? "red" : "emerald"} />
         <Metric label="Active packages" value={packages.filter((item) => item.active).length} note={`${packages.length} configured`} tone="slate" />
       </section>
@@ -27,15 +31,16 @@ export default function FinanceConsole({ stats, withdrawals, reconciliations, to
       </div>
 
       <section className="mt-6" role="tabpanel">
-        {activeTab === "Payout review" && <WithdrawalsTable withdrawals={withdrawals} onAction={setSelectedWithdrawal} />}
+        {activeTab === "Payout review" && <FinanceRecords kind="withdrawals" revision={revision}>{rows => <WithdrawalsTable withdrawals={rows} onAction={canReview ? setSelectedWithdrawal : null} />}</FinanceRecords>}
+        {activeTab === "Currency & reseller review" && (canReview ? <div className="space-y-6"><CurrencyReviewQueue/><ResellerPayoutReview/></div> : <p>Withdrawal-review permission is required.</p>)}
         {activeTab === "Reconciliation" && <ReconciliationTable rows={reconciliations} onlyAlerts={onlyAlerts} setOnlyAlerts={setOnlyAlerts} />}
-        {activeTab === "Top-ups" && <TopUpsTable rows={topUps} packages={packages} />}
-        {activeTab === "Gift settlements" && <GiftSettlementsTable rows={gifts} />}
+        {activeTab === "Top-ups" && <FinanceRecords kind="topUps">{rows => <TopUpsTable rows={rows} packages={packages} />}</FinanceRecords>}
+        {activeTab === "Gift settlements" && <FinanceRecords kind="gifts">{rows => <GiftSettlementsTable rows={rows} />}</FinanceRecords>}
         {activeTab === "Gift refunds" && <GiftRefunds canRefund={canRefund} />}
-        {activeTab === "Immutable ledger" && <LedgerTable rows={ledger} />}
+        {activeTab === "Immutable ledger" && <FinanceRecords kind="ledger">{rows => <LedgerTable rows={rows} />}</FinanceRecords>}
         {activeTab === "Mobile integration" && <MobileIntegration integration={integration} />}
       </section>
-      {selectedWithdrawal && <WithdrawalActionModal selection={selectedWithdrawal} onClose={() => setSelectedWithdrawal(null)} />}
+      {selectedWithdrawal && <WithdrawalActionModal selection={selectedWithdrawal} onClose={() => { setSelectedWithdrawal(null); setRevision(n=>n+1); }} />}
     </>
   );
 }
@@ -46,16 +51,10 @@ function Metric({ label, value, note, tone }) {
 }
 
 function WithdrawalsTable({ withdrawals, onAction }) {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("OPEN");
-  const rows = useMemo(() => withdrawals.filter((item) => {
-    const matchesQuery = `${item.id} ${item.host} ${item.hostId} ${item.method}`.toLowerCase().includes(query.trim().toLowerCase());
-    const matchesStatus = status === "ALL" || status === "OPEN" ? (status === "ALL" || ["PENDING", "APPROVED"].includes(item.status)) : item.status === status;
-    return matchesQuery && matchesStatus;
-  }), [withdrawals, query, status]);
-  return <Panel title="Withdrawal requests" description="A payout remains reserved until it is rejected or confirmed paid. Every review is written to the audit log." action={<div className="flex gap-2"><select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-lg border border-[#dce6e4] bg-white px-3 text-xs"><option value="OPEN">Open only</option><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="COMPLETED">Paid</option><option value="REJECTED">Rejected</option><option value="ALL">All states</option></select><input value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 w-56 rounded-lg border border-[#dce6e4] bg-[#fafcfc] px-3 text-xs outline-none focus:border-[#2ca89c]" placeholder="Search host or withdrawal ID..." /></div>}>
+  const rows = withdrawals;
+  return <Panel title="Withdrawal requests" description="All matching records are paginated. Pending requests are oldest first. Reviews retain existing payment and ledger checks.">
     <Table headers={["Withdrawal", "Host", "Method / account", "Requested", "State", "Review", "Actions"]}>
-      {rows.map((item) => <tr key={item.id} className="hover:bg-[#f9fcfb]"><td className="px-5 py-4"><code className="text-[10px] font-bold text-[#087f74]">{item.id}</code><p className="mt-1 text-[10px] text-[#81928e]">{formatDate(item.createdAt)}</p></td><td><p className="font-semibold">{item.host}</p><p className="text-[9px] text-[#849590]">{item.hostId} · {item.hostVerified ? "KYC verified" : "KYC pending"}</p></td><td><p className="capitalize">{item.method.replaceAll("_", " ")}</p><p className="text-[10px] text-[#71847f]">{item.accountName} · ••••{item.accountNumber.slice(-4)}</p><details className="mt-1 text-[9px] text-[#087f74]"><summary className="cursor-pointer">Show payout details</summary><p className="mt-1 font-mono text-[#526b67]">{item.accountNumber}</p></details></td><td><p className="font-bold">{formatNumber(item.coins)} diamonds</p><p className="text-[10px] text-[#71847f]">{item.currency} {item.amount}</p></td><td><Status value={item.status} /></td><td className="max-w-44"><p className="line-clamp-2 text-[10px] text-[#526b67]">{item.rejectionReason ?? item.reviewNote ?? "Not reviewed"}</p><p className="mt-1 text-[9px] text-[#849590]">{item.reviewer ?? "—"}{item.payoutReference ? ` · ${item.payoutReference}` : ""}</p></td><td className="px-5"><div className="flex flex-wrap justify-end gap-1.5">{item.status === "PENDING" && <ActionButton label="Approve" tone="emerald" onClick={() => onAction({ item, action: "APPROVE" })} />}{["PENDING", "APPROVED"].includes(item.status) && <ActionButton label="Reject" tone="red" onClick={() => onAction({ item, action: "REJECT" })} />}{item.status === "APPROVED" && <ActionButton label="Mark paid" tone="violet" onClick={() => onAction({ item, action: "MARK_PAID" })} />}</div></td></tr>)}
+      {rows.map((item) => <tr key={item.id} className="hover:bg-[#f9fcfb]"><td className="px-5 py-4"><code className="text-[10px] font-bold text-[#087f74]">{item.id}</code><p className="mt-1 text-[10px] text-[#81928e]">{formatDate(item.createdAt)}</p></td><td><p className="font-semibold">{item.host}</p><p className="text-[9px] text-[#849590]">{item.hostId} · {item.hostVerified ? "KYC verified" : "KYC pending"}</p></td><td><p className="capitalize">{item.method.replaceAll("_", " ")}</p><p className="text-[10px] text-[#71847f]">{item.accountName} · ••••{item.accountNumber.slice(-4)}</p><details className="mt-1 text-[9px] text-[#087f74]"><summary className="cursor-pointer">Show payout details</summary><p className="mt-1 font-mono text-[#526b67]">{item.accountNumber}</p></details></td><td><p className="font-bold">{formatNumber(item.coins)} diamonds</p><p className="text-[10px] text-[#71847f]">{item.currency} {item.amount}</p></td><td><Status value={item.status} /></td><td className="max-w-44"><p className="line-clamp-2 text-[10px] text-[#526b67]">{item.rejectionReason ?? item.reviewNote ?? "Not reviewed"}</p><p className="mt-1 text-[9px] text-[#849590]">{item.reviewer ?? "—"}{item.payoutReference ? ` · ${item.payoutReference}` : ""}</p></td><td className="px-5"><div className="flex flex-wrap justify-end gap-1.5">{onAction && item.status === "PENDING" && <ActionButton label="Approve" tone="emerald" onClick={() => onAction({ item, action: "APPROVE" })} />}{onAction && ["PENDING", "APPROVED"].includes(item.status) && <ActionButton label="Reject" tone="red" onClick={() => onAction({ item, action: "REJECT" })} />}{onAction && item.status === "APPROVED" && <ActionButton label="Mark paid" tone="violet" onClick={() => onAction({ item, action: "MARK_PAID" })} />}</div></td></tr>)}
     </Table>
     {!rows.length && <Empty text="No withdrawal requests match the current filters." />}
   </Panel>;
@@ -63,8 +62,8 @@ function WithdrawalsTable({ withdrawals, onAction }) {
 
 function ReconciliationTable({ rows, onlyAlerts, setOnlyAlerts }) {
   const visible = onlyAlerts ? rows.filter((item) => item.status !== "MATCHED") : rows;
-  return <Panel title="Wallet reconciliation" description="Balances are compared with signed, immutable ledger entries. Historical accounts without a verified opening balance are flagged for investigation." action={<label className="flex items-center gap-2 text-xs font-semibold text-[#526b67]"><input type="checkbox" checked={onlyAlerts} onChange={(event) => setOnlyAlerts(event.target.checked)} /> Show alerts only</label>}>
-    <Table headers={["User", "Coin balance", "Ledger coins", "Salary balance", "Ledger salary", "Difference", "Result"]}>{visible.map((item) => <tr key={item.userId} className="hover:bg-[#f9fcfb]"><td className="px-5 py-4"><p className="font-semibold">{item.name}</p><code className="text-[9px] text-[#087f74]">{item.userId}</code></td><td>{formatNumber(item.balanceCoins)}</td><td>{formatNumber(item.ledgerCoins)}</td><td>{formatNumber(item.balanceSalaryCoins)}</td><td>{formatNumber(item.ledgerSalaryCoins)}</td><td><p className={item.coinsDifference === "0" && item.salaryDifference === "0" ? "text-[#087f74]" : "font-bold text-red-600"}>C {formatSigned(item.coinsDifference)} · D {formatSigned(item.salaryDifference)}</p></td><td><Status value={item.status} /></td></tr>)}</Table>
+  return <Panel title="Wallet reconciliation" description="Read-only comparison of all non-deleted accounts against complete ledger history, in one database snapshot. Business Coins are separate from personal Coins. Untagged historical Coins retain their personal-wallet interpretation. Differences require investigation and an approved baseline, never automatic correction." action={<label className="flex items-center gap-2 text-xs font-semibold text-[#526b67]"><input type="checkbox" checked={onlyAlerts} onChange={(event) => setOnlyAlerts(event.target.checked)} /> Show alerts only</label>}>
+    <Table headers={["User", "Personal Coins", "Personal ledger", "Business Coins", "Business ledger", "Diamonds", "Diamond ledger", "Differences", "Result"]}>{visible.map((item) => <tr key={item.userId}><td className="px-5 py-4"><p>{item.name}</p><code>{item.userId}</code></td><td>{item.balanceCoins}</td><td>{item.ledgerCoins}</td><td>{item.balanceBusinessCoins}</td><td>{item.ledgerBusinessCoins}</td><td>{item.balanceSalaryCoins}</td><td>{item.ledgerSalaryCoins}</td><td>Personal {item.coinsDifference} · Business {item.businessDifference} · Diamonds {item.salaryDifference}</td><td><Status value={item.status} /></td></tr>)}</Table>
     {!visible.length && <Empty text="All checked accounts reconcile with their ledger entries." />}
   </Panel>;
 }
@@ -124,5 +123,10 @@ function WithdrawalActionModal({ selection, onClose }) {
 }
 
 function formatNumber(value) { try { return BigInt(value ?? 0).toLocaleString(); } catch { return String(value ?? "—"); } }
-function formatSigned(value) { const stringValue = String(value ?? "0"); return stringValue === "0" ? "0" : `${stringValue.startsWith("-") ? "" : "+"}${formatNumber(stringValue)}`; }
 function formatDate(value) { return new Date(value).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }); }
+
+
+function FinanceRecords({ kind, children, revision = 0 }) {
+ const options = kind === "withdrawals" ? ["OPEN","ALL","PENDING","APPROVED","COMPLETED","REJECTED","FAILED","EXPIRED","CANCELLED"] : kind === "ledger" ? ["ALL","PENDING","COMPLETED","FAILED","REVERSED"] : kind === "gifts" ? ["ALL"] : ["ALL","PENDING","APPROVED","COMPLETED","REJECTED","FAILED","EXPIRED","CANCELLED"];
+ return <PagedRecords endpoint="/api/admin/wallet/records" revision={revision} search filters={[{name:"kind",label:"Records",options:[kind]},{name:"status",label:"Status",options}]}>{children}</PagedRecords>;
+}

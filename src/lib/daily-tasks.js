@@ -5,13 +5,8 @@ import { measuredTaskProgress } from "./task-center-progress.js";
 import { grantTaskReward, rewardDisplay } from "./task-center-rewards.js";
 import { notifyAction } from "./action-notifications.js";
 
-export function utcDayStart(value=new Date()){return new Date(Date.UTC(value.getUTCFullYear(),value.getUTCMonth(),value.getUTCDate()));}
-export function utcWeekStart(value=new Date()){const d=utcDayStart(value);d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);return d;}
-export function periodStart(definition,now){
-  if(definition.cadence==="BEGINNER")return new Date(0);
-  if(definition.cadence==="MONTHLY")return new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1));
-  return definition.cadence==="WEEKLY"?utcWeekStart(now):utcDayStart(now);
-}
+import { periodStart, utcDayStart } from "./task-periods.js";
+export { periodStart, utcDayStart, utcWeekStart } from "./task-periods.js";
 export function periodEnd(d,now){
   if(d.cadence==="BEGINNER")return null;
   const end=periodStart(d,now);if(d.cadence==="MONTHLY")end.setUTCMonth(end.getUTCMonth()+1);else end.setUTCDate(end.getUTCDate()+(d.cadence==="WEEKLY"?7:1));return end;

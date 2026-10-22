@@ -2,8 +2,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "./prisma.js";
 import { jsonSafe } from "./progression.js";
 import { recordGiftRecovery } from "./gift-refunds.js";
-import { versionMediaPayload } from "./media-payload.js";
-import { refreshActivityEventMedia } from "./activity-event-media.js";
+import { giftOutboxContext } from "./gift-outbox-context.js";
+import { deliverCommittedGiftEvents } from "./realtime-outbox.js";
+export { flushRealtimeOutbox } from "./realtime-outbox.js";
 export function giftOperation(body, key, mode) {
   if(key!=null&&!/^[A-Za-z0-9._:-]{8,128}$/.test(key)) throw Object.assign(new Error("Use an 8–128 character Idempotency-Key."),{code:"VALIDATION_ERROR"});
   const fields={mode,recipientId:body?.recipientId??null,recipientIds:Array.isArray(body?.recipientIds)?[...new Set(body.recipientIds)].sort():null,giftId:body?.giftId??null,roomId:body?.roomId??null,liveId:body?.liveId??null,quantity:Number(body?.quantity??1),giftBatchId:body?.giftBatchId??null,comboId:body?.comboId??null};
@@ -17,7 +18,8 @@ export async function priorGiftOperation(senderId, operation, db=prisma) {
 }
 export async function runGiftOperation(senderId,operation,work,db=prisma) {
   for(let attempt=0;attempt<4;attempt++) try {
-    return await db.$transaction(async tx=>{
+    const events = [];
+    const committed = await giftOutboxContext.run(events, () => db.$transaction(async tx=>{
       const old=await priorGiftOperation(senderId,operation,tx); if(old) return old;
       const request=await tx.giftRequest.create({data:{senderId,...operation}});
       const result=jsonSafe(await work(tx));
@@ -30,21 +32,10 @@ export async function runGiftOperation(senderId,operation,work,db=prisma) {
       }
       await tx.giftRequest.update({where:{id:request.id},data:{result}});
       return result;
-    },{isolationLevel:"Serializable",timeout:20000});
+    },{isolationLevel:"Serializable",timeout:20000}));
+    // Only after commit, outside the transaction retry block's awaited work.
+    // Delivery failure must never retry a committed charge or fail its response.
+    void deliverCommittedGiftEvents(events, globalThis.portalIo, db).catch(error => console.error("Immediate gift delivery failed", error.message));
+    return committed;
   } catch(error) { if(!["P2034","P2002"].includes(error.code)||attempt===3) throw error; }
-}
-
-let flushing=false;
-export async function flushRealtimeOutbox(io=globalThis.portalIo,db=prisma) {
-  if(!io||flushing)return; flushing=true;
-  try {
-    const rows=await db.realtimeOutbox.findMany({where:{deliveredAt:null},orderBy:[{createdAt:"asc"},{id:"asc"}],take:100});
-    for(const row of rows) {
-      try {
-        const payload = row.event === "activity-progression:updated" ? await refreshActivityEventMedia(row.payload, db) : row.payload;
-        io.to(row.channel).emit(row.event,await versionMediaPayload({...payload,data:{...payload.data,eventId:row.id}},db));
-        await db.realtimeOutbox.update({where:{id:row.id},data:{deliveredAt:new Date(),attempts:{increment:1}}});
-      } catch(error) { await db.realtimeOutbox.update({where:{id:row.id},data:{attempts:{increment:1}}}); console.error("Realtime outbox delivery failed",row.id,error.message); }
-    }
-  } finally { flushing=false; }
 }

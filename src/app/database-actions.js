@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { applyAdminCoinAdjustment } from "../lib/admin-coin-adjustment.js";
 import { safeAuditDetails } from "@/lib/audit-view";
 import { validationResult } from "@/lib/action-validation";
 import { adminProfileFields } from "../lib/admin-profile-input";
@@ -24,7 +25,6 @@ import {
   talentPublicIdForApprovedHost,
   userPublicIdForRemovedHost,
 } from "../lib/host-public-id";
-import { ledgerData } from "../lib/wallet";
 import { generateNumericPublicId } from "../lib/public-id";
 
 
@@ -418,63 +418,14 @@ export async function managePortalHost(publicId, changes) {
   return { publicId: nextPublicId, previousPublicId: user.publicId, hostEnabled, agencyPublicId: agencyPublicId || null, status, isVerified };
 }
 
-export async function adjustUserCoins(publicId, operation, amount, reason) {
+export async function adjustUserCoins(publicId, operation, amount, reason, requestId) {
   const admin = await requirePermission("finance.adjust");
-  if (!["add", "remove"].includes(operation) || !/^\d+$/.test(String(amount))) throw new Error("INVALID_COIN_ADJUSTMENT");
-  const value = BigInt(amount);
-  if (value <= 0n) throw new Error("INVALID_COIN_ADJUSTMENT");
-  const { user, after } = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUniqueOrThrow({ where: { publicId } });
-    // Admin adjustments target personal Coins for every role, including resellers.
-    // Business inventory is funded separately through the reseller wallet action.
-    const after =
-      operation === "add"
-        ? user.coinBalance + value
-        : user.coinBalance > value
-          ? user.coinBalance - value
-          : 0n;
-    await tx.user.update({
-      where: { id: user.id },
-      data: {
-        coinBalance: after,
-        ...(operation === "add" ? { totalTopUp: { increment: value } } : {}),
-      },
-    });
-    await tx.coinAdjustment.create({
-      data: {
-        userId: user.id,
-        adminId: admin.id,
-        operation: operation === "add" ? "ADD" : "REMOVE",
-        amount: value,
-        balanceBefore: user.coinBalance,
-        balanceAfter: after,
-        reason,
-      },
-    });
-    await tx.walletTransaction.create({
-      data: ledgerData({
-        userId: user.id,
-        type: "ADMIN_ADJUSTMENT",
-        direction: operation === "add" ? "CREDIT" : "DEBIT",
-        title: operation === "add" ? "Coins added by administrator" : "Coins removed by administrator",
-        description: reason,
-        coins: operation === "add" ? value : user.coinBalance - after,
-        referenceId: `COIN-ADJUSTMENT:${user.publicId}:${Date.now()}`,
-        metadata: { adminId: admin.id, operation, wallet: "PERSONAL" },
-      }),
-    });
-    return { user, after };
-  }, { isolationLevel: "Serializable" });
-  await logActivity(admin, {
-    action: operation === "add" ? "ADD_COINS" : "REMOVE_COINS",
-    category: "FINANCE",
-    entityType: "User",
-    entityId: publicId,
-    description: `${admin.name} ${operation === "add" ? "added" : "removed"} ${amount} coins ${operation === "add" ? "to" : "from"} user ${publicId}`,
-    metadata: { amount, operation, reason, balanceAfter: Number(after), wallet: "PERSONAL" },
-  });
+  const result = await applyAdminCoinAdjustment(prisma, admin, { publicId, operation, amount, reason, requestId });
+  // A committed credit must never be reported as a failed adjustment because
+  // a derived entitlement or cache refresh failed. Same-key retries are safe.
+  try {
   if (operation === "add") {
-    await syncProgressionProps(user.id);
+    await syncProgressionProps(result.userId);
     const assignment = await autoAssignEligibleSpecialId(publicId, "TOP_UP");
     if (assignment)
       emitToUser(publicId, "special-id:assigned", {
@@ -488,7 +439,10 @@ export async function adjustUserCoins(publicId, operation, amount, reason) {
   }
   revalidatePath("/users");
   revalidatePath(`/users/${publicId}`);
-  return Number(after);
+  } catch (error) {
+    console.error("Coin adjustment committed; follow-up refresh failed", { referenceId: result.referenceId, code: error.code ?? "UNKNOWN" });
+  }
+  return result.balance;
 }
 
 export async function manageUserAssetGrant(

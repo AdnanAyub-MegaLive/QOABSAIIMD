@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { reviewPage } from "@/lib/review-pagination";
 import { requirePermission } from "@/lib/portal-admin";
 import { sameOrigin, jsonBody } from "@/lib/game-control/http";
 export async function GET(request) {
@@ -10,10 +11,12 @@ export async function GET(request) {
       const cover = coverId ? await prisma.profileCoverItem.findFirst({where:{id:coverId,userId}}) : await prisma.profileCover.findUnique({ where: { userId } });
       return cover ? new Response(cover.imageData, { headers: { "Content-Type": cover.mimeType, "Cache-Control": "private, no-store" } }) : new Response(null,{status:404});
     }
-    const legacy = await prisma.profileCover.findMany({ select: { mimeType: true, userId: true, status: true, revision: true, updatedAt: true, user: { select: { publicId: true, name: true } } }, orderBy: { updatedAt: "desc" }, take: 100 });
-    const gallery = await prisma.profileCoverItem.findMany({select:{id:true,userId:true,mimeType:true,status:true,revision:true,updatedAt:true,user:{select:{publicId:true,name:true}}},orderBy:{updatedAt:"desc"},take:100});
-    const items=[...legacy,...gallery].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,100);
-    return Response.json({ success: true, data: { items } });
+    const params = new URL(request.url).searchParams, source = params.get("source") ?? "GALLERY", status = params.get("status") ?? "PENDING";
+    if (!["GALLERY", "LEGACY"].includes(source) || !["ALL", "PENDING", "APPROVED", "REJECTED"].includes(status)) throw Object.assign(new Error("Invalid cover filter."), { status: 422 });
+    const page = reviewPage(params, `covers:${source}:${status}`, "updatedAt", status === "PENDING" ? "asc" : "desc", source === "LEGACY" ? "userId" : "id");
+    const model = source === "LEGACY" ? prisma.profileCover : prisma.profileCoverItem;
+    const rows = await model.findMany({ where: { AND: [status === "ALL" ? {} : { status }, page.after] }, select: { ...(source === "GALLERY" ? { id: true } : {}), mimeType: true, userId: true, status: true, revision: true, updatedAt: true, user: { select: { publicId: true, name: true } } }, orderBy: page.orderBy, take: page.take });
+    return Response.json({ success: true, data: page.result(rows) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) { return Response.json({success:false,error:{message:e.status?e.message:"Unable to load covers."}},{status:e.status??500}); }
 }
 export async function PATCH(request) {

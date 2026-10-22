@@ -28,7 +28,7 @@ export default function GiftHistoryTable({ initialData }) {
   const totals = useMemo(
     () => ({
       spent: users.reduce((sum, user) => sum + user.totalSpent, 0),
-      balance: users.reduce((sum, user) => sum + user.balance, 0),
+      balance: users.reduce((sum, user) => sum + BigInt(user.balance), 0n),
       gifts: users.reduce((sum, user) => sum + user.gifts, 0),
     }),
     [users],
@@ -38,14 +38,15 @@ export default function GiftHistoryTable({ initialData }) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const operation = formData.get("operation");
-    const amount = Number(formData.get("amount"));
-    if (!Number.isFinite(amount) || amount <= 0) return;
+    const amount = String(formData.get("amount"));
+    if (!/^\d+$/.test(amount) || BigInt(amount) <= 0n) return;
 
     const balance = await adjustUserCoins(
       selectedUser.id,
       operation,
       amount,
       String(formData.get("reason")),
+      String(formData.get("requestId")),
     );
     setUsers((current) =>
       current.map((user) =>
@@ -191,6 +192,9 @@ function SummaryCard({ label, value, note }) {
 
 function CoinAdjustmentModal({ user, onClose, onSubmit }) {
   const [operation, setOperation] = useState("add");
+  const [requestId] = useState(() => crypto.randomUUID());
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-[#061c1a]/60 p-4 backdrop-blur-[2px]"
@@ -223,7 +227,17 @@ function CoinAdjustmentModal({ user, onClose, onSubmit }) {
             ×
           </button>
         </div>
-        <form onSubmit={onSubmit} className="p-6">
+        <form onSubmit={async event => {
+          event.preventDefault();
+          if (pending) return;
+          setPending(true); setError("");
+          try { await onSubmit(event); }
+          catch { setError("Adjustment could not be confirmed. Retry the same details safely; check history before starting a new adjustment."); }
+          finally { setPending(false); }
+        }} className="p-6">
+          <input type="hidden" name="requestId" value={requestId} />
+          {error && <p role="alert">{error}</p>}
+          {pending && <p role="status">Saving adjustment…</p>}
           <div className="mb-5 rounded-xl bg-[#f3f8f7] p-4">
             <p className="text-[10px] font-bold tracking-wider text-[#7e918c] uppercase">
               Current balance
@@ -306,6 +320,7 @@ function CoinAdjustmentModal({ user, onClose, onSubmit }) {
             </button>
             <button
               type="submit"
+              disabled={pending}
               className={`h-10 rounded-lg px-5 text-xs font-bold text-white ${operation === "add" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}
             >
               {operation === "add" ? "Add coins" : "Remove coins"}

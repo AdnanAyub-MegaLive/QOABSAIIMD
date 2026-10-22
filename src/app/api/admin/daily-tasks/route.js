@@ -1,13 +1,20 @@
 import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../auth";
 import { prisma } from "@/lib/prisma";
-import { validateTaskOptions, metricOf } from "@/lib/task-center-config";
+import { validateTaskOptions } from "@/lib/task-center-config";
 import { validateRewardReferences } from "@/lib/task-center-rewards";
 import { installTaskCenter } from "@/lib/task-center-templates";
-import { periodStart } from "@/lib/daily-tasks";
+import { taskReviewQueue, evidenceActionable } from "@/lib/task-review-queue";
 
 function json(body, status = 200) {
-  return Response.json(body, { status });
+  return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+export async function GET(request) {
+  const denied = await portalPermissionError("tasks.view");
+  if (denied) return denied;
+  try { return json({ success: true, data: await taskReviewQueue(prisma, new URL(request.url).searchParams) }); }
+  catch (error) { return adminError(error); }
 }
 
 async function requireAdmin() {
@@ -121,8 +128,8 @@ export async function PATCH(request) {
       if(!["APPROVED","REJECTED"].includes(decision))throw Object.assign(new Error("Choose approve or reject."),{status:422});
       const reason=text(body.reason,"Review reason",500);
       await prisma.$transaction(async tx=>{
-        const row=await tx.dailyTaskInstance.findUnique({where:{id},include:{definition:true}});
-        if(!row||row.claimedAt||row.reviewStatus!=="PENDING"||metricOf(row.definition)!=="MANUAL"||!row.definition.active||row.definition.deletedAt||row.periodStart.getTime()!==periodStart(row.definition,new Date()).getTime())throw Object.assign(new Error("This evidence is no longer awaiting review."),{status:409});
+        const row=await tx.dailyTaskInstance.findUnique({where:{id},include:{definition:{include:{category:true}}}});
+        if(!evidenceActionable(row))throw Object.assign(new Error("This evidence is no longer awaiting review."),{status:409});
         await tx.dailyTaskInstance.update({where:{id},data:{reviewStatus:decision,reviewReason:reason,progressValue:decision==="APPROVED"?row.definition.targetValue:0}});
         await audit(tx,admin,"TASK_EVIDENCE_REVIEWED","DailyTaskInstance",id,{decision,reason});
       },{isolationLevel:"Serializable"});

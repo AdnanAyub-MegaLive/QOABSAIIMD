@@ -22,7 +22,7 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
     { length: Math.min(5, totalPages) },
     (_, index) => Math.max(1, Math.min(page - 2, totalPages - 4)) + index,
   );
-  const exportHref=pageHref(1).replace('/audit-logs?','/api/admin/audit-logs?');
+  const exportHref=pageHref(1).replace('/audit-logs?','/api/admin/audit-logs?')+'&export=all';
   return (
     <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
       <form method="GET" className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:justify-between">
@@ -51,7 +51,7 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
         >
           <option>All</option>
           {categories.map(value=><option key={value} value={value}>{displayAuditLabel(value)}</option>)}
-        </select><button className="rounded-lg bg-[#087f74] px-4 text-xs font-bold text-white">Search</button><a href={exportHref} className="grid place-items-center rounded-lg border px-3 text-xs">Export JSON (up to 500)</a>{(query || category !== "All" || filters.action || filters.entity || filters.from || filters.to) && <Link href="/audit-logs" className="grid place-items-center rounded-lg border border-[#dce6e4] px-3 text-xs font-bold">Clear</Link>}</div>
+</select><button className="rounded-lg bg-[#087f74] px-4 text-xs font-bold text-white">Search</button><a href={exportHref} className="grid place-items-center rounded-lg border px-3 text-xs">Export all matching JSON</a>{(query || category !== "All" || filters.action || filters.entity || filters.from || filters.to) && <Link href="/audit-logs" className="grid place-items-center rounded-lg border border-[#dce6e4] px-3 text-xs font-bold">Clear</Link>}</div>
       </form>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[950px] text-left">

@@ -296,6 +296,7 @@ export default function ProfileManager({ profile, type }) {
                   updates.coinAdjustment.operation,
                   updates.coinAdjustment.amount,
                   updates.coinAdjustment.reason,
+                  updates.coinAdjustment.requestId,
                 );
                 setData((current) => ({ ...current, balance }));
               } else {
@@ -818,6 +819,7 @@ function Action({ text, onClick, disabled = false }) {
 }
 
 function ManageModal({ type, profile, isTalent, onClose, onSave }) {
+  const [coinRequestId] = useState(() => crypto.randomUUID());
   const [pending, setPending] = useState(false);
   const [saveError, setSaveError] = useState("");
   async function save(updates) {
@@ -860,8 +862,9 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
       save({
         coinAdjustment: {
           operation: form.get("operation"),
-          amount: Number(form.get("amount")),
+          amount: String(form.get("amount")),
           reason: form.get("reason"),
+          requestId: coinRequestId,
         },
       });
     else if (type === "edit")

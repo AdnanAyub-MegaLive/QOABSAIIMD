@@ -199,6 +199,16 @@ model SafetyReport {
   @@index([status, createdAt, id])
 }
 
+model AdminCoinAdjustmentRequest {
+  id String @id @default(cuid())
+  adminId String
+  requestId String
+  fingerprint String
+  result Json
+  createdAt DateTime @default(now())
+  @@unique([adminId, requestId])
+}
+
 model ResellerRechargeRequest {
   id String @id @default(cuid())
   actorId String

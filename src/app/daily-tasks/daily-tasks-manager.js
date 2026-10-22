@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
+import TaskEvidenceQueue from "./task-evidence-queue";
 import { taskMetrics, metricOf } from "@/lib/task-center-config";
 
 const input="mt-1 w-full rounded-lg border border-[#cededb] bg-white p-2.5 text-sm text-slate-900";
 const button="rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
 const blank={type:"",metric:"SEND_GIFTS",title:"",description:"",rewardCoins:"100",rewardSpec:{kind:"COINS",coins:"100"},config:{},targetValue:1,unit:"COUNT",cadence:"DAILY",categoryKey:"Daily",icon:"coin",sortOrder:100,active:true};
 const rewardLabel=r=>r?.kind==="COINS"?`${Number(r.coins).toLocaleString()} Coins`:`${r?.kind??"Reward"} · ${r?.days??0} days`;
-export default function DailyTasksManager({initialCategories,initialTasks,assets=[],tiers=[],reviews=[]}){
+export default function DailyTasksManager({initialCategories,initialTasks,assets=[],tiers=[]}){
  const [filter,setFilter]=useState("ALL"),[draft,setDraft]=useState(null),[category,setCategory]=useState(null),[saving,setSaving]=useState(false),[error,setError]=useState("");
  async function save(body,method="PATCH"){
   if(saving)return;setSaving(true);setError("");
@@ -21,7 +22,7 @@ export default function DailyTasksManager({initialCategories,initialTasks,assets
    <div className="my-5 flex flex-wrap gap-2">{["ALL","BEGINNER","DAILY","MONTHLY","WEEKLY"].map(c=><button key={c} onClick={()=>setFilter(c)} className={`rounded-full px-4 py-2 text-xs font-bold ${filter===c?"bg-teal-700 text-white":"bg-slate-100"}`}>{c}</button>)}</div>
    <div className="grid gap-3 lg:grid-cols-2">{tasks.map(t=><button key={t.id} onClick={()=>setDraft({...t,metric:metricOf(t),config:t.config??{},rewardSpec:t.rewardSpec??{kind:"COINS",coins:t.rewardCoins}})} className="rounded-xl border p-4 text-left hover:border-teal-600"><div className="flex justify-between gap-3"><b>{t.title}</b><span className={`text-xs ${t.active?"text-teal-700":"text-slate-500"}`}>{t.active?"Active":"Inactive"}</span></div><p className="mt-2 text-xs text-slate-500">{t.categoryKey} · {taskMetrics[metricOf(t)]??metricOf(t)} · target {t.targetValue}{t.unit==="SECONDS"?" seconds":""}</p><p className="mt-3 font-semibold text-amber-700">{rewardLabel(t.rewardSpec??{kind:"COINS",coins:t.rewardCoins})}</p></button>)}</div>
   </section>
-  <section className="rounded-2xl border bg-white p-5"><h3 className="font-bold">Evidence awaiting review</h3><p className="mt-1 text-xs text-slate-500">For external activities only. Approval enables the user to claim; it does not credit Coins automatically. Oldest 100 pending submissions are shown.</p>{!reviews.length&&<p className="mt-4 text-sm text-slate-500">No pending submissions.</p>}{reviews.map(r=><div key={r.id} className="mt-4 rounded-xl border p-4"><b>{r.title}</b><p className="text-sm">{r.user.name} · {r.user.publicId}</p><p className="my-3 whitespace-pre-wrap break-words text-sm text-slate-600">{r.evidence}</p><div className="flex gap-2">{["APPROVED","REJECTED"].map(decision=><button key={decision} disabled={saving} className={decision==="APPROVED"?button:"rounded-lg border px-4 py-2 text-sm"} onClick={()=>{const reason=window.prompt("Enter your verification findings / reason (required)");if(reason?.trim())save({entity:"review",id:r.id,decision,reason});}}>{decision==="APPROVED"?"Approve":"Reject"}</button>)}</div></div>)}</section>
+  <TaskEvidenceQueue/>
   {draft&&<TaskEditor key={draft.id??"new"} draft={draft} categories={initialCategories} assets={assets} tiers={tiers} saving={saving} close={()=>setDraft(null)} save={save}/>}
   {category&&<Modal title="App tab" close={()=>setCategory(null)}><form className="space-y-4" onSubmit={e=>{e.preventDefault();save({entity:"category",...category},category.isNew?"POST":"PATCH");}}><Field label="Name"><input className={input} required disabled={!category.isNew} maxLength={40} value={category.key} onChange={e=>setCategory({...category,key:e.target.value})}/></Field><Field label="Icon key"><input className={input} required value={category.icon} onChange={e=>setCategory({...category,icon:e.target.value})}/></Field><Field label="Order"><input className={input} type="number" min="0" value={category.sortOrder} onChange={e=>setCategory({...category,sortOrder:e.target.value})}/></Field><label><input type="checkbox" checked={category.active} onChange={e=>setCategory({...category,active:e.target.checked})}/> Visible</label><div><button className={button} disabled={saving}>Save tab</button></div></form></Modal>}
  </div>;

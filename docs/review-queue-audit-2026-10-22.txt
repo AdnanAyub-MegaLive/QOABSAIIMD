@@ -1,0 +1,90 @@
+REVIEW QUEUES AND AUDIT EXPORT — 22 OCTOBER 2026
+
+Status: implemented locally; not pushed or deployed.
+No production mutations, migrations, approvals, payouts, refunds, balance edits,
+or historical record edits were executed during this work.
+
+Completed
+
+1. Task evidence
+   - Actionable queue: current UTC task period, manual evidence, unclaimed,
+     pending, active definition and active category only; oldest first.
+   - Read-only all-evidence/history view retains expired and archived evidence.
+     No historical pending status is rewritten to implement this view.
+   - Timestamp + ID cursor pagination replaces the oldest-100 cutoff.
+   - Approval rechecks category activity inside the existing serializable
+     transaction. Existing review audit entries and claim mechanics remain.
+
+2. Paid banner review
+   - Pending, Active, Rejected, Deleted, Expired and All filters.
+   - Pending oldest first; stable cursor pagination replaces latest-200 cutoff.
+   - Paging preserves unsaved package/settings edits.
+   - Existing moderation, publication, refund and authorization logic unchanged.
+
+3. Currency request review
+   - Paginated permission-protected GET /api/admin/wallet/currency-requests.
+   - Status and kind filters; default pending/approved oldest first.
+   - Explicit fields; monetary amounts remain decimal strings.
+   - Shared review component in Rules & Profit Split and Finance; existing
+     reseller escrow queue also accessible from Finance.
+   - Existing reviewCurrency server action remains authoritative for payment
+     verification, permissions and atomic ledger/balance updates.
+   - No reviews were submitted as part of validation.
+
+4. Audit exports
+   - Portal export uses /api/admin/audit-logs?...&export=all.
+   - Streams all matching records with bounded 500-row reads and timestamp/ID
+     continuation; applies existing redaction and audit.view permission.
+   - Export excludes entries created after the export start time. This is a
+     read-only bounded scan, not a long-lived database snapshot transaction.
+   - Existing bounded API response remains available without export=all.
+   - Mid-stream failures fail the download rather than mark partial data complete.
+
+Validation
+   - 71 targeted tests passed in 14 files, including wallet safety regression tests.
+   - ESLint passed for touched queue/export code.
+   - Production build passed. Existing Turbopack NFT tracing warning through
+     events/storage remains; it is not a compile failure.
+   - No production browser review or financial action was performed.
+   - No new migration is needed for this review-queue phase. Earlier uncommitted
+     wallet idempotency changes still have their own pending migration.
+
+Remaining audit work / decisions (not silently changed)
+   - Management targets and approved personal salary policy need actual values.
+   - VIP tier naming/level/price mismatch needs an explicit intended configuration.
+   - Banner pricing discrepancy needs confirmation before overwriting live prices.
+   - Inactive gift/VIP task templates require the intended active assets/tiers.
+   - External device push and checkout provider integration require provider setup.
+   - Legacy Finance, background and cover pagination was completed in the next
+     local phase below. Other bounded lists (VIP memberships, room reward payouts
+     and refund history) remain follow-up work.
+   - Existing broader-suite failures outside this phase have not been resolved.
+
+Safety gate
+Any future repair of existing balances or historical financial/salary records
+must first produce a dry-run showing exact affected records and proposed deltas,
+then wait for the user's approval. The read-only reconciliation report from the
+previous phase remains in wallet-safety-audit-2026-10-22.txt.
+
+FOLLOW-UP: LEGACY FINANCE, BACKGROUNDS AND COVERS
+
+Implemented locally, not deployed:
+   - Finance withdrawal, top-up, gift and ledger screens now use authenticated
+     GET /api/admin/wallet/records with server-side ID/name search, status
+     filtering and stable timestamp/ID cursors. Open withdrawals are oldest first.
+   - Removed capped SSR history queries, including the additional 200-row ledger
+     display slice. Existing aggregate summary cards and reconciliation remain.
+   - Existing withdrawal mutation API, payment checks and ledger logic untouched.
+     Review buttons are hidden from administrators without withdrawal permission.
+   - Background review now paginates by submittedAt/id and status; pending first.
+     Existing configuration and pricing forms remain; paging does not reload drafts.
+   - Cover review offers separate Gallery and Legacy source selectors. Both can
+     be fully paged and status-filtered; legacy cursors use userId, not nonexistent
+     id fields. Private preview authorization and revision-based moderation remain.
+   - Shared paging UI cancels stale fetches, clears old rows during navigation,
+     provides Previous/Next/Refresh, and displays server errors.
+
+Validation: 78 targeted tests in 16 files passed; ESLint passed; production build
+passed with the same pre-existing events/storage NFT warning. No new migration
+for this phase. No production changes, financial actions, or historical writes.
+No authenticated browser acceptance test has been performed for these changes.

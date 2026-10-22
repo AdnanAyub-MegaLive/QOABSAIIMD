@@ -1,0 +1,47 @@
+133 — Room gift realtime latency
+
+Implemented locally; not pushed or deployed.
+
+Changes
+- appendOutbox enriches gift:received and gift:received-multi media inside the
+  existing transaction, then captures their stored payload and database event ID.
+- runGiftOperation dispatches captured gifts immediately after successful commit
+  through portalIo.to(storedChannel).emit. Failed transaction attempts and
+  idempotent replays do not dispatch captured events.
+- Direct delivery does not wait for a global flush or another event's media query.
+- Outbox flushing coalesces concurrent calls into another pass and drains full
+  successful batches. Failed-only batches wait for fallback rather than spin.
+- Gift rows emit before other rows in a flush, without media database enrichment
+  at delivery. Successfully emitted IDs are marked in one updateMany per batch;
+  failed emissions remain pending and their attempt counts are updated separately.
+- Fallback interval reduced from 2,000 ms to 250 ms.
+- Existing event names, success/data envelope, channel and data.eventId retained.
+- Wallet, permissions, recipient eligibility, XP, settlement and historical
+  financial records are unchanged. No migration is needed for this change.
+
+Reliability boundary
+Socket.IO emit success is not a per-phone receipt. A phone disconnected at emit
+time must still use existing confirmed-gift recovery/catch-up facilities.
+If emit succeeds but marking delivery fails, fallback can emit the same event
+again. Consumers must continue deduplicating by the unchanged eventId.
+Outbox remains durable fallback for unavailable IO, emission errors, process
+failure after commit and marker-write failures; this is at-least-once delivery.
+
+Validation
+59 targeted tests across eight files passed, including rollback, serializable
+retry, replay, 20-event burst, overlapping flush, multi-batch drain, marker-write
+failure, missing IO, and transactional media/poster version enrichment.
+Targeted ESLint and production build passed (existing events/storage NFT warning
+remains). No real phone or production latency claim is made.
+
+Deployment acceptance (not yet performed)
+1. Deploy/rebuild and restart the custom server so the new timer is active.
+2. Use dedicated test accounts and an isolated room; do not fund or alter existing
+   users' balances for testing.
+3. Connect two phones, send 20 rapid lucky gift taps and compare receiver display
+   times against send/commit times. Target less than about 500 ms without bursts.
+4. Repeat normal, multi-recipient and backpack gifts. Check stable event IDs,
+   versioned animation/poster URLs, and no duplicate animation on replay.
+5. Reconnect the receiver and exercise existing missed-event recovery.
+6. Inspect delivery-error logs and pending outbox age under load. A 250-ms polling
+   interval is not a guarantee of sub-500-ms end-to-end phone latency.
