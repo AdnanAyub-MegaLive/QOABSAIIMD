@@ -19,6 +19,7 @@ export const portalNavigation = [
   ["Rankings", "/rankings"],
   ["Audit Logs", "/audit-logs"],
   ["Accounts & Permissions", "/accounts-permissions"],
+  ["DataBase Management", "/database-management"],
   ["Events Management", "/events-login"],
   ["Games Management", "/games-management"],
   // ["Live Streams", "#"],

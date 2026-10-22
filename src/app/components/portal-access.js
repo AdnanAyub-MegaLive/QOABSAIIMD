@@ -9,7 +9,7 @@ export default function PortalAccessProvider({ children }) {
   const pathname = usePathname();
   const [admin, setAdmin] = useState(null);
   useEffect(() => {
-    if (!permissionForPage(pathname) && pathname !== "/access-denied") return;
+    if (!permissionForPage(pathname) && pathname !== "/access-denied" && pathname !== '/database-management') return;
     let alive = true, pending = false;
     async function refresh() {
       if (pending) return;
@@ -30,6 +30,7 @@ export function PermissionButton({ permission, children, ...props }) {
 }
 export function allowedNavigation(admin, navigation) {
   return navigation.flatMap(([label, href]) => {
+    if (href === '/database-management') return admin?.databaseOwner ? [[label,href]] : [];
     if (href === "/room-management") {
       const sections = [href, "/messages", "/daily-tasks", "/red-envelopes", "/room-appearance", "/room-games", "/notifications-management", "/content-moderation"];
       const destination = sections.find(path => canAccessPage(admin, path));
