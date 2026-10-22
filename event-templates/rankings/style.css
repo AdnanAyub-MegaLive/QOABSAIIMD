@@ -47,8 +47,9 @@ nav button[aria-selected=true]{background:linear-gradient(110deg,#caae60,#fff8);
 #filters{margin:9px auto 0;width:85%}
 #periods button{font-weight:bold}
 #search{margin-top:8px;width:100%;border:1px solid #ffce39;border-radius:24px;background:#340102;color:#ffe431;padding:10px 14px}
-#rules{position:absolute;right:0;top:124px;border:1px solid #e8be62;border-right:0;border-radius:24px 0 0 24px;width:60px;height:42px;background:var(--nav)}
-#rules img{width:36px;height:36px}
+#rules,#rewards{position:absolute;right:0;top:124px;border:1px solid #e8be62;border-right:0;border-radius:24px 0 0 24px;width:60px;height:42px;background:var(--nav)}
+#rules{left:0;right:auto;border-right:1px solid #e8be62;border-left:0;border-radius:0 24px 24px 0;font-size:13px;font-weight:bold}
+#rewards img{width:36px;height:36px}
 #hero{height:202px;display:flex;justify-content:center;align-items:center;gap:12px}
 #hero .featured{width:214px;text-align:center;position:relative;padding-top:116px;height:200px}
 #hero .featured .portrait{position:absolute;left:64px;top:34px;width:86px;height:86px;border-radius:50%;object-fit:cover;background:#31004e}
@@ -113,3 +114,6 @@ header{padding-top:calc(34px + env(safe-area-inset-top));height:calc(335px + env
 .podium .person:first-child .frame{width:125px;height:125px}
 .score{font-size:16px}
 }
+
+#rewards-dialog,#rules-dialog{max-height:80dvh;overflow-y:auto}
+#rewards-dialog .reward-details{margin:0;padding:0;border:0;background:none}

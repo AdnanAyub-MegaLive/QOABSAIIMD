@@ -9,6 +9,8 @@ class Element {
   replaceChildren(...nodes) { this.children=[];this.append(...nodes); }
   setAttribute(k,v) { this.attributes[k]=v; }
   addEventListener() {}
+  showModal() { this.open=true; }
+  close() { this.open=false; }
 }
 const descendants=n=>[n,...n.children.flatMap(descendants)];
 async function fixture(track, rewardPolicy=null) {
@@ -36,7 +38,9 @@ describe('ranking native navigation',()=>{
   });
   it('shows configured rewards as TOP cards with prop artwork',async()=>{
     const {get}=await fixture('wealth',{enabled:true,effectiveFrom:'2026-10-19T00:00:00Z',rewards:[{rank:1,coins:'500',diamonds:'20',props:[{name:'Gold frame',days:7,url:'https://media.example/frame.gif',mimeType:'image/gif'}],vip:{name:'VIP 3',days:2}}]});
-    const nodes=descendants(get('board'));
+    const nodes=descendants(get('reward-details'));
+    get('rewards').onclick();expect(get('rewards-dialog').open).toBe(true);
+    get('close-rewards').onclick();expect(get('rewards-dialog').open).toBe(false);
     expect(nodes.some(n=>n.className==='reward-rank'&&n.textContent==='TOP 1')).toBe(true);
     expect(nodes.some(n=>n.textContent==='500 Coins')).toBe(true);
     expect(nodes.some(n=>n.textContent==='VIP 3')).toBe(true);
@@ -60,6 +64,18 @@ describe('ranking native navigation',()=>{
     const {get,messages,flush}=await fixture();get('tracks').children.find(n=>n.textContent==='Agency').onclick();await flush();
     const buttons=descendants(get('entries')).filter(n=>n.tag==='button');expect(buttons).toHaveLength(4);
     for(const [i,button] of buttons.entries()){messages.length=0;button.onclick();expect(messages).toEqual([{type:'ranking:open-agency',agencyPublicId:`AGN-${i+1}`}]);}
+  });
+  it('switches event rules independently and opens a separate rules dialog',async()=>{
+    const {get,flush}=await fixture();
+    get('rules').onclick();expect(get('rules-dialog').open).toBe(true);
+    expect(get('rule-text').textContent).toContain('gifts sent');
+    get('tracks').children.find(n=>n.textContent==='Charm').onclick();await flush();
+    expect(get('rules-title').textContent).toBe('Charm event rules');
+    expect(get('rule-text').textContent).toContain('gifts received');
+    get('tracks').children.find(n=>n.textContent==='CP').onclick();await flush();
+    expect(get('rule-text').textContent).toContain('active CP partners');
+    expect(get('award-rules').textContent).toContain('Both CP partners');
+    get('close-rules').onclick();expect(get('rules-dialog').open).toBe(false);
   });
   it('preserves the close message',async()=>{const {get,messages}=await fixture();messages.length=0;get('back').onclick();expect(messages).toEqual([{type:'ranking:close'}]);});
 });

@@ -3,11 +3,18 @@
   const $ = id => document.getElementById(id), root = $('ranking');
   const fixedTrack=root.dataset.track, eventSlug=root.dataset.event||'rankings';
   let token = '', type = fixedTrack || 'wealth', period = 'today', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
-  const rewardsPanel=document.createElement('section');rewardsPanel.className='reward-details';$('board').append(rewardsPanel);
+  const rewardsPanel=$('reward-details');
+  const labels={wealth:'Wealth',charm:'Charm',agency:'Agency',cp:'CP'};
+  const scoring={wealth:'Ranked by the Coin value of gifts sent during the selected period.',charm:'Ranked by the Coin value of gifts received during the selected period.',agency:'Ranked by gifts received by hosts, attributed to their agency at the time of gift settlement.',cp:'Ranked by gifts exchanged between active CP partners since their relationship began, within the selected period.'};
+  function renderRules(){
+    $('rules-title').textContent=`${labels[type]} event rules`;
+    $('rule-text').textContent=`${scoring[type]} Refunded gifts are excluded. Daily periods reset at midnight UTC; weekly periods start on Monday; monthly periods start on the first day of the month. Equal scores use public ID order.`;
+    $('award-rules').textContent=`${type==='agency'?'Rewards go to the agency owner.':type==='cp'?'Both CP partners receive the full configured reward.':'Rewards go to the ranked user.'} Rewards follow the admin settings for this event and period and are processed after the period closes. No rewards apply before activation. Awards requiring review may be delayed. Profile blocks may hide entries; awards use global ranking positions.`;
+    $('rewards-title').textContent=`${labels[type]} · ${{today:'Daily',week:'Weekly',month:'Monthly'}[period]} rewards`;
+  }
   function renderRewards(data){
     rewardsPanel.replaceChildren();
-    if(!fixedTrack)return;
-    rewardsPanel.append(el('h2','',`${type.toUpperCase()} event rewards`),el('p','',data.rule));
+    if(!fixedTrack){rewardsPanel.append(el('p','','Rewards are configured in the separate Wealth, Charm, Agency and CP events. Open the corresponding event to view its rewards.'));return;}
     const show=(policy,title)=>{
       rewardsPanel.append(el('h3','',title));
       if(!policy?.enabled){rewardsPanel.append(el('p','','Automatic rewards are not enabled for this period.'));return;}
@@ -25,7 +32,7 @@
       }
     };
     show(data.rewardPolicy,'Current period');if(data.upcomingRewardPolicy)show(data.upcomingRewardPolicy,'Next period settings');
-    rewardsPanel.append(el('p','',`${type==='agency'?'Rewards go to the agency owner.':type==='cp'?'Both CP partners receive the full reward.':'Rewards go to the ranked user.'} Awards run after the period closes. Equal scores use public ID order. No awards for periods before activation. Failed checks are held for admin review. Profile blocks may hide entries; award positions use the global ranking.`));
+
   }
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
@@ -84,15 +91,18 @@
     }); $('more').hidden = nextOffset === null;
   }
   async function load(append = false) {
+    renderRules();
+    if(!append)rewardsPanel.replaceChildren(el('p','',token?'Loading rewards…':'Open this event from Mega Live to view rewards.'));
     if (!token) return; request?.abort(); const current = new AbortController(); request = current;
     $('retry').hidden = true; $('more').hidden = true; $('status').hidden = false; $('status').textContent = 'Loading rankings…';
-    try { const params = new URLSearchParams({event:eventSlug,type,period,offset:String(append ? nextOffset || 0 : 0),q:type==='agency'?$('search').value.trim():''}); const response = await fetch(`/api/v1/events/rankings?${params}`,{headers:{Authorization:`Bearer ${token}`},signal:current.signal,cache:'no-store'}); const body = await response.json(); if(!response.ok) { if(response.status===401){token='';notify({type:'ranking:session-required'});} throw Error(body.error?.message || 'Unable to load rankings.'); } const data=body.data; entries=append?[...entries,...data.entries]:data.entries; nextOffset=data.nextOffset; resetAt=Date.parse(data.resetsAt);clockOffset=Date.parse(data.generatedAt)-Date.now(); $('rule-text').textContent=`${data.rule} Refunded gifts are excluded. Periods use UTC; weeks begin on Monday.`; render();renderRewards(data); $('status').hidden=entries.length>0; $('status').textContent='No eligible gifts in this period yet.'; }
-    catch(error){if(error.name==='AbortError')return;$('status').textContent=error.message;$('retry').hidden=!token;}
+    try { const params = new URLSearchParams({event:eventSlug,type,period,offset:String(append ? nextOffset || 0 : 0),q:type==='agency'?$('search').value.trim():''}); const response = await fetch(`/api/v1/events/rankings?${params}`,{headers:{Authorization:`Bearer ${token}`},signal:current.signal,cache:'no-store'}); const body = await response.json(); if(!response.ok) { if(response.status===401){token='';notify({type:'ranking:session-required'});} throw Error(body.error?.message || 'Unable to load rankings.'); } if(request!==current)return;const data=body.data; entries=append?[...entries,...data.entries]:data.entries; nextOffset=data.nextOffset; resetAt=Date.parse(data.resetsAt);clockOffset=Date.parse(data.generatedAt)-Date.now(); render();renderRewards(data); $('status').hidden=entries.length>0; $('status').textContent='No eligible gifts in this period yet.'; }
+    catch(error){if(error.name==='AbortError')return;if(request!==current)return;rewardsPanel.replaceChildren(el('p','','Rewards could not be loaded. Please retry.'));$('status').textContent=error.message;$('retry').hidden=!token;}
   }
   function tabs(id, values, selected, change) { $(id).replaceChildren(); if(id==='tracks'&&fixedTrack){$(id).append(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));return;} for(const [value,label] of values){const button=el('button','',label);button.setAttribute('aria-selected',String(value===selected));button.onclick=()=>change(value);$(id).append(button);} }
-  function filters(){tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP']],type,v=>{type=v;root.dataset.theme=v;$('search').hidden=v!=='agency';entries=[];render();filters();load();});tabs('periods',[['today','Daily'],['week','Weekly'],['month','Monthly']],period,v=>{period=v;filters();load();});$('heading').textContent={today:'Today',week:'This week',month:'This month'}[period];$('heading').hidden=type==='agency';if(type==='agency')$('heading').parentElement.prepend($('periods'));else $('filters').prepend($('periods'));}
-  window.MegaRankings=Object.freeze({setSession(value){if(typeof value!=='string'||!value||value.length>8192)return;token=value;load();},clearSession(){token='';request?.abort();entries=[];render();$('status').hidden=false;$('status').textContent='Open this event from Mega Live to view rankings.';}});
-  $('search').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(),350);};$('more').onclick=()=>load(true);$('retry').onclick=()=>load();$('back').onclick=()=>notify({type:'ranking:close'});$('rules').onclick=()=>$('rules-dialog').showModal();$('close-rules').onclick=()=>$('rules-dialog').close();
+  function filters(){renderRules();tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP']],type,v=>{type=v;root.dataset.theme=v;$('search').hidden=v!=='agency';entries=[];render();filters();load();});tabs('periods',[['today','Daily'],['week','Weekly'],['month','Monthly']],period,v=>{period=v;filters();load();});$('heading').textContent={today:'Today',week:'This week',month:'This month'}[period];$('heading').hidden=type==='agency';if(type==='agency')$('heading').parentElement.prepend($('periods'));else $('filters').prepend($('periods'));}
+  window.MegaRankings=Object.freeze({setSession(value){if(typeof value!=='string'||!value||value.length>8192)return;token=value;load();},clearSession(){token='';request?.abort();request=null;entries=[];render();rewardsPanel.replaceChildren(el('p','','Open this event from Mega Live to view rewards.'));$('status').hidden=false;$('status').textContent='Open this event from Mega Live to view rankings.';}});
+  $('search').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(),350);};$('more').onclick=()=>load(true);$('retry').onclick=()=>load();$('back').onclick=()=>notify({type:'ranking:close'});$('rules').onclick=()=>$('rules-dialog').showModal();$('close-rules').onclick=()=>$('rules-dialog').close();$('rewards').onclick=()=>$('rewards-dialog').showModal();$('close-rewards').onclick=()=>$('rewards-dialog').close();
   setInterval(()=>{if(!resetAt)return;const seconds=Math.max(0,Math.floor((resetAt-Date.now()-clockOffset)/1000));$('countdown').textContent=`${Math.floor(seconds/86400)?Math.floor(seconds/86400)+'d ':''}${String(Math.floor(seconds/3600)%24).padStart(2,'0')} : ${String(Math.floor(seconds/60)%60).padStart(2,'0')} : ${String(seconds%60).padStart(2,'0')}`;if(!seconds){resetAt=0;load();}},1000);
-  filters();if(fixedTrack){$('tracks').replaceChildren(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));$('search').hidden=type!=='agency';const notice=$('rule-text').nextElementSibling;if(notice?.tagName==='P')notice.textContent='See event rewards below the ranking. Rewards follow admin settings and start with future complete periods only.';}notify({type:'ranking:ready',version:1});
+  rewardsPanel.replaceChildren(el('p','','Open this event from Mega Live to view rewards.'));
+  filters();if(fixedTrack){$('tracks').replaceChildren(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));$('search').hidden=type!=='agency';}notify({type:'ranking:ready',version:1});
 })();
