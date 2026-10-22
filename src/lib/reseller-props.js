@@ -5,7 +5,7 @@ export async function syncResellerProps(userId, client) {
   const distributions = user && !user.deletedAt ? user.appRoles.map(roleDistribution) : [];
   const eligible = distributions.length ? await client.uploadAsset.findMany({
     where: { active: true, distribution: { in: distributions } },
-    select: { id: true, distribution: true, defaultGrantDurationMinutes: true },
+    select: { id: true, distribution: true, defaultGrantDurationMinutes: true, archivedAt: true },
   }) : [];
   for (const source of ROLE_DISTRIBUTIONS) {
     await client.uploadAssetAssignment.deleteMany({
@@ -14,6 +14,8 @@ export async function syncResellerProps(userId, client) {
   }
   const now = new Date();
   for (const asset of eligible) {
+    // Keep existing role entitlements, but do not grant archived artwork anew.
+    if (asset.archivedAt) continue;
     const durationMinutes = asset.defaultGrantDurationMinutes;
     await client.uploadAssetAssignment.upsert({
       where: { assetId_userId: { assetId: asset.id, userId } }, update: {},

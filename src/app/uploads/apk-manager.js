@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { readApkResponse } from "@/lib/apk-response";
+import CatalogRetireButton from '../components/catalog-retire-button';
 
-export default function ApkManager({ canManage = false }) {
+export default function ApkManager({ canManage = false, canArchive = false }) {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -30,6 +31,7 @@ export default function ApkManager({ canManage = false }) {
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <section className="space-y-5" role="tabpanel">
+    {canArchive&&<div className="flex flex-wrap gap-4">{items.map(item=><div key={item.id}>{item.name} <CatalogRetireButton endpoint="/api/uploads" id={item.id} onDone={()=>setItems(rows=>rows.filter(row=>row.id!==item.id))}/></div>)}</div>}
     <div><h3 className="text-lg font-bold">Android APK downloads</h3><p className="mt-1 text-sm text-[#71847f]">Upload a signed release APK (maximum 250 MB). Anyone with an active link can download without signing in. Only upload builds you trust.</p></div>
     {canManage && <form onSubmit={upload} className="flex flex-wrap items-end gap-4 rounded-xl border border-[#dce7e4] bg-white p-5">
       <label className="flex-1 text-sm font-semibold">Release name<input name="name" required maxLength={150} placeholder="MegaLive Android v1.0" className="mt-2 block w-full rounded-lg border p-2" /></label>

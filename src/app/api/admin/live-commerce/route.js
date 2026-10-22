@@ -21,7 +21,7 @@ function failure(e) { return Response.json({ success: false, error: { code: e.co
 export async function GET() {
   try {
     await requirePermission("video.view");
-    const [rule, gifts] = await Promise.all([getLiveCommerceRule(), prisma.uploadAsset.findMany({ where: { category: "LIVE_GIFTS" }, select: { publicId: true, name: true, coinPrice: true, senderXp: true, receiverXp: true, active: true }, orderBy: { createdAt: "desc" } })]);
+    const [rule, gifts] = await Promise.all([getLiveCommerceRule(), prisma.uploadAsset.findMany({ where: { category: "LIVE_GIFTS", archivedAt: null }, select: { publicId: true, name: true, coinPrice: true, senderXp: true, receiverXp: true, active: true }, orderBy: { createdAt: "desc" } })]);
     return Response.json({ success: true, data: safe({ rule, gifts }) });
   } catch (e) { return failure(e); }
 }
@@ -54,7 +54,7 @@ export async function POST(request) {
         if (!name || name.length > 120 || typeof body.active !== "boolean") throw Object.assign(new Error("Invalid gift details."), { status: 422 });
         const coinPrice = amount(body.coinPrice, true);
         await prisma.$transaction(async tx => {
-          const row = await tx.uploadAsset.updateMany({ where: { publicId: String(body.publicId), category: "LIVE_GIFTS" }, data: { name, coinPrice, ...giftXpInput(body), active: body.active } });
+          const row = await tx.uploadAsset.updateMany({ where: { publicId: String(body.publicId), category: "LIVE_GIFTS", archivedAt: null }, data: { name, coinPrice, ...giftXpInput(body), active: body.active } });
           if (!row.count) throw Object.assign(new Error("Live gift not found."), { status: 404 });
           await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_GIFT_UPDATED", category: "LIVE_MANAGEMENT", entityType: "UploadAsset", entityId: body.publicId, description: "Updated live-only gift pricing or availability." } });
         });

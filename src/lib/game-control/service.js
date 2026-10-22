@@ -15,7 +15,7 @@ export const defaultGames = [
   { id: "lucky-flip", name: "Lucky Flip", engine: "flip", status: "paused", winProbability: 45, payoutMultiplier: 2, minBet: 10, maxBet: 1000 },
   { id: "roulette", name: "Roulette", engine: "roulette", status: "paused", pocketWeights: Array(37).fill(1), minBet: 10, maxBet: 1000 },
 ];
-export const serializeGame = (row) => ({ ...row.settings, id: row.id, revision: row.revision });
+export const serializeGame = (row) => ({ ...row.settings, id: row.id, revision: row.revision, archivedAt: row.archivedAt?.toISOString() ?? null });
 export async function ensureGames() {
   for (const game of defaultGames) await prisma.gameDefinition.upsert({ where: { id: game.id }, create: { id: game.id, settings: validateGame(game) }, update: {} });
 }
@@ -25,6 +25,7 @@ export async function saveGame(input, actor) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id = ${settings.id} FOR UPDATE`;
     const beforeRow = await tx.gameDefinition.findUnique({ where: { id: settings.id } });
+    if (beforeRow?.archivedAt) throw new GameError("This catalogue entry is archived.", 409);
     if (beforeRow && input.revision !== beforeRow.revision) throw new GameError("Settings changed in another session. Reload before saving.", 409);
     if (!beforeRow && input.revision) throw new GameError("Game not found.", 404);
     if (beforeRow && beforeRow.settings.engine !== settings.engine) throw new GameError("An existing game's engine cannot be changed.", 409);

@@ -1,4 +1,4 @@
-export const inboxWhere = userId => ({ OR: [{ userId: null }, { userId }] });
+export const inboxWhere = userId => ({ retractedAt: null, OR: [{ userId: null }, { userId }] });
 export function notificationPage(url) {
   const limit = Number(url.searchParams.get("limit") ?? 50);
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw Object.assign(new Error("Limit must be between 1 and 100."), { code: "VALIDATION_ERROR" });

@@ -24,6 +24,17 @@ function fixture(roles = ["RESELLER"]) {
 }
 
 describe("Reseller role rewards", () => {
+  it("retains owned archived artwork but does not grant it to new owners", async () => {
+    const f = fixture();
+    await syncResellerProps("user", f.client);
+    const owned = f.grants.get("badge");
+    f.assets[0].archivedAt = new Date();
+    await syncResellerProps("user", f.client);
+    expect(f.grants.get("badge")).toBe(owned);
+    f.grants.clear();
+    await syncResellerProps("user", f.client);
+    expect(f.grants.size).toBe(0);
+  });
   it("grants and removes CS role artwork without removing purchased items", async () => {
     const f=fixture(["CS"]);
     f.assets[0].distribution="ROLE_CS";

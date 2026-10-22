@@ -22,6 +22,7 @@ export async function POST(request, { params }) {
           where: {
             publicId: assetId,
             active: true,
+            archivedAt: null,
             storeVisible: true,
             distribution: "STORE",
           },

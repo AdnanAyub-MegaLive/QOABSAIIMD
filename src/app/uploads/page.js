@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
 import UploadTabs from "./upload-tabs";
+import { uploadLibraryFilter } from "@/lib/upload-library-filter";
 import { prisma } from "../../lib/prisma";
 import { serializeUploadAsset } from "../../lib/upload-assets";
 import PortalSidebar from "../components/portal-sidebar";
@@ -14,7 +15,7 @@ export default async function UploadsPage() {
   if (!session?.user) redirect("/");
   const [assets, users] = await Promise.all([
     prisma.uploadAsset.findMany({
-      where: { category: { notIn: ["LIVE_GIFTS", "APK"] } },
+      where: { ...uploadLibraryFilter, category: { notIn: ["LIVE_GIFTS", "APK"] } },
       select: {
         publicId: true,
         mediaVersion:true,
@@ -118,7 +119,7 @@ export default async function UploadsPage() {
               application.
             </p>
           </div>
-          <UploadTabs initialUploads={uploadData} users={userOptions} canManageApks={hasPermission(admin, "uploads.manage")} />
+          <UploadTabs initialUploads={uploadData} users={userOptions} canManageApks={hasPermission(admin, "uploads.manage")} canArchive={hasPermission(admin, "uploads.delete")} />
         </div>
       </section>
     </main>

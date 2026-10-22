@@ -25,7 +25,7 @@ export async function giftStoreProp(db,sessionUser,assetId,body){
    if(recipient.id===sender.id)fail('CANNOT_GIFT_SELF','You cannot give a store prop to yourself.');
    const block=await tx.userBlock.findFirst({where:{OR:[{blockerId:sender.id,blockedId:recipient.id},{blockerId:recipient.id,blockedId:sender.id}]}});
    if(block)fail('RECIPIENT_UNAVAILABLE','This recipient is unavailable.',403);
-   const asset=await tx.uploadAsset.findFirst({where:{publicId:assetId,active:true,storeVisible:true,distribution:'STORE',category:{in:[...equippablePropCategories]}}});
+   const asset=await tx.uploadAsset.findFirst({where:{publicId:assetId,active:true,archivedAt:null,storeVisible:true,distribution:'STORE',category:{in:[...equippablePropCategories]}}});
    if(!asset)fail('STORE_ITEM_NOT_FOUND','This prop is not available for purchase.',404);
    const now=new Date(),key={assetId_userId:{assetId:asset.id,userId:recipient.id}};
    const existing=await tx.uploadAssetAssignment.findUnique({where:key});

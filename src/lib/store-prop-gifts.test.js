@@ -28,6 +28,13 @@ it('rejects conflicting replay without debit',async()=>{
  await expect(giftStoreProp(db,session,'AST-2',input)).rejects.toMatchObject({code:'IDEMPOTENCY_CONFLICT'});
  expect(state.users[0].coinBalance).toBe(60n);
 });
+it('excludes archived props before any debit or entitlement writes',async()=>{
+ db.tx.uploadAsset.findFirst=vi.fn(async({where})=>where.archivedAt===null?null:state.asset);
+ await expect(giftStoreProp(db,session,'AST-1',input)).rejects.toMatchObject({code:'STORE_ITEM_NOT_FOUND'});
+ expect(state.users[0].coinBalance).toBe(100n);
+ expect(state.ledger).toHaveLength(0);
+ expect(state.assignments).toHaveLength(0);
+});
 it.each(['self','missing','banned','deleted','blocked','owned','insufficient','unavailable'])('rejects %s without financial changes',async kind=>{
  let body=input,code;
  if(kind==='self'){body={...input,recipientPublicId:'USR-S'};code='CANNOT_GIFT_SELF';}

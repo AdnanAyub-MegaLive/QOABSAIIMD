@@ -12,7 +12,7 @@ export async function GET(request) {
   try {
     await requireMobileUser(request);
     const assets = await prisma.uploadAsset.findMany({
-      where: { category: "MUSIC_TRACKS", active: true, isGlobal: true, mimeType: { in: [...musicTrackMimeTypes] } },
+      where: { category: "MUSIC_TRACKS", archivedAt: null, active: true, isGlobal: true, mimeType: { in: [...musicTrackMimeTypes] } },
       select: { publicId: true, name: true, details: true, mimeType: true, updatedAt: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { publicId: "asc" }],
       take: 500,

@@ -17,7 +17,7 @@ function checkOrigin(request) {
 export async function GET() {
   try {
     await requirePermission("uploads.view");
-    const rows = await prisma.uploadAsset.findMany({ where: { category: "APK" }, select, orderBy: [{ createdAt: "desc" }, { publicId: "asc" }] });
+    const rows = await prisma.uploadAsset.findMany({ where: { category: "APK", archivedAt: null }, select, orderBy: [{ createdAt: "desc" }, { publicId: "asc" }] });
     return Response.json({ success: true, data: { items: rows.map(apkDto) } });
   } catch (error) { return failure(error); }
 }
@@ -54,7 +54,7 @@ export async function PATCH(request) {
     const { id, active } = await request.json();
     if (typeof id !== "string" || typeof active !== "boolean") throw apkError("Provide the APK ID and availability.");
     await prisma.$transaction(async tx => {
-      const result = await tx.uploadAsset.updateMany({ where: { publicId: id, category: "APK" }, data: { active } });
+      const result = await tx.uploadAsset.updateMany({ where: { publicId: id, category: "APK", archivedAt: null }, data: { active } });
       if (!result.count) throw apkError("APK not found.", 404);
       await tx.auditLog.create({ data: { adminId: admin.id, action: "APK_AVAILABILITY", category: "UPLOADS", entityId: id, entityType: "UploadAsset", description: active ? "Enabled APK download" : "Disabled APK download" } });
     });

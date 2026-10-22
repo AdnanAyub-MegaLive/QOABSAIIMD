@@ -27,9 +27,9 @@ export async function selectOwnedVip(tx,userId,owned,tier) {
 }
 
 export async function vipCatalog(userId,origin,db=prisma) {
-  const [tiers,owned,selected]=await Promise.all([db.vipTier.findMany({where:{active:true},include:{assets:{include:{asset:{select:{publicId:true,name:true,active:true,mimeType:true,mediaVersion:true,posterMimeType:true,posterMediaVersion:true}}}}},orderBy:{level:"asc"}}),db.vipOwnership.findMany({where:{userId}}),db.vipMembership.findUnique({where:{userId}})]);
   const now=new Date();
-  return tiers.map(t=>{const o=owned.find(x=>x.tierId===t.id),valid=o&&!o.revokedAt&&o.expiresAt>now;return {id:t.id,name:t.name,level:t.level,validDays:t.validDays,coinPrice:t.coinPrice?.toString()??null,purchasable:t.coinPrice!=null&&t.coinPrice>0n,privileges:t.privileges,owned:Boolean(valid),expiresAt:o?.expiresAt.toISOString()??null,selected:Boolean(valid&&selected?.tierId===t.id&&!selected.revokedAt&&selected.expiresAt>now),assets:t.assets.filter(a=>a.asset.active).map(a=>({privilege:a.privilege,name:a.asset.name,...decorationMedia(a.asset,origin)}))};});
+  const [tiers,owned,selected]=await Promise.all([db.vipTier.findMany({where:{active:true,OR:[{archivedAt:null},{ownerships:{some:{userId,revokedAt:null,expiresAt:{gt:now}}}}]},include:{assets:{include:{asset:{select:{publicId:true,name:true,active:true,mimeType:true,mediaVersion:true,posterMimeType:true,posterMediaVersion:true}}}}},orderBy:{level:"asc"}}),db.vipOwnership.findMany({where:{userId}}),db.vipMembership.findUnique({where:{userId}})]);
+  return tiers.map(t=>{const o=owned.find(x=>x.tierId===t.id),valid=o&&!o.revokedAt&&o.expiresAt>now;return {id:t.id,name:t.name,level:t.level,validDays:t.validDays,coinPrice:t.coinPrice?.toString()??null,purchasable:!t.archivedAt&&t.coinPrice!=null&&t.coinPrice>0n,privileges:t.privileges,owned:Boolean(valid),expiresAt:o?.expiresAt.toISOString()??null,selected:Boolean(valid&&selected?.tierId===t.id&&!selected.revokedAt&&selected.expiresAt>now),assets:t.assets.filter(a=>a.asset.active).map(a=>({privilege:a.privilege,name:a.asset.name,...decorationMedia(a.asset,origin)}))};});
 }
 
 export async function changeVip(userId,{action,tierId,requestKey},db=prisma) {
@@ -44,7 +44,7 @@ export async function changeVip(userId,{action,tierId,requestKey},db=prisma) {
       if(old){if(old.tierId!==tierId)fail("IDEMPOTENCY_CONFLICT","This key was used for another VIP.");return old.result;}
     }
     const tier=await tx.vipTier.findUnique({where:{id:tierId},include:{assets:true}});
-    if(!tier?.active)fail("VIP_UNAVAILABLE","This VIP is unavailable.",404);
+    if(!tier?.active||(action==="PURCHASE"&&tier.archivedAt))fail("VIP_UNAVAILABLE","This VIP is unavailable.",404);
     let owned=await tx.vipOwnership.findUnique({where:{userId_tierId:{userId,tierId}}});
     if(action==="PURCHASE"){
       if(tier.coinPrice==null||tier.coinPrice<=0n)fail("VIP_NOT_FOR_SALE","This VIP is available by grant only.",403);

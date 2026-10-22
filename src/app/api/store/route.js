@@ -43,6 +43,7 @@ export async function GET(request) {
     const assets = await prisma.uploadAsset.findMany({
       where: {
         active: true,
+        archivedAt: null,
         storeVisible: true,
         category: category || { not: "BANNERS" },
       },

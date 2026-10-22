@@ -25,10 +25,13 @@ export async function POST(request) {
     let body;
     try { body = await request.json(); } catch { return mobileJson({ success: false, error: { code: "VALIDATION_ERROR", message: "Provide valid JSON." } }, 422); }
     const data = await purchaseSpecialId(prisma, user.id, body?.definitionId, request.headers.get("Idempotency-Key"));
-    globalThis.portalScheduleSpecialIdExpiry?.(data.assignmentId, new Date(data.expiresAt));
+    // A post-commit scheduler failure must not turn a successful debit into 500.
+    try { await globalThis.portalScheduleSpecialIdExpiry?.(data.assignmentId, new Date(data.expiresAt)); }
+    catch (error) { console.error("Special ID expiry scheduling failed", error); }
     return mobileJson({ success: true, data });
   } catch (error) {
     if (error.status) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
+    console.error("Special ID purchase failed", error);
     return mobileApiError(error, "SPECIAL_ID_PURCHASE_FAILED");
   }
 }

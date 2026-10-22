@@ -25,6 +25,7 @@ export async function GET(request) {
       where: {
         category: "GIFTS",
         active: true,
+        archivedAt: null,
         giftTier: { in: tiers },
         coinPrice: { gt: 0n },
       },

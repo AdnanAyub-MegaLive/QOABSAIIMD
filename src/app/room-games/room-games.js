@@ -1,10 +1,11 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import CatalogRetireButton from '../components/catalog-retire-button';
 
 const empty = { name: "", launchUrl: "", status: "paused", sortOrder: 0, engine: "external", iconAssetId: null };
 const input = "mt-2 w-full rounded-xl border border-[#dce7e4] bg-white px-3 py-2 text-sm disabled:bg-[#f4f8f7] disabled:text-[#71847f]";
-export default function RoomGames() {
+export default function RoomGames({canArchive=false}) {
   const [games, setGames] = useState([]), [draft, setDraft] = useState(empty);
   const [icons, setIcons] = useState([]);
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false);
@@ -44,6 +45,8 @@ export default function RoomGames() {
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   }
   return <div className="space-y-6">
+    {canArchive&&<section className="rounded-xl border bg-white p-4"><h3 className="font-semibold">Archive uploaded game icons</h3><p className="text-sm text-slate-600">Hide icons from the upload picker. Games already using an icon keep their artwork.</p><div className="mt-3 flex flex-wrap gap-4">{icons.map(icon=><div key={icon.iconAssetId}>{icon.name} <CatalogRetireButton endpoint="/api/uploads" id={icon.iconAssetId} onDone={()=>setIcons(items=>items.filter(item=>item.iconAssetId!==icon.iconAssetId))}/></div>)}</div></section>}
+    {canArchive&&<section className="rounded-xl border bg-white p-4"><h3 className="font-semibold">Archive catalogue entries</h3><p className="text-sm text-slate-600">Remove a listing without pausing the game or changing existing access, balances or round history.</p><div className="mt-3 flex flex-wrap gap-4">{games.map(game=><div key={game.id} className="flex gap-2"><span>{game.name}</span><CatalogRetireButton endpoint="/api/admin/room-games" id={game.id} onDone={()=>{setGames(items=>items.filter(item=>item.id!==game.id));setDraft(current=>current.id===game.id?empty:current);}}/></div>)}</div></section>}
     <div><h2 className="text-2xl font-bold tracking-tight">Game catalogue</h2><p className="mt-1.5 text-sm text-[#71847f]">Add a game link and enable visibility to show it in the mobile room game catalogue. These settings apply to all rooms.</p></div>
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {notice && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}

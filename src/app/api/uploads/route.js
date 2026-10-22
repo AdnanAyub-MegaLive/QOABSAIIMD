@@ -7,6 +7,7 @@ import { ROLE_DISTRIBUTIONS } from "@/lib/role-artwork";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { notifyGiftCatalogUpdated } from "@/lib/gift-catalog-version";
 import { portalPermissionError } from "@/lib/portal-admin";
+import { sameOrigin } from "@/lib/game-control/http";
 import { auth } from "../../../../auth";
 import { prisma } from "../../../lib/prisma";
 import {
@@ -582,7 +583,7 @@ export async function PATCH(request) {
       : [];
     const asset = await prisma.$transaction(async (tx) => {
       const current = await tx.uploadAsset.findUniqueOrThrow({
-        where: { publicId: assetId },
+        where: { publicId: assetId, archivedAt: null },
         select: {
           id: true,
           name: true,
@@ -787,6 +788,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
+  try { sameOrigin(request); } catch { return Response.json({ success: false, error: { code: "FORBIDDEN", message: "Invalid request origin." } }, { status: 403 }); }
   const permissionDenied = await portalPermissionError("uploads.delete");
   if (permissionDenied) return permissionDenied;
 
@@ -819,7 +821,7 @@ export async function DELETE(request) {
     );
   }
 
-  const assetId = String(body?.assetId ?? "").trim();
+  const assetId = String(body?.assetId ?? body?.id ?? "").trim();
   const reason = String(body?.reason ?? "").trim().slice(0, 500);
   if (!assetId || !reason)
     return Response.json(
@@ -835,6 +837,7 @@ export async function DELETE(request) {
 
   try {
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "UploadAsset" WHERE "publicId" = ${assetId} FOR UPDATE`;
       const asset = await tx.uploadAsset.findUniqueOrThrow({
         where: { publicId: assetId },
         select: {
@@ -844,32 +847,36 @@ export async function DELETE(request) {
           fileName: true,
           mimeType: true,
           fileSize: true,
+          archivedAt: true,
           _count: { select: { assignments: true } },
         },
       });
-      if (asset.category === "LIVE_GIFTS") throw new Error("Live gifts can only be managed in Live Management.");
+      if (asset.archivedAt) return;
+      // Catalogue retirement only. Keep active, media and all relationships so
+      // already-issued links and existing ownership continue to work.
       await tx.auditLog.create({
         data: {
           action: "UPLOAD_ASSET_DELETED",
           category: "CONTENT_MANAGEMENT",
           entityType: "UploadAsset",
           entityId: assetId,
-          description: `${session.user.name ?? "Administrator"} permanently deleted uploaded asset ${asset.name}.`,
+          description: `${session.user.name ?? "Administrator"} archived uploaded asset ${asset.name}; existing ownership is preserved.`,
           metadata: {
             reason,
             fileName: asset.fileName,
             mimeType: asset.mimeType,
             fileSize: asset.fileSize,
             uploadCategory: asset.category,
-            removedAssignments: asset._count.assignments,
+            preservedAssignments: asset._count.assignments,
           },
         },
       });
-      await tx.uploadAsset.delete({ where: { id: asset.id } });
+      await tx.uploadAsset.update({ where: { id: asset.id }, data: { archivedAt: new Date(), storeVisible: false } });
     });
-    await notifyGiftCatalogUpdated();
+    await Promise.resolve().then(() => notifyGiftCatalogUpdated()).catch(error => console.error("Archived upload catalogue refresh failed", error));
     return Response.json({ success: true, data: { assetId } });
   } catch (error) {
+    if (error?.status === 409) return Response.json({ success: false, error: { code: "DEDICATED_MANAGEMENT_REQUIRED", message: error.message } }, { status: 409 });
     if (error?.code === "P2025")
       return Response.json(
         {

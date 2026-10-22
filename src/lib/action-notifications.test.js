@@ -22,6 +22,7 @@ it("dispatches to current identity and keeps a stable public notification ID", a
   const row = {id:"n",publicId:"NOT-1",userId:"u",user:{publicId:"TLN-1",status:"ACTIVE"},type:"WELCOME",title:"Hello",body:"Welcome",createdAt:new Date()};
   const emit=vi.fn(),io={to:vi.fn(()=>({emit}))};
   const db={notification:{findMany:async()=>[row],update:vi.fn()}};
+  db.$transaction=fn=>fn({...db,$queryRaw:async()=>[],notification:{...db.notification,findUnique:async()=>({})}});
   await dispatchNotifications(db,io);
   expect(io.to).toHaveBeenCalledWith("user:TLN-1");
   expect(emit).toHaveBeenCalledWith("notification:new",expect.objectContaining({id:"NOT-1"}));
@@ -29,6 +30,7 @@ it("dispatches to current identity and keeps a stable public notification ID", a
 });
 it("leaves failed socket delivery pending for retry", async () => {
   const db={notification:{findMany:async()=>[{id:"n",publicId:"NOT-1",userId:null,createdAt:new Date()}],update:vi.fn()}};
+  db.$transaction=fn=>fn({...db,$queryRaw:async()=>[],notification:{...db.notification,findUnique:async()=>({})}});
   await expect(dispatchNotifications(db,{emit:()=>{throw new Error("unavailable")}})).rejects.toThrow();
   expect(db.notification.update).not.toHaveBeenCalled();
 });
@@ -37,7 +39,7 @@ it("does not expose internal recipient or source keys", () => {
   expect(dto).not.toHaveProperty("userId");expect(dto).not.toHaveProperty("sourceKey");
 });
 it("scopes inbox visibility and validates pagination", () => {
-  expect(inboxWhere("u")).toEqual({OR:[{userId:null},{userId:"u"}]});
+  expect(inboxWhere("u")).toEqual({retractedAt:null,OR:[{userId:null},{userId:"u"}]});
   expect(notificationPage(new URL("https://example.com")).limit).toBe(50);
   for(const query of ["limit=0","limit=1.5","limit=101","cursor=garbage"])expect(()=>notificationPage(new URL(`https://example.com?${query}`))).toThrow();
 });

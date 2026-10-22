@@ -830,6 +830,7 @@ model UserAvatarHistory {
 }
 
 model VipTier {
+  archivedAt DateTime?
   ownerships VipOwnership[]
   purchases VipPurchase[]
   coinPrice BigInt?
@@ -1196,6 +1197,7 @@ model AudioRoomMessage {
 }
 
 model Notification {
+  retractedAt DateTime?
   sourceKey String? @unique
   type String @default("SYSTEM")
   action Json?
@@ -1383,6 +1385,7 @@ model EventAuditLog {
 }
 
 model UploadAsset {
+  archivedAt DateTime?
   levelTagBackgrounds LevelTagBackground[]
   mediaVersion String?
   posterMediaVersion String?
@@ -2140,6 +2143,7 @@ model GameLog {
 }
 
 model GameDefinition {
+  archivedAt DateTime?
   id        String      @id
   revision  Int         @default(1)
   settings  Json

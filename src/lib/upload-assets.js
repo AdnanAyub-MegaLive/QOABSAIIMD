@@ -49,6 +49,7 @@ export const bannerCatalogOrderBy = [
 export function bannerCatalogWhere(placement) {
   return {
     category: "BANNERS",
+    archivedAt: null,
     placement: cleanBannerPlacement(placement, { required: true }),
     active: true,
     isGlobal: true,

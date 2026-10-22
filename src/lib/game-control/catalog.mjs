@@ -26,7 +26,7 @@ export function catalogGame(game, origin) {
 }
 
 export function visibleGames(games, origin) {
-  return games.filter(game => game.status === "active").flatMap(game => {
+  return games.filter(game => game.status === "active" && !game.archivedAt).flatMap(game => {
     try { return [catalogGame(game, origin)]; } catch { return []; }
   }).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
 }

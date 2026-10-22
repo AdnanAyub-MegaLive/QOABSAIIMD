@@ -117,6 +117,7 @@ describe("banner upload contract", () => {
 
   it("isolates active global banners by exact placement with stable ordering", () => {
     expect(bannerCatalogWhere("HOT_MID")).toEqual({
+      archivedAt: null,
       category: "BANNERS",
       placement: "HOT_MID",
       active: true,

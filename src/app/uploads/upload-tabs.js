@@ -38,7 +38,7 @@ function bannerPlacementLabel(value) {
   return bannerPlacements.find(([placement]) => placement === value)?.[1] ?? value;
 }
 
-export default function UploadTabs({ initialUploads, users, canManageApks = false }) {
+export default function UploadTabs({ initialUploads, users, canManageApks = false, canArchive = false }) {
   const [section, setSection] = useState("Props");
   const [active, setActive] = useState(UPLOAD_SECTIONS.Props[0]);
   const [query, setQuery] = useState("");
@@ -127,7 +127,7 @@ export default function UploadTabs({ initialUploads, users, canManageApks = fals
           ))}
         </div>
       </div>
-      {active === "APK" ? <ApkManager canManage={canManageApks} /> : <section role="tabpanel">
+      {active === "APK" ? <ApkManager canManage={canManageApks} canArchive={canArchive} /> : <section role="tabpanel">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-bold">{active}</h3>
@@ -316,9 +316,9 @@ function DeleteAssetModal({asset,deleting,error,onClose,onDelete}) {
         className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
         <div className="border-b border-[#e5ecea] px-6 py-5">
-          <p className="text-[10px] font-bold tracking-widest text-rose-600 uppercase">Permanent deletion</p>
+          <p className="text-[10px] font-bold tracking-widest text-rose-600 uppercase">Archive item</p>
           <h3 id="delete-asset-title" className="mt-1 text-lg font-bold">Delete {asset.name}?</h3>
-          <p className="mt-2 text-xs leading-5 text-[#71847f]">The media file and all user assignments will be permanently removed. The mobile application will no longer be able to access this item.</p>
+          <p className="mt-2 text-xs leading-5 text-[#71847f]">This item will be hidden from catalogue listings and manual edits. Existing ownership, issued media links and historical records remain available. Archiving does not revoke access.</p>
         </div>
         <div className="space-y-4 p-6">
           <label className="block">
@@ -329,7 +329,7 @@ function DeleteAssetModal({asset,deleting,error,onClose,onDelete}) {
         </div>
         <div className="flex justify-end gap-2 border-t border-[#e5ecea] bg-[#fafcfc] px-6 py-4">
           <button type="button" onClick={onClose} disabled={deleting} className="rounded-lg border border-[#d7e4e1] px-4 py-2.5 text-xs font-bold">Cancel</button>
-          <button type="submit" disabled={deleting} className="rounded-lg bg-rose-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50">{deleting?"Deleting…":"Delete permanently"}</button>
+          <button type="submit" disabled={deleting} className="rounded-lg bg-rose-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50">{deleting?"Archiving…":"Archive item"}</button>
         </div>
       </form>
     </div>

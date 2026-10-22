@@ -17,6 +17,7 @@ export async function POST(request, { params }) {
     const notification = await prisma.notification.findFirst({
       where: {
         publicId: decodeURIComponent(notificationId),
+        retractedAt: null,
         OR: [{ userId: null }, { userId: user.id }],
       },
       select: { id: true, publicId: true },

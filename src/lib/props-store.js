@@ -40,6 +40,7 @@ export async function syncProgressionProps(userId, client = prisma) {
   const eligible = await client.uploadAsset.findMany({
     where: {
       active: true,
+      archivedAt: null,
       OR: [
         {
           distribution: "VIP",

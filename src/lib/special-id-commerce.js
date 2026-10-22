@@ -1,4 +1,18 @@
 import { ledgerData } from "./wallet.js";
+import { setTimeout as retryDelay } from "node:timers/promises";
+function retryableConflict(error) {
+  if (["P2034", "P2002"].includes(error?.code)) return true;
+  if (error?.code !== "P2010") return false;
+  const values = [error.meta], seen = new Set();
+  while (values.length) {
+    const value = values.pop();
+    if (!value || typeof value !== "object" || seen.has(value)) continue;
+    seen.add(value);
+    if (value.kind === "TransactionWriteConflict" || [value.code, value.originalCode].some(code => ["40001", "40P01"].includes(code))) return true;
+    values.push(value.cause, value.driverAdapterError);
+  }
+  return false;
+}
 const fail = (code, message, status = 409) => { throw Object.assign(new Error(message), { code, status }); };
 export const occupiedSpecialId = now => ({ status: "ACTIVE", revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
 
@@ -9,7 +23,9 @@ export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
     try {
       return await db.$transaction(async tx => {
         // Also serializes with admin assignment and allocation.
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)`;
+        // The lock returns void, which Prisma's pg adapter cannot deserialize.
+        // Cast only its result; the transaction-scoped lock is unchanged.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)::text AS locked`;
         await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR UPDATE`;
         const user = await tx.user.findUnique({ where: { id: userId } });
         if (!user || user.deletedAt || user.status !== "ACTIVE") fail("SESSION_REVOKED", "Account unavailable.", 401);
@@ -25,7 +41,7 @@ export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
         if (await tx.specialIdAssignment.findFirst({ where: { specialId: definition.code, ...occupiedSpecialId(now) } }))
           fail("SPECIAL_ID_ALREADY_ASSIGNED", "This Special ID is already assigned.");
         const expiresAt = new Date(now.getTime() + definition.defaultDurationMinutes * 60000);
-        if (!Number.isFinite(expiresAt.getTime())) fail("VALIDATION_ERROR", "Invalid ownership duration.", 422);
+        if (!Number.isSafeInteger(definition.defaultDurationMinutes) || definition.defaultDurationMinutes <= 0 || !Number.isFinite(expiresAt.getTime())) fail("VALIDATION_ERROR", "Invalid ownership duration.", 422);
         const debit = await tx.user.updateMany({ where: { id: userId, coinBalance: { gte: definition.coinPrice } }, data: { coinBalance: { decrement: definition.coinPrice } } });
         if (!debit.count) fail("INSUFFICIENT_COINS", "Your Coin balance is too low.");
         await tx.specialIdAssignment.updateMany({ where: { userId, status: "ACTIVE" }, data: { status: "REPLACED", revokedAt: now } });
@@ -37,7 +53,9 @@ export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
         return result;
       }, { isolationLevel: "Serializable" });
     } catch (error) {
-      if (!["P2034", "P2002"].includes(error.code) || attempt === 3) throw error;
+      if (!retryableConflict(error)) throw error;
+      if (attempt === 3) fail("SPECIAL_ID_PURCHASE_BUSY", "Another purchase is in progress. Retry with the same Idempotency-Key.", 409);
+      await retryDelay(25 * 2 ** attempt + Math.floor(Math.random() * 25));
     }
   }
 }

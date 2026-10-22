@@ -22,12 +22,19 @@ export async function dispatchNotifications(db, io) {
   if (!io || delivering) return;
   delivering = true;
   try {
-    const rows = await db.notification.findMany({ where: { deliveredAt: null }, include: { user: { select: { publicId: true, status: true, deletedAt: true } } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 100 });
+    const rows = await db.notification.findMany({ where: { deliveredAt: null, retractedAt: null }, include: { user: { select: { publicId: true, status: true, deletedAt: true } } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 100 });
     for (const row of rows) {
+      // Serialize with retraction and re-read after the lock: a stale batch
+      // cannot publish an announcement that was retracted in the meantime.
+      await db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Notification" WHERE id = ${row.id} FOR UPDATE`;
+      const current = await tx.notification.findUnique({where:{id:row.id},select:{retractedAt:true,deliveredAt:true}});
+      if (!current || current.retractedAt || current.deliveredAt) return;
       // Resolve the current public ID, including USR/TLN transitions.
       if (row.userId === null) io.emit("notification:new", notificationDto(row));
       else if (row.user?.status === "ACTIVE" && !row.user.deletedAt) io.to(`user:${row.user.publicId}`).emit("notification:new", notificationDto(row));
-      await db.notification.update({ where: { id: row.id }, data: { deliveredAt: new Date() } });
+      await tx.notification.update({ where: { id: row.id }, data: { deliveredAt: new Date() } });
+      });
     }
   } finally { delivering = false; }
 }

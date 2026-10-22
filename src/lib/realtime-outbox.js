@@ -23,6 +23,7 @@ async function deliver(rows, io, db) {
   const owned = rows.filter(row => !state.inFlight.has(row.id));
   for (const row of owned) state.inFlight.add(row.id);
   const delivered = [], failed = [];
+  const leaderboards = new Map();
   try {
     // No asset lookup or deliveredAt write can delay a gift in this batch.
     const ordered = [...owned.filter(row => isGiftEvent(row.event)), ...owned.filter(row => !isGiftEvent(row.event))];
@@ -35,7 +36,9 @@ async function deliver(rows, io, db) {
         if (!isGiftEvent(row.event)) {
           if (row.event === "audio-room:gift-leaderboard" && payload.data.refreshLeaderboard) {
             const { roomId, origin } = payload.data;
-            payload = { ...payload, data: { roomId, ...await getRoomGiftLeaderboard(roomId, origin, db), eventId: row.id } };
+            const key = JSON.stringify([roomId, origin]);
+            if (!leaderboards.has(key)) leaderboards.set(key, getRoomGiftLeaderboard(roomId, origin, db));
+            payload = { ...payload, data: { roomId, ...await leaderboards.get(key), eventId: row.id } };
           }
           if (row.event === "activity-progression:updated") payload = await refreshActivityEventMedia(payload, db);
           payload = await versionMediaPayload(payload, db);

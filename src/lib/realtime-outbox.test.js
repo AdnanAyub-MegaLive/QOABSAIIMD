@@ -8,6 +8,15 @@ import { deliverCommittedGiftEvents, flushRealtimeOutbox } from "./realtime-outb
 const row = id => ({ id, channel: "audio-room:room", event: "gift:received", payload: { success: true, data: { transactionId: id, mediaVersion: "abc" } } });
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 beforeEach(() => vi.clearAllMocks());
+it("shares one leaderboard read across a room's burst and emits gifts first", async () => {
+  const emit = vi.fn(), io = {to: () => ({emit})};
+  const rows = Array.from({length:20}, (_, i) => ({...row(`board-${i}`), event:"audio-room:gift-leaderboard", payload:{success:true,data:{roomId:"room",origin:"https://portal.test",refreshLeaderboard:true}}}));
+  const db = {realtimeOutbox:{findMany:vi.fn().mockResolvedValue([...rows,row("gift")]),updateMany:vi.fn()}};
+  await flushRealtimeOutbox(io,db);
+  expect(leaderboard).toHaveBeenCalledTimes(1);
+  expect(emit.mock.calls[0][0]).toBe("gift:received");
+  expect(emit).toHaveBeenCalledTimes(21);
+});
 it("builds deferred leaderboard payloads outside the gift transaction", async () => {
   const emit=vi.fn(),io={to:()=>({emit})};
   const item={...row("board"),event:"audio-room:gift-leaderboard",payload:{success:true,data:{roomId:"room",refreshLeaderboard:true,origin:"https://portal.test"}}};

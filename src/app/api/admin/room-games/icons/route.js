@@ -12,7 +12,7 @@ function failure(e){return Response.json({success:false,error:{message:e.status|
 export async function GET(request){
  try{
   await requirePermission('roomGames.view');
-  const assets=await prisma.uploadAsset.findMany({where:gameIconWhere,select:{publicId:true,name:true,category:true,active:true,isGlobal:true,mimeType:true,mediaVersion:true,cdnUrl:true},orderBy:[{createdAt:'desc'},{publicId:'desc'}],take:100});
+  const assets=await prisma.uploadAsset.findMany({where:{...gameIconWhere,archivedAt:null},select:{publicId:true,name:true,category:true,active:true,isGlobal:true,mimeType:true,mediaVersion:true,cdnUrl:true},orderBy:[{createdAt:'desc'},{publicId:'desc'}],take:100});
   return Response.json({success:true,data:{items:assets.map(a=>({name:a.name,...catalogIcon(a,origin(request))}))}},{headers:{'Cache-Control':'no-store'}});
  }catch(e){return failure(e);}
 }

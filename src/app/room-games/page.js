@@ -5,7 +5,7 @@ import { requirePortalAdmin } from "@/lib/portal-admin";
 import RoomGames from "./room-games";
 
 export default async function Page() {
-  await requirePagePermission("roomGames.view");
+  const admin = await requirePagePermission("roomGames.view");
   if (!await requirePortalAdmin()) redirect("/");
-  return <RoomManagementShell title="Room Games"><RoomGames /></RoomManagementShell>;
+  return <RoomManagementShell title="Room Games"><RoomGames canArchive={admin.role==='SUPER_ADMIN'} /></RoomManagementShell>;
 }

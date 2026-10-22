@@ -1,0 +1,1 @@
+ALTER TABLE "VipTier" ADD COLUMN "archivedAt" TIMESTAMP(3);

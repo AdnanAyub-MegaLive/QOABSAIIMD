@@ -1,0 +1,64 @@
+Portal deletion audit: first implementation pass
+
+Permission model
+An active portal SUPER_ADMIN already bypasses every defined permission check.
+Missing deletion controls therefore require module-specific implementations,
+not a blanket authentication bypass or permission grant to application roles.
+
+Implemented in this pass
+- VIP catalog deletion: Platform Admin only, audited, archivedAt timestamp.
+  No new purchases/grants; existing unexpired owners can still select their VIP.
+  Memberships, ownerships, artwork links and purchase records are preserved.
+  Archived level numbers remain reserved by the existing unique constraint.
+- Upload and VIP artwork libraries exclude linked level-tag backgrounds and
+  legacy level-background.webp files (manual, non-store). No media is deleted.
+- Reuse one leaderboard read per room/origin in each outbox delivery batch.
+
+Existing code paths found (not all browser-verified)
+- Uploads: uploads.delete endpoint exists; currently hard-deletes assets.
+  Referenced assets can fail referential checks; this needs an archive policy.
+- Daily tasks: DELETE already archives definitions and preserves claim history.
+- Profile covers: moderation supports DELETE with revision checks.
+- Level backgrounds: DELETE removes the level link, preserving shared media.
+- Rooms: admin DELETE route exists.
+- Red-envelope presets: DELETE route exists.
+- Events: explicit archive route exists.
+- Room banners: review/removal state machine exists; refunds must remain through
+  its authorized transaction flow, never generic row deletion.
+
+Remaining gaps / decisions
+Update: generic equippable-upload deletion now archives the row, hides it from
+Store purchase/gifting and progression grants, and blocks manual edits/grants.
+Existing assignments, active flags and media files remain untouched. Role rewards
+retain existing archived entitlements without granting new ones. Non-prop assets
+now use the same audited archive operation (never generic hard deletion).
+APK and live-gift pages have archive controls, as does the room-game icon library.
+Global banners, music and gift catalogues exclude archived records. The generic
+catalogue still returns owned assignments; existing icon bindings, APK downloads,
+media URLs and backpack/history references keep working. This is catalogue
+retirement, not a security revocation of known links or references.
+APK/live-gift edits cannot re-enable archived records. Upload deletion is row-
+locked for duplicate requests and post-commit notification failure is best-effort.
+This needs migration 20261022100000_upload_asset_archive before runtime use.
+Leaderboard burst delivery now shares one query per room/origin within a batch;
+tests cover gift-first delivery and preservation of every existing event ID.
+- Room game catalogue now exposes Platform-Admin-only DELETE with an audit reason.
+  Archival removes discovery listings only. Settings/status/revision, direct
+  access, rounds and settlement history remain unchanged. Stale edits are refused.
+- Notifications now expose Platform-Admin-only DELETE (retraction) and a paginated
+  records UI. Inbox/count/read-all exclude retracted rows. Dispatch rechecks under
+  a row lock shared with retraction. Text, read receipts and source keys survive.
+  Already displayed/cached copies cannot be recalled; phones refresh the inbox.
+  Migration: 20261022110000_catalog_retraction. Not applied or deployed here.
+- Uploaded media used by purchased entitlements needs a consistent policy:
+  hide from new acquisition versus revoke existing access. Do not cascade-delete
+  purchase/assignment/history rows to force deletion through.
+- Finance, immutable ledger, salary, gift, payout and audit records must not gain
+  a generic delete button. Corrections require audited reversal/adjustment flows.
+
+Validation limits
+Local schema is behind application code (resellerCoinBalance absent during the
+preceding integration test). Full authenticated local UI audit is not complete.
+VIP archive requires migration 20261022090000_vip_tier_archive. No migration or
+existing-user data modification was performed by this implementation pass.
+Production gift performance has not been remeasured by this pass.

@@ -6,6 +6,7 @@ import { saveGame, serializeGame, GameError } from "@/lib/game-control/service";
 import { sameOrigin, jsonBody } from "@/lib/game-control/http";
 import { catalogGame } from "@/lib/game-control/catalog.mjs";
 import { attachGameIcons, gameIconWhere } from "@/lib/game-control/catalog-icons";
+import { retireCatalogItem } from "@/lib/catalog-retirement";
 
 function failure(error) {
   const status = error.status || (error.code === "P2002" ? 409 : 500);
@@ -18,7 +19,7 @@ export async function GET(request) {
 
   try {
     if (!await requirePortalAdmin()) throw new GameError("Administrator access is required.", 401);
-    const rows = await prisma.gameDefinition.findMany({ orderBy: { createdAt: "asc" } });
+    const rows = await prisma.gameDefinition.findMany({ where: {archivedAt:null}, orderBy: { createdAt: "asc" } });
     const origin = process.env.MOBILE_API_BASE_URL || new URL(request.url).origin;
     const games = rows.map(serializeGame).map(game => {
       try { return catalogGame(game, origin); } catch { return { ...game, invalidLink: true }; }
@@ -44,4 +45,12 @@ export async function POST(request) {
       ...(game.engine === "external" ? { launchUrl: body.launchUrl } : {}), iconAssetId, revision: body.revision }, admin.email);
     return Response.json({ success: true, data: result });
   } catch (error) { return failure(error); }
+}
+
+export async function DELETE(request) {
+  try {
+    sameOrigin(request);
+    const data = await retireCatalogItem(prisma, await requirePortalAdmin(), 'game', await jsonBody(request));
+    return Response.json({success:true,data});
+  } catch(error) { return failure(error); }
 }

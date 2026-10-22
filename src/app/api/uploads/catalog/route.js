@@ -96,13 +96,13 @@ export async function GET(request) {
           : ["ROOM_BACKGROUNDS", "SEAT_STYLES"].includes(category)
             ? {
                 OR: [
-                  { isGlobal: true },
+                  { isGlobal: true, archivedAt: null },
                   { assignments: { some: { userId: user.id } } },
                 ],
               }
           : {
               OR: [
-                { isGlobal: true },
+                { isGlobal: true, archivedAt: null },
                 { assignments: { some: { userId: user.id, ...active } } },
               ],
             }),
