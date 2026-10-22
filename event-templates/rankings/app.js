@@ -30,7 +30,25 @@
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { n.hidden = true; }, { once: true }); return n; };
-  function levels(person) { const n = el('div', 'levels'); for (const track of ['user', 'charm']) { const url = person?.[`${track}LevelBadgeUrl`]; n.append(url ? image(url) : el('span', '', `${track === 'user' ? 'W' : 'C'} ${person?.[`${track}Level`] || 0}`)); } if (person?.badgeUrl) n.append(image(person.badgeMimeType === 'application/svga' ? person.badgePosterUrl : person.badgeUrl)); return n; }
+  function levels(person) {
+    const n = el('div', 'levels');
+    for (const track of ['user', 'charm']) {
+      const level = person?.[`${track}Level`] ?? 0;
+      const label = track === 'user' ? 'Wealth' : 'Charm';
+      const tag = el('span', `level-tag level-tag-${track}`);
+      tag.setAttribute('aria-label', `${label} level ${level}`);
+      tag.title = `${label} level ${level}`;
+      const prefix = `${track}LevelBackground`;
+      const mime = person?.[`${prefix}MimeType`];
+      const url = mime && !mime.startsWith('image/')
+        ? person?.[`${prefix}PosterUrl`] : person?.[`${prefix}Url`];
+      if (url) tag.append(image(url, 'level-background'));
+      tag.append(el('b', 'level-value', `${track === 'user' ? 'W' : 'C'} ${level}`));
+      n.append(tag);
+    }
+    if (person?.badgeUrl) n.append(image(person.badgeMimeType === 'application/svga' ? person.badgePosterUrl : person.badgeUrl));
+    return n;
+  }
   function identity(person) { const n = el('button'); n.type = 'button'; n.append(image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable')); n.onclick = () => person && notify({ type: 'ranking:open-profile', publicId: person.publicId }); return n; }
   function entryName(entry) {
     if (type === 'agency') return el('span', 'name', entry.name);
@@ -60,7 +78,7 @@
     let podium;
     if (type !== 'cp' && entries.some(e => e.rank <= 3)) { podium = el('div', 'podium'); $('entries').append(podium); }
     entries.forEach(e => {
-      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/rankings/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`),score(e.score)); row.append(value); $('entries').append(row); return; }
+      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/rankings/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`),score(e.score)); row.append(value); $('entries').append(row); return; }
       if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/rankings/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person)); if(type==='agency')n.append(el('div','meta',`${e.memberCount} hosts · ${e.id}`),image(`/event/rankings/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); n.append(score(e.score)); podium.append(n); }
       else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person)); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details,score(e.score)); $('entries').append(n); }
     }); $('more').hidden = nextOffset === null;

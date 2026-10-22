@@ -20,13 +20,20 @@ async function fixture(track, rewardPolicy=null) {
   vm.runInNewContext(readFileSync('event-templates/rankings/app.js','utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,userLevel:42,charmLevel:17,userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
   return {get,messages,flush,requests};
 }
 describe('ranking native navigation',()=>{
+  it('overlays actual levels on uploaded artwork and uses posters for non-image media',async()=>{
+    const {get}=await fixture('wealth');
+    const tags=descendants(get('hero')).filter(n=>n.className?.startsWith('level-tag '));
+    expect(tags).toHaveLength(2);
+    expect(tags.map(n=>n.children.find(c=>c.className==='level-value').textContent)).toEqual(['W 42','C 17']);
+    expect(tags.map(n=>n.children.find(c=>c.className==='level-background').src)).toEqual(['https://cdn.example/wealth.png','https://cdn.example/charm.png']);
+  });
   it('shows configured rewards as TOP cards with prop artwork',async()=>{
     const {get}=await fixture('wealth',{enabled:true,effectiveFrom:'2026-10-19T00:00:00Z',rewards:[{rank:1,coins:'500',diamonds:'20',props:[{name:'Gold frame',days:7,url:'https://media.example/frame.gif',mimeType:'image/gif'}],vip:{name:'VIP 3',days:2}}]});
     const nodes=descendants(get('board'));

@@ -54,6 +54,11 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     return [u.id, { publicId: u.publicId, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
       userLevel: levels?.userLevel ?? 0, charmLevel: levels?.charmLevel ?? 0,
       userLevelBadgeUrl: levels?.userLevelBadgeUrl ?? null, charmLevelBadgeUrl: levels?.charmLevelBadgeUrl ?? null,
+      ...Object.fromEntries(['user', 'charm'].flatMap(track =>
+        ['Url', 'MimeType', 'PosterUrl'].map(suffix => {
+          const key = `${track}LevelBackground${suffix}`;
+          return [key, levels?.[key] ?? null];
+        }))),
       badgeUrl: p?.badgeUrl ?? null, badgeMimeType: p?.badgeMimeType ?? null, badgePosterUrl: p?.badgePosterUrl ?? null }];
   }));
   return { type, period, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: 'Coins',
