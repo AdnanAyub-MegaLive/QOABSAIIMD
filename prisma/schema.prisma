@@ -429,6 +429,7 @@ model SharedGameDay {
 }
 
 model SharedGameEntry {
+  settledAt DateTime?
   id String @id
   dayId String
   day SharedGameDay @relation(fields:[dayId], references:[id], onDelete: Restrict)
@@ -446,6 +447,23 @@ model SharedGameEntry {
   createdAt DateTime @default(now())
   @@index([dayId,roomId,slot,userId])
   @@index([status,resolveAt])
+  @@index([roomId,settledAt])
+}
+
+// Disposable ranking snapshots, never wallet or reward records.
+model RoomRankingSnapshot {
+  id String @id
+  cacheKey String @unique
+  data Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
+model RoomRankingRevision {
+  id String @id
+  revision BigInt @default(1)
+  createdAt DateTime @default(dbgenerated("(clock_timestamp() AT TIME ZONE 'UTC'::text)"))
 }
 
 model GameTriviaHistory {
