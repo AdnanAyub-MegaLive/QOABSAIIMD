@@ -13,13 +13,13 @@ class Element {
   close() { this.open=false; }
 }
 const descendants=n=>[n,...n.children.flatMap(descendants)];
-async function fixture(track, rewardPolicy=null) {
+async function fixture(track, rewardPolicy=null, pathname='', template='rankings') {
   const nodes=new Map(),messages=[],requests=[];
   const get=id=>{if(!nodes.has(id))nodes.set(id,new Element('div'));return nodes.get(id);};
   get('search').value='';get('heading').parentElement=new Element('div');
   if(track){get('ranking').dataset.track=track;get('ranking').dataset.event=`ranking-${track}`;}
-  const window={ReactNativeWebView:{postMessage:value=>messages.push(JSON.parse(value))}};
-  vm.runInNewContext(readFileSync('event-templates/rankings/app.js','utf8'),{
+  const window={location:{pathname},ReactNativeWebView:{postMessage:value=>messages.push(JSON.parse(value))}};
+  vm.runInNewContext(readFileSync(`event-templates/${template}/app.js`,'utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
     fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,userLevel:42,charmLevel:17,userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
@@ -29,6 +29,20 @@ async function fixture(track, rewardPolicy=null) {
   return {get,messages,flush,requests};
 }
 describe('ranking native navigation',()=>{
+  it.each(['wealth','charm','agency','cp'])('runs independent %s source and local assets',async track=>{
+    const {requests,get}=await fixture(null,null,'',`ranking-${track}`);
+    expect(requests[0]).toContain(`event=ranking-${track}`);
+    expect(requests[0]).toContain(`type=${track}`);
+    expect(get('tracks').children).toHaveLength(1);
+    expect(readFileSync(`event-templates/ranking-${track}/app.js`,'utf8')).not.toContain('/event/rankings/');
+    expect(readFileSync(`event-templates/ranking-${track}/index.html`,'utf8')).toContain(`data-track="${track}"`);
+  });
+  it.each(['wealth','charm','agency','cp'])('locks a dedicated %s URL even with a shared template',async track=>{
+    const {get,requests}=await fixture(null,null,`/event/ranking-${track}/_v/3/index.html`);
+    expect(get('tracks').children).toHaveLength(1);
+    expect(requests[0]).toContain(`type=${track}`);
+    expect(requests[0]).toContain(`event=ranking-${track}`);
+  });
   it('overlays actual levels on uploaded artwork and uses posters for non-image media',async()=>{
     const {get}=await fixture('wealth');
     const tags=descendants(get('hero')).filter(n=>n.className?.startsWith('level-tag '));

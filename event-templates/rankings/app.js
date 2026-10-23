@@ -1,7 +1,8 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id), root = $('ranking');
-  const fixedTrack=root.dataset.track, eventSlug=root.dataset.event||'rankings';
+  const pathTrack=/\/event\/ranking-(wealth|charm|agency|cp)(?:\/|$)/.exec(window.location?.pathname||'')?.[1];
+  const fixedTrack=pathTrack||root.dataset.track, eventSlug=fixedTrack?`ranking-${fixedTrack}`:(root.dataset.event||'rankings');
   let token = '', type = fixedTrack || 'wealth', period = 'today', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
   const rewardsPanel=$('reward-details');
   const labels={wealth:'Wealth',charm:'Charm',agency:'Agency',cp:'CP'};

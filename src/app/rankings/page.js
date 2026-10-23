@@ -7,6 +7,7 @@ import { rankingPeriods, rankingTypes } from "../../lib/rankings";
 import FeatureSearch from "../components/feature-search";
 import PortalSidebar from "../components/portal-sidebar";
 import RankingsView from "./rankings-view";
+import Link from 'next/link';
 
 const pageSize = 25;
 
@@ -62,6 +63,7 @@ export default async function RankingsPage({ searchParams }) {
         </header>
         <div className="mx-auto max-w-7xl p-6 md:p-10">
           <div className="mb-7">
+            <Link href="/rankings/history" className="mb-4 inline-block rounded-lg border bg-white px-4 py-2">Event winners & reward history →</Link>
             <h2 className="text-2xl font-bold">Mobile leaderboard control</h2>
             <p className="mt-1.5 text-sm text-[#71847f]">
               The same authoritative scores, identities, and asset rules returned to the mobile application.
