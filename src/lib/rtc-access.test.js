@@ -1,16 +1,32 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ find: vi.fn(), ban: vi.fn(), issue: vi.fn(), sockets: vi.fn() }));
+const mocks = vi.hoisted(() => ({ find: vi.fn(), ban: vi.fn(), issue: vi.fn(), sockets: vi.fn(), update:vi.fn(), emit:vi.fn() }));
+vi.mock("./rtc-moderation.js",()=>({updateRtcPublishPermission:mocks.update}));
 vi.mock("./prisma.js", () => ({prisma:{audioRoom:{findUnique:mocks.find}}}));
 vi.mock("./audio-room-management.js", () => ({activeRoomBan:mocks.ban}));
 vi.mock("./trtc-authorization.js", () => ({issueTrtcAccess:mocks.issue}));
 vi.mock("./rtc-provider.js", () => ({rtcProvider:()=>"TRTC"}));
-import { audioRtcAccess } from "./rtc-access.js";
+import { audioRtcAccess, selfSeatRtcStatus } from "./rtc-access.js";
 const user={id:"internal-1",publicId:"USR-1"};
 beforeEach(() => {
   vi.clearAllMocks(); mocks.ban.mockResolvedValue(null);
   mocks.find.mockResolvedValue({id:"room",ownerId:"owner",status:"LIVE",isBlocked:false,seats:[]});
   mocks.sockets.mockResolvedValue([{rooms:new Set(["audio-room:ROOM-1"])}]);
-  globalThis.portalIo={in:()=>({fetchSockets:mocks.sockets})};
+  globalThis.portalIo={in:()=>({fetchSockets:mocks.sockets}),to:()=>({emit:mocks.emit})};
+});
+it("five self mute/unmute cycles never invoke eviction and return publisher tickets",async()=>{
+  mocks.find.mockResolvedValue({id:"room",ownerId:"owner",status:"LIVE",seats:[{isMuted:false,isForceMuted:false}]});
+  mocks.issue.mockResolvedValue({role:"ANCHOR",canPublish:true});
+  for(let i=0;i<5;i++){
+    await expect(selfSeatRtcStatus(user,"ROOM-1",true)).resolves.toBeNull();
+    await expect(selfSeatRtcStatus(user,"ROOM-1",false)).resolves.toMatchObject({role:"ANCHOR",canPublish:true});
+  }
+  expect(mocks.update).not.toHaveBeenCalled();
+  expect(mocks.emit).toHaveBeenCalledTimes(5);
+  expect(mocks.emit).toHaveBeenLastCalledWith("rtc:credentials-invalidated",{success:true,data:{provider:"TRTC",roomId:"ROOM-1",reconnect:false}});
+});
+it("speaking-only changes do not mutate RTC permissions",async()=>{
+  await expect(selfSeatRtcStatus(user,"ROOM-1",undefined)).resolves.toBeNull();
+  expect(mocks.issue).not.toHaveBeenCalled();expect(mocks.update).not.toHaveBeenCalled();
 });
 it("requires authenticated socket membership, not just knowing an ID", async()=>{
   mocks.sockets.mockResolvedValue([]);
@@ -21,7 +37,7 @@ it("rejects banned members",async()=>{
   mocks.ban.mockResolvedValue({id:"ban"});
   await expect(audioRtcAccess(user,"ROOM-1")).rejects.toThrow("ROOM_BANNED");
 });
-it.each([[[],false],[[{isMuted:false,isForceMuted:false}],true],[[{isMuted:false,isForceMuted:true}],false],[[{isMuted:true,isForceMuted:false}],false]])("derives publishing from authoritative seats",async(seats,publish)=>{
+it.each([[[],false],[[{isMuted:false,isForceMuted:false}],true],[[{isMuted:false,isForceMuted:true}],false],[[{isMuted:true,isForceMuted:false}],true]])("derives publishing from authoritative seats",async(seats,publish)=>{
   mocks.find.mockResolvedValue({id:"room",ownerId:"owner",status:"IDLE",seats});
   await audioRtcAccess(user,"ROOM-1"); expect(mocks.issue).toHaveBeenCalledWith(user,"ROOM-1",publish);
 });

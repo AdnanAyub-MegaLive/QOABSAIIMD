@@ -55,7 +55,7 @@ app.prepare().then(async()=>{
   const {getEffectiveUserId}=await import("./src/lib/special-id.js");
   const {isLiveKitConfigured,issueLiveKitAccess}=await import("./src/lib/livekit-authorization.js");
   const {rtcProvider,rtcFields}=await import("./src/lib/rtc-provider.js");
-  const {audioRtcAccess}=await import("./src/lib/rtc-access.js");
+  const {audioRtcAccess,selfSeatRtcStatus}=await import("./src/lib/rtc-access.js");
   const {trtcConfiguration}=await import("./src/lib/trtc-authorization.js");
   const {expireVipMemberships}=await import("./src/lib/vip-membership.js");
   const vipExpiryTimer=setInterval(()=>expireVipMemberships().catch(()=>console.error("VIP expiry reconciliation failed")),60000);
@@ -760,16 +760,14 @@ app.prepare().then(async()=>{
         if(!next.changed){
           // Explicit retries must retry failed provider work even after reconnect.
           // The transition gate makes successfully applied states a no-op.
-          if(muted!==undefined)await updateLiveKitPublishPermission(id,user.publicId,!next.isMuted);
-          return ack({success:true,data:{unchanged:true,canPublish:!next.isMuted&&!occupiedSeat.isForceMuted}});
+          const ticket=await selfSeatRtcStatus(user,id,muted);
+          return ack({success:true,data:{unchanged:true,canPublish:!next.isMuted&&!occupiedSeat.isForceMuted,...rtcFields(ticket)}});
         }
         const result=await prisma.audioRoomSeat.updateMany({where:{id:occupiedSeat.id,occupantUserId:user.id,isForceMuted:occupiedSeat.isForceMuted,isMuted:occupiedSeat.isMuted},data:{isMuted:next.isMuted,isSpeaking:next.isSpeaking}});
         if(!result.count)return ack({success:false,error:{code:"SPEAKER_NOT_SEATED"}});
-        if(muted!==undefined){
-          await updateLiveKitPublishPermission(id,user.publicId,!next.isMuted);
-        }
+        const ticket=await selfSeatRtcStatus(user,id,muted);
         const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);
-        ack({success:true,data:{seatState,canPublish:!next.isMuted&&!occupiedSeat.isForceMuted}});
+        ack({success:true,data:{seatState,canPublish:!next.isMuted&&!occupiedSeat.isForceMuted,...rtcFields(ticket)}});
       }catch(error){
         console.error("Audio room seat status failed",error);
         ack({success:false,error:{code:"SEAT_STATUS_FAILED"}});

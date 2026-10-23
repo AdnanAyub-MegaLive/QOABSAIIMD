@@ -41,7 +41,7 @@ export async function updateRtcPublishPermission(roomId, userId, canPublish) {
     const sockets=await globalThis.portalIo?.in(`user:${userId}`).fetchSockets();
     if(!sockets?.some(socket=>socket.rooms.has(`audio-room:${roomId}`)))return false;
     const seat=await prisma.audioRoomSeat.findFirst({where:{audioRoomId:room.id,occupantUserId:user.id}});
-    return seat ? !seat.isForceMuted&&!seat.isMuted : room.ownerId===user.id;
+    return seat ? !seat.isForceMuted&&(rtcProvider()==="TRTC"||!seat.isMuted) : room.ownerId===user.id;
   }, async effective => {
   canPublish=effective;
   if (rtcProvider() === "LIVEKIT") return updateLiveKitPublishPermission(roomId, userId, canPublish);
