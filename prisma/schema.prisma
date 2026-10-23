@@ -466,6 +466,16 @@ model RoomRankingRevision {
   createdAt DateTime @default(dbgenerated("(clock_timestamp() AT TIME ZONE 'UTC'::text)"))
 }
 
+// Derived two-hour gift scores only; not a wallet, payout or historical ledger.
+model HourlyGiftRankingCache {
+  id String @id
+  data Json
+  sourceRevision String
+  generatedAt DateTime
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
 model GameTriviaHistory {
   userId String @id
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1816,6 +1826,7 @@ model GiftTransaction {
   settlement      GiftSettlement?
 
   @@index([senderId, createdAt])
+  @@index([createdAt])
   @@index([senderId, giftBatchId])
   @@index([talentId, createdAt])
   @@index([recipientUserId, createdAt])
