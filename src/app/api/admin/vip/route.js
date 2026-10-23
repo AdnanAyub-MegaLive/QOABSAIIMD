@@ -10,11 +10,12 @@ function response(error){return Response.json({success:false,error:{code:error.c
 export async function GET(request){try{
   await requirePermission("vip.view");
   const page=Math.max(1,Math.min(100000,Number(new URL(request.url).searchParams.get("page"))||1));
-  const [tiers,total,assets,members]=await Promise.all([
+  const memberPage=Math.max(1,Math.min(100000,Math.floor(Number(new URL(request.url).searchParams.get("memberPage")))||1));
+  const [tiers,total,assets,members,memberTotal]=await Promise.all([
     prisma.vipTier.findMany({where:{archivedAt:null},include:{assets:true,_count:{select:{members:true}}},orderBy:{level:"asc"},skip:(page-1)*50,take:50}),prisma.vipTier.count({where:{archivedAt:null}}),
     prisma.uploadAsset.findMany({where:{...uploadLibraryFilter,active:true,category:{in:VIP_PRIVILEGES.map(p=>p.category).filter(Boolean)}},select:{id:true,publicId:true,name:true,category:true},take:1000,orderBy:{createdAt:"desc"}}),
-    prisma.vipMembership.findMany({include:{user:{select:{publicId:true,name:true}},tier:{select:{name:true,level:true}}},orderBy:{startsAt:"desc"},take:100})]);
-  return Response.json({success:true,data:{tiers:tiers.map(t=>({...t,coinPrice:t.coinPrice?.toString()??null})),total,page,assets,members,privileges:VIP_PRIVILEGES}});
+    prisma.vipMembership.findMany({include:{user:{select:{publicId:true,name:true}},tier:{select:{name:true,level:true}}},orderBy:[{startsAt:"desc"},{userId:"desc"}],skip:(memberPage-1)*50,take:50}),prisma.vipMembership.count()]);
+  return Response.json({success:true,data:{tiers:tiers.map(t=>({...t,coinPrice:t.coinPrice?.toString()??null})),total,page,assets,members,memberPage,memberTotal,privileges:VIP_PRIVILEGES}});
 }catch(error){return response(error)}}
 export async function POST(request){try{
   const admin=await requirePermission("vip.manage"),body=await request.json();

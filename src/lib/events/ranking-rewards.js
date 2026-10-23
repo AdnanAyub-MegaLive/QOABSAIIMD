@@ -2,6 +2,7 @@ import { prisma } from '../prisma.js';
 import { ledgerData } from '../wallet.js';
 import { notifyAction } from '../action-notifications.js';
 import { equippablePropCategories } from '../props-store.js';
+import { uploadLibraryFilter } from '../upload-library-filter.js';
 import { selectOwnedVip, vipRenewalExpiry } from '../vip-commerce.js';
 import { rankingWindow } from './ranking-contract.js';
 import { eventRankings } from './ranking-data.js';
@@ -23,6 +24,11 @@ export async function saveRankingRewards(input, admin, db = prisma) {
     const event = await tx.event.findUnique({where:{slug:data.eventSlug}});
     if (!event) throw new Error('Create this ranking event first.');
     await validateRewardAssets(tx, data.rewards);
+    // Restrict new configurations, without rewriting historical reward policies.
+    for(const reward of data.rewards)for(const prop of reward.props){
+      if(!await tx.uploadAsset.findFirst({where:{id:prop.assetId,...uploadLibraryFilter,active:true},select:{id:true}}))
+        throw new Error('Choose an active reward prop, not level background artwork or an archived upload.');
+    }
     const policy = await tx.rankingRewardPolicy.create({data:{...data,createdById:admin.id}});
     await tx.eventAuditLog.create({data:{userId:admin.id,eventId:event.id,action:'RANKING_REWARDS_CONFIGURED',metadata:{policyId:policy.id,...data,effectiveFrom:data.effectiveFrom.toISOString()}}});
     return policy;

@@ -2670,6 +2670,44 @@ model DailyTaskStreak {
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Existing reward tables are mapped without rewriting their historical records.
+model RoomRewardPolicy {
+  version Int @id @default(autoincrement())
+  rateBps Int @default(200)
+  enabled Boolean @default(true)
+  effectiveFrom DateTime @db.Timestamp(3)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+}
+
+model RoomRewardActivation {
+  id String @id
+  startsAt DateTime @db.Timestamp(3)
+}
+
+model RoomRewardDay {
+  day DateTime @id @db.Timestamp(3)
+  policyVersion Int
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+}
+
+model RoomRewardPayout {
+  id String @id @default(cuid())
+  day DateTime @db.Timestamp(3)
+  roomId String
+  ownerId String
+  policyVersion Int
+  rateBps Int
+  giftCoins BigInt
+  giftIds Json
+  diamonds BigInt
+  status String @default("PENDING")
+  error String?
+  paidAt DateTime? @db.Timestamp(3)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+  @@unique([day, roomId])
+  @@index([status, day])
+}
+
 model AgencySalaryPolicy {
   month String @id
   version Int @default(1)

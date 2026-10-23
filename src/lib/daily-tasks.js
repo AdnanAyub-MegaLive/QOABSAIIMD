@@ -83,7 +83,9 @@ export async function claimDailyTask(userId,taskId,expectedType=null,now=new Dat
   if(!(await tx.dailyTaskCategory.findUnique({where:{key:d.categoryKey}}))?.active)fail("TASK_NOT_FOUND");
   if(i.periodStart.getTime()!==periodStart(d,now).getTime())fail("TASK_EXPIRED");
   const sign=metricOf(d)==="SIGN_IN";
-  if((expectedType==="SIGN_IN")!==sign)fail("TASK_CLAIM_ROUTE_INVALID");
+  // The generic claim endpoint accepts any owned task. Its stored definition,
+  // never client input, selects the full sign-in/streak validation below.
+  if(expectedType==="SIGN_IN"&&!sign)fail("TASK_CLAIM_ROUTE_INVALID");
   i=await refresh(tx,userId,i,now);if(stateOf(i)!=="claim")fail("TASK_NOT_READY");
   const streak=sign?await tx.dailyTaskStreak.findUnique({where:{userId}}):null,cycle=checkInDay(streak,now);
   if(sign&&cycle.claimedToday)fail("TASK_ALREADY_CLAIMED");

@@ -10,7 +10,13 @@ export async function GET(request){
     await requirePermission("finance.view");
     const id=new URL(request.url).searchParams.get("giftId");
     if(id)return reply(await previewGiftRefund(id));
-    return reply(await prisma.giftRefund.findMany({orderBy:{createdAt:"desc"},take:100}));
+    const params=new URL(request.url).searchParams;
+    const page=Math.max(1,Math.min(100000,Math.floor(Number(params.get('page')))||1));
+    const [items,total]=await prisma.$transaction([
+      prisma.giftRefund.findMany({orderBy:[{createdAt:'desc'},{giftId:'desc'}],skip:(page-1)*50,take:50}),
+      prisma.giftRefund.count(),
+    ]);
+    return reply({items,total,page,pageSize:50});
   }catch(e){return failure(e);}
 }
 export async function POST(request){

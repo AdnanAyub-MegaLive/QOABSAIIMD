@@ -8,6 +8,8 @@ export async function payRoomReward(id,db=prisma){
   await tx.$queryRaw`SELECT id FROM "RoomRewardPayout" WHERE id=${id} FOR UPDATE`;
   const payout=await tx.roomRewardPayout.findUnique({where:{id}});
   if(!payout||payout.status!=='PENDING')return;
+  const activation=await tx.roomRewardActivation.findUnique({where:{id:'GLOBAL'}});
+  if(!activation||payout.day<activation.startsAt)throw new Error('Room reward predates activation; historical payout blocked.');
   if(nextRoomRewardDay(payout.day)>new Date())throw new Error('Reward day has not finished.');
   if(payout.diamonds!==roomRewardAmount(payout.giftCoins,payout.rateBps))throw new Error('Reward snapshot requires reconciliation.');
   if(await tx.giftTransaction.count({where:{id:{in:payout.giftIds},reversedAt:{not:null}}}))throw new Error('A snapshotted gift was refunded; reconcile before paying.');
@@ -28,15 +30,19 @@ let running=false;
 export async function maintainRoomRewards(db=prisma){
  if(running)return;running=true;
  try{
+  const activation=await db.roomRewardActivation.findUnique({where:{id:'GLOBAL'}});
+  if(!activation)return; // Fail closed until the activation migration is applied.
   // Late gift refunds never silently claw back an already-paid owner balance.
   // Surface affected payouts for explicit financial reconciliation instead.
   await db.$executeRaw`UPDATE "RoomRewardPayout" p SET status='REVIEW_PAID', error='A gift was refunded after payout. Reconcile manually; no balance adjustment has been made.'
-    WHERE p.status='PAID' AND EXISTS (SELECT 1 FROM "GiftTransaction" g WHERE g.id IN (SELECT jsonb_array_elements_text(p."giftIds")) AND g."reversedAt" IS NOT NULL)`;
+    WHERE p.status='PAID' AND p.day>=${activation.startsAt} AND EXISTS (SELECT 1 FROM "GiftTransaction" g WHERE g.id IN (SELECT jsonb_array_elements_text(p."giftIds")) AND g."reversedAt" IS NOT NULL)`;
   const policies=await db.roomRewardPolicy.findMany({orderBy:[{effectiveFrom:'asc'},{version:'asc'}]});if(!policies.length)return;
   const latest=await db.roomRewardDay.findFirst({orderBy:{day:'desc'}});
   let day=latest?nextRoomRewardDay(latest.day):policies[0].effectiveFrom;
+  if(day<activation.startsAt)day=activation.startsAt;
   for(let count=0;count<7&&nextRoomRewardDay(day)<=new Date();count++){
    const end=nextRoomRewardDay(day),policy=policies.filter(p=>p.effectiveFrom<=day).at(-1);
+   if(!policy)break;
    await db.$transaction(async tx=>{
     // Unique day receipt and room snapshots commit together; concurrent workers retry safely.
     await tx.roomRewardDay.create({data:{day,policyVersion:policy.version}});
@@ -55,7 +61,7 @@ export async function maintainRoomRewards(db=prisma){
    },{isolationLevel:'Serializable',timeout:30000});
    day=end;
   }
-  for(const row of await db.roomRewardPayout.findMany({where:{status:'PENDING'},orderBy:{day:'asc'},take:100})){
+  for(const row of await db.roomRewardPayout.findMany({where:{status:'PENDING',day:{gte:activation.startsAt}},orderBy:{day:'asc'},take:100})){
    try{await payRoomReward(row.id,db);}catch(e){if(['P2034','P2002'].includes(e.code))continue;await db.roomRewardPayout.updateMany({where:{id:row.id,status:'PENDING'},data:{status:'REVIEW',error:String(e.message).slice(0,500)}});}
   }
  }finally{running=false;}

@@ -23,6 +23,16 @@ it("pays the configured seventh check-in amount",async()=>{
  row.definition.metric="SIGN_IN";row.definition.config={days:Array.from({length:7},(_,n)=>({kind:"COINS",coins:String(n+1)}))};db.dailyTaskStreak.findUnique.mockResolvedValue({currentStreak:6,lastSignInDate:new Date("2026-10-20")});
  expect((await claimDailyTask("u","instance","SIGN_IN",now)).reward.coins).toBe("7");expect(db.dailyTaskStreak.upsert).toHaveBeenCalled();
 });
+it('generic claim uses the same sign-in rewards and idempotency protections',async()=>{
+ row.definition.metric='SIGN_IN';row.definition.config={days:Array.from({length:7},(_,n)=>({kind:'COINS',coins:String(n+1)}))};db.dailyTaskStreak.findUnique.mockResolvedValue({currentStreak:6,lastSignInDate:new Date('2026-10-20')});
+ const result=await claimDailyTask('u','instance',null,now);expect(result.reward.coins).toBe('7');expect(await claimDailyTask('u','instance','SIGN_IN',now)).toEqual(result);expect(db.user.updateMany).toHaveBeenCalledTimes(1);
+});
+it('generic claim cannot bypass the daily sign-in guard',async()=>{
+ row.definition.metric='SIGN_IN';db.dailyTaskStreak.findUnique.mockResolvedValue({currentStreak:1,lastSignInDate:periodStart});await expect(claimDailyTask('u','instance',null,now)).rejects.toMatchObject({code:'TASK_ALREADY_CLAIMED'});expect(db.user.updateMany).not.toHaveBeenCalled();
+});
+it('sign-in endpoint still rejects unrelated tasks',async()=>{
+ await expect(claimDailyTask('u','instance','SIGN_IN',now)).rejects.toMatchObject({code:'TASK_CLAIM_ROUTE_INVALID'});expect(db.user.updateMany).not.toHaveBeenCalled();
+});
 it("blocks another check-in definition from paying twice on the same day",async()=>{
  row.definition.metric="SIGN_IN";db.dailyTaskStreak.findUnique.mockResolvedValue({currentStreak:1,lastSignInDate:periodStart});await expect(claimDailyTask("u","instance","SIGN_IN",now)).rejects.toMatchObject({code:"TASK_ALREADY_CLAIMED"});expect(db.user.updateMany).not.toHaveBeenCalled();
 });

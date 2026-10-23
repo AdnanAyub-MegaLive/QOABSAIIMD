@@ -5,6 +5,8 @@ export default function GiftRefunds({canRefund}) {
   async function request(url,options){const response=await fetch(url,options);const result=await response.json();if(!response.ok||!result.success)throw new Error(result.error?.message??"Request failed");return result.data;}
   async function run(action){setBusy(true);setMessage("");try{await action();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
   const input="rounded-lg border border-[#dce7e4] p-3 text-sm";
+  const [pagination,setPagination]=useState(null);
+  async function loadPage(page){const result=await request(`/api/admin/gift-refunds?page=${page}`);setRows(result.items);setPagination(result);}
   return <div className="space-y-4 rounded-xl border border-[#dce7e4] bg-white p-5">
     <h2 className="font-bold text-[#183f3b]">Gift refunds & manual review</h2>
     <p className="text-sm text-[#71847f]">Preview first. All rewards must be recoverable. Historical gifts without recovery records, live/PK outcomes and claimed task rewards require manual review. No partial recovery or negative balances.</p>
@@ -22,7 +24,8 @@ export default function GiftRefunds({canRefund}) {
       </form>}
     </section>}
     <p role="status" className="text-sm">{message}</p>
-    <button disabled={busy} className={input} onClick={()=>run(async()=>setRows(await request("/api/admin/gift-refunds")))}>Load recent refunds / review queue</button>
+    <button disabled={busy} className={input} onClick={()=>run(()=>loadPage(1))}>Load refunds / review queue</button>
+    {pagination&&<nav aria-label="Refund history pages" className="flex items-center gap-3"><button disabled={busy||pagination.page<=1} onClick={()=>run(()=>loadPage(pagination.page-1))}>Previous</button><span>Page {pagination.page} · {pagination.total} records</span><button disabled={busy||pagination.page*pagination.pageSize>=pagination.total} onClick={()=>run(()=>loadPage(pagination.page+1))}>Next</button></nav>}
     {rows.map(row=><article key={row.giftId} className="rounded-lg border p-3 text-sm"><strong>{row.giftId} — {row.status}</strong><p>{row.reason}</p><p>{row.reviewReason}</p><time>{row.createdAt}</time></article>)}
   </div>;
 }
