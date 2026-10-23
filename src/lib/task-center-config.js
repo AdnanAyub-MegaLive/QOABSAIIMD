@@ -6,6 +6,7 @@ export const taskMetrics = {
   RECHARGE_COUNT: "Completed personal recharges (count)", RECHARGE_COINS: "Completed personal recharges (Coins)",
   ROOM_WATCH: "Recorded room listening seconds", LIVE_GO_LIVE: "Recorded room hosting seconds",
   ON_MIC: "Recorded seated seconds", MANUAL: "Admin-verified evidence", COMPLETE_TASKS: "Category completion bonus",
+  PLAY_FREE_GAME: "Completed server-recorded free-points rounds",
 };
 export const metricOf = d => d.metric || (d.type === "TOP_SUPPORTER" ? "SEND_GIFTS" : d.type);
 const fail = message => { throw Object.assign(new Error(message), {status:422,code:"VALIDATION_ERROR"}); };

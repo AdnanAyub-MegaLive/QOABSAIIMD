@@ -4,6 +4,12 @@ import { metricOf } from "./task-center-config.js";
 export async function measuredTaskProgress(db, userId, definition, start, now) {
   const metric=metricOf(definition),config=definition.config??{},createdAt={gte:start,lte:now};
   const clamp=value=>Number(BigInt(value??0)>BigInt(definition.targetValue)?BigInt(definition.targetValue):BigInt(value??0));
+  if(metric==='PLAY_FREE_GAME'){
+    // Count only committed free-play receipts. Wallet games and client events
+    // are intentionally not evidence for this task. Never scan before creation.
+    const since=new Date(Math.max(start.getTime(),new Date(definition.createdAt??now).getTime()));
+    return clamp(await db.gamePlayRound.count({where:{userId,createdAt:{gte:since,lte:now},payload:{path:['status'],equals:'settled'}}}));
+  }
   if(["SEND_GIFTS","GIFT_COINS_SENT","GIFT_COINS_RECEIVED"].includes(metric)){
     let identity={senderId:userId};
     if(metric==="GIFT_COINS_RECEIVED"){

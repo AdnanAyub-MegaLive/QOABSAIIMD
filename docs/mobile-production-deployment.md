@@ -39,6 +39,30 @@ development. `.env.local` remains ignored by Git.
 
 ## Reverse proxy and TLS requirements
 
+### Custom-server redirects and safe rebuilds
+
+`server.js` sets Next's internal fetch origin to the actual HTTP listener, using
+loopback for wildcard bind addresses. This is separate from public HTTPS asset
+and authentication URLs. Keep Nginx's forwarded host/protocol headers and TLS
+verification enabled; do not change the public origin to HTTP to fix internal
+Server Action redirects. This integration uses Next's internal-origin hook and
+must be regression-tested when upgrading Next.
+
+After reviewing and pulling a deployment, run `bash scripts/deploy-droplet.sh`
+from the checkout. It refuses tracked-file drift, stops PM2 before installing or
+building, applies migrations, generates Prisma, verifies the production
+manifests, and restarts. On failure it leaves the portal stopped rather than
+serving a partial build. Schedule a maintenance window and take a database
+backup first. The script never seeds, resets, reconciles balances or invokes
+historical reward settlement. Review pending migrations before running it.
+
+Task automation: `PLAY_FREE_GAME` counts server-settled `GamePlayRound` receipts
+only, from no earlier than the task definition's creation. It does not count
+wallet games, merely opening a game, or client progress reports. Existing task
+definitions and claims are not converted by deployment; admins can create a new
+task with this progress source. Phone verification, external reviews/shares,
+referrals and room follows remain manual until trustworthy evidence exists.
+
 The custom server hosts Next.js and Socket.IO together. Configure the reverse
 proxy/load balancer to:
 

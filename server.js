@@ -20,10 +20,15 @@ const dev=process.argv.includes("--dev");
 const webpack=process.argv.includes("--webpack");
 const hostname=process.env.HOSTNAME||"0.0.0.0";
 const port=Number(process.env.PORT||3000);
+const {internalServerOrigin}=require('./src/lib/internal-server-origin.cjs');
+const internalOrigin=internalServerOrigin(hostname,port);
+process.env.__NEXT_PRIVATE_ORIGIN=internalOrigin;
 const app=next({dev,hostname,port,webpack});
 const handle=app.getRequestHandler();
 
 app.prepare().then(async()=>{
+  // Next environment reloads must not switch internal redirects back to HTTPS.
+  process.env.__NEXT_PRIVATE_ORIGIN=internalOrigin;
   const {perkMediaFields}=await import("./src/lib/decoration-media.js");
   const {nextSeatStatus}=await import("./src/lib/room-seat-status.js");
   const {createRoomJoinGuard}=await import("./src/lib/room-join-guard.js");

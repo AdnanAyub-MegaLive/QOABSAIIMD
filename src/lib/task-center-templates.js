@@ -16,7 +16,7 @@ export function taskCenterTemplates(){
  add("BEGINNER","RECEIVE","Receive gifts worth 1,000 Coins","GIFT_COINS_RECEIVED",1000,30);
  add("BEGINNER","EXCHANGE","Complete your first Diamond exchange","EXCHANGE",1,100);
  add("BEGINNER","ROOM","Create your own voice room","CREATE_ROOM",1,100);
- add("BEGINNER","GAME","Experience a free-points game once","MANUAL",1,100);
+ add("BEGINNER","GAME","Experience a free-points game once","PLAY_FREE_GAME",1,100);
  add("BEGINNER","REVIEW","Give us an app review","MANUAL",1,100);
  add("DAILY","BEANS","Send 3 Gold Beans gifts","SEND_GIFTS",3,100,{requiresGiftSelection:true});rows.at(-1).active=false;rows.at(-1).description="Select the Gold Beans gift asset before enabling this task. Reward is Coins.";
  add("DAILY","LIKES","Like 3 Moments","LIKE_POSTS",3,100);

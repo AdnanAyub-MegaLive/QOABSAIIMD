@@ -34,6 +34,11 @@ it("excludes business funds and bonus credits from recharge goals",async()=>{
  const w=count.mock.calls[0][0].where;expect(w.status).toBe("COMPLETED");expect(w.coins.gte).toBe(1000n);expect(w.OR).toEqual([{type:"COIN_TOP_UP"},{type:"TRANSFER_RECEIVED",metadata:{path:["wallet"],equals:"PERSONAL"}}]);
 });
 it("does not infer external activity from client data",async()=>{expect(await measuredTaskProgress({},"u",{metric:"MANUAL",targetValue:1},start,now)).toBeNull();});
+it('counts only server-settled free-play receipts since task creation',async()=>{
+ const count=vi.fn(async()=>2),createdAt=new Date('2026-10-21T10:00:00Z');
+ expect(await measuredTaskProgress({gamePlayRound:{count}},'u',{metric:'PLAY_FREE_GAME',targetValue:1,createdAt},start,now)).toBe(1);
+ expect(count).toHaveBeenCalledWith({where:{userId:'u',createdAt:{gte:createdAt,lte:now},payload:{path:['status'],equals:'settled'}}});
+});
 it("ships Beginner, Daily and Monthly templates without beans/key reward currencies",()=>{
  const rows=taskCenterTemplates();expect(new Set(rows.map(r=>r.cadence))).toEqual(new Set(["BEGINNER","DAILY","MONTHLY"]));expect(new Set(rows.map(r=>r.type)).size).toBe(rows.length);
  expect(rows.every(r=>r.rewardSpec.kind==="COINS")).toBe(true);expect(rows.find(r=>r.id==="TASK-MONTHLY-BONUS").config.requiredCount).toBe(4);
