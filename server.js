@@ -80,7 +80,7 @@ app.prepare().then(async()=>{
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileExpiredAudioRoomControls,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>{setRequestClientIp(request);applyWebCacheHeaders(request,response);return handle(request,response)});
-  const io=new Server(httpServer,{cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
+  const io=new Server(httpServer,{pingInterval:25000,pingTimeout:20000,cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
   const {createTaskTimer}=await import("./src/lib/task-center-timer.js");
@@ -278,6 +278,11 @@ app.prepare().then(async()=>{
   });
 
   io.on("connection",async(socket)=>{
+    // Mirror the Engine.IO heartbeat lease; live room membership is read directly.
+    socket.data.audioPresenceLeaseUntil=Date.now()+45000;
+    const refreshPresenceLease=packet=>{if(packet.type==="pong")socket.data.audioPresenceLeaseUntil=Date.now()+45000;};
+    socket.conn.on("packet",refreshPresenceLease);
+    socket.once("disconnect",()=>{socket.data.audioPresenceLeaseUntil=0;socket.conn.off("packet",refreshPresenceLease);});
     const initialization=require("./src/lib/socket-ready-gate.cjs")(socket);
     try {
     const userId=socket.data.userId;

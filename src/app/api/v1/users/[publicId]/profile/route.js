@@ -1,4 +1,5 @@
 import { resolveRoleTags } from "@/lib/role-tags";
+import { joinableAudioPresence } from "@/lib/joinable-presence";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
@@ -32,13 +33,14 @@ export async function GET(request, { params }) {
     after(() => recordProfileVisit(target.id, viewer.id).catch(error => console.error("Profile visit failed", error.message)));
     const roleTags = (await resolveRoleTags([{...target,appRoles:extras.roles}], origin)).get(target.publicId) ?? [];
     const visibleDob = isSelf || isFriend || target.showDateOfBirth;
-    return mobileJson({ success: true, data: { user: {
+    const joinablePresence = await joinableAudioPresence(prisma, viewer, target);
+    const response = mobileJson({ success: true, data: { user: {
       roleTags, roles: target.appRoles,
       publicId: target.publicId, name: target.name, profileImage: avatarDisplayUrl(target.profileImage, origin),
       gender: target.gender, dob: visibleDob ? target.dob?.toISOString().slice(0, 10) ?? null : null,
       age: publicAge(target.dob, visibleDob), country: normalizeSignupCountry(target.country), bio: target.bio,
       isOfficial: target.isOfficial, isVerified: target.isVerified, vipLevel: target.vipLevel,
-      ...extras, room: target.audioRooms[0] ?? null,
+      ...extras, room: target.audioRooms[0] ?? null, joinablePresence,
       businessCardUrl: legacyPerks.get(target.publicId)?.businessCardUrl ?? null,
       businessCardPosterUrl: legacyPerks.get(target.publicId)?.businessCardPosterUrl ?? null,
       businessCardMimeType: legacyPerks.get(target.publicId)?.businessCardMimeType ?? null,
@@ -46,6 +48,8 @@ export async function GET(request, { params }) {
       counters: { friends, followers, following, likes, visitors, wealth: extras.progression.user.lifetimePoints, charm: extras.progression.charm.lifetimePoints },
       relationship: { isSelf, isFriend, isFollowing: Boolean(follows), followsYou: Boolean(followedBy), isBlocked: false, friendRequest: access.friendRequest },
     } } });
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
   } catch (error) { return mobileApiError(error, "PUBLIC_PROFILE_FAILED"); }
 }
 export async function POST(request, { params }) {
