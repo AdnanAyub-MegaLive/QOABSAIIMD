@@ -1,15 +1,9 @@
 import {prisma} from "@/lib/prisma";
-import {requireMobileUser,mobileJson,mobileApiError,mobileCorsHeaders} from "@/lib/mobile-api";
+import {requireMobileUser,mobileJson,mobileApiError} from "@/lib/mobile-api";
 import {readAvatarFile} from "@/lib/avatar-upload";
 import {decodeProfileCover,profileCoverDto,COVER_GIF_MAX_BYTES} from "@/lib/profile-cover";
 import {requestOrigin} from "@/lib/user-perks";
 import {isRateLimited} from "@/lib/rate-limit";
-import {avatarDisplayUrl} from "@/lib/avatar-history";
-export async function GET(request){try{
- const user=await requireMobileUser(request);
- const origin=requestOrigin(request);
- return Response.json({success:true,data:{...await profileCoverDto(prisma,user.id,user.id,origin),profileImage:avatarDisplayUrl(user.profileImage,origin)}},{headers:mobileCorsHeaders});
-}catch(error){return mobileApiError(error,"PROFILE_MEDIA_FAILED");}}
 export async function POST(request){try{
  const user=await requireMobileUser(request);
  if(isRateLimited(`profile-cover:${user.id}`,{limit:10,windowMs:3600000}))return mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Try again later."}},429);

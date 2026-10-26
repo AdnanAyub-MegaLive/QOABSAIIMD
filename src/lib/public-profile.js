@@ -1,5 +1,4 @@
 import { prisma } from "./prisma.js";
-import { profileSections } from "./profile-sections.js";
 import { activeSpecialIds } from "./special-id.js";
 import { profileAgency } from "./profile-agency.js";
 import { equippablePropCategories } from "./props-store.js";
@@ -95,35 +94,29 @@ export async function ownedProfileBadges(userId, origin, db = prisma) {
 }
 
 export async function profileExtras(target, viewer, origin, db = prisma) {
-  const sections = profileSections();
-  const read = sections.read;
-  const agency = await read(["agency"], () => profileAgency(db,target.id,target.agency), null);
-  const specialIds = await read(["specialId"], () => activeSpecialIds([target.id],db), new Map());
+  const agency = await profileAgency(db,target.id,target.agency);
+  const specialIds = await activeSpecialIds([target.id],db);
   const roles = [...new Set([...(target.appRoles??[]),...(agency?.isOwner?["HOST"]:[])])].filter(r => APPLICATION_ROLES.includes(r));
   const [equipment, progress, roleRows, medals, gifts, supporters, relationships, ownedBadges, ownedProps] = await Promise.all([
-    read(["equippedAssets", "frameUrl", "frameMimeType", "framePosterUrl", "badgeUrl", "badgeMimeType", "badgePosterUrl", "userTagUrl", "userTagMimeType", "userTagPosterUrl", "profileBackgroundUrl", "profileBackgroundPosterUrl", "profileBackgroundMimeType", "homeDressUrl", "homeDressPosterUrl", "homeDressMimeType"], () => equippedProfileAssets([target], origin, db), new Map()),
-    read(["userLevel", "charmLevel", "progression", "counters", "userLevelBadgeUrl", "charmLevelBadgeUrl", "userLevelBackgroundUrl", "userLevelBackgroundMimeType", "charmLevelBackgroundUrl", "charmLevelBackgroundMimeType"], () => publicProgression([target], origin, db, true), new Map()),
-    read(["roleBadges"], () => db.roleBadge.findMany({ where: { code: { in: roles } } }), []),
-    read(["medalWall"], () => medalWall(target.id, origin, { limit: 50 }, db), null),
-    read(["giftWall"], () => receivedGiftWall(target.id, origin, {}, db), null),
-    read(["topSupporters"], () => db.giftTransaction.groupBy({ by: ["senderId"], where: { recipientUserId: target.id, reversedAt: null, sender: activePerson }, _sum: { coinValue: true }, orderBy: [{ _sum: { coinValue: "desc" } }, { senderId: "asc" }], take: 3 }), []),
-    read(["relationships"], () => db.profileRelationship.findMany({ where: { status: "ACTIVE", leftAcceptedAt: { not: null }, rightAcceptedAt: { not: null }, left: activePerson, right: activePerson, AND: [{ OR: [{ leftUserId: target.id }, { rightUserId: target.id }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] }, include: { left: { select: publicPerson }, right: { select: publicPerson } }, orderBy: { publicId: "asc" } }), []),
-    read(["ownedBadges"], () => ownedProfileBadges(target.id, origin, db), []),
-    read(["ownedProps"], () => ownedProfileProps(target.id, origin, db), []),
+    equippedProfileAssets([target], origin, db), publicProgression([target], origin, db, true),
+    db.roleBadge.findMany({ where: { code: { in: roles } } }), medalWall(target.id, origin, { limit: 50 }, db), receivedGiftWall(target.id, origin, {}, db),
+    db.giftTransaction.groupBy({ by: ["senderId"], where: { recipientUserId: target.id, reversedAt: null, sender: activePerson }, _sum: { coinValue: true }, orderBy: [{ _sum: { coinValue: "desc" } }, { senderId: "asc" }], take: 3 }),
+    db.profileRelationship.findMany({ where: { status: "ACTIVE", leftAcceptedAt: { not: null }, rightAcceptedAt: { not: null }, left: activePerson, right: activePerson, AND: [{ OR: [{ leftUserId: target.id }, { rightUserId: target.id }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] }, include: { left: { select: publicPerson }, right: { select: publicPerson } }, orderBy: { publicId: "asc" } }),
+    ownedProfileBadges(target.id, origin, db),
+    ownedProfileProps(target.id, origin, db),
   ]);
-  const people = await read(["topSupporters"], () => db.user.findMany({ where: { id: { in: supporters.map(s => s.senderId) }, ...activePerson }, select: publicPerson }), []);
+  const people = await db.user.findMany({ where: { id: { in: supporters.map(s => s.senderId) }, ...activePerson }, select: publicPerson });
   const related = relationships.map(r => r.leftUserId === target.id ? r.right : r.left);
-  const blocked = await read(["topSupporters", "relationships"], () => db.userBlock.findMany({ where: { OR: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }, select: { blockerId: true, blockedId: true } }), null);
-  const hidden = new Set(blocked?.map(b => b.blockerId === viewer.id ? b.blockedId : b.blockerId) ?? [...people, ...related].map(p => p.id));
-  const decorations = await read(["topSupporters", "relationships"], () => equippedProfileAssets([...people, ...related], origin, db), new Map());
+  const blocked = await db.userBlock.findMany({ where: { OR: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }, select: { blockerId: true, blockedId: true } });
+  const hidden = new Set(blocked.map(b => b.blockerId === viewer.id ? b.blockedId : b.blockerId));
+  const decorations = await equippedProfileAssets([...people, ...related], origin, db);
   const identity = p => ({ publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), ...namedDecoration("frame", decorations.get(p.id)?.avatarFrame), ...namedDecoration("badge", decorations.get(p.id)?.profileBadge) });
-  const assets = await read(["roleBadges", "agency"], () => displayAssets([...roleRows.map(r => r.assetPublicId), agency?.logoAssetPublicId, agency?.badgeAssetPublicId], origin, db), new Map());
-  const equippedAssets = equipment.get(target.id) ?? {};
+  const assets = await displayAssets([...roleRows.map(r => r.assetPublicId), agency?.logoAssetPublicId, agency?.badgeAssetPublicId], origin, db);
+  const equippedAssets = equipment.get(target.id);
   const levels = progress.get(target.publicId);
-  const game = await read(["gameLevel", "gameLevelBadgeUrl", "gameLevelBackgroundUrl", "gameLevelBackgroundMimeType"], () => activityProgress("GAME", target.id, origin, db), {});
-  const agencyProgress = agency ? await read(["agency"], () => activityProgress("AGENCY", agency.id, origin, db), {}) : null;
-  const cardArt = await read(["cardBackgrounds", "supporterMedals"], () => profileCardArtwork(db,target.id,levels?.charmLevel??0,origin,agency), {});
-  const covers = await read(["covers", "coverImageUrl", "coverMimeType"], () => profileCoverDto(db, target.id, viewer.id, origin), {});
+  const game = await activityProgress("GAME", target.id, origin, db);
+  const agencyProgress = agency ? await activityProgress("AGENCY", agency.id, origin, db) : null;
+  const cardArt = await profileCardArtwork(db,target.id,levels?.charmLevel??0,origin,agency);
   return { specialId: specialIds.get(target.id)??null, roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
     ownedBadges, ownedProps, equippedAssets, frameUrl: equippedAssets.avatarFrame?.url ?? null, badgeUrl: equippedAssets.profileBadge?.url ?? null,
     userTagUrl: equippedAssets.userTag?.url ?? null,
@@ -131,11 +124,10 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
     homeDressUrl: equippedAssets.profileDress?.url ?? null, homeDressPosterUrl: equippedAssets.profileDress?.posterUrl ?? null, homeDressMimeType: equippedAssets.profileDress?.mimeType ?? null,
     ...namedDecoration("frame", equippedAssets.avatarFrame), ...namedDecoration("badge", equippedAssets.profileBadge),
     ...namedDecoration("userTag", equippedAssets.userTag), ...namedDecoration("profileBackground", equippedAssets.profileBackground), ...namedDecoration("homeDress", equippedAssets.profileDress),
-    ...covers,
+    ...await profileCoverDto(db, target.id, viewer.id, origin),
     ...levels, gameLevel:game.level,gameLevelBadgeUrl:game.badgeUrl,gameLevelBackground:game.background,gameLevelBackgroundUrl:game.backgroundUrl,gameLevelBackgroundMimeType:game.backgroundMimeType,gameLevelBackgroundMediaVersion:game.backgroundMediaVersion, medalWall: medals, giftWall: gifts, cardBackgrounds:cardArt.cardBackgrounds,supporterMedals:cardArt.supporterMedals,
     agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agencyProgress.level, progression:agencyProgress, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, ...cardArt.agency } : null,
     topSupporters: supporters.flatMap(s => { const person = people.find(p => p.id === s.senderId); return person && !hidden.has(person.id) ? [{ ...identity(person), totalCoins: (s._sum.coinValue ?? 0n).toString() }] : []; }).map((s, i) => ({ rank: i + 1, ...s })),
     relationships: relationships.flatMap(r => { const partner = r.leftUserId === target.id ? r.right : r.left; return !hidden.has(partner.id) ? [{ id: r.publicId, type: r.type, status: r.status, level: r.level, days: Math.max(0, Math.floor((Date.now() - r.startedAt.getTime()) / 86400000)), partner: identity(partner) }] : []; }),
-    unavailableFields: [...sections.unavailable],
   };
 }

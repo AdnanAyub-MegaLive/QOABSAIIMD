@@ -207,8 +207,7 @@ export async function createMessage(
   const clientMessageId = options.clientMessageId ?? null;
   if(clientMessageId!==null&&(typeof clientMessageId!=="string"||!clientMessageId.trim()||clientMessageId.length>128))throw Object.assign(new Error("Invalid client message ID."),{code:"VALIDATION_ERROR"});
   if (options.mediaId && (typeof options.mediaId !== "string" || options.mediaId.length > 128 || options.voice || !clientMessageId)) throw chatError("VALIDATION_ERROR", "Provide mediaId and clientMessageId without voice content.");
-  const caption = String(rawBody ?? "").trim();
-  const body = options.mediaId ? (caption || "Sent media") : options.voice ? "Voice message" : caption;
+  const body = options.mediaId ? "Sent media" : options.voice ? "Voice message" : String(rawBody ?? "").trim();
   if(conversation.kind==="WORLD")assertNoCountryLinks(body);
   const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null,...(options.mediaId?{mediaId:options.mediaId}:{})})).digest("hex");
   const replay=async()=>{
@@ -240,7 +239,7 @@ export async function createMessage(
         conversationId: conversation.id,
         senderId: sender.id,
         senderCountry,
-        body: media ? (caption || (media.kind === "picture" ? "Sent a photo" : "Sent a video")) : body,
+        body: media ? (media.kind === "picture" ? "Sent a photo" : "Sent a video") : body,
         kind: options.voice ? "voice" : media?.kind ?? "text",
         ...(media ?? {}),
         clientMessageId, requestHash,

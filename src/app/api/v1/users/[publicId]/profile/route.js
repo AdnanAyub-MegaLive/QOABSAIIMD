@@ -8,9 +8,6 @@ import { avatarDisplayUrl } from "@/lib/avatar-history";
 import { normalizeSignupCountry } from "@/lib/geo-country";
 import { profileAccess, profileExtras, recordProfileVisit, publicAge, wallCursor } from "@/lib/public-profile";
 import { isRateLimited } from "@/lib/rate-limit";
-import { profileSections } from "@/lib/profile-sections";
-import { versionMediaPayload } from "@/lib/media-payload";
-import { mobileCorsHeaders } from "@/lib/mobile-api";
 
 export function OPTIONS() { return mobileOptions(); }
 export async function GET(request, { params }) {
@@ -24,28 +21,26 @@ export async function GET(request, { params }) {
     const { target, isSelf, isFriend } = access;
     const origin = requestOrigin(request);
     stage = "profile-data";
-    const sections = profileSections();
-    const read = sections.read;
     const [extras, friends, followers, following, follows, followedBy, likes, visitors, album, legacyPerks] = await Promise.all([
       profileExtras(target, viewer, origin),
-      read(["counters"], () => prisma.friendRequest.count({ where: { status: "ACCEPTED", OR: [{ requesterId: target.id }, { addresseeId: target.id }] } }), null),
-      read(["counters"], () => prisma.userFollow.count({ where: { followedId: target.id } }), null),
-      read(["counters"], () => prisma.userFollow.count({ where: { followerId: target.id } }), null),
-      read(["relationship"], () => prisma.userFollow.findUnique({ where: { followerId_followedId: { followerId: viewer.id, followedId: target.id } } }), null),
-      read(["relationship"], () => prisma.userFollow.findUnique({ where: { followerId_followedId: { followerId: target.id, followedId: viewer.id } } }), null),
-      read(["counters"], () => prisma.userProfileLike.count({ where: { targetId: target.id } }), null),
-      read(["counters"], () => prisma.userProfileVisit.count({ where: { targetId: target.id } }), null),
-      read(["album"], () => prisma.userAlbumItem.findMany({ where: { userId: target.id, status: "APPROVED" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 21 }), []),
-      read(["businessCardUrl", "businessCardPosterUrl", "businessCardMimeType"], () => resolveUserPerks([target], origin, ["BUSINESS_CARD"]), new Map()),
+      prisma.friendRequest.count({ where: { status: "ACCEPTED", OR: [{ requesterId: target.id }, { addresseeId: target.id }] } }),
+      prisma.userFollow.count({ where: { followedId: target.id } }),
+      prisma.userFollow.count({ where: { followerId: target.id } }),
+      prisma.userFollow.findUnique({ where: { followerId_followedId: { followerId: viewer.id, followedId: target.id } } }),
+      prisma.userFollow.findUnique({ where: { followerId_followedId: { followerId: target.id, followedId: viewer.id } } }),
+      prisma.userProfileLike.count({ where: { targetId: target.id } }),
+      prisma.userProfileVisit.count({ where: { targetId: target.id } }),
+      prisma.userAlbumItem.findMany({ where: { userId: target.id, status: "APPROVED" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 21 }),
+      resolveUserPerks([target], origin, ["BUSINESS_CARD"]),
     ]);
     after(() => recordProfileVisit(target.id, viewer.id).catch(error => console.error("Profile visit failed", error.message)));
     stage = "role-tags";
-    const roleTags = (await read(["roleTags"], () => resolveRoleTags([{...target,appRoles:extras.roles}], origin), new Map())).get(target.publicId) ?? [];
+    const roleTags = (await resolveRoleTags([{...target,appRoles:extras.roles}], origin)).get(target.publicId) ?? [];
     const visibleDob = isSelf || isFriend || target.showDateOfBirth;
     stage = "joinable-presence";
-    const joinablePresence = await read(["joinablePresence"], () => joinableAudioPresence(prisma, viewer, target), null);
+    const joinablePresence = await joinableAudioPresence(prisma, viewer, target);
     stage = "response";
-    const body = { success: true, data: { user: {
+    const response = await mobileJson({ success: true, data: { user: {
       roleTags, roles: target.appRoles,
       publicId: target.publicId, name: target.name, profileImage: avatarDisplayUrl(target.profileImage, origin),
       gender: target.gender, dob: visibleDob ? target.dob?.toISOString().slice(0, 10) ?? null : null,
@@ -56,13 +51,11 @@ export async function GET(request, { params }) {
       businessCardPosterUrl: legacyPerks.get(target.publicId)?.businessCardPosterUrl ?? null,
       businessCardMimeType: legacyPerks.get(target.publicId)?.businessCardMimeType ?? null,
       album: { items: album.slice(0, 20).map(row => ({ id: row.id, mediaUrl: avatarDisplayUrl(row.mediaUrl, origin), mediaType: row.mediaType, caption: row.caption, createdAt: row.createdAt })), nextCursor: album.length > 20 ? wallCursor(20) : null },
-      counters: { friends, followers, following, likes, visitors, wealth: extras.progression?.user?.lifetimePoints ?? null, charm: extras.progression?.charm?.lifetimePoints ?? null },
+      counters: { friends, followers, following, likes, visitors, wealth: extras.progression.user.lifetimePoints, charm: extras.progression.charm.lifetimePoints },
       relationship: { isSelf, isFriend, isFollowing: Boolean(follows), followsYou: Boolean(followedBy), isBlocked: false, friendRequest: access.friendRequest },
-      unavailableFields: [...new Set([...(extras.unavailableFields ?? []), ...sections.unavailable])],
-    } } };
-    const versioned = await read(["mediaVersions"], () => versionMediaPayload(body), body);
-    versioned.data.user.unavailableFields = [...new Set([...body.data.user.unavailableFields, ...sections.unavailable])];
-    return Response.json(versioned, { headers: { ...mobileCorsHeaders, "Cache-Control": "private, no-store" } });
+    } } });
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
   } catch (error) {
     const response = await mobileApiError(error, "PUBLIC_PROFILE_FAILED");
     if (response.status >= 500) {

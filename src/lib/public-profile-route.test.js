@@ -3,7 +3,7 @@ const m = vi.hoisted(() => ({ access: vi.fn(), extras: vi.fn(), auth: vi.fn() })
 vi.mock("next/server", () => ({ after: () => {} }));
 vi.mock("@/lib/prisma", () => ({ prisma: Object.fromEntries(["friendRequest", "userFollow", "userProfileLike", "userProfileVisit", "userAlbumItem"].map(k => [k, { count: async () => 0, findUnique: async () => null, findMany: async () => [] }])) }));
 vi.mock("@/lib/mobile-api", () => ({
-  requireMobileUser: m.auth, mobileCorsHeaders: {}, mobileOptions: () => new Response(null),
+  requireMobileUser: m.auth, mobileOptions: () => new Response(null),
   mobileJson: async body => Response.json(body),
   mobileApiError: async e => Response.json({ success: false, error: { code: e.message === "INVALID_SESSION" ? "INVALID_SESSION" : "PUBLIC_PROFILE_FAILED" } }, { status: e.message === "INVALID_SESSION" ? 401 : 500 }),
 }));
@@ -11,7 +11,6 @@ vi.mock("@/lib/public-profile", () => ({ profileAccess: m.access, profileExtras:
 vi.mock("@/lib/user-perks", () => ({ requestOrigin: () => "https://portal.test", resolveUserPerks: async () => new Map() }));
 vi.mock("@/lib/role-tags", () => ({ resolveRoleTags: async () => new Map() }));
 vi.mock("@/lib/joinable-presence", () => ({ joinableAudioPresence: async () => null }));
-vi.mock("@/lib/media-payload", () => ({ versionMediaPayload: async body => body }));
 vi.mock("@/lib/rate-limit", () => ({ isRateLimited: () => false }));
 import { GET } from "../app/api/v1/users/[publicId]/profile/route.js";
 const get = () => GET(new Request("https://portal.test/api/v1/users/USR-1/profile"), { params: Promise.resolve({ publicId: "USR-1" }) });

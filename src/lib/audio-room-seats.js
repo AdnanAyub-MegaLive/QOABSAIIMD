@@ -7,22 +7,6 @@ export const defaultAudioRoomSeatLayout = [3, 4, 4];
 // Audience seats only; the owner's header position is separate (26 total).
 export const maxAudioRoomSeats = 25;
 
-export function audioRoomOwnerSeatId(layout) {
-  return ["3,2,3,1", "3,3,3,3,1", "4,4,4,4,1"].includes(layout?.join(","))
-    ? `row${layout.length - 1}-seat1` : null;
-}
-
-export function assertAudioRoomSeatOwner(room, userId, seatId) {
-  if (seatId === audioRoomOwnerSeatId(room.seatLayout) && userId !== room.ownerId)
-    throw new Error("SEAT_OWNER_REQUIRED");
-}
-
-async function validateSeatAssignment(tx, room, userId, seatId) {
-  const current = await tx.audioRoom.findUnique({ where: { id: room.id }, select: { seatLayout: true, ownerId: true } });
-  if (!current || !audioRoomSeatIds(current.seatLayout).includes(seatId)) throw new Error("SEAT_NOT_FOUND");
-  assertAudioRoomSeatOwner(current, userId, seatId);
-}
-
 export function normalizeAudioRoomSeatLayout(value, { optional = false } = {}) {
   if (value == null && optional) return null;
   const layout = value == null ? defaultAudioRoomSeatLayout : value;
@@ -56,14 +40,6 @@ export async function ensureAudioRoomSeats(audioRoomId, layout = defaultAudioRoo
 // Called inside the layout writer's transaction, not during ordinary seat reads.
 export async function reconcileAudioRoomLayoutSeats(tx, room, revokePublish = null) {
   const seatIds = audioRoomSeatIds(room.seatLayout);
-  const ownerSeat = audioRoomOwnerSeatId(room.seatLayout);
-  const displacedIds = [];
-  if (ownerSeat) {
-    const displaced = await tx.audioRoomSeat.findMany({ where: { audioRoomId: room.id, seatId: ownerSeat, occupantUserId: { not: room.ownerId } }, select: { occupant: { select: { publicId: true } } } });
-    displacedIds.push(...displaced.map(seat => seat.occupant?.publicId).filter(Boolean));
-    if (revokePublish) for (const seat of displaced) if (seat.occupant?.publicId) await revokePublish(room.roomId, seat.occupant.publicId, false);
-    await tx.audioRoomSeat.updateMany({ where: { audioRoomId: room.id, seatId: ownerSeat, occupantUserId: { not: room.ownerId } }, data: { occupantUserId: null, occupiedAt: null, isMuted: true, isForceMuted: false, forceMutedUntil: null, isSpeaking: false } });
-  }
   const removed = await tx.audioRoomSeat.findMany({
     where: { audioRoomId: room.id, seatId: { notIn: seatIds }, occupantUserId: { not: null } },
     select: { occupant: { select: { publicId: true } } },
@@ -75,7 +51,7 @@ export async function reconcileAudioRoomLayoutSeats(tx, room, revokePublish = nu
   await tx.audioRoomSeat.deleteMany({ where: { audioRoomId: room.id, seatId: { notIn: seatIds } } });
   await tx.audioRoomSeat.createMany({ data: seatIds.map(seatId => ({ audioRoomId: room.id, seatId })), skipDuplicates: true });
   await tx.audioRoom.update({ where: { id: room.id }, data: { seatRevision: { increment: 1 } } });
-  return [...new Set([...displacedIds, ...removedIds])];
+  return removedIds;
 }
 
 function publicOccupant(user, perks) {
@@ -146,7 +122,6 @@ export async function readAudioRoomSeatState(room, origin) {
     roomId: room.roomId,
     revision: revision?.seatRevision ?? room.seatRevision ?? 0,
     seatLayout,
-    ownerCentreSeatSupported: true,
     seatRows: [...rows.entries()]
       .sort(([left], [right]) => left - right)
       .map(([, row]) => row),
@@ -165,7 +140,6 @@ export async function advanceAudioRoomSeatRevision(audioRoomId) {
 export async function moveAudioRoomMember(room, targetUserId, toSeatId, { allowLocked = false } = {}) {
   await ensureAudioRoomSeats(room.id, room.seatLayout);
   return serializableSeatTransaction(async (tx) => {
-    await validateSeatAssignment(tx, room, targetUserId, toSeatId);
     const target = await tx.audioRoomSeat.findUnique({
       where: { audioRoomId_seatId: { audioRoomId: room.id, seatId: toSeatId } },
     });
@@ -220,7 +194,6 @@ async function serializableSeatTransaction(operation) {
 export async function takeAudioRoomSeat(room, userId, seatId) {
   await ensureAudioRoomSeats(room.id, room.seatLayout);
   return serializableSeatTransaction(async (tx) => {
-    await validateSeatAssignment(tx, room, userId, seatId);
     const target = await tx.audioRoomSeat.findUnique({
       where: { audioRoomId_seatId: { audioRoomId: room.id, seatId } },
     });
@@ -264,7 +237,6 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
 export async function moveAudioRoomSeat(room, userId, fromSeatId, toSeatId) {
   await ensureAudioRoomSeats(room.id, room.seatLayout);
   return serializableSeatTransaction(async (tx) => {
-    await validateSeatAssignment(tx, room, userId, toSeatId);
     const [source, target] = await Promise.all([
       tx.audioRoomSeat.findUnique({
         where: {
@@ -328,7 +300,6 @@ export async function leaveAudioRoomSeat(roomId, userId, seatId = null, client =
 export function seatErrorPayload(error) {
   const code = error?.message;
   const messages = {
-    SEAT_OWNER_REQUIRED: "Only the room owner can occupy the centre seat.",
     SEAT_NOT_FOUND: "The selected seat does not exist.",
     SEAT_LOCKED: "The selected seat is locked.",
     SEAT_OCCUPIED: "The selected seat is already occupied.",

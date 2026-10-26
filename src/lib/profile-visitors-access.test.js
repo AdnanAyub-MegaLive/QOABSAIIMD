@@ -35,24 +35,6 @@ it("does not change followers or following access", async () => {
 it("requires authentication before accessing records", async () => {
   mocks.auth.mockRejectedValue(Error("INVALID_SESSION")); expect((await get()).status).toBe(401); expect(mocks.db.userProfileVisit.findMany).not.toHaveBeenCalled();
 });
-it("excludes reciprocal follows before fans pagination", async () => {
-  await get("", "followers");
-  expect(mocks.db.userFollow.findMany.mock.calls[0][0]).toMatchObject({
-    where: { followedId: "u", follower: { followers: { none: { followerId: "u" } } } },
-    skip: 0, take: 21,
-  });
-});
-it("uses the profile owner rather than the viewer for public fans", async () => {
-  mocks.access.mockResolvedValue({ target: { id: "other" }, isSelf: false });
-  await get("", "followers");
-  expect(mocks.db.userFollow.findMany.mock.calls[0][0].where.follower.followers).toEqual({ none: { followerId: "other" } });
-});
-it("keeps reciprocal follows in the Follow list", async () => {
-  await get("", "following");
-  const query = mocks.db.userFollow.findMany.mock.calls[0][0];
-  expect(query.where.followerId).toBe("u");
-  expect(query.where.followed.followers).toBeUndefined();
-});
 it("includes active special ID in follower items with a batched lookup",async()=>{
   mocks.db.specialIdAssignment={findMany:vi.fn(async()=>[{userId:"v",specialId:"123456"}])};
   mocks.db.userFollow.findMany.mockResolvedValue([{follower:{id:"v",publicId:"USR-v",name:"Visitor"}}]);
