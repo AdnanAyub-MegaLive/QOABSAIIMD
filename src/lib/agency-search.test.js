@@ -11,7 +11,7 @@ it.each(["3165","agn-3165","star"])("searches name and ID in database for %s",as
  const response=await GET(new Request(`https://portal.example/api/agencies?q=${q}`));
  expect(mocks.progress).toHaveBeenCalledWith("AGENCY","agency-internal","https://portal.example");
  expect(mocks.findMany.mock.calls[0][0]).toMatchObject({where:{status:"ACTIVE",OR:[{name:{contains:q,mode:"insensitive"}},{publicId:{contains:q,mode:"insensitive"}}]},take:100});
- expect((await response.json()).data.agencies[0]).toEqual({id:"AGN-3165",name:"Star Agency",country:"PK",level:58,hostCount:12});
+ expect((await response.json()).data.agencies[0]).toEqual({id:"AGN-3165",name:"Star Agency",logoUrl:null,country:"PK",level:58,hostCount:12});
 });
 it("returns empty search without breaking query-less country browsing",async()=>{
  expect((await (await GET(new Request("https://portal.example/api/agencies?q="))).json()).data.agencies).toEqual([]);

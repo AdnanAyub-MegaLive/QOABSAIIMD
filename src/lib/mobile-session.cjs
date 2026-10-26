@@ -36,8 +36,8 @@ function issueMobileSessionToken(user, { deviceId, issuedAt, expiresAt }) {
 function createMobileSession(user, { deviceId } = {}) {
   // `exp` is stored in whole seconds, so align the returned ISO timestamp with
   // that exact boundary rather than advertising a later millisecond value.
-  const issuedAt = Math.floor(Date.now() / 1000) * 1000;
-  const expiresAt = new Date(issuedAt + sessionTtlSeconds() * 1000);
+  const issuedAt = Date.now();
+  const expiresAt = new Date((Math.floor(issuedAt / 1000) + sessionTtlSeconds()) * 1000);
 
   return {
     sessionToken: issueMobileSessionToken(user, { deviceId, issuedAt, expiresAt }),
@@ -52,13 +52,17 @@ function createMobileSessionToken(user, options = {}) {
 }
 
 function verifyMobileSessionToken(token) {
-  const [body,supplied]=String(token||"").split(".");
-  if(!body||!supplied)throw new Error("INVALID_SESSION_TOKEN");
+  const parts=String(token||"").split(".");
+  const [body,supplied]=parts;
+  if(parts.length!==2||!body||!supplied)throw new Error("INVALID_SESSION_TOKEN");
   const expected=signature(body);
   const a=Buffer.from(supplied); const b=Buffer.from(expected);
   if(a.length!==b.length||!timingSafeEqual(a,b))throw new Error("INVALID_SESSION_TOKEN");
-  const payload=JSON.parse(Buffer.from(body,"base64url").toString("utf8"));
-  if(!payload.userId||!Number.isInteger(payload.sessionVersion)||payload.exp<=Math.floor(Date.now()/1000))throw new Error("EXPIRED_SESSION_TOKEN");
+  let payload;
+  try { payload=JSON.parse(Buffer.from(body,"base64url").toString("utf8")); }
+  catch { throw new Error("INVALID_SESSION_TOKEN"); }
+  if(!payload||typeof payload.userId!=="string"||!payload.userId||!Number.isInteger(payload.sessionVersion)||!Number.isSafeInteger(payload.exp))throw new Error("INVALID_SESSION_TOKEN");
+  if(payload.exp<=Math.floor(Date.now()/1000))throw new Error("EXPIRED_SESSION_TOKEN");
   return payload;
 }
 

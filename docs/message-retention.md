@@ -4,7 +4,7 @@ The custom portal server permanently deletes Message and AudioRoomMessage record
 
 System Notification and NotificationRead records are excluded. Other domains such as posts, moderation audit records and financial records are not chat messages and are unaffected.
 
-Cleanup runs on server startup and every five minutes in bounded batches, without overlapping runs. Large historical backlogs may take multiple runs. It requires the persistent `node server.js` process, not a serverless-only Next deployment. Failures are logged and retried next run.
+Cleanup first runs 60 seconds after startup, then every five minutes without overlapping runs within a process. Each run defaults to five batches of 100 messages per table; transactions wait at most one second to start and have a five-second execution timeout. Contention/timeouts defer work until the next scheduled run. Conversation locks use deterministic order. Large historical backlogs may take multiple runs. It requires the persistent `node server.js` process, not a serverless-only Next deployment. Failures are logged and retried next run. This reduces contention but does not guarantee database availability under load.
 
 All portal and profile message views read these same tables, so deletion affects them too. This is permanent database deletion, not just hiding records. Already-downloaded mobile caches and database backups are outside this cleanup: mobile clients should expire cached chat by createdAt after 30 days and refresh history; they must not expire system notifications.
 

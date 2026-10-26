@@ -51,3 +51,13 @@ it("retains the agency selector in the bounded multipart reader", async () => {
 it("returns null without a logo", async () => {
   expect(await agencyLogoUrl(database(), null, "https://portal.test")).toBeNull();
 });
+it("omits missing artwork or an invalid origin, not database failures", async () => {
+  const db = database();
+  db.uploadAsset.findFirst.mockResolvedValue(null);
+  expect(await agencyLogoUrl(db, "AST-missing", "https://portal.test")).toBeNull();
+  db.uploadAsset.findFirst.mockResolvedValue({ publicId: "AST-logo", mediaVersion: "v1" });
+  expect(await agencyLogoUrl(db, "AST-logo", null)).toBeNull();
+  expect(await agencyLogoUrl(db, "AST-logo", "null")).toBeNull();
+  db.uploadAsset.findFirst.mockRejectedValue(new Error("database unavailable"));
+  await expect(agencyLogoUrl(db, "AST-logo", "https://portal.test")).rejects.toThrow("database unavailable");
+});

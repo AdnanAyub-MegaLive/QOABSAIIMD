@@ -6,7 +6,7 @@ export const MESSAGE_RETENTION_INTERVAL_MS = 5 * 60 * 1000;
 
 // Small transactions avoid holding locks across an entire historical backlog.
 // Notifications and NotificationRead are intentionally never touched.
-export async function pruneExpiredMessages(db, now = new Date(), { batchSize = 500, maxBatches = 20 } = {}) {
+export async function pruneExpiredMessages(db, now = new Date(), { batchSize = 100, maxBatches = 5 } = {}) {
   const cutoff = new Date(now.getTime() - MESSAGE_RETENTION_DAYS * 86400000);
   if (!Number.isFinite(cutoff.getTime()) || !Number.isInteger(batchSize) || batchSize < 1 || batchSize > 1000 || !Number.isInteger(maxBatches) || maxBatches < 1 || maxBatches > 100)
     throw new Error("Invalid message retention parameters.");
@@ -20,7 +20,7 @@ export async function pruneExpiredMessages(db, now = new Date(), { batchSize = 5
         ) RETURNING "conversationId"
       `;
       // Refresh the inbox sort timestamp, including conversations now empty.
-      for (const conversationId of new Set(deleted.map(row => row.conversationId))) {
+      for (const conversationId of [...new Set(deleted.map(row => row.conversationId))].sort()) {
         await tx.$queryRaw`SELECT id FROM "Conversation" WHERE id = ${conversationId} FOR UPDATE`;
         await tx.$executeRaw`
           UPDATE "Conversation" SET "lastMessageAt" = (
@@ -35,7 +35,7 @@ export async function pruneExpiredMessages(db, now = new Date(), { batchSize = 5
         )
       `;
       return { messages: deleted.length, roomMessages };
-    });
+    }, { maxWait: 1000, timeout: 5000 });
     totals.messages += counts.messages;
     totals.roomMessages += counts.roomMessages;
     if (counts.messages < batchSize && counts.roomMessages < batchSize) break;
@@ -54,11 +54,16 @@ export function startMessageRetention(db, logger = console) {
       await pruneChatMedia(db);
       await pruneGroupIcons(db);
       if (result.messages || result.roomMessages) logger.info("Expired chat messages permanently deleted", result);
-    } catch (error) { logger.error("Message retention cleanup failed", error); }
+    } catch (error) {
+      if (["P2028", "P2034"].includes(error?.code)) logger.warn("Message retention deferred; retrying next scheduled run", { code: error.code });
+      else logger.error("Message retention cleanup failed", { code: error?.code ?? "UNKNOWN", name: error?.name });
+    }
     finally { running = false; }
   };
-  void run();
+  // Keep maintenance away from startup/authentication traffic.
+  const startup = setTimeout(run, 60000);
+  startup.unref?.();
   const timer = setInterval(run, MESSAGE_RETENTION_INTERVAL_MS);
   timer.unref?.();
-  return () => clearInterval(timer);
+  return () => { clearTimeout(startup); clearInterval(timer); };
 }

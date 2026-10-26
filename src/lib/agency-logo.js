@@ -41,5 +41,12 @@ export async function saveAgencyLogo(db, userId, agencyId, file, origin) {
 export async function agencyLogoUrl(db, publicId, origin) {
   if (!publicId) return null;
   const asset = await db.uploadAsset.findFirst({ where: { publicId, active: true }, select: { publicId: true, mediaVersion: true } });
-  return asset ? createPublicDisplayAssetUrl(origin, asset, 30 * 24 * 3600) : null;
+  if (!asset || !origin) return null;
+  // Missing/malformed optional artwork must not hide the agency. Database
+  // failures deliberately propagate: they are not evidence of an absent logo.
+  try { return createPublicDisplayAssetUrl(origin, asset, 30 * 24 * 3600); }
+  catch (error) {
+    if (error.code !== "ERR_INVALID_URL") throw error;
+    return null;
+  }
 }

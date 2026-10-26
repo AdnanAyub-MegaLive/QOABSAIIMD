@@ -10,6 +10,7 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   exit 1
 fi
 echo "Deploying $(git rev-parse --short HEAD)"
+node scripts/check-auth-config.mjs
 # Stop before npm ci/build can remove files used by the running process.
 pm2 stop megalive-portal
 trap 'echo "Deployment failed; portal remains stopped. Fix the error before restarting." >&2' ERR

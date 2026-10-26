@@ -11,13 +11,16 @@ import { isRateLimited } from "@/lib/rate-limit";
 
 export function OPTIONS() { return mobileOptions(); }
 export async function GET(request, { params }) {
+  let stage = "authentication";
   try {
     const viewer = await requireMobileUser(request);
     if (isRateLimited(`public-profile:${viewer.id}`, { limit: 120, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many profile requests." } }, 429);
     const { publicId } = await params;
+    stage = "profile-access";
     const access = await profileAccess(viewer, publicId);
     const { target, isSelf, isFriend } = access;
     const origin = requestOrigin(request);
+    stage = "profile-data";
     const [extras, friends, followers, following, follows, followedBy, likes, visitors, album, legacyPerks] = await Promise.all([
       profileExtras(target, viewer, origin),
       prisma.friendRequest.count({ where: { status: "ACCEPTED", OR: [{ requesterId: target.id }, { addresseeId: target.id }] } }),
@@ -31,10 +34,13 @@ export async function GET(request, { params }) {
       resolveUserPerks([target], origin, ["BUSINESS_CARD"]),
     ]);
     after(() => recordProfileVisit(target.id, viewer.id).catch(error => console.error("Profile visit failed", error.message)));
+    stage = "role-tags";
     const roleTags = (await resolveRoleTags([{...target,appRoles:extras.roles}], origin)).get(target.publicId) ?? [];
     const visibleDob = isSelf || isFriend || target.showDateOfBirth;
+    stage = "joinable-presence";
     const joinablePresence = await joinableAudioPresence(prisma, viewer, target);
-    const response = mobileJson({ success: true, data: { user: {
+    stage = "response";
+    const response = await mobileJson({ success: true, data: { user: {
       roleTags, roles: target.appRoles,
       publicId: target.publicId, name: target.name, profileImage: avatarDisplayUrl(target.profileImage, origin),
       gender: target.gender, dob: visibleDob ? target.dob?.toISOString().slice(0, 10) ?? null : null,
@@ -50,7 +56,15 @@ export async function GET(request, { params }) {
     } } });
     response.headers.set("Cache-Control", "private, no-store");
     return response;
-  } catch (error) { return mobileApiError(error, "PUBLIC_PROFILE_FAILED"); }
+  } catch (error) {
+    const response = await mobileApiError(error, "PUBLIC_PROFILE_FAILED");
+    if (response.status >= 500) {
+      // Never log tokens, request bodies, Prisma query arguments or user data.
+      console.error("Public profile failed", { stage, name: error?.name, code: error?.code,
+        frames: String(error?.stack ?? "").split("\n").filter(line => /^\s+at /.test(line)).slice(0, 8) });
+    }
+    return response;
+  }
 }
 export async function POST(request, { params }) {
   try {

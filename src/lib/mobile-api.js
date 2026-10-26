@@ -50,6 +50,7 @@ export async function requireMobileUser(request, { syncVip = true } = {}) {
       sessionVersion: true,
       forcedLogoutAt: true,
       coinBalance: true,
+      companyBdCountry: true,
     },
   });
   assertMobileSession(user, payload);

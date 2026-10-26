@@ -1,5 +1,20 @@
 import { expect, it, vi } from "vitest";
-import { pruneExpiredMessages } from "./message-retention.js";
+import { pruneExpiredMessages, startMessageRetention } from "./message-retention.js";
+it("defers startup and contention without running a tight retry loop", async () => {
+  vi.useFakeTimers();
+  const db = { $transaction: vi.fn().mockRejectedValue(Object.assign(new Error("busy"), { code: "P2028" })) };
+  const logger = { warn: vi.fn(), error: vi.fn() };
+  const stop = startMessageRetention(db, logger);
+  try {
+    expect(db.$transaction).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 1000, timeout: 5000 });
+  } finally { stop(); vi.useRealTimers(); }
+});
 it("uses a fixed 30-day cutoff and never touches notifications", async () => {
   const tx = { $queryRaw: vi.fn(async () => []), $executeRaw: vi.fn(async () => 0) };
   const db = { $transaction: fn => fn(tx) };
