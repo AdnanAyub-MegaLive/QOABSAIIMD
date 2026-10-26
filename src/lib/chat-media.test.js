@@ -36,6 +36,22 @@ it("sends attachment once and returns the original on retry", async () => {
   expect(db.notification.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({body:"Photo"})}));
   await expect(createMessage(conversation,{id:"s"},null,null,{...options,mediaId:"different"})).rejects.toMatchObject({code:"IDEMPOTENCY_CONFLICT"});
 });
+it.each(["picture", "video"])("preserves %s captions and checks replay content", async (kind) => {
+  row.kind = kind;
+  const options = {mediaId:"media",clientMessageId:"caption-request"};
+  const first = await createMessage(conversation,{id:"s",name:"Sender"},"  My caption  ",null,options);
+  expect(first).toMatchObject({type:kind,body:"My caption"});
+  expect(await createMessage(conversation,{id:"s"},"My caption",null,options)).toEqual(first);
+  await expect(createMessage(conversation,{id:"s"},"Different caption",null,options)).rejects.toMatchObject({code:"IDEMPOTENCY_CONFLICT"});
+});
+it("keeps video fallback for an empty caption", async () => {
+  row.kind = "video";
+  expect(await createMessage(conversation,{id:"s"},"   ",null,{mediaId:"media",clientMessageId:"empty-video"})).toMatchObject({body:"Sent a video"});
+});
+it("rejects an oversized media caption before claiming the upload", async () => {
+  await expect(createMessage(conversation,{id:"s"},"x".repeat(2001),null,{mediaId:"media",clientMessageId:"long-caption"})).rejects.toMatchObject({code:"VALIDATION_ERROR"});
+  expect(db.chatMediaObject.updateMany).not.toHaveBeenCalled();
+});
 it("rejects World media and removed or banned senders",async()=>{
   await expect(assertChatMediaAccess(db,{...conversation,kind:"WORLD"},"s",true)).rejects.toMatchObject({code:"VALIDATION_ERROR"});
   db.conversationParticipant.findUnique.mockResolvedValueOnce(null);

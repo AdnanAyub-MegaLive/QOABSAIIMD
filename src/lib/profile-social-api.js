@@ -32,6 +32,7 @@ export async function profileSocialList(request, params, type) {
     }
     else {
       const followers = type === "followers", relation = followers ? "follower" : "followed";
+      if (followers) visible.followers = { none: { followerId: target.id } };
       rows = (await prisma.userFollow.findMany({ where: { [followers ? "followedId" : "followerId"]: target.id, [relation]: visible }, include: { [relation]: { select: publicPerson } }, orderBy: [{ createdAt: "desc" }, { followerId: "asc" }, { followedId: "asc" }], skip: offset, take: limit + 1 })).map(r => r[relation]);
     }
     const origin = requestOrigin(request), page = rows.slice(0, limit);

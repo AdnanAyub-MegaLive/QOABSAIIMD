@@ -1,9 +1,10 @@
 import { activityProgress } from "@/lib/activity-levels";
-import { agencyLogoUrl } from "@/lib/agency-logo";
 import { requestOrigin } from "@/lib/user-perks";
 import { prisma } from "@/lib/prisma";
 import { normalizeCountryCode } from "@/lib/geo-country";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
+import { agencyLogoUrl } from "@/lib/agency-logo";
+import { profileSections } from "@/lib/profile-sections";
 
 export function OPTIONS() { return mobileOptions(); }
 
@@ -24,7 +25,14 @@ export async function GET(request) {
       take: 100,
     });
     const origin = requestOrigin(request);
-    return mobileJson({ success: true, data: { agencies: await Promise.all(agencies.map(async (agency) => ({ id: agency.publicId, name: agency.name, logoUrl: await agencyLogoUrl(prisma,agency.logoAssetPublicId,origin), hostCount: agency._count.userHosts, country: normalizeCountryCode(agency.country), level: (await activityProgress("AGENCY",agency.id,origin)).level }))) } });
+    return mobileJson({ success: true, data: { agencies: await Promise.all(agencies.map(async (agency) => {
+      const sections=profileSections();
+      const [progress,logoUrl]=await Promise.all([
+        sections.read(["level"],()=>activityProgress("AGENCY",agency.id,origin),{level:agency.level}),
+        sections.read(["logoUrl"],()=>agencyLogoUrl(prisma,agency.logoAssetPublicId,origin),null),
+      ]);
+      return {id:agency.publicId,name:agency.name,hostCount:agency._count.userHosts,country:normalizeCountryCode(agency.country),level:progress.level,logoUrl};
+    })) } });
   } catch (error) {
     console.error("Agency browse failed", error);
     return mobileApiError(error, "AGENCY_LIST_FAILED");
