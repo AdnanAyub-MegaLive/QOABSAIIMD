@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { hasPermission } from "@/lib/portal-permissions";
 
 const input = "mt-1.5 w-full rounded-xl border border-[#dce7e4] bg-white px-3 py-2 text-sm";
@@ -8,6 +8,14 @@ const blank = { name: "", email: "", password: "", role: "STAFF", active: true, 
 export default function StaffManager() {
   const [data, setData] = useState(null), [draft, setDraft] = useState(null), [reset, setReset] = useState(null);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [saving, setSaving] = useState(false), [search, setSearch] = useState("");
+  const editorRef = useRef(null);
+  const editorIdentity = draft ? draft.id || "new" : null;
+  useEffect(() => {
+    if (!editorIdentity || !editorRef.current) return;
+    // Run after React mounts the editor, including when switching accounts.
+    editorRef.current.scrollIntoView({ behavior: "instant", block: "start" });
+    editorRef.current.querySelector("input")?.focus({ preventScroll: true });
+  }, [editorIdentity]);
   const load = useCallback(async () => {
     const response = await fetch("/api/admin/staff", { cache: "no-store" });
     const json = await response.json();
@@ -46,7 +54,7 @@ export default function StaffManager() {
     {error && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}<button className="ml-3 underline" onClick={() => load().catch(e => setError(e.message))}>Reload accounts</button></div>}
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
     {!data && !error && <p className="rounded-xl border bg-white p-6">Loading staff accounts…</p>}
-    {draft && data && <form className="space-y-5 rounded-2xl border border-[#dfe9e7] bg-white p-6" onSubmit={e => { e.preventDefault(); mutate({ ...draft, action: draft.id ? "update" : "create" }); }}>
+    {draft && data && <form ref={editorRef} aria-label={draft.id ? `Edit account ${draft.email}` : "New account"} className="scroll-mt-24 space-y-5 rounded-2xl border border-[#dfe9e7] bg-white p-6" onSubmit={e => { e.preventDefault(); mutate({ ...draft, action: draft.id ? "update" : "create" }); }}>
       <div className="flex items-center justify-between"><h3 className="text-lg font-bold">{draft.id ? "Edit account" : "New account"}</h3><button type="button" disabled={saving} onClick={() => setDraft(null)} className="text-sm text-[#71847f]">Cancel</button></div>
       <fieldset disabled={saving} className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-semibold">Name<input className={input} required minLength={2} maxLength={80} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></label>
