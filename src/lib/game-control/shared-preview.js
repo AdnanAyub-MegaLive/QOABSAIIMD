@@ -1,3 +1,4 @@
+import {roundSummary} from "./round-summary.mjs";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import {randomBytes} from "node:crypto";
 import {sharedClock,sharedDuration,sharedOutcome,sharedTrivia} from "./shared-engine.mjs";
@@ -12,7 +13,7 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
  let state=previews.get(key);
  if(!state||state.day.id!==`${gameRow.id}:${date}`||state.day.settings.revision!==gameRow.revision){
   if(previews.size>=200)previews.delete(previews.keys().next().value);
-  const game={...serializeGame(gameRow),status:"active"};
+  const game={...serializeGame(gameRow),status:"active",outcomeScope:"application-v1"};
   state={day:{id:`${gameRow.id}:${date}`,day:new Date(`${date}T00:00:00Z`),settings:game,durationMs:sharedDuration(game),seed:randomBytes(32).toString("hex")},entries:[],points:10000n,seen:now};previews.set(key,state);
  }
  state.seen=now;
@@ -58,5 +59,7 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
  }
  const rocket=day.settings.engine==="rocket"?publicRocketState(day,clock.slot,sharedOutcome(day,roomId,clock.slot).crashCents,now):null;
  const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:slot+1,...sharedOutcome(day,roomId,slot)});
- return {serverTime:now,rocket,dayId:day.id,roomId,game:day.settings,...clock,availablePoints:String(state.points),mine:view(mine),mineEntries:mineEntries.map(view),myTotal:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),myTotals:entryTotals(mineEntries),recentEntries:state.entries.slice(-10).reverse().map(view),participants:mine?1:0,totalPoints:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),totals:entryTotals(mineEntries),challenge,history,outcome:(revealed||rocket?.crashed)?sharedOutcome(day,roomId,clock.slot):null};
+ const summary=roundSummary(mineEntries);
+ const winners=(revealed||rocket?.crashed)&&BigInt(summary.payout)>0?[{publicId:"preview",name:"You (practice)",...summary}]:[];
+ return {winners,winnersScope:"practice",winnersPending:(revealed||rocket?.crashed)&&summary.pending>0,serverTime:now,rocket,dayId:day.id,roomId,game:day.settings,...clock,availablePoints:String(state.points),mine:view(mine),mineEntries:mineEntries.map(view),myTotal:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),myTotals:entryTotals(mineEntries),recentEntries:state.entries.slice(-10).reverse().map(view),participants:mine?1:0,totalPoints:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),totals:entryTotals(mineEntries),challenge,history,outcome:(revealed||rocket?.crashed)?sharedOutcome(day,roomId,clock.slot):null};
 }

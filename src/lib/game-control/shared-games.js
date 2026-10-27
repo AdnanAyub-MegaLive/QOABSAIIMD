@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import { roundTiming } from "./round-timing.mjs";
 import { ledgerData } from "../wallet.js";
@@ -26,7 +27,7 @@ async function getDay(db,gameId,now,viewExistingRocket=false){
  if(typeof gameId!=="string")throw new GameError("Invalid game.");
  const gameRow=await db.gameDefinition.findUnique({where:{id:gameId}});
  if(!gameRow||gameRow.settings.engine==="external"||(gameRow.settings.status!=="active"&&!(viewExistingRocket&&gameRow.settings.engine==="rocket")))throw new GameError("Game paused or unavailable.",409);
- const date=new Date(now).toISOString().slice(0,10),id=`${gameId}:${date}`,settings=serializeGame(gameRow);
+ const date=new Date(now).toISOString().slice(0,10),id=`${gameId}:${date}`,settings={...serializeGame(gameRow),outcomeScope:"application-v1"};
  if(gameRow.settings.status!=="active"){
    const existing=await db.sharedGameDay.findUnique({where:{id}});
    if(!existing)throw new GameError("Game paused or unavailable.",409);
@@ -186,7 +187,23 @@ export async function sharedSnapshot(identity,input,db=prisma){
    }else if(day.settings.engine==="reaction")challenge={readyAt:clock.closesAt+sharedOutcome(day,identity.roomId,clock.slot).delayMs};
  }
  const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:slot+1,...sharedOutcome(day,identity.roomId,slot)});
+ let winners=[],winnersPending=false;
+ const publicResult=["reveal","reset"].includes(clock.phase)||(day.settings.engine==="rocket"&&now>=rocketCrashAt(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents));
+ const global=day.settings.outcomeScope==="application-v1";
+ if(publicResult){
+   const scope=global?Prisma.sql``:Prisma.sql`AND e."roomId"=${identity.roomId}`;
+   const rows=await db.$queryRaw(Prisma.sql`SELECT u."publicId",u.name,
+     SUM(e.amount)::text AS wager,
+     SUM(CASE WHEN e.status='SETTLED' THEN COALESCE((e.result->>'payout')::numeric,0) ELSE 0 END)::text AS payout
+     FROM "SharedGameEntry" e JOIN "User" u ON u.id=e."userId"
+     WHERE e."dayId"=${day.id} AND e.slot=${clock.slot} ${scope}
+     GROUP BY u.id,u."publicId",u.name
+     HAVING SUM(CASE WHEN e.status='SETTLED' THEN COALESCE((e.result->>'payout')::numeric,0) ELSE 0 END)>0
+     ORDER BY SUM(CASE WHEN e.status='SETTLED' THEN COALESCE((e.result->>'payout')::numeric,0) ELSE 0 END) DESC,u."publicId" ASC LIMIT 100`);
+   winners=rows.map(w=>({...w,net:String(BigInt(w.payout)-BigInt(w.wager))}));
+   winnersPending=!!await db.sharedGameEntry.findFirst({where:{dayId:day.id,slot:clock.slot,status:"PENDING",...(!global?{roomId:identity.roomId}:{})},select:{id:true}});
+ }
  const totals=entryTotals(entries);
  const rocket=day.settings.engine==="rocket"?publicRocketState(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents,now):null;
- return {serverTime:now,rocket,acceptingBets:day.acceptingBets,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:(["reveal","reset"].includes(clock.phase)||rocket?.crashed)?sharedOutcome(day,identity.roomId,clock.slot):null};
+ return {winners,winnersPending,winnersScope:global?"application":"room",serverTime:now,rocket,acceptingBets:day.acceptingBets,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:(["reveal","reset"].includes(clock.phase)||rocket?.crashed)?sharedOutcome(day,identity.roomId,clock.slot):null};
 }

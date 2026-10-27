@@ -38,3 +38,22 @@ describe("shared room rounds",()=>{
   expect(sharedOutcome(d,"ROOM-1",3)).toEqual(sharedOutcome(d,"ROOM-1",3));
  });
 });
+
+describe("application-wide round outcomes",()=>{
+ it.each(["flip","dice","rps","penalty","reaction","roulette","teenpatti","rocket","pizza","highlow","wheel","dragon","slots","trivia"])("shares %s results across rooms and restarts",engine=>{
+  const d={...day,settings:{engine,outcomeScope:"application-v1",pocketWeights:Array(37).fill(1)}};
+  for(let slot=0;slot<20;slot++){
+   const expected=sharedOutcome(d,"ROOM-1",slot);
+   expect(sharedOutcome(d,"ROOM-2",slot)).toEqual(expected);
+   expect(sharedOutcome(JSON.parse(JSON.stringify(d)),"ROOM-3",slot)).toEqual(expected);
+  }
+ });
+ it("shares trivia questions and option order across rooms at the same tier",()=>{
+  const d={...day,settings:{engine:"trivia",outcomeScope:"application-v1"}};
+  for(let slot=0;slot<12;slot++)expect(sharedTrivia(d,"ROOM-1",slot,2000,true)).toEqual(sharedTrivia(d,"ROOM-2",slot,2000,true));
+ });
+ it("preserves legacy snapshots for unsettled wagers",()=>{
+  expect(sharedOutcome(day,"ROOM-1",10)).not.toEqual(sharedOutcome(day,"ROOM-2",10));
+  expect(sharedOutcome(day,"ROOM-1",10)).toEqual(sharedOutcome({...day,settings:{...day.settings,outcomeScope:"room"}},"ROOM-1",10));
+ });
+});

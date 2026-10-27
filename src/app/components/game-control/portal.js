@@ -1,4 +1,5 @@
 "use client";
+import CoinButtonFields from "./coin-button-fields";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import OutcomeWeightFields from "./outcome-weight-fields";
@@ -1217,7 +1218,7 @@ function MiniEditor({ game, onClose, onSave }) {
 }
 function StandardMiniEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState(game), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  return <Modal title={`Configure ${game.name}`} onClose={onClose}><form onSubmit={async e => { e.preventDefault(); setBusy(true); try { await onSave(form); } catch (err) { setError(err.message); } finally { setBusy(false); } }}><div className="modal-body"><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><OutcomeWeightFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><p>{configurableRules[game.engine] || miniGames[game.engine].help}</p><p>Automatic shared room rounds using the application coin wallet. Rule changes take effect in the next UTC daily schedule; pausing stops new bets immediately.</p><div className="form-grid"><label>Name<input required maxLength={60} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label><label>Availability<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="paused">Paused</option><option value="active">Active</option></select></label>{["minBet", "maxBet"].map(field => <label key={field}>{field === "minBet" ? "Minimum coins" : "Maximum coins"}<input type="number" min={1} max={1000000} required value={form[field]} onChange={e => setForm({ ...form, [field]: Number(e.target.value) })} /></label>)}{!miniGames[game.engine].fixedPayout&&<label>Winning return (includes stake)<input type="number" min={1} max={100} step={0.01} required value={form.pointReturnMultiplier??(game.engine==="dice"?6:2)} onChange={e=>setForm({...form,pointReturnMultiplier:Number(e.target.value)})} /></label>}{game.engine==="reaction"&&<label>Reaction target (milliseconds)<input type="number" min={100} max={5000} required value={form.reactionWindowMs??1000} onChange={e=>setForm({...form,reactionWindowMs:Number(e.target.value)})} /></label>}</div><p>Skill outcomes remain based on correct answers and timing. Random outcomes use the configured weights, shared by everyone in the room.</p>{error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? "Saving…" : "Save game"}</button></div></form></Modal>;
+  return <Modal title={`Configure ${game.name}`} onClose={onClose}><form onSubmit={async e => { e.preventDefault(); setBusy(true); try { await onSave(form); } catch (err) { setError(err.message); } finally { setBusy(false); } }}><div className="modal-body"><CoinButtonFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><OutcomeWeightFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><p>{configurableRules[game.engine] || miniGames[game.engine].help}</p><p>Automatic application-wide rounds using the application coin wallet. Rule changes take effect in the next UTC daily schedule; pausing stops new bets immediately.</p><div className="form-grid"><label>Name<input required maxLength={60} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label><label>Availability<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="paused">Paused</option><option value="active">Active</option></select></label>{["minBet", "maxBet"].map(field => <label key={field}>{field === "minBet" ? "Minimum coins" : "Maximum coins"}<input type="number" min={1} max={100000000} required value={form[field]} onChange={e => setForm({ ...form, [field]: Number(e.target.value) })} /></label>)}{!miniGames[game.engine].fixedPayout&&<label>Winning return (includes stake)<input type="number" min={1} max={100} step={0.01} required value={form.pointReturnMultiplier??(game.engine==="dice"?6:2)} onChange={e=>setForm({...form,pointReturnMultiplier:Number(e.target.value)})} /></label>}{game.engine==="reaction"&&<label>Reaction target (milliseconds)<input type="number" min={100} max={5000} required value={form.reactionWindowMs??1000} onChange={e=>setForm({...form,reactionWindowMs:Number(e.target.value)})} /></label>}</div><p>Skill outcomes remain based on correct answers and timing. Random outcomes use the configured weights, shared across all rooms for new daily schedules.</p>{error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? "Saving…" : "Save game"}</button></div></form></Modal>;
 }
 function FlipEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState({ ...game }),
@@ -1244,7 +1245,7 @@ function FlipEditor({ game, onClose, onSave }) {
         }}
       >
         <div className="modal-body">
-          <RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} />
+          <CoinButtonFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} />
           <div className="form-grid">
             <label>
               Game name
@@ -1352,7 +1353,7 @@ function FlipEditor({ game, onClose, onSave }) {
               <input
                 type="number"
                 min="1"
-                max="1000000"
+                max="100000000"
                 step="1"
                 required
                 value={form.minBet}
@@ -1364,7 +1365,7 @@ function FlipEditor({ game, onClose, onSave }) {
               <input
                 type="number"
                 min="1"
-                max="1000000"
+                max="100000000"
                 step="1"
                 required
                 value={form.maxBet}
@@ -1452,7 +1453,7 @@ function RouletteEditor({ game, onClose, onSave }) {
         }}
       >
         <div className="modal-body">
-          <RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} />
+          <CoinButtonFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} />
           <div className="form-grid">
             <label>
               Game name
@@ -1483,7 +1484,7 @@ function RouletteEditor({ game, onClose, onSave }) {
                 required
                 type="number"
                 min="1"
-                max="1000000"
+                max="100000000"
                 value={form.minBet}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, minBet: Number(e.target.value) }))
@@ -1496,7 +1497,7 @@ function RouletteEditor({ game, onClose, onSave }) {
                 required
                 type="number"
                 min="1"
-                max="1000000"
+                max="100000000"
                 value={form.maxBet}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, maxBet: Number(e.target.value) }))

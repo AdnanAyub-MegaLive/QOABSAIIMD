@@ -1,4 +1,6 @@
 "use client";
+import RoundResults from "./round-results";
+import { coinButtons } from "@/lib/game-control/coin-buttons.mjs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./store";
 import GameIcon from "./game-icon";
@@ -66,7 +68,7 @@ export default function RocketPlayer({ gameId, preview = false }) {
   return <div className={styles.shell}>
     <div className={styles.context}><span>MEGA LIVE · {preview ? "ADMIN PREVIEW" : "SHARED ROOM"}</span><h2>{preview ? "Ready for takeoff?" : "One room. One flight."}</h2><p>{preview ? "Practice coins · No wallet changes" : `${state?.participants ?? 0} players aboard · Application coin wallet`}</p><small>{state?.roomId ?? "Connecting to the game…"}</small></div>
     <section className={styles.game} aria-label="Rocket shared room game">
-      <header className={styles.header}><div><GameIcon engine="rocket" size={30}/><strong>ROCKET</strong><span>MAX {maxMultiplier}×</span></div><button onClick={() => setHelp(true)} aria-label="Rocket rules and probabilities">?</button></header>
+      <header className={styles.header}><div><GameIcon engine="rocket" size={30}/><strong>ROCKET</strong><span>MAX {maxMultiplier}×</span></div><RoundResults state={state}/><button onClick={() => setHelp(true)} aria-label="Rocket rules and probabilities">?</button></header>
       <div className={styles.history} aria-label="Previous flights">{state?.history?.length ? state.history.slice(0, 5).map(h => <span key={h.roundNumber} className={h.crashCents >= 300 ? styles.high : ""}>{h.result}</span>) : <small>Flight history appears after the first round</small>}<small>{preview ? "PRACTICE" : "RECENT"}</small></div>
       <div className={`${styles.flight} ${crashed ? styles.crashed : ""}`}>
         <div className={styles.flightTop}><span>{stale ? "CONNECTING…" : boarding ? "● BOARDING OPEN" : crashed ? "● ROCKET CRASHED" : flying ? "● ROCKET IN FLIGHT" : "WAITING FOR NEXT FLIGHT"}</span><small>#{String(state?.roundNumber ?? 0).padStart(4, "0")}</small></div>
@@ -77,7 +79,7 @@ export default function RocketPlayer({ gameId, preview = false }) {
         <div className={styles.flightStatus}><span>{cash ? `Exited at ${result.cashoutMultiplier.toFixed(2)}×` : boarding ? mine ? "You’re aboard. Get ready." : "Board before the countdown ends" : crashed ? mine ? "Boarding coins lost" : "Next flight opens soon" : mine ? "Choose your exit" : "Board the next flight"}</span><b>{cash ? "CASHED OUT" : boarding ? `LAUNCH IN ${seconds}s` : flying ? "LIVE FLIGHT" : `NEXT IN ${seconds}s`}</b></div>
       </div>
       <div className={styles.stats}><div><small>{mine ? "YOUR BOARDED COINS" : "YOUR BOARDING AMOUNT"}</small><strong>◈ {Number.isSafeInteger(stake) && stake >= 0 ? coins(stake) : "—"}</strong></div><div><small>{cash ? "CASHED OUT · COINS" : mine && flying ? "CASH-OUT ESTIMATE · COINS" : "WALLET · COINS"}</small><strong className={cash || mine && flying ? styles.gain : ""}>{coins(cash ? result.payout : mine && flying ? estimated : balance)}</strong></div></div>
-      <div className={styles.amounts}><label>COINS<input type="number" aria-label="Boarding coins" min={game?.minBet ?? 1} max={game?.maxBet ?? 10000} step={1} value={amount} disabled={!boarding || !!mine || busy || !!pending} onChange={e => setAmount(Number(e.target.value))}/></label>{[100, 500, 1000].map(n => <button key={n} disabled={!boarding || !!mine || busy || !!pending || n < game?.minBet || n > game?.maxBet} onClick={() => setAmount(n)}>{n === 1000 ? "1K" : n}</button>)}</div>
+      <div className={styles.amounts}><label>COINS<input type="number" aria-label="Boarding coins" min={game?.minBet ?? 1} max={game?.maxBet ?? 10000} step={1} value={amount} disabled={!boarding || !!mine || busy || !!pending} onChange={e => setAmount(Number(e.target.value))}/></label>{coinButtons(game).map(n => <button key={n} disabled={!boarding || !!mine || busy || !!pending || n < game?.minBet || n > game?.maxBet} onClick={() => setAmount(n)}>{n === 1000 ? "1K" : n}</button>)}</div>
       <div className={styles.bottom}>
         <button className={styles.action} disabled={busy || (!pending && !canBoard && !canCash)} onClick={action}><span><strong>{busy ? "Confirming…" : pending ? "Retry boarding" : cash ? "Cashed out successfully" : canCash ? "Cash out now" : boarding ? mine ? "You’re on board" : state?.acceptingBets === false ? "Boarding paused" : "Get on board" : crashed ? "Rocket crashed" : "Boarding closed"}</strong><small>{cash ? `Locked at ${result.cashoutMultiplier.toFixed(2)}×` : canCash ? "Server confirms your return on receipt" : boarding ? `Launching in ${seconds}s` : `Next flight in ${seconds}s`}</small></span><b>{cash ? coins(result.payout) : canCash ? coins(estimated) : boarding ? (Number.isSafeInteger(stake) && stake >= 0 ? coins(stake) : "—") : "—"} ◈</b></button>
         <p>Crash possible at 0–{maxMultiplier}× · Below 1× returns less than your stake</p>

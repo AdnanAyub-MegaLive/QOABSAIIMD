@@ -17,8 +17,10 @@ export function sharedClock(day, now=Date.now()){
  return {slot,roundNumber:slot+1,totalRounds:Math.min(slots,Math.floor(elapsed/duration)),opensAt,closesAt,revealsAt,endsAt,resetAt:start+DAY_MS,phase};
 }
 export function seededRandom(seed,scope){let counter=0;return max=>{if(!Number.isInteger(max)||max<1||max>4294967296)throw new Error("Invalid random range");const bound=Math.floor(4294967296/max)*max;let n;do{n=createHmac("sha256",seed).update(`${scope}:${counter++}`).digest().readUInt32BE(0);}while(n>=bound);return n%max;};}
+// Persist the scope in each daily snapshot so deployed changes never reroll existing wagers.
+function outcomeScope(day, roomId) { return day.settings.outcomeScope === "application-v1" ? "application-v1" : roomId; }
 export function sharedOutcome(day,roomId,slot){
- const g=day.settings,random=seededRandom(day.seed,`${roomId}:${slot}`);
+ const g=day.settings,random=seededRandom(day.seed,`${outcomeScope(day,roomId)}:${slot}`);
  if(instantGames[g.engine] && g.engine!=="rps"){const draw=g.outcomeWeights?weightedOutcomeDraw(g,random):random(instantGames[g.engine].drawSize);return {result:resolveInstant(g,100,instantGames[g.engine].choices[0],draw).result,draw};}
  if(g.engine==="rocket"){const crashCents=weightedOutcomeDraw(g,random);return {result:`${(crashCents/100).toFixed(2)}×`,crashCents};}
  if(g.engine==="pizza"){const settings=pizzaSettings(g);return {result:pizzaResult(g,random(settings.pizzaWeights.reduce((a,b)=>a+b,0)))};}
@@ -48,7 +50,7 @@ export function sharedOutcome(day,roomId,slot){
 }
 export function sharedTrivia(day,roomId,slot,amount,custom){
  const {tier,count}=triviaTier(amount,custom),pool=triviaPools[tier],cycle=Math.floor(slot*count/pool.length),offset=slot*count%pool.length;
- const all=shuffled(pool,seededRandom(day.seed,`${roomId}:trivia:${tier}:${cycle}`));
+ const all=shuffled(pool,seededRandom(day.seed,`${outcomeScope(day,roomId)}:trivia:${tier}:${cycle}`));
  // Pool sizes divide the supported round sizes: no repeats until each pool is exhausted.
- return {tier,questions:all.slice(offset,offset+count).map((q,i)=>{const options=shuffled([q.correct,...q.wrong],seededRandom(day.seed,`${roomId}:${slot}:${tier}:${i}:options`));return {id:q.id,text:q.text,options,answer:String(options.indexOf(q.correct))};})};
+ return {tier,questions:all.slice(offset,offset+count).map((q,i)=>{const options=shuffled([q.correct,...q.wrong],seededRandom(day.seed,`${outcomeScope(day,roomId)}:${slot}:${tier}:${i}:options`));return {id:q.id,text:q.text,options,answer:String(options.indexOf(q.correct))};})};
 }

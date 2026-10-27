@@ -41,3 +41,12 @@ Validation: `npx vitest run src/lib/game-control`; `node scripts/test-rocket-db.
 ### Configurable Rocket maximum
 
 Admins may set the maximum multiplier to a whole number from 1× to 10× (default 5×). Changing it in the editor resets crash weights to equal chances per 0.01× level; edit the new ranges before saving. Flight duration covers the full climb to the selected maximum. Daily snapshots preserve both timing and maximum for existing rounds. Uncashed entries always settle for zero, including crashes at 0× and at the maximum.
+
+
+## Application-wide outcomes
+
+New daily game snapshots store `outcomeScope: "application-v1"`. All rooms use the same secret seed, UTC schedule, and outcome scope for each game, including Rocket crash points, Teen Patti hands, roulette pockets, and recent-round history. Room identity remains attached to wagers, membership authorization, and wallet receipts. Participation totals remain room-local.
+
+Snapshots created before this change retain room-scoped outcomes, including their history and pending settlements. Deployment takes effect for live games at the next UTC daily schedule; do not rewrite existing snapshots or their seeds. Previews remain isolated practice sessions and do not expose the production seed or outcomes.
+
+Trivia shares questions and option order across rooms for the same difficulty tier; different tiers intentionally retain their question sets. Reaction timing is global, but skill-game payouts depend on each player's performance. Existing reveal-time gates remain unchanged.

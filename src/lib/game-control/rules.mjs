@@ -1,3 +1,4 @@
+import { validateCoinButtons } from "./coin-buttons.mjs";
 import { validateRocketSettings } from "./rocket.mjs";
 import { validateOutcomeWeights } from "./outcome-weights.mjs";
 import { validateRoundTiming } from "./round-timing.mjs";
@@ -69,10 +70,10 @@ export function validateGame(input) {
     !Number.isSafeInteger(maxBet) ||
     minBet < 1 ||
     maxBet < minBet ||
-    maxBet > 1000000
+    maxBet > 100000000
   )
     throw new Error(
-      "Bet limits must be whole coins from 1 to 1,000,000; maximum must be at least minimum.",
+      "Bet limits must be whole coins from 1 to 100,000,000; maximum must be at least minimum.",
     );
   return {
     id,
@@ -85,6 +86,7 @@ export function validateGame(input) {
     payoutMultiplier: engine === "flip" ? payoutMultiplier : null,
     minBet,
     maxBet,
+    coinButtons: validateCoinButtons(input),
     ...validateRoundTiming(input),
     ...(engine === "rocket" ? validateRocketSettings(input) : {}),
     ...validateOutcomeWeights(input),
