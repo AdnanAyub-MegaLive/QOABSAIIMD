@@ -1,8 +1,27 @@
-import { expect, it } from "vitest";
-import { chooseLuckyReward, expectedReturnBps, multiplierLabel, parseMultiplier, pickMultiplier, settleLuckyReward, validateLuckyPolicy } from "./lucky-gifts.js";
+import { expect, it, vi } from "vitest";
+import { chooseLuckyReward, expectedReturnBps, multiplierLabel, parseMultiplier, pickMultiplier, settleLuckyReward, settleLuckyRewards, validateLuckyPolicy } from "./lucky-gifts.js";
 
 const table = [{ multiplierBps: 0, weight: 2 }, { multiplierBps: 10000, weight: 1 }, { multiplierBps: 5000000, weight: 1 }];
 const fixed = (value) => () => value;
+it('batch pool accounting matches sequential affordability and uses one read/write',async()=>{
+ const entries=Array.from({length:26},()=>({gross:100n,contribution:60n}));
+ const policy={multipliers:[{multiplierBps:10000,weight:1}],bigWinMinCoins:100n};
+ let expectedBalance=200n, expectedPaid=0n;
+ const expected=entries.map(({gross,contribution})=>{
+  const choice=chooseLuckyReward({gross,poolBalance:expectedBalance+contribution,table:policy.multipliers,random:fixed(0)});
+  expectedBalance+=contribution-choice.rewardCoins;expectedPaid+=choice.rewardCoins;return choice;
+ });
+ const tx={$queryRaw:vi.fn(async()=>[{id:'GLOBAL',balance:200n}]),luckyGiftPool:{upsert:vi.fn(),update:vi.fn()}};
+ const result=await settleLuckyRewards(tx,entries,policy,fixed(0));
+ expect(result.map(({bigWin,...choice})=>choice)).toEqual(expected);
+ expect(tx.$queryRaw).toHaveBeenCalledOnce();expect(tx.luckyGiftPool.upsert).not.toHaveBeenCalled();
+ expect(tx.luckyGiftPool.update).toHaveBeenCalledExactlyOnceWith({where:{id:'GLOBAL'},data:{balance:expectedBalance,collected:{increment:1560n},paidOut:{increment:expectedPaid}}});
+});
+it('initializes a missing pool and locks the created balance before drawing',async()=>{
+ const tx={$queryRaw:vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([{id:'GLOBAL',balance:0n}]),luckyGiftPool:{upsert:vi.fn(),update:vi.fn()}};
+ const result=await settleLuckyReward(tx,{gross:100n,contribution:60n,policy:{multipliers:[{multiplierBps:0,weight:1}],bigWinMinCoins:100n},random:fixed(0)});
+ expect(result.rewardCoins).toBe(0n);expect(tx.luckyGiftPool.upsert).toHaveBeenCalledOnce();expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+});
 
 it("parses and labels multipliers", () => {
   expect(parseMultiplier("500")).toBe(5000000);
@@ -50,7 +69,7 @@ it("settles the pool atomically and flags big wins", async () => {
       findUniqueOrThrow: async () => pool,
       update: async ({ data }) => { pool = { ...pool, balance: data.balance, collected: pool.collected + data.collected.increment, paidOut: pool.paidOut + data.paidOut.increment }; return pool; },
     },
-    $queryRaw: async () => [],
+    $queryRaw: async () => [{id:pool.id,balance:pool.balance}],
   };
   const outcome = await settleLuckyReward(tx, { gross: 20n, contribution: 12n, policy: { multipliers: table, bigWinMinCoins: 10000n }, random: fixed(3) });
   expect(outcome).toMatchObject({ multiplierBps: 5000000, rewardCoins: 10000n, bigWin: true });

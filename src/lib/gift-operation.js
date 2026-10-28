@@ -5,6 +5,7 @@ import { jsonSafe } from "./progression.js";
 import { recordGiftRecovery } from "./gift-refunds.js";
 import { giftOutboxContext } from "./gift-outbox-context.js";
 import { deliverCommittedGiftEvents } from "./realtime-outbox.js";
+import { comboPresentation, giftComboTiming } from "./gift-combo-timing.js";
 export { flushRealtimeOutbox } from "./realtime-outbox.js";
 export function isRetryableGiftConflict(error) {
   if (["P2034", "P2002"].includes(error?.code)) return true;
@@ -25,7 +26,8 @@ export function giftOperation(body, key, mode) {
   if(key!=null&&!/^[A-Za-z0-9._:-]{8,128}$/.test(key)) throw Object.assign(new Error("Use an 8–128 character Idempotency-Key."),{code:"VALIDATION_ERROR"});
   const fields={mode,recipientId:body?.recipientId??null,recipientIds:Array.isArray(body?.recipientIds)?[...new Set(body.recipientIds)].sort():null,giftId:body?.giftId??null,roomId:body?.roomId??null,liveId:body?.liveId??null,quantity:Number(body?.quantity??1),giftBatchId:body?.giftBatchId??null,comboId:body?.comboId??null};
   if(body?.conversationId){fields.conversationId=body.conversationId;fields.clientMessageId=body.clientMessageId??null;}
-  return {key:key??`server-${randomUUID()}`,fingerprint:createHash("sha256").update(JSON.stringify(fields)).digest("hex")};
+  if(body?.bagItemId != null) fields.bagItemId = body.bagItemId;
+  return {key:key??`server-${randomUUID()}`,fingerprint:createHash("sha256").update(JSON.stringify(fields)).digest("hex"),presentation:comboPresentation(body,mode)};
 }
 export async function priorGiftOperation(senderId, operation, db=prisma) {
   const previous=await db.giftRequest.findUnique({where:{senderId_key:{senderId,key:operation.key}}});
@@ -49,16 +51,19 @@ export async function runGiftOperation(senderId,operation,work,db=prisma) {
 async function executeGiftOperation(senderId,operation,work,db) {
   for(let attempt=0;attempt<4;attempt++) try {
     const events = [];
+    events.comboTiming = giftComboTiming(operation.presentation, senderId);
     const committed = await giftOutboxContext.run(events, () => db.$transaction(async tx=>{
       const old=await priorGiftOperation(senderId,operation,tx); if(old) return old;
-      const request=await tx.giftRequest.create({data:{senderId,...operation}});
+      const request=await tx.giftRequest.create({data:{senderId,key:operation.key,fingerprint:operation.fingerprint}});
       const result=jsonSafe(await work(tx));
       const payload=result.data??result;
+      if (events.comboTiming) payload.comboTiming = events.comboTiming;
       const giftIds=payload.transactionIds??(payload.transactionId?[payload.transactionId]:[]);
       for(const id of giftIds){
         const gift=await tx.giftTransaction.findUniqueOrThrow({where:{id}});
         const reward=payload.revealedGift?.publicId?await tx.uploadAsset.findUnique({where:{publicId:payload.revealedGift.publicId},select:{id:true}}):null;
-        await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId)});
+        const recipientResult = payload.recipients?.find(row => row.transactionId === id);
+        await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId)});
       }
       await tx.giftRequest.update({where:{id:request.id},data:{result}});
       return result;

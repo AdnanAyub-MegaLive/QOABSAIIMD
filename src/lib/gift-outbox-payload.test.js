@@ -1,6 +1,19 @@
 import { expect, it, vi } from "vitest";
 import { appendOutbox } from "./progression.js";
 import { giftOutboxContext } from "./gift-outbox-context.js";
+it("stores combo timing durably for both gift event types, not unrelated events", async () => {
+  const events = [];
+  events.comboTiming = { id: "scope", expiresAt: "2026-10-28T12:00:03.000Z" };
+  const db = { uploadAsset: { findMany: vi.fn().mockResolvedValue([]) }, realtimeOutbox: { create: vi.fn(async ({ data }) => ({ id: data.event, ...data })) } };
+  for (const event of ["gift:received", "gift:received-multi", "audio-room:pk-score"]) {
+    await giftOutboxContext.run(events, () => appendOutbox(db, "audio-room:room", event, { quantity: 50 }));
+  }
+  const rows = db.realtimeOutbox.create.mock.calls.map(([arg]) => arg.data);
+  expect(rows[0].payload.data.comboTiming).toEqual(events.comboTiming);
+  expect(rows[1].payload.data.comboTiming).toEqual(events.comboTiming);
+  expect(rows[2].payload.data).not.toHaveProperty("comboTiming");
+  expect(events).toHaveLength(2);
+});
 it("persists versioned gift artwork inside the transaction and captures the same payload", async () => {
   const events=[];
   const db={uploadAsset:{findMany:vi.fn().mockResolvedValue([{publicId:"AST-one",mediaVersion:"abc123",posterMediaVersion:"def456"}])},realtimeOutbox:{create:vi.fn(async({data})=>({id:"event",...data}))}};

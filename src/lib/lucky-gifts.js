@@ -96,14 +96,34 @@ export function chooseLuckyReward({ gross, poolBalance, table, random = randomIn
 }
 
 export async function settleLuckyReward(tx, { gross, contribution, policy, random = randomInt }) {
-  await tx.luckyGiftPool.upsert({ where: { id: LUCKY_POLICY_ID }, update: {}, create: { id: LUCKY_POLICY_ID } });
-  await tx.$queryRaw`SELECT "id" FROM "LuckyGiftPool" WHERE "id" = ${LUCKY_POLICY_ID} FOR UPDATE`;
-  const pool = await tx.luckyGiftPool.findUniqueOrThrow({ where: { id: LUCKY_POLICY_ID } });
-  const available = pool.balance + contribution;
-  const choice = chooseLuckyReward({ gross, poolBalance: available, table: policy.multipliers, random });
+  const [outcome] = await settleLuckyRewards(tx, [{ gross, contribution }], policy, random);
+  return outcome;
+}
+
+// Equivalent sequential draws against one running balance, but just one read
+// and one write for a multi-recipient batch. No separate pool or altered odds.
+export async function settleLuckyRewards(tx, entries, policy, random = randomInt) {
+  if (!entries.length) return [];
+  // Read the balance in the locking query itself. Existing pools need only
+  // this read and the update, not an upsert + lock + separate balance read.
+  let [pool] = await tx.$queryRaw`SELECT "id", "balance" FROM "LuckyGiftPool" WHERE "id" = ${LUCKY_POLICY_ID} FOR UPDATE`;
+  if (!pool) {
+    await tx.luckyGiftPool.upsert({ where: { id: LUCKY_POLICY_ID }, update: {}, create: { id: LUCKY_POLICY_ID } });
+    [pool] = await tx.$queryRaw`SELECT "id", "balance" FROM "LuckyGiftPool" WHERE "id" = ${LUCKY_POLICY_ID} FOR UPDATE`;
+  }
+  if (!pool) throw new Error('Lucky pool initialization failed.');
+  let balance = pool.balance, collected = 0n, paidOut = 0n;
+  const outcomes = entries.map(({ gross, contribution }) => {
+    const available = balance + contribution;
+    const choice = chooseLuckyReward({ gross, poolBalance: available, table: policy.multipliers, random });
+    balance = available - choice.rewardCoins;
+    collected += contribution;
+    paidOut += choice.rewardCoins;
+    return { ...choice, bigWin: choice.rewardCoins > 0n && choice.rewardCoins >= BigInt(policy.bigWinMinCoins) };
+  });
   await tx.luckyGiftPool.update({
     where: { id: LUCKY_POLICY_ID },
-    data: { balance: available - choice.rewardCoins, collected: { increment: contribution }, paidOut: { increment: choice.rewardCoins } },
+    data: { balance, collected: { increment: collected }, paidOut: { increment: paidOut } },
   });
-  return { ...choice, bigWin: choice.rewardCoins > 0n && choice.rewardCoins >= BigInt(policy.bigWinMinCoins) };
+  return outcomes;
 }

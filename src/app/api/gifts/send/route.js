@@ -156,8 +156,6 @@ export async function POST(request) {
       const lucky = giftAsset.giftTier === "LUCKY" ? await luckyPolicy(tx) : null;
       const { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins, luckyPoolCoins, receivedDiamonds } =
         calculateGiftSettlement(grossCoins, isHost, policy, currency, 0n, { fixedDiamonds: fixedGiftDiamonds(giftAsset.hostDiamonds, quantity), luckyPoolBps: lucky?.poolContributionBps ?? null });
-      const luckyOutcome = lucky ? await settleLuckyReward(tx, { gross: grossCoins, contribution: luckyPoolCoins, policy: lucky }) : null;
-      const luckyRewardCoins = luckyOutcome?.rewardCoins ?? 0n;
       const gift = await tx.giftTransaction.create({
         data: {
           senderId: sessionUser.id,
@@ -265,6 +263,9 @@ export async function POST(request) {
           },
         },
       });
+      // Finish recipient accounting before taking the platform-wide pool lock.
+      const luckyOutcome = lucky ? await settleLuckyReward(tx, { gross: grossCoins, contribution: luckyPoolCoins, policy: lucky }) : null;
+      const luckyRewardCoins = luckyOutcome?.rewardCoins ?? 0n;
       if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); await tx.walletTransaction.create({ data: ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps: luckyOutcome.multiplierBps, multiplier: multiplierLabel(luckyOutcome.multiplierBps), limitedByPool: luckyOutcome.limitedByPool } }) }); }
       const sender = await tx.user.findUniqueOrThrow({
         where: { id: sessionUser.id },

@@ -1,14 +1,62 @@
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("./progression.js", () => ({ jsonSafe: value => value }));
 vi.mock("./gift-refunds.js", () => ({ recordGiftRecovery: vi.fn() }));
-import { runGiftOperation, isRetryableGiftConflict } from "./gift-operation.js";
-import { captureGiftEvent } from "./gift-outbox-context.js";
+import { runGiftOperation, isRetryableGiftConflict, giftOperation } from "./gift-operation.js";
+import { captureGiftEvent, giftEventTiming } from "./gift-outbox-context.js";
+import { recordGiftRecovery } from './gift-refunds.js';
+it('fingerprints backpack funding separately from paid multi sends',()=>{
+ const body={giftId:'AST-1',recipientIds:['USR-A'],roomId:'ROOM-1'};
+ expect(giftOperation(body,'same-key','MULTI').fingerprint).not.toBe(giftOperation({...body,bagItemId:'AST-1'},'same-key','MULTI').fingerprint);
+});
+it('snapshots each multi-recipient Lucky reward instead of the aggregate',async()=>{
+ const db=database(()=>{});
+ db.giftTransaction={findUniqueOrThrow:async({where})=>({id:where.id})};
+ recordGiftRecovery.mockClear();
+ await runGiftOperation('multi-recovery',{key:'multi-recovery',fingerprint:'fp'},async()=>({transactionIds:['a','b'],luckyRewardCoins:'300',recipients:[{transactionId:'a',luckyRewardCoins:'100'},{transactionId:'b',luckyRewardCoins:'200'}]}),db);
+ expect(recordGiftRecovery.mock.calls.map(c=>c[2].luckyCoins)).toEqual([100n,200n]);
+});
 afterEach(() => { delete globalThis.portalIo; });
 function database(commit) {
   const db = { giftRequest: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ id: "request" }), update: vi.fn() }, realtimeOutbox: { updateMany: vi.fn() } };
   db.$transaction = vi.fn(async fn => { const result = await fn(db); await commit(); return result; }); return db;
 }
 const work = async () => { captureGiftEvent({ id: "event", channel: "audio-room:r", event: "gift:received", payload: { success: true, data: {} } }); return { data: {} }; };
+it("persists identical response/event deadlines and replays without extending them", async () => {
+  const db = database(() => {});
+  const operation = giftOperation({ comboId: "combo", roomId: "r", giftId: "g", recipientId: "receiver" }, "combo-key", "PAID");
+  let eventData;
+  const send = vi.fn(async () => { eventData = giftEventTiming("audio-room:r", "gift:received", {}); return { data: {} }; });
+  const result = await runGiftOperation("combo-sender", operation, send, db);
+  expect(result.data.comboTiming).toEqual(eventData.comboTiming);
+  expect(db.giftRequest.create).toHaveBeenCalledWith({ data: { senderId: "combo-sender", key: operation.key, fingerprint: operation.fingerprint } });
+  db.giftRequest.findUnique.mockResolvedValue({ fingerprint: operation.fingerprint, result });
+  const retry = { ...operation, presentation: { ...operation.presentation, receivedAt: operation.presentation.receivedAt + 60000 } };
+  expect(await runGiftOperation("combo-sender", retry, send, db)).toEqual(result);
+  expect(send).toHaveBeenCalledOnce();
+});
+it("does not hold other senders behind a sender's request queue", async () => {
+  const db = database(() => {});
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  const first = runGiftOperation("sender-a", { key: "a", fingerprint: "a" }, async () => { await pending; return {}; }, db);
+  try {
+    await expect(runGiftOperation("sender-b", { key: "b", fingerprint: "b" }, async () => ({ done: true }), db)).resolves.toEqual({ done: true });
+  } finally { release(); await first; }
+});
+it("keeps the original timer on transaction retries and delayed processing", async () => {
+  let attempts = 0;
+  const db = database(() => { if (++attempts === 1) throw { code: "P2034" }; });
+  const operation = giftOperation({ comboId: "retry-combo", roomId: "r", giftId: "g", recipientId: "receiver" }, "retry-combo-key", "PAID");
+  operation.presentation.receivedAt = 0;
+  const observed = [];
+  const result = await runGiftOperation("retry-combo-sender", operation, async () => {
+    observed.push(giftEventTiming("audio-room:r", "gift:received", {}).comboTiming);
+    return { data: {} };
+  }, db);
+  expect(observed).toHaveLength(2);
+  expect(observed[0]).toEqual(observed[1]);
+  expect(result.data.comboTiming.expiresAt).toBe("1970-01-01T00:00:03.000Z");
+});
 it("queues simultaneous sender transactions and releases the queue after failure", async () => {
   let active=0,peak=0;
   const db=database(()=>{});

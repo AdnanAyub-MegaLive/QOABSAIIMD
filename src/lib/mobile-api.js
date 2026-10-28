@@ -18,7 +18,9 @@ export async function mobileJson(body, status = 200) {
 // Gift results already contain versioned artwork from their builders. Never
 // introduce another database dependency after a committed wallet operation.
 export function giftJson(body, status = 200) {
-  return Response.json(body, { status, headers: mobileCorsHeaders });
+  const response = body?.data?.comboTiming
+    ? { ...body, data: { ...body.data, serverTime: new Date().toISOString() } } : body;
+  return Response.json(response, { status, headers: mobileCorsHeaders });
 }
 
 export function mobileOptions() {

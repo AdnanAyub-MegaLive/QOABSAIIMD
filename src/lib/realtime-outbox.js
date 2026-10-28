@@ -33,6 +33,8 @@ async function deliver(rows, io, db) {
         // Still retry the marker write so durable fallback can make progress.
         if (state.emitted.has(row.id)) { delivered.push(row.id); continue; }
         let payload = { ...row.payload, data: { ...row.payload.data, eventId: row.id } };
+        if (isGiftEvent(row.event) && payload.data.comboTiming)
+          payload.data.serverTime = new Date().toISOString();
         if (!isGiftEvent(row.event)) {
           if (row.event === "audio-room:gift-leaderboard" && payload.data.refreshLeaderboard) {
             const { roomId, origin } = payload.data;

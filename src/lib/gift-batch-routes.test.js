@@ -15,7 +15,7 @@ vi.mock("@/lib/mobile-api", () => ({
   mobileApiError: e => Response.json({ success: false, error: { code: e.code } }, { status: 422 }),
 }));
 vi.mock("@/lib/profit-rules", () => ({ coinsForShare: (n, b) => n * BigInt(b) / 10000n, getProfitSplitRule: async () => ({ normalUserReusableShareBps: 1000, version: 1 }) }));
-vi.mock("@/lib/realtime", () => ({ audioRoomParticipantIds: async () => new Set(["USR-S", "USR-A", "USR-B"]), emitToAudioRoom: mocks.emit, emitToUser: mocks.emit, emitToVideoLive: mocks.emit }));
+vi.mock("@/lib/realtime", () => ({ audioRoomParticipantIds: async () => new Set(["USR-S", "USR-A", "USR-B", ...Array.from({length:26},(_,i)=>`USR-QA${i}`)]), emitToAudioRoom: mocks.emit, emitToUser: mocks.emit, emitToVideoLive: mocks.emit }));
 vi.mock("@/lib/upload-assets", () => ({ createPublicDisplayAssetUrl: () => "https://portal.test/gift" }));
 vi.mock("@/lib/user-perks", () => ({ requestOrigin: () => "https://portal.test" }));
 vi.mock("@/lib/gift-sender", () => ({ resolveGiftSender: async u => ({ id: u.publicId }) }));
@@ -46,12 +46,61 @@ beforeEach(() => {
     userGiftInventory: { updateMany: vi.fn(async () => ({ count: 1 })) },
     luckyGiftPolicy: { findUnique: async () => ({ id: "GLOBAL", poolContributionBps: 6000, bigWinMinCoins: 10000n, multipliers: [{ multiplierBps: 0, weight: 1 }], version: 1 }) },
     luckyGiftPool: { upsert: async () => ({}), findUniqueOrThrow: async () => ({ id: "GLOBAL", balance: 0n }), update: async () => ({}) },
-    $queryRaw: async () => [],
+    $queryRaw: vi.fn(async () => [await mocks.db.luckyGiftPool.findUniqueOrThrow()]),
     $transaction: async fn => fn(mocks.db),
   });
 });
 
 const request = body => new Request("https://portal.test/api/gifts/send", { method: "POST", body: JSON.stringify({ giftId: "AST-1", roomId: "ROOM-1", recipientId: "USR-A", ...body }) });
+it('sends 26 Lucky gifts in input order, with one debit and one draw/event per recipient', async () => {
+ const ids=Array.from({length:26},(_,i)=>`USR-QA${i}`);
+ mocks.db.user.findMany=async()=>[...ids].reverse().map(publicId=>({id:publicId,publicId,appRoles:[]}));
+ const response=await multi(request({requestId:'multi-26-test',recipientIds:ids}));
+ expect(response.status).toBe(201);
+ const data=(await response.json()).data;
+ expect(data.recipients.map(r=>r.recipientId)).toEqual(ids);
+ expect(data.totalCoins).toBe('2600');
+ expect(mocks.db.user.updateMany).toHaveBeenCalledOnce();
+ expect(mocks.db.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{coinBalance:{decrement:2600n},totalSpent:{increment:2600n}}}));
+ expect(mocks.db.$queryRaw).toHaveBeenCalledTimes(1);
+ expect(mocks.emit.mock.calls.filter(c=>c[1]==='gift:received')).toHaveLength(26);
+ expect(mocks.emit.mock.calls.filter(c=>c[1]==='gift:received-multi')).toHaveLength(0);
+ expect(data.recipients.every(r=>r.lucky?.rewardCoins==='0')).toBe(true);
+});
+it('reserves all backpack items once without a coin debit or Lucky payout', async () => {
+ mocks.db.user.findMany=async()=>['USR-B','USR-A'].map(publicId=>({id:publicId,publicId,appRoles:[]}));
+ const response=await multi(request({requestId:'bag-multi-test',bagItemId:'AST-1',recipientIds:['USR-A','USR-B'],quantity:3}));
+ expect(response.status).toBe(201);
+ expect(mocks.db.userGiftInventory.updateMany).toHaveBeenCalledWith({where:{userId:'sender',giftAssetId:'gift',quantity:{gte:6}},data:{quantity:{decrement:6}}});
+ expect(mocks.db.user.updateMany).not.toHaveBeenCalled();
+ expect(mocks.db.$queryRaw).not.toHaveBeenCalled();
+ expect((await response.json()).data).toMatchObject({source:'BACKPACK',totalCoins:'0',consumedItems:6});
+});
+it('credits and returns each paid Lucky outcome with its own transaction reference',async()=>{
+ mocks.db.user.findMany=async()=>['USR-A','USR-B'].map(publicId=>({id:publicId,publicId,appRoles:[]}));
+ mocks.db.luckyGiftPolicy.findUnique=async()=>({id:'GLOBAL',poolContributionBps:6000,bigWinMinCoins:1n,multipliers:[{multiplierBps:10000,weight:1}],version:1});
+ mocks.db.luckyGiftPool.findUniqueOrThrow=async()=>({id:'GLOBAL',balance:10000n});
+ const response=await multi(request({requestId:'lucky-return-test',recipientIds:['USR-A','USR-B']}));
+ expect(response.status).toBe(201);
+ const data=(await response.json()).data;
+ expect(data.luckyRewardCoins).toBe('200');
+ expect(data.recipients.map(r=>r.luckyRewardCoins)).toEqual(['100','100']);
+ const rewards=mocks.ledger.filter(row=>row.type==='LUCKY_GIFT_REWARD');
+ expect(rewards.map(row=>row.referenceId)).toEqual(data.transactionIds);
+ expect(rewards.every(row=>row.coins===100n)).toBe(true);
+});
+it.each(['coins','backpack'])('rejects an insufficient %s balance before any recipient effects',async source=>{
+ mocks.db.user.findMany=async()=>['USR-A','USR-B'].map(publicId=>({id:publicId,publicId,appRoles:[]}));
+ if(source==='coins')mocks.db.user.updateMany.mockResolvedValue({count:0});
+ else mocks.db.userGiftInventory.updateMany.mockResolvedValue({count:0});
+ const response=await multi(request({requestId:'insufficient-test',recipientIds:['USR-A','USR-B'],...(source==='backpack'?{bagItemId:'AST-1'}:{})}));
+ expect(response.status).not.toBe(201);expect(mocks.rows).toHaveLength(0);expect(mocks.ledger).toHaveLength(0);expect(mocks.emit).not.toHaveBeenCalled();
+});
+it('rejects 27 recipients and mismatched bag IDs without writes',async()=>{
+ for(const body of [{recipientIds:Array.from({length:27},(_,i)=>`USR-QA${i}`)},{recipientIds:['USR-A'],bagItemId:'AST-other'}]){
+ const response=await multi(request({requestId:'invalid-multi',...body}));expect(response.status).toBe(422);
+ }expect(mocks.rows).toHaveLength(0);
+});
 it("multi-send credits ordinary recipients in Diamonds, never reusable Coins",async()=>{
  mocks.db.user.findMany=async()=>["USR-A","USR-B"].map(publicId=>({id:publicId,publicId,appRoles:[]}));
  const settlements=[];mocks.db.giftSettlement.create=async({data})=>{settlements.push(data);return data;};
