@@ -35,7 +35,7 @@ beforeEach(() => {
   mocks.emit.mockClear(); mocks.rows.length = 0; mocks.ledger.length = 0;
   Object.assign(mocks.db, {
     uploadAsset: { findFirst: async () => ({ id: "gift", publicId: "AST-1", name: "Rose", giftTier: "LUCKY", giftRewardMinBps: 0, giftRewardMaxBps: 0, coinPrice: 100n }) },
-    user: { findFirst: async ({ where }) => ({ id: where.publicId, publicId: where.publicId, appRoles: [] }), updateMany: vi.fn(async () => ({ count: 1 })), update: async () => ({}), findUniqueOrThrow: async () => ({ coinBalance: 1000n }) },
+    user: { findFirst: async ({ where }) => ({ id: where.publicId, publicId: where.publicId, appRoles: [] }), updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn(async () => ({})), findUniqueOrThrow: async () => ({ coinBalance: 1000n }) },
     talent: { findUnique: async () => null },
     audioRoom: { findFirst: async () => ({ id: "room", roomId: "ROOM-1" }) },
     audioRoomPkSession: { findFirst: async () => null },
@@ -84,6 +84,8 @@ it('credits and returns each paid Lucky outcome with its own transaction referen
  expect(response.status).toBe(201);
  const data=(await response.json()).data;
  expect(data.luckyRewardCoins).toBe('200');
+ const credits=mocks.db.user.update.mock.calls.map(([args])=>args).filter(args=>args.data.coinBalance);
+ expect(credits).toEqual([{where:{id:'sender'},data:{coinBalance:{increment:200n}}}]);
  expect(data.recipients.map(r=>r.luckyRewardCoins)).toEqual(['100','100']);
  const rewards=mocks.ledger.filter(row=>row.type==='LUCKY_GIFT_REWARD');
  expect(rewards.map(row=>row.referenceId)).toEqual(data.transactionIds);

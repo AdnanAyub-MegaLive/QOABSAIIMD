@@ -3,7 +3,7 @@ import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 import { validateProgressionThresholds } from "./progression-thresholds.js";
 import { versionMediaPayload } from "./media-payload.js";
-import { captureGiftEvent, isGiftEvent, giftEventTiming } from "./gift-outbox-context.js";
+import { giftOutboxContext, captureGiftEvent, isGiftEvent, giftEventTiming } from "./gift-outbox-context.js";
 export const TRACKS = ["USER", "CHARM"];
 const MAX = 9223372036854775807n;
 export const jsonSafe = value => JSON.parse(JSON.stringify(value, (_, v) => typeof v === "bigint" ? v.toString() : v));
@@ -52,7 +52,17 @@ export async function progressionSnapshots(userId, origin, db=prisma) {
 }
 export async function appendOutbox(tx,channel,event,data) {
   const raw = jsonSafe({success:true,data:giftEventTiming(channel,event,data)});
-  const payload = isGiftEvent(event) ? await versionMediaPayload(raw, tx) : raw;
+  // Scope reuse to this transaction attempt and DB handle; never cache media
+  // versions across requests, retries or administrative asset replacements.
+  const context = giftOutboxContext.getStore();
+  let versions;
+  if (context && isGiftEvent(event)) {
+    const caches = context.mediaVersions ?? new WeakMap();
+    if (!context.mediaVersions) Object.defineProperty(context, "mediaVersions", { value: caches });
+    if (!caches.has(tx)) caches.set(tx, new Map());
+    versions = caches.get(tx);
+  }
+  const payload = isGiftEvent(event) ? await versionMediaPayload(raw, tx, versions) : raw;
   const row=await tx.realtimeOutbox.create({data:{channel,event,payload}});
   captureGiftEvent({id:row.id,channel,event,payload});
   return row.id;

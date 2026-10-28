@@ -83,12 +83,13 @@ export async function POST(request) {
         const outcome = outcomes[index] ?? null;
         const reward = outcome?.rewardCoins ?? 0n; totalLucky += reward;
         if (reward > 0n) {
-          await tx.user.update({ where: { id: sender.id }, data: { coinBalance: { increment: reward } } });
           await tx.walletTransaction.create({ data: ledgerData({ userId: sender.id, type: 'LUCKY_GIFT_REWARD', direction: 'CREDIT', title: 'Lucky Gift reward', coins: reward, referenceId: giftTx.id, metadata: { giftId, rewardBps: outcome.multiplierBps, multiplier: multiplierLabel(outcome.multiplierBps), limitedByPool: outcome.limitedByPool } }) });
         }
         progression = await awardGiftProgress(tx, { sender, recipient, gift: giftTx, source: backpack ? 'BACKPACK' : lucky ? 'LUCKY' : 'PAID', gross: each, credit: split.receivedDiamonds, reward, recipientType: host ? 'HOST' : 'NORMAL_USER', origin }) ?? progression;
         results.push({ recipientId: recipient.publicId, transactionId: giftTx.id, createdAt: giftTx.createdAt.toISOString(), recipientDiamonds: split.receivedDiamonds.toString(), luckyRewardCoins: reward.toString(), lucky: outcome ? { rewardCoins: reward.toString(), rewardBps: outcome.multiplierBps, multiplier: multiplierLabel(outcome.multiplierBps), bigWin: outcome.bigWin } : null });
       }
+      // All draws remain independent; credit their total once in this same transaction.
+      if (totalLucky > 0n) await tx.user.update({ where: { id: sender.id }, data: { coinBalance: { increment: totalLucky } } });
       if (!backpack) await tx.walletTransaction.create({ data: ledgerData({ userId: sender.id, type: 'GIFT_SENT', direction: 'DEBIT', title: `Sent ${gift.name} to ${ids.length} people`, coins: total, referenceId: operation.key, metadata: { source: 'MULTI', roomId, giftId, recipientIds: ids, quantity } }) });
       const balance = await tx.user.findUniqueOrThrow({ where: { id: sender.id }, select: { coinBalance: true } });
       const data = { requestId: operation.key, senderId: sender.publicId, roomId, giftId, recipientIds: ids, quantity, totalCoins: backpack ? '0' : total.toString(), totalGiftCoins: total.toString(), source: backpack ? 'BACKPACK' : 'COINS', bagItemId: backpack ? bagItemId : null, consumedItems: backpack ? itemCount : 0, transactionIds: results.map(r => r.transactionId), recipients: results, senderCoinBalance: balance.coinBalance.toString(), luckyRewardCoins: totalLucky.toString(), giftBatchId, comboId, giftTier: gift.giftTier, catalogCategory: gift.giftCategory };

@@ -51,6 +51,7 @@ app.prepare().then(async()=>{
   const {createMessage,deleteMessage,editMessage,emitConversationEvent,ensureWorldConversation,markConversationRead,markMessageDelivered,messageSyncLimit,requireConversationParticipant,serializeMessage,syncMessagesForUser}=await import("./src/lib/messaging.js");
   const {resolveUserPerks,socketOrigin}=await import("./src/lib/user-perks.js");
   const {versionMediaPayload}=await import("./src/lib/media-payload.js");
+  const {registerRoomGiftPreviews}=await import("./src/lib/room-gift-preview.js");
   const {formatDateOnly}=await import("./src/lib/date-only.js");
   const {getEffectiveUserId}=await import("./src/lib/special-id.js");
   const {isLiveKitConfigured,issueLiveKitAccess}=await import("./src/lib/livekit-authorization.js");
@@ -305,6 +306,7 @@ app.prepare().then(async()=>{
     });
     registerRoomTools({db:prisma,io,socket,user,isRateLimited});
     const connectionOrigin=socketOrigin(socket);
+    registerRoomGiftPreviews({db:prisma,socket,user,origin:connectionOrigin});
     socket.data.audioRoomTaskTimers=new Map();
     const recordAudioRoomTaskTime=async(roomId)=>{
       const timer=socket.data.audioRoomTaskTimers.get(roomId);

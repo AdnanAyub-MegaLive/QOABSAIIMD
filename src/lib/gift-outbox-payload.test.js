@@ -23,3 +23,18 @@ it("persists versioned gift artwork inside the transaction and captures the same
   expect(payload.data.gift.mediaUrl).toContain("v=abc123");expect(payload.data.gift.posterUrl).toContain("v=def456");
   expect(events).toEqual([{id:"event",channel:"audio-room:room",event:"gift:received",payload}]);
 });
+it("reuses shared artwork versions only within one gift transaction attempt", async () => {
+  const db = { uploadAsset: { findMany: vi.fn().mockResolvedValue([{publicId:"AST-shared",mediaVersion:"v1"}]) },
+    realtimeOutbox: { create: vi.fn(async ({data}) => ({id:String(Math.random()),...data})) } };
+  const gift={mediaUrl:"/api/uploads/AST-shared/file"};
+  await giftOutboxContext.run([],async()=>{
+    for(const recipientId of ["a","b","c","d"]) await appendOutbox(db,"audio-room:r","gift:received",{recipientId,gift});
+  });
+  expect(db.uploadAsset.findMany).toHaveBeenCalledTimes(1);
+  expect(db.realtimeOutbox.create).toHaveBeenCalledTimes(4);
+  for(const [arg] of db.realtimeOutbox.create.mock.calls) expect(arg.data.payload.data.gift.mediaUrl).toContain("v=v1");
+  db.uploadAsset.findMany.mockResolvedValue([{publicId:"AST-shared",mediaVersion:"v2"}]);
+  await giftOutboxContext.run([],()=>appendOutbox(db,"audio-room:r","gift:received",{gift}));
+  expect(db.uploadAsset.findMany).toHaveBeenCalledTimes(2);
+  expect(db.realtimeOutbox.create.mock.calls.at(-1)[0].data.payload.data.gift.mediaUrl).toContain("v=v2");
+});
