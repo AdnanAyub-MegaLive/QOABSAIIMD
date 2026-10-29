@@ -53,7 +53,7 @@ export async function PUT(request, { params }) {
           grantedById: actor.id,
           role: "ADMIN",
         },
-        update: { grantedById: actor.id, role: "ADMIN", grantedAt: new Date() },
+        update: { adminGrantorId: null, adminGrantorName: null, grantedById: actor.id, role: "ADMIN", grantedAt: new Date() },
       });
       const updated = await tx.audioRoom.update({
         where: { id: room.id },

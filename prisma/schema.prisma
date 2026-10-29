@@ -2431,11 +2431,13 @@ model AudioRoomRole {
   audioRoomId String
   userId      String
   role        String    @default("ADMIN")
-  grantedById String
+  grantedById String?
+  adminGrantorId String?
+  adminGrantorName String?
   grantedAt   DateTime  @default(now())
   audioRoom   AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
   user        User      @relation("AudioRoomRoleUser", fields: [userId], references: [id], onDelete: Cascade)
-  grantedBy   User      @relation("AudioRoomRoleGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+  grantedBy   User?      @relation("AudioRoomRoleGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
 
   @@unique([audioRoomId, userId])
   @@index([userId])
@@ -2446,14 +2448,16 @@ model AudioRoomBan {
   publicId    String    @unique
   audioRoomId String
   userId      String
-  actorId     String
+  actorId     String?
+  adminActorId String?
+  adminActorName String?
   reason      String?
   expiresAt   DateTime?
   revokedAt   DateTime?
   createdAt   DateTime  @default(now())
   audioRoom   AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
   user        User      @relation("AudioRoomBanUser", fields: [userId], references: [id], onDelete: Cascade)
-  actor       User      @relation("AudioRoomBanActor", fields: [actorId], references: [id], onDelete: Restrict)
+  actor       User?      @relation("AudioRoomBanActor", fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([audioRoomId, userId, expiresAt])
   @@index([audioRoomId, createdAt])
