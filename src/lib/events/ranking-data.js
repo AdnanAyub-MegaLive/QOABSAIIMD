@@ -3,6 +3,7 @@ import { prisma } from '../prisma.js';
 import { resolveUserPerks } from '../user-perks.js';
 import { avatarDisplayUrl } from '../avatar-history.js';
 import { rankingWindow } from './ranking-contract.js';
+import { decorationMedia } from '../decoration-media.js';
 
 // Event scores are gift face value in Coins, never wallet balances or XP.
 // Historical agency attribution comes from the committed settlement, not today's membership.
@@ -47,11 +48,16 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
   if (raw) return rows.slice(0, 20).map(row => ({ id: row.publicId, rank: Number(row.rank), score: row.score.toString(), recipients: [...new Set([row.personId, row.partnerId].filter(Boolean))] }));
   const hasMore = rows.length > 20, visible = rows.slice(0, 20);
   const ids = [...new Set(visible.flatMap(row => [row.personId, row.partnerId]).filter(Boolean))];
-  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, publicId: true, name: true, profileImage: true, country: true } });
+  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, publicId: true, name: true, profileImage: true, country: true,
+    uploadAssignments: { where: { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }], asset: { active: true, category: 'BADGES' } },
+      orderBy: [{ assignedAt: 'desc' }, { assetId: 'asc' }], take: 5,
+      select: { asset: { select: { publicId: true, name: true, mimeType: true, mediaVersion: true, posterMimeType: true, posterMediaVersion: true } } } },
+  } });
   const perks = await resolveUserPerks(users, origin, ['FRAMES', 'BADGES']);
   const identities = new Map(users.map(u => {
     const p = perks.get(u.publicId), levels = p?.progression;
     return [u.id, { publicId: u.publicId, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
+      ownedBadges: (u.uploadAssignments ?? []).map(({asset}) => ({ ...decorationMedia(asset, origin), name: asset.name })),
       userLevel: levels?.userLevel ?? 0, charmLevel: levels?.charmLevel ?? 0,
       userLevelBadgeUrl: levels?.userLevelBadgeUrl ?? null, charmLevelBadgeUrl: levels?.charmLevelBadgeUrl ?? null,
       ...Object.fromEntries(['user', 'charm'].flatMap(track =>

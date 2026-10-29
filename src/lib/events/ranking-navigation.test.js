@@ -22,7 +22,7 @@ async function fixture(track, rewardPolicy=null, pathname='', template='rankings
   vm.runInNewContext(readFileSync(`event-templates/${template}/app.js`,'utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,userLevel:42,charmLevel:17,userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
@@ -90,6 +90,34 @@ describe('ranking native navigation',()=>{
     expect(get('rule-text').textContent).toContain('active CP partners');
     expect(get('award-rules').textContent).toContain('Both CP partners');
     get('close-rules').onclick();expect(get('rules-dialog').open).toBe(false);
+  });
+  it('uses animated GIF podium frames on the standalone Wealth page',async()=>{
+    const {get,flush}=await fixture('wealth',null,'','ranking-wealth');
+    await flush();
+    const frames=descendants(get('hero')).filter(n=>n.className==='frame');
+    expect(frames.map(n=>n.src)).toEqual(['assets/frame-1.gif','assets/frame-2.gif','assets/frame-3.gif']);
+    expect(descendants(get('entries')).filter(n=>n.className==='row')).toHaveLength(1);
+  });
+  it('uses portal Wealth and Charm backgrounds for podium and list levels',async()=>{
+    const {get}=await fixture('wealth',null,'','ranking-wealth');
+    for(const container of ['hero','entries']){
+      const tags=descendants(get(container)).filter(n=>n.className?.startsWith('level-tag '));
+      expect(tags.length).toBeGreaterThan(0);
+      for(const tag of tags){
+        expect(tag.attributes['data-artwork']).toBe('true');
+        expect(tag.children.find(n=>n.className==='level-background').src).toBe(
+          tag.className.endsWith('user')?'https://cdn.example/wealth.png':'https://cdn.example/charm.png');
+      }
+    }
+  });
+  it('caps each Wealth ranking identity at five owned badges',async()=>{
+    const {get}=await fixture('wealth',null,'','ranking-wealth');
+    const strips=[...descendants(get('hero')),...descendants(get('entries'))].filter(n=>n.className==='owned-badges');
+    expect(strips).toHaveLength(4);
+    for(const strip of strips){
+      expect(strip.children).toHaveLength(5);
+      expect(strip.children[0].src).toBe('https://cdn.example/badge-0.gif');
+    }
   });
   it('preserves the close message',async()=>{const {get,messages}=await fixture();messages.length=0;get('back').onclick();expect(messages).toEqual([{type:'ranking:close'}]);});
 });

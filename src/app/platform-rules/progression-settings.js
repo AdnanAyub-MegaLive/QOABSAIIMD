@@ -36,10 +36,12 @@ export default function ProgressionSettings({ initial, canManage }) {
   }
   return <><section className="mb-6 rounded-2xl border border-[#dce8e5] bg-white p-6">
     <h3 className="text-lg font-bold">Wealth & Charm XP levels</h3>
+    {initial.configured===false&&<p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Account levels have not been configured. This is an unsaved draft; XP awards remain disabled. Add thresholds and save to create the first configuration.</p>}
     <p className="my-3 text-sm text-[#71847f]">Enter total lifetime XP required for each level, not XP earned since the previous level. Every threshold must be greater than the previous one. Example: Level 0 = 0, Level 1 = 900, Level 2 = 1800. Saving recalculates account levels but preserves earned XP and wallet balances.</p>
     <label className="text-sm"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)} disabled={!canManage||busy}/> Enable gift XP awards</label>
     <div className="mt-5 grid gap-6 md:grid-cols-2">{["USER","CHARM"].map(track=><div key={track} className="rounded-xl border p-4">
       <h4 className="mb-4 font-semibold">{track==="USER"?"Wealth Level — Sending":"Charm Level — Receiving"}</h4>
+      <div role="region" aria-label={`${track==="USER"?"Wealth":"Charm"} level thresholds`} tabIndex={0} className="max-h-[480px] overflow-y-auto overscroll-contain pr-2">
       {levels.map((r,index)=>r.track===track&&<div key={`${r.level}:${index}`} className="mb-3 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-3"><span>Level {r.level}</span>
           <input aria-label={`${track} level ${r.level} XP`} aria-invalid={Boolean(fields[`${track}:${r.level}`])} aria-describedby={fields[`${track}:${r.level}`]?`xp-error-${track}-${index}`:undefined} className={`w-44 rounded-lg border p-2 ${fields[`${track}:${r.level}`]?"border-red-500":""}`} type="text" inputMode="numeric" pattern="[0-9]*" value={r.thresholdPoints} disabled={!canManage||busy||r.level===0} onChange={e=>edit(index,e.target.value)}/>
@@ -47,6 +49,7 @@ export default function ProgressionSettings({ initial, canManage }) {
         </div>
         {fields[`${track}:${r.level}`]&&<p id={`xp-error-${track}-${index}`} className="mt-1 text-red-600">{fields[`${track}:${r.level}`]}</p>}
       </div>)}
+      </div>
       <button type="button" onClick={()=>add(track)} disabled={!canManage||busy} className="mt-3 rounded-lg border px-4 py-2 text-sm">+ Add level</button>
     </div>)}</div>
     <button type="button" disabled={!canManage||busy} onClick={save} className="mt-5 rounded-lg bg-[#16877d] px-4 py-2 text-sm text-white">{busy?"Saving…":"Save level thresholds"}</button>
