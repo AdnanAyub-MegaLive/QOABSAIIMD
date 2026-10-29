@@ -6,6 +6,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 import { ROLE_DISTRIBUTIONS } from "@/lib/role-artwork";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { notifyGiftCatalogUpdated } from "@/lib/gift-catalog-version";
+import { notifyGameIconUpdated } from "@/lib/game-catalog-update";
 import { portalPermissionError } from "@/lib/portal-admin";
 import { sameOrigin } from "@/lib/game-control/http";
 import { auth } from "../../../../auth";
@@ -481,6 +482,7 @@ export async function POST(request) {
     });
     const mirroredAsset = await mirrorAssetBestEffort(prisma, asset);
     if(["GIFTS","LIVE_GIFTS"].includes(asset.category))await notifyGiftCatalogUpdated();
+    await notifyGameIconUpdated(prisma, asset.publicId);
     return Response.json(
       {
         success: true,
@@ -745,6 +747,7 @@ export async function PATCH(request) {
     });
     const mirroredAsset = await mirrorAssetBestEffort(prisma, asset);
     if(["GIFTS","LIVE_GIFTS"].includes(asset.category))await notifyGiftCatalogUpdated();
+    await notifyGameIconUpdated(prisma, asset.publicId);
     return Response.json({
       success: true,
       data: {
@@ -874,6 +877,7 @@ export async function DELETE(request) {
       await tx.uploadAsset.update({ where: { id: asset.id }, data: { archivedAt: new Date(), storeVisible: false } });
     });
     await Promise.resolve().then(() => notifyGiftCatalogUpdated()).catch(error => console.error("Archived upload catalogue refresh failed", error));
+    await notifyGameIconUpdated(prisma, assetId);
     return Response.json({ success: true, data: { assetId } });
   } catch (error) {
     if (error?.status === 409) return Response.json({ success: false, error: { code: "DEDICATED_MANAGEMENT_REQUIRED", message: error.message } }, { status: 409 });

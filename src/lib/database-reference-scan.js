@@ -17,3 +17,21 @@ export function containsDatabaseReference(value, identifiers, key='') {
   }
   return false;
 }
+
+// Compile once per identifier generation, rather than once per cell/row.
+export function databaseReferenceMatcher(identifiers) {
+  const ids = new Set(identifiers);
+  const patterns = [...ids].filter(Boolean).map(id => {
+    const strong = /^(?:[A-Z]{2,12}-[A-Za-z0-9-]+|c[a-z0-9]{20,}|[a-f0-9]{8}-[a-f0-9-]{27,})$/.test(id);
+    return { id, strong, boundary: strong ? new RegExp(`(^|[^A-Za-z0-9_-])${escape(id)}($|[^A-Za-z0-9_-])`) : null, explicit: new RegExp(`(?:user:|/users/|userId=|publicId=)${escape(id)}($|[^A-Za-z0-9_-])`) };
+  });
+  function matches(value, key = '') {
+    if (value == null) return false;
+    if (Array.isArray(value)) return value.some(item => matches(item, key));
+    if (typeof value === 'object') return Object.entries(value).some(([field, item]) => ids.has(field) || matches(item, field));
+    if (!['string', 'number'].includes(typeof value)) return false;
+    let text = String(value); try { text = decodeURIComponent(text); } catch {}
+    return patterns.some(p => (text === p.id && (p.strong || (idField(key) && /(user|sender|recipient|owner|publicId|uid)/i.test(key)))) || p.boundary?.test(text) || p.explicit.test(text));
+  }
+  return matches;
+}

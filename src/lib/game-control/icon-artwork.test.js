@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
+import { createHash } from 'node:crypto';
+import { gameIconVersions } from './icon-versions.js';
 import { gameIconArtwork } from './icon-artwork.js';
 import { visibleGames } from './catalog.mjs';
 
@@ -9,10 +11,10 @@ it('returns absolute artwork URLs for all built-in mobile catalogue entries', ()
   const result = visibleGames(games, 'https://portal.megachat.live/');
   expect(result).toHaveLength(14);
   for (const game of result) {
-    expect(game.iconUrl).toBe(`https://portal.megachat.live${gameIconArtwork[game.engine]}`);
+    expect(game.iconUrl).toBe(`https://portal.megachat.live${gameIconArtwork[game.engine]}?v=${gameIconVersions[game.engine]}`);
     expect(game.imageUrl).toBe(game.iconUrl);
     expect(game.iconMimeType).toBe('image/webp');
-    expect(game.iconVersion).toBe(game.engine === 'rocket' ? 'v2' : 'v1');
+    expect(game.iconVersion).toBe(gameIconVersions[game.engine]);
   }
 });
 
@@ -27,6 +29,8 @@ it('bundles one optimized square icon for each game', async () => {
   expect(Object.keys(gameIconArtwork)).toHaveLength(14);
   for (const url of Object.values(gameIconArtwork)) {
     const buffer = await readFile(`public${url}`);
+    const engine = Object.keys(gameIconArtwork).find(key => gameIconArtwork[key] === url);
+    expect(gameIconVersions[engine]).toBe(createHash('sha256').update(buffer).digest('hex'));
     const meta = await sharp(buffer).metadata();
     expect(meta.format).toBe('webp');
     expect(meta.width).toBe(256);

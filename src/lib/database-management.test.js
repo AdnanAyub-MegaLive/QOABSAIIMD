@@ -2,6 +2,11 @@ import {afterEach,expect,it,vi} from 'vitest';
 import {isDatabaseOwner} from './database-management-access.js';
 import {databaseDeletionPlan,sealDatabasePreview,openDatabasePreview,executeDatabaseDeletion} from './database-management.js';
 afterEach(()=>vi.unstubAllEnvs());
+it('ends oversized previews with a clear refusal before any writes',async()=>{
+ const clock=vi.spyOn(Date,'now').mockReturnValueOnce(0).mockReturnValue(20001);
+ try { await expect(databaseDeletionPlan(fixture(),{mode:'TABLE',table:'User'})).rejects.toMatchObject({code:'PREVIEW_TOO_LARGE'}); }
+ finally {clock.mockRestore();}
+});
 it('fails closed unless the active super admin matches the configured owner',()=>{
  const admin={email:'admin@megachat.live',active:true,role:'SUPER_ADMIN'};
  expect(isDatabaseOwner(admin,'admin@megachat.live')).toBe(true);

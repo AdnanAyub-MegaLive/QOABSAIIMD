@@ -5,6 +5,7 @@ import { SVGA_CATEGORIES, SVGA_MIME, SVGA_MAX_BYTES, isSvgaFile, uploadMimeType 
 import { GIFT_CATEGORIES, giftCategory as resolveGiftCategory } from "@/lib/gift-categories";
 import Image from "next/image";
 import ApkManager from "./apk-manager";
+import PermanentDeleteButton from "./permanent-delete-button";
 import { UPLOAD_SECTIONS, filterUploadRecords } from "./upload-sections";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { durationCalculation } from "../utils/duration";
@@ -38,7 +39,7 @@ function bannerPlacementLabel(value) {
   return bannerPlacements.find(([placement]) => placement === value)?.[1] ?? value;
 }
 
-export default function UploadTabs({ initialUploads, users, canManageApks = false, canArchive = false }) {
+export default function UploadTabs({ initialUploads, users, canManageApks = false, canArchive = false, canPermanentlyDelete = false }) {
   const [section, setSection] = useState("Props");
   const [active, setActive] = useState(UPLOAD_SECTIONS.Props[0]);
   const [query, setQuery] = useState("");
@@ -159,6 +160,7 @@ export default function UploadTabs({ initialUploads, users, canManageApks = fals
                 key={item.id}
                 item={item}
                 eager={index < 4}
+                onPermanentDelete={canPermanentlyDelete ? () => setUploads(current => current.filter(row => row.id !== item.id)) : null}
                 onManage={() => {
                   setError("");
                   setManagedAsset(item);
@@ -212,7 +214,7 @@ export default function UploadTabs({ initialUploads, users, canManageApks = fals
   );
 }
 
-function PreviewCard({ item, eager, onManage, onDelete }) {
+function PreviewCard({ item, eager, onManage, onDelete, onPermanentDelete }) {
   const activeGrants = item.assignedUsers.filter((user) => !user.isExpired);
   const isBanner = item.category === "BANNERS";
   return (
@@ -297,8 +299,9 @@ function PreviewCard({ item, eager, onManage, onDelete }) {
             onClick={onDelete}
             className="rounded-lg border border-rose-200 px-3 py-2.5 text-[10px] font-bold text-rose-700 hover:bg-rose-50"
           >
-            Delete
+            Archive
           </button>
+          {onPermanentDelete && <PermanentDeleteButton assetId={item.id} onDone={onPermanentDelete} />}
         </div>
       </div>
     </article>
@@ -317,12 +320,12 @@ function DeleteAssetModal({asset,deleting,error,onClose,onDelete}) {
       >
         <div className="border-b border-[#e5ecea] px-6 py-5">
           <p className="text-[10px] font-bold tracking-widest text-rose-600 uppercase">Archive item</p>
-          <h3 id="delete-asset-title" className="mt-1 text-lg font-bold">Delete {asset.name}?</h3>
+          <h3 id="delete-asset-title" className="mt-1 text-lg font-bold">Archive {asset.name}?</h3>
           <p className="mt-2 text-xs leading-5 text-[#71847f]">This item will be hidden from catalogue listings and manual edits. Existing ownership, issued media links and historical records remain available. Archiving does not revoke access.</p>
         </div>
         <div className="space-y-4 p-6">
           <label className="block">
-            <span className="mb-2 block text-xs font-bold">Reason for deletion</span>
+            <span className="mb-2 block text-xs font-bold">Reason for archiving</span>
             <textarea name="reason" required maxLength={500} rows={3} placeholder="For example: Uploaded by mistake" className={`${inputClass} h-auto resize-none py-3`}/>
           </label>
           {error&&<p className="rounded-lg bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">{error}</p>}

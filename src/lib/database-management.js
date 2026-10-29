@@ -1,6 +1,6 @@
 import {createHash, createHmac, timingSafeEqual} from 'node:crypto';
 import {isDatabaseOwner} from './database-management-access.js';
-import {containsDatabaseReference} from './database-reference-scan.js';
+import {databaseReferenceMatcher} from './database-reference-scan.js';
 
 const protectedTables = new Set(['Admin', '_prisma_migrations']);
 const quote = name => '"' + name.replaceAll('"','""') + '"';
@@ -38,6 +38,10 @@ function selection(input,names) {
 // PostgreSQL catalogues, rather than a manually maintained list, provide the
 // real FK graph. All identifiers below come from these catalogues, never SQL input.
 export async function databaseDeletionPlan(tx,input) {
+  const deadline = Date.now() + 20000;
+  const checkBudget = () => { if (Date.now() > deadline) throw fail('Preview exceeds the interactive time limit. Nothing deleted. Use a narrower, scoped cleanup preview.','PREVIEW_TOO_LARGE',409); };
+  const documentCache = new Map();
+  let cachedRows = 0;
   const names=await databaseTables(tx),scope=selection(input,names);
   const relations=await tx.$queryRawUnsafe(`SELECT child.relname::text AS child, parent.relname::text AS parent,
     array_agg(ca.attname::text ORDER BY k.ord) AS "childColumns",
@@ -77,8 +81,10 @@ export async function databaseDeletionPlan(tx,input) {
   const identifiers=new Set();
   let changed=true;
   while(changed){
+    checkBudget();
     changed=false;
     for(const relation of relations){
+      checkBudget();
       const parents=selected.get(relation.parent);if(!parents?.size)continue;
       const join=relation.childColumns.map((col,i)=>`c.${quote(col)}=p.${quote(relation.parentColumns[i])}`).join(' AND ');
       const rows=await tx.$queryRawUnsafe(`SELECT DISTINCT c.ctid::text AS locator, c.xmin::text AS version FROM ${table(relation.child)} c JOIN ${table(relation.parent)} p ON ${join} WHERE p.ctid::text=ANY($1::text[]) LIMIT 100001`,[...parents]);
@@ -91,11 +97,23 @@ export async function databaseDeletionPlan(tx,input) {
         const rows=await tx.$queryRawUnsafe(`SELECT ${fields.map(quote).join(',')} FROM ${table(name)} WHERE ctid::text=ANY($1::text[])`,[...ids]);
         for(const row of rows)for(const [field,value] of Object.entries(row))if(typeof value==='string'&&(value.length>=20||/^[A-Z]{2,12}-/.test(value)||(name==='User'&&field==='publicId')||field==='roomId'))identifiers.add(value);
       }
+      const containsReference = databaseReferenceMatcher(identifiers);
       for(const [name,fields] of byTable){
+        checkBudget();
         // Bounded scan: refuse rather than silently skip a large table.
-        const rows=await tx.$queryRawUnsafe(`SELECT ctid::text AS locator,xmin::text AS version,(SELECT to_jsonb(d) FROM (SELECT ${fields.map(quote).join(',')}) d) AS document FROM ${table(name)} LIMIT 100001`);
+        let rows = documentCache.get(name);
+        if (!rows) {
+          rows=await tx.$queryRawUnsafe(`SELECT ctid::text AS locator,xmin::text AS version,(SELECT to_jsonb(d) FROM (SELECT ${fields.map(quote).join(',')}) d) AS document FROM ${table(name)} LIMIT 100001`);
+          cachedRows += rows.length;
+          if (cachedRows > 200000) throw fail('Reference scan exceeds the interactive total row limit. Use a scoped offline preview.','SELECTION_TOO_LARGE',409);
+          documentCache.set(name, rows);
+        }
         if(rows.length>100000)throw fail('Reference scan exceeds 100,000 rows in a table. Use an offline maintenance plan.','SELECTION_TOO_LARGE',409);
-        for(const row of rows)if(!selected.get(name)?.has(row.locator)&&containsDatabaseReference(row.document,identifiers))if(add(name,[row]))changed=true;
+        for(let i=0;i<rows.length;i++) {
+          if (i % 100 === 0) checkBudget();
+          const row=rows[i];
+          if(!selected.get(name)?.has(row.locator)&&containsReference(row.document))if(add(name,[row]))changed=true;
+        }
       }
     }
   }

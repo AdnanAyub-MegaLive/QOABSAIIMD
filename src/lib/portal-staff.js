@@ -36,9 +36,10 @@ export async function saveStaff(identity, body) {
       if (!["STAFF", "MANAGER"].includes(body.role)) fail("Select Staff or Manager.");
       if (typeof body.active !== "boolean") fail("Select an account status.");
       const permissions = validatePermissions(body.permissions, actor);
-      if (body.role === "STAFF" && permissions.some(p => p.startsWith("accounts.") && p !== "accounts.view"))
-        fail("Choose Manager to delegate staff administration permissions.");
       data = { name, email, role: body.role, active: body.active, permissions };
+      // A direct Platform Admin grant must not be silently reduced by an old
+      // delegating manager. Transfer administration to the granting root.
+      if (actor.role === "SUPER_ADMIN" && action === "update") data.createdById = actor.id;
     }
     const result = action === "create"
       ? await tx.admin.create({ data: { ...data, passwordHash, createdById: actor.id } })

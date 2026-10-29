@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import { prisma } from "@/lib/prisma";
 import DailyTasksManager from "./daily-tasks-manager";
+import NewUserRewardsManager from "./new-user-rewards-manager";
+import { equippablePropCategories } from '@/lib/props-store';
 export default async function DailyTasksPage() {
   await requirePagePermission("tasks.view");
   const session = await auth();
@@ -49,9 +51,11 @@ export default async function DailyTasksPage() {
     active: item.active,
     instanceCount: item._count.instances,
   }));
+  const newUserPolicy = await prisma.newUserRewardPolicy.findFirst({ orderBy: { id: 'desc' } });
   return (
     <RoomManagementShell title="Daily Tasks">
           <div className="mb-7"><h2 className="text-2xl font-bold">Task catalogue</h2><p className="mt-1.5 text-sm text-[#71847f]">Control the mobile task tabs, rewards, targets and campaign placement. Changes affect newly created periods and unclaimed task displays.</p></div>
+          {session.user.role === 'SUPER_ADMIN' && <NewUserRewardsManager initialPolicy={newUserPolicy ? { id: newUserPolicy.id, enabled: newUserPolicy.enabled, rewards: newUserPolicy.rewards } : null} assets={assets.filter(a => equippablePropCategories.has(a.category))} tiers={tiers} />}
           <DailyTasksManager initialCategories={categoryData} initialTasks={taskData} assets={assets} tiers={tiers} />
         </RoomManagementShell>
   );

@@ -6,6 +6,7 @@ import { resolveRoulette, strictBets } from "./roulette/engine.mjs";
 import { miniGames, makeChallenge, publicChallenge, resolveMini } from "./mini-games.mjs";
 import { selectTrivia } from "./trivia-rounds.mjs";
 import { dealTeenPatti } from "./teen-patti.mjs";
+import { notifyGameCatalogUpdated } from "../game-catalog-update.js";
 
 export class GameError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
@@ -22,7 +23,7 @@ export async function ensureGames() {
 export async function saveGame(input, actor) {
   let settings;
   try { settings = validateGame(input); } catch (error) { throw new GameError(error.message); }
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id = ${settings.id} FOR UPDATE`;
     const beforeRow = await tx.gameDefinition.findUnique({ where: { id: settings.id } });
     if (beforeRow?.archivedAt) throw new GameError("This catalogue entry is archived.", 409);
@@ -39,6 +40,8 @@ export async function saveGame(input, actor) {
     await tx.auditLog.create({ data: { action: "GAME_SETTINGS_UPDATED", category: "GAME_MANAGEMENT", entityType: "GameDefinition", entityId: game.id, description: `${actor} saved ${game.name} revision ${revision}.`, metadata: audit } });
     return { game, audit };
   });
+  await notifyGameCatalogUpdated(prisma, [result.game.id]);
+  return result;
 }
 
 export async function assertPlayer(tx, identity) {

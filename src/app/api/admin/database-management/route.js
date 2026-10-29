@@ -16,12 +16,12 @@ export async function POST(request){try{
  if(isRateLimited(`database-management:${admin.id}`,{limit:10,windowMs:60000}))throw fail('Please wait before trying again.',429,'RATE_LIMITED');
  const body=await jsonBody(request);
  if(body.action==='PREVIEW'){
-   const plan=await prisma.$transaction(tx=>databaseDeletionPlan(tx,body),{isolationLevel:'RepeatableRead',timeout:60000});
+   const plan=await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET LOCAL statement_timeout='15000ms'");return databaseDeletionPlan(tx,body);},{isolationLevel:'RepeatableRead',timeout:60000});
    const token=sealDatabasePreview({adminId:admin.id,sessionVersion:admin.sessionVersion,scope:plan.scope,fingerprint:plan.fingerprint,expiresAt:Date.now()+300000});
    return json({success:true,data:{token,counts:plan.counts,total:plan.total,confirmation:`PERMANENTLY DELETE ${plan.total} RECORDS`}});
  }
  if(body.action!=='DELETE')throw fail('Unknown action.',422,'VALIDATION_ERROR');
- if(process.env.DATABASE_MANAGEMENT_DELETE_ENABLED!=='true')throw fail('Permanent deletion is not enabled on this deployment. Set DATABASE_MANAGEMENT_DELETE_ENABLED=true after validating an isolated database.','DELETION_DISABLED',503);
+ if(process.env.DATABASE_MANAGEMENT_DELETE_ENABLED!=='true')throw fail('Permanent deletion is not enabled on this deployment. Set DATABASE_MANAGEMENT_DELETE_ENABLED=true after validating an isolated database.',503,'DELETION_DISABLED');
  const payload=openDatabasePreview(body.token,admin.id);
  const plan=await prisma.$transaction(tx=>databaseDeletionPlan(tx,payload.scope),{isolationLevel:'RepeatableRead',timeout:60000});
  if(plan.fingerprint!==payload.fingerprint)throw fail('Data changed. Generate a fresh preview.',409,'PREVIEW_STALE');

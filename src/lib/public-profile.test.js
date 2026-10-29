@@ -1,7 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("./prisma.js", () => ({ prisma: {} }));
-import { publicAge, wallCursor, wallOffset, ownedProfileBadges, ownedProfileProps } from "./public-profile.js";
+import { publicAge, wallCursor, wallOffset, ownedProfileBadges, ownedProfileProps, receivedGiftWall } from "./public-profile.js";
 describe("profile contract helpers", () => {
+  it("returns a signed, independently versioned MP4 poster without changing gift media",async()=>{
+    vi.stubEnv('AUTH_SECRET','test-only-secret');
+    try{
+      const asset={id:'gift',publicId:'AST-gift',name:'Gift',active:true,mimeType:'video/mp4',posterMimeType:'image/webp',posterMediaVersion:'fedcba9876543210'};
+      const db={giftTransaction:{groupBy:vi.fn(async()=>[{giftAssetId:'gift',_sum:{quantity:2,coinValue:100n}}])},uploadAsset:{findMany:vi.fn(async()=>[asset])}};
+      const {items}=await receivedGiftWall('user','https://portal.example',{},db);
+      expect(items[0]).toMatchObject({giftId:'AST-gift',mimeType:'video/mp4',posterMimeType:'image/webp',quantity:2,totalCoins:'100'});
+      const poster=new URL(items[0].posterUrl);
+      expect(poster.searchParams.get('poster')).toBe('1');
+      expect(poster.searchParams.get('v')).toBe(asset.posterMediaVersion);
+      expect(poster.searchParams.has('displaySig')).toBe(true);
+      expect(new URL(items[0].mediaUrl).searchParams.has('poster')).toBe(false);
+      asset.posterMimeType=null;
+      expect((await receivedGiftWall('user','https://portal.example',{},db)).items[0].posterUrl).toBeNull();
+      asset.posterMimeType='image/png';asset.active=false;
+      expect((await receivedGiftWall('user','https://portal.example',{},db)).items[0]).toMatchObject({mediaUrl:null,posterUrl:null});
+    }finally{vi.unstubAllEnvs();}
+  });
   it("returns owned props without financial or assignment metadata",async()=>{
     vi.stubEnv("AUTH_SECRET","test-only-secret");
     try{

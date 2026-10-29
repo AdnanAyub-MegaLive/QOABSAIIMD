@@ -1,4 +1,5 @@
 import { gameIconArtwork } from "./icon-artwork.js";
+import { gameIconVersions } from "./icon-versions.js";
 
 export function validateLaunchUrl(value, development = process.env.NODE_ENV !== "production") {
   let url;
@@ -14,10 +15,10 @@ export function catalogGame(game, origin) {
   const external = game.engine === "external";
   const iconPath = external ? null : gameIconArtwork[game.engine];
   const artwork = iconPath ? {
-    iconUrl: new URL(iconPath, origin).href,
-    imageUrl: new URL(iconPath, origin).href,
+    iconUrl: new URL(`${iconPath}?v=${gameIconVersions[game.engine]}`, origin).href,
+    imageUrl: new URL(`${iconPath}?v=${gameIconVersions[game.engine]}`, origin).href,
     iconMimeType: "image/webp",
-    iconVersion: game.engine === "rocket" ? "v2" : "v1",
+    iconVersion: gameIconVersions[game.engine],
   } : {};
   return { ...game, sortOrder: game.sortOrder ?? 0,
     ...artwork,

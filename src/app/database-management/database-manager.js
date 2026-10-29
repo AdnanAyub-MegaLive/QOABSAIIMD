@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react';
 export default function DatabaseManager(){
  const [tables,setTables]=useState([]),[mode,setMode]=useState('ROW'),[table,setTable]=useState('User'),[id,setId]=useState(''),[preview,setPreview]=useState(null),[confirmation,setConfirmation]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
- async function call(body){const r=await fetch('/api/admin/database-management',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw Error(j.error?.message||'Request failed');return j.data;}
+ async function call(body){try{const r=await fetch('/api/admin/database-management',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(75000)});const j=await r.json();if(!r.ok)throw Error(j.error?.message||'Request failed');return j.data;}catch(e){if(e.name==='TimeoutError')throw Error(body.action==='PREVIEW'?'Preview timed out. Nothing was deleted. Use a narrower selection.':'Response timed out. The deletion outcome is unknown; refresh and inspect before retrying.');throw e;}}
  useEffect(()=>{let active=true;fetch('/api/admin/database-management',{cache:'no-store'}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error?.message);if(active)setTables(j.data.tables);}).catch(e=>{if(active)setMessage(e.message);});return()=>{active=false;};},[]);
  function reset(){setPreview(null);setPassword('');setConfirmation('');setMessage('');}
  async function inspect(){setBusy(true);reset();try{setPreview(await call({action:'PREVIEW',mode,table,id}));}catch(e){setMessage(e.message);}finally{setBusy(false);}}

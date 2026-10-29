@@ -8,8 +8,8 @@ export async function GET(request){
  const now=new Date();
  const rows=await prisma.$queryRaw(Prisma.sql`
  WITH entries AS (
- SELECT COALESCE((SELECT m.id FROM "AudioRoomModerationLog" m WHERE m."audioRoomId"=b."audioRoomId" AND m."targetId"=b."userId" AND m."actorId"=b."actorId" AND m.action='ROOM_BANNED' AND m."expiresAt" IS NOT DISTINCT FROM b."expiresAt" ORDER BY abs(extract(epoch from m."createdAt"-b."createdAt")),m.id LIMIT 1), b.id) AS id,
- 'ROOM_BANNED' AS action,b."audioRoomId",b."userId" AS "targetId",b."actorId",NULL::text AS "adminActorId",NULL::text AS "adminActorName",b.reason,b."createdAt",b."expiresAt",
+ SELECT COALESCE((SELECT m.id FROM "AudioRoomModerationLog" m WHERE m."audioRoomId"=b."audioRoomId" AND m."targetId"=b."userId" AND m."actorId" IS NOT DISTINCT FROM b."actorId" AND m."adminActorId" IS NOT DISTINCT FROM b."adminActorId" AND m.action='ROOM_BANNED' AND m."expiresAt" IS NOT DISTINCT FROM b."expiresAt" ORDER BY abs(extract(epoch from m."createdAt"-b."createdAt")),m.id LIMIT 1), b.id) AS id,
+ 'ROOM_BANNED' AS action,b."audioRoomId",b."userId" AS "targetId",b."actorId",b."adminActorId",b."adminActorName",b.reason,b."createdAt",b."expiresAt",
  CASE WHEN b."expiresAt" IS NULL THEN 0 ELSE round(extract(epoch from b."expiresAt"-b."createdAt")/60)::int END AS "durationMinutes",
  CASE WHEN b."revokedAt" IS NOT NULL THEN 'REVOKED' WHEN b."expiresAt"<=${now} THEN 'EXPIRED' ELSE 'ACTIVE' END AS status,b."publicId" AS "banId"
  FROM "AudioRoomBan" b

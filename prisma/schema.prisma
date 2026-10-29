@@ -238,6 +238,7 @@ model AuditLog {
 }
 
 model User {
+  newUserRewardClaims NewUserRewardClaim[]
   companyBdCountry String? @unique
   gamePlayAccount GamePlayAccount?
   gamePlayRounds GamePlayRound[]
@@ -338,6 +339,7 @@ model User {
   audioRoomAdmissions        AudioRoomAdmission[]          @relation("AudioRoomAdmissionUser")
   receivedRoomAdmissions     AudioRoomAdmission[]          @relation("AudioRoomAdmissionOwner")
   sentSeatInvitations        AudioRoomSeatInvitation[]     @relation("SeatInvitationSender")
+  seatRequests               AudioRoomSeatRequest[]
   receivedSeatInvitations    AudioRoomSeatInvitation[]     @relation("SeatInvitationTarget")
   uploadAssignments          UploadAssetAssignment[]
   equippedProps              UserEquippedProp[]
@@ -2355,6 +2357,7 @@ model AudioRoom {
   members               AudioRoomMember[]
   admissions            AudioRoomAdmission[]
   seatInvitations       AudioRoomSeatInvitation[]
+  seatRequests          AudioRoomSeatRequest[]
   entertainmentState    AudioRoomEntertainmentState?
   pkAsLeft              AudioRoomPkSession[]         @relation("PkLeftRoom")
   pkAsRight             AudioRoomPkSession[]         @relation("PkRightRoom")
@@ -2515,6 +2518,27 @@ model AudioRoomAdmission {
   @@index([userId, admittedAt])
 }
 
+model AudioRoomSeatRequest {
+  id String @id
+  audioRoomId String
+  requesterId String
+  seatId String?
+  note String?
+  status String @default("PENDING")
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  respondedAt DateTime?
+  actorPublicId String?
+  reason String?
+  notifiedAt DateTime?
+  audioRoom AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  requester User @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  @@index([audioRoomId, status, createdAt, id])
+  @@index([status, expiresAt])
+  @@index([requesterId, status])
+  @@index([notifiedAt, respondedAt])
+}
+
 model AudioRoomSeatInvitation {
   id          String    @id
   audioRoomId String
@@ -2652,6 +2676,27 @@ model AudioRoomSeat {
   @@index([audioRoomId, updatedAt])
   @@index([occupantUserId])
   @@index([forceMutedUntil])
+}
+
+model NewUserRewardPolicy {
+  id Int @id @default(autoincrement())
+  enabled Boolean
+  effectiveFrom DateTime @default(now())
+  rewards Json
+  claims NewUserRewardClaim[]
+  @@index([effectiveFrom, id])
+}
+
+model NewUserRewardClaim {
+  id String @id @default(cuid())
+  userId String
+  day Int
+  policyId Int
+  claimedAt DateTime @default(now())
+  result Json
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy NewUserRewardPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  @@unique([userId, day])
 }
 
 model DailyTaskDefinition {

@@ -119,7 +119,7 @@ export default async function UploadsPage() {
               application.
             </p>
           </div>
-          <UploadTabs initialUploads={uploadData} users={userOptions} canManageApks={hasPermission(admin, "uploads.manage")} canArchive={hasPermission(admin, "uploads.delete")} />
+          <UploadTabs initialUploads={uploadData} users={userOptions} canManageApks={hasPermission(admin, "uploads.manage")} canArchive={hasPermission(admin, "uploads.delete")} canPermanentlyDelete={admin.role === "SUPER_ADMIN"} />
         </div>
       </section>
     </main>

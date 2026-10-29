@@ -1,0 +1,1 @@
+CREATE SEQUENCE "GameCatalogRevision" AS BIGINT START 1;

@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "prisma generate",
+    "predev": "prisma generate && node scripts/generate-game-icon-versions.mjs",
+    "prebuild": "node scripts/generate-game-icon-versions.mjs",
     "postinstall": "prisma generate",
     "dev": "node server.js --dev --webpack",
     "build": "next build",

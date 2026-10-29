@@ -2,8 +2,10 @@
 
 ## Release status
 
-- Implementation: local backend implementation and migration; see test results below.
-- Deployment: not pushed/deployed by this task; no application database migration applied.
+- Implementation: complete; release commit `6ad5f5b` on both main branches.
+- Deployment: production commit and applied migration verified on 23 October 2026.
+- Production API verification: Top 50, ranked viewers, threshold, concurrency,
+  idempotency and observed UTC rollover passed; details below.
 - Real devices: not verified. Two-phone production checks remain a release step.
 - Existing room Daily/Weekly/Monthly Wealth/Charm/Games endpoints are unchanged.
 - Informational only. This endpoint does not send gifts, debit balances, settle
@@ -100,6 +102,43 @@ returned. Display Special IDs/public-ID changes do not change the tie break.
 Amounts are decimal **strings**. Preserve integer precision; never use JavaScript
 floating-point arithmetic for Coins. Rank and participant counts are integers.
 Use `publicId` for profile navigation and nullable `specialId` for display.
+
+## Mobile screen mapping
+
+- Previous-hour podium: `previousHour.entries` (at most three); render only the
+  returned entries. Do not fill missing places with sample accounts.
+- Current list: `currentHour.entries` (at most 50); use each entry's server `rank`.
+  There is no pagination or query parameter for this endpoint.
+- Pinned current-user row: `viewer`, even when absent from the list. List entries
+  use `score`; viewer/header use `sentCoins`.
+- Rotating header: alternate `header.sentCoins` and the position. When
+  `header.ranked === true`, show `header.rank` if `inTop50`, otherwise `50+`.
+  When `ranked === false`, show an explicit unranked placeholder, not rank zero.
+  Null availability fields mean unavailable, not `50+` or zero.
+- Threshold label: use `additionalCoinsToTop50`, not `sentCoins`. A threshold of
+  one Coin does not mean the catalogue necessarily offers a one-Coin gift.
+- Update header, current list, previous podium and viewer atomically from one
+  response. Do not mix sections from separate revisions or accounts.
+- Keep at most one refresh in flight; discard responses from an old account or
+  older request. Refresh on foreground to resynchronize the server countdown.
+- If `revision` is unchanged, retain ranking rows and artwork, but still update
+  the server-time/countdown reference and freshness fields.
+
+Ranked viewer example (position 52, with 52 equal-score senders):
+
+```json
+{
+  "ranked": true,
+  "rank": 52,
+  "sentCoins": "10",
+  "unit": "COINS_SPENT",
+  "inTop50": false,
+  "additionalCoinsToTop50": "1"
+}
+```
+
+The app displays `50+` in the compact counter but may show the exact `52` in the
+viewer row. A Top-50 viewer returns `inTop50: true` and threshold `"0"`.
 
 ## Fields and representative response
 
@@ -260,10 +299,53 @@ After deployment, use dedicated test accounts on two phones to check current
 header/list/viewer agreement, gifts from two different rooms, an hour reset,
 previous-hour correction after an approved test reversal, Top-50 thresholds,
 blocked identities and room navigation. Service-level concurrency tests do not
-constitute real-device verification. Production/device verification is pending.
+constitute real-device verification. Real-phone UI verification remains pending;
+the production API checks below have been completed.
 
 Local verification on 23 October 2026: **109 tests passed across ten files**,
 including 38 new hourly tests and the 71 room/gift/access regression tests.
 Targeted ESLint, Prisma schema validation and client generation passed. Database
-tests ran only in isolated rolled-back schemas; no application migration,
-existing balance adjustment, reward operation or production test was performed.
+tests ran only in isolated rolled-back schemas. These local results are separate
+from the subsequent production verification below.
+
+### Production verification — 23 October 2026
+
+- Confirmed deployed checkout `6ad5f5b`; migration
+  `20261023140000_hourly_gift_rankings` has a completed database entry.
+- Authenticated canonical and alias endpoints returned HTTP 200.
+- At 15:59:34 UTC the 15:00–16:00 hour contained two senders with 10,000 Coins
+  each. A read-only query independently confirmed the 20,000-Coin aggregate.
+- At 16:00:02 UTC the current hour advanced to 16:00–17:00 and was empty;
+  the previous section advanced to 15:00–16:00 with both leaders and their
+  unchanged scores. This observed rollover did not change the server clock.
+- An existing dedicated zero-sending QA viewer correctly returned unranked,
+  `sentCoins: "0"` and `additionalCoinsToTop50: "1"`.
+- With explicit approval, created 52 **new** QA accounts and funded each with
+  40 Coins (2,080 total). Sent ordinary 10-Coin gifts only between these accounts,
+  without room or agency association, through the production gift endpoint.
+- All 52 initially sent 10 Coins. The API returned exactly 50 entries in the
+  expected deterministic tie order and `totalParticipants: 52`.
+- Authenticated viewers at ranks 1, 50, 51 and 52 returned the correct exact rank,
+  score and Top-50 flag. Header and viewer matched. Ranks 51 and 52 needed one
+  additional Coin; ranks 1 and 50 needed zero.
+- One additional 10-Coin gift moved the rank-52 QA sender to rank 1 with 20 Coins.
+  The refreshed list/viewer reflected the committed change after coalescing.
+- Replaying the same gift idempotency key returned the original response without
+  a second charge. There were 53 committed gifts and 530 Coins spent in total.
+- Five concurrent authenticated ranking reads agreed on revision and viewer data.
+- New-account Coin balances reconciled to 1,550 Coins remaining. All gift
+  recipients belonged to the newly created QA set. No existing account balances
+  or historical records were targeted, and no past rewards were invoked.
+
+Test run reference: `hourly-qa-dec87cd5-20a0-42a2-849d-0524a4daa392`.
+QA accounts, funding ledger entries and gift history were retained, not deleted.
+The test activity appears in the relevant global hourly periods and other
+applicable gift statistics.
+
+### Still to verify on actual phones
+
+RN/Kotlin screen rendering, header animation, two-phone refresh behavior,
+background/foreground countdown resync, profile/live-room navigation and artwork
+playback were not exercised on physical devices. Live production reversals,
+blocks and multi-room test gifts were not performed in this Top-50 run; automated
+tests cover those backend paths. Do not describe API checks as phone verification.

@@ -6,6 +6,8 @@ const { tx, prisma } = vi.hoisted(() => {
 });
 vi.mock("./prisma.js", () => ({ prisma }));
 import { saveStaff } from "./portal-staff.js";
+import { allPermissions } from './portal-permissions.js';
+import { isDatabaseOwner } from './database-management-access.js';
 
 const root = { id: "root", role: "SUPER_ADMIN", active: true, permissions: [], sessionVersion: 1, name: "Admin" };
 const staff = { id: "staff", role: "STAFF", active: true, permissions: [], sessionVersion: 2, createdById: "root" };
@@ -29,4 +31,20 @@ it("rejects stale edits without updating the account", async () => {
 it("preserves protection against editing the administrator's own account", async () => {
   await expect(saveStaff(root, { ...body, id: "root", sessionVersion: 1 })).rejects.toMatchObject({ status: 403 });
   expect(tx.admin.update).not.toHaveBeenCalled();
+});
+
+it('allows Platform Admin to grant every listed permission to Staff without granting database access', async () => {
+  const result = await saveStaff(root, { ...body, permissions: allPermissions });
+  expect(result.permissions).toEqual([...allPermissions].sort());
+  expect(tx.admin.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({createdById:root.id})}));
+  expect(isDatabaseOwner({...result,email:'staff@example.com'}, 'admin@megachat.live')).toBe(false);
+});
+it('never allows Super Admin promotion through staff updates', async () => {
+  await expect(saveStaff(root, {...body,role:'SUPER_ADMIN'})).rejects.toMatchObject({status:422});
+  expect(tx.admin.update).not.toHaveBeenCalled();
+});
+it('pins database access to the designated email even if configuration changes', () => {
+  expect(isDatabaseOwner({...root,email:'admin@megachat.live'},'admin@megachat.live')).toBe(true);
+  expect(isDatabaseOwner({...root,email:'other@example.com'},'other@example.com')).toBe(false);
+  expect(isDatabaseOwner({...root,email:'admin@megachat.live',role:'STAFF'},'admin@megachat.live')).toBe(false);
 });

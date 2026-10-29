@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { giftMedia } from "./gift-media.js";
 import { activeSpecialIds } from "./special-id.js";
 import { profileAgency } from "./profile-agency.js";
 import { equippablePropCategories } from "./props-store.js";
@@ -72,9 +73,9 @@ export async function medalWall(userId, origin, { limit = 4, cursor } = {}, db =
 export async function receivedGiftWall(userId, origin, { limit = 20, cursor } = {}, db = prisma) {
   const offset = wallOffset(cursor);
   const rows = await db.giftTransaction.groupBy({ by: ["giftAssetId"], where: { recipientUserId: userId, reversedAt: null, giftAssetId: { not: null } }, _sum: { quantity: true, coinValue: true }, orderBy: [{ _sum: { coinValue: "desc" } }, { _sum: { quantity: "desc" } }, { giftAssetId: "asc" }], skip: offset, take: limit + 1 });
-  const assets = await db.uploadAsset.findMany({ where: { id: { in: rows.map(r => r.giftAssetId) } }, select: { id: true, publicId: true, name: true, mimeType: true, active: true } });
+  const assets = await db.uploadAsset.findMany({ where: { id: { in: rows.map(r => r.giftAssetId) } }, select: { id: true, publicId: true, name: true, mimeType: true, active: true, posterMimeType: true, posterMediaVersion: true } });
   const map = new Map(assets.map(a => [a.id, a]));
-  return { items: rows.slice(0, limit).flatMap(row => { const asset = map.get(row.giftAssetId); return asset ? [{ giftId: asset.publicId, name: asset.name, quantity: row._sum.quantity ?? 0, totalCoins: (row._sum.coinValue ?? 0n).toString(), mediaUrl: asset.active ? createPublicDisplayAssetUrl(origin, asset.publicId) : null, mimeType: asset.mimeType }] : []; }), nextCursor: rows.length > limit ? wallCursor(offset + limit) : null };
+  return { items: rows.slice(0, limit).flatMap(row => { const asset = map.get(row.giftAssetId); return asset ? [{ giftId: asset.publicId, name: asset.name, quantity: row._sum.quantity ?? 0, totalCoins: (row._sum.coinValue ?? 0n).toString(), mediaUrl: asset.active ? createPublicDisplayAssetUrl(origin, asset.publicId) : null, mimeType: asset.mimeType, posterUrl: asset.active && asset.posterMimeType ? giftMedia(asset, origin).posterUrl : null, posterMimeType: asset.posterMimeType ?? null }] : []; }), nextCursor: rows.length > limit ? wallCursor(offset + limit) : null };
 }
 export async function ownedProfileProps(userId, origin, db = prisma) {
   const rows = await db.uploadAssetAssignment.findMany({
