@@ -6,6 +6,7 @@ import { recordGiftRecovery } from "./gift-refunds.js";
 import { giftOutboxContext } from "./gift-outbox-context.js";
 import { deliverCommittedGiftEvents } from "./realtime-outbox.js";
 import { comboPresentation, giftComboTiming } from "./gift-combo-timing.js";
+import { realtimeTiming } from './realtime-timing.js';
 export { flushRealtimeOutbox } from "./realtime-outbox.js";
 export function isRetryableGiftConflict(error) {
   if (["P2034", "P2002"].includes(error?.code)) return true;
@@ -35,6 +36,8 @@ export async function priorGiftOperation(senderId, operation, db=prisma) {
   return previous?.result??null;
 }
 export async function runGiftOperation(senderId,operation,work,db=prisma) {
+  const timing = realtimeTiming('gift');
+  timing('operation_received');
   // Avoid conflicting snapshots for simultaneous taps from the same sender.
   // This is process-local scheduling only; Serializable and conditional debits
   // remain authoritative across processes and for different senders.
@@ -45,14 +48,16 @@ export async function runGiftOperation(senderId,operation,work,db=prisma) {
   const tail = previous.then(() => gate);
   queues.set(senderId, tail);
   await previous;
-  try { return await executeGiftOperation(senderId, operation, work, db); }
+  try { return await executeGiftOperation(senderId, operation, work, db, timing); }
   finally { release(); if (queues.get(senderId) === tail) queues.delete(senderId); }
 }
-async function executeGiftOperation(senderId,operation,work,db) {
+async function executeGiftOperation(senderId,operation,work,db,timing) {
+  timing('queued_operation_started');
   for(let attempt=0;attempt<4;attempt++) try {
     const events = [];
     events.comboTiming = giftComboTiming(operation.presentation, senderId);
     const committed = await giftOutboxContext.run(events, () => db.$transaction(async tx=>{
+      timing('transaction_started');
       const old=await priorGiftOperation(senderId,operation,tx); if(old) return old;
       const request=await tx.giftRequest.create({data:{senderId,key:operation.key,fingerprint:operation.fingerprint}});
       const result=jsonSafe(await work(tx));
@@ -70,6 +75,7 @@ async function executeGiftOperation(senderId,operation,work,db) {
       await tx.giftRequest.update({where:{id:request.id},data:{result}});
       return result;
     },{isolationLevel:"Serializable",timeout:20000}));
+    timing('transaction_committed');
     // Only after commit, outside the transaction retry block's awaited work.
     // Delivery failure must never retry a committed charge or fail its response.
     void Promise.resolve().then(() => deliverCommittedGiftEvents(events, globalThis.portalIo, db)).catch(error => console.error("Immediate gift delivery failed", error?.message));

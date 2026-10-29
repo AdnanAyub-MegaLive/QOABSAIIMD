@@ -297,6 +297,7 @@ model User {
   status                     AccountStatus                 @default(ACTIVE)
   vipLevel                   Int                           @default(0)
   coinBalance                BigInt                        @default(0)
+  walletRevision             BigInt                        @default(0)
   resellerCoinBalance        BigInt                        @default(0)
   couponBalance              Int                           @default(0)
   hostSalaryCoinBalance      BigInt                        @default(0)
@@ -578,6 +579,41 @@ model RealtimeOutbox {
   deliveredAt DateTime?
   attempts Int @default(0)
   @@index([deliveredAt, createdAt])
+}
+
+model ConfirmedRealtimeEvent {
+  id String @id
+  event String
+  userId String?
+  roomId String?
+  payload Json
+  createdAt DateTime @default(now())
+  deliveredAt DateTime?
+  attempts Int @default(0)
+  @@index([deliveredAt, createdAt])
+}
+
+model RoomGiftTotal {
+  roomId String @id
+  revision BigInt @default(0)
+  coins BigInt @default(0)
+}
+
+model RoomGiftDelta {
+  id String @id
+  roomId String
+  coins BigInt @default(0)
+  recipients Json @default("{}")
+  createdAt DateTime @default(now())
+  processedAt DateTime?
+  @@index([processedAt, roomId])
+}
+
+model RoomRecipientGiftTotal {
+  roomId String
+  userId String
+  coins BigInt @default(0)
+  @@id([roomId, userId])
 }
 
 model RoleTeamLimit {

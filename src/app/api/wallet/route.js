@@ -22,6 +22,7 @@ export async function GET(request) {
         country: true,
         deletedAt: true,
         coinBalance: true,
+        walletRevision: true,
         resellerCoinBalance: true,
         diamondExchangeEnabled: true,
         appRoles: true,
@@ -43,6 +44,9 @@ export async function GET(request) {
     return mobileJson({
       success: true,
       data: {
+        walletRevision: user.walletRevision.toString(),
+        serverTime: new Date().toISOString(),
+        balances: { coins: String(user.coinBalance), diamonds: String(user.hostSalaryCoinBalance), businessCoins: String(user.resellerCoinBalance), coupons: String(user.couponBalance) },
         coins: user.coinBalance.toString(),
         personalCoins: user.coinBalance.toString(),
         businessCoins: user.resellerCoinBalance.toString(),

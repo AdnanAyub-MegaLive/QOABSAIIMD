@@ -6,6 +6,7 @@ import { serializePgTransactions } from "./serialized-pg-adapter.js";
 const globalForPrisma = globalThis;
 const prismaSchemaVersion = "2026-10-16-serialized-transactions";
 const requiredUserFields = [
+  "walletRevision",
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
   "googleEmail",
   "sessionVersion",

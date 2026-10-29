@@ -18,10 +18,14 @@ export async function welcomeNotification(tx, user) {
   if (settings.welcomeEnabled) await notifyAction(tx, { userId: user.id, key: "welcome", type: "WELCOME", title: settings.welcomeTitle, body: settings.welcomeBody, action: { screen: "HOME" } });
 }
 let delivering = false;
+let deliverAgain = false;
 export async function dispatchNotifications(db, io) {
-  if (!io || delivering) return;
+  if (!io) return;
+  if (delivering) { deliverAgain = true; return; }
   delivering = true;
   try {
+    do {
+    deliverAgain = false;
     const rows = await db.notification.findMany({ where: { deliveredAt: null, retractedAt: null }, include: { user: { select: { publicId: true, status: true, deletedAt: true } } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 100 });
     for (const row of rows) {
       // Serialize with retraction and re-read after the lock: a stale batch
@@ -36,5 +40,7 @@ export async function dispatchNotifications(db, io) {
       await tx.notification.update({ where: { id: row.id }, data: { deliveredAt: new Date() } });
       });
     }
+    if (rows.length === 100) deliverAgain = true;
+    } while (deliverAgain);
   } finally { delivering = false; }
 }

@@ -3,6 +3,7 @@ import { qualifiesForAnnouncement } from "./global-announcement-policy.js";
 
 export const ANNOUNCEMENT_EVENT = "global:announcement";
 const running = new WeakSet();
+const rerun = new WeakSet();
 const emitted = new Map();
 const activeBan = now => ({ revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
 
@@ -119,14 +120,17 @@ async function announcementAudience(db, row, io, now) {
 }
 
 export async function dispatchAnnouncements(db, io, now = new Date()) {
+  const failures = [];
   for (const [id, until] of emitted) if (until <= now.getTime()) emitted.delete(id);
   const rows = await db.globalAnnouncement.findMany({ where: { deliveredAt: null, expiresAt: { gt: now },
     OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 10 });
-  for (const row of rows) {
+  // The query bounds concurrency to ten; one slow audience does not stall peers.
+  {
+    const results = await Promise.allSettled(rows.map(async row => {
     const leaseUntil = new Date(now.getTime() + 30000);
     const claim = await db.globalAnnouncement.updateMany({ where: { id: row.id, deliveredAt: null,
       OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] }, data: { leaseUntil } });
-    if (!claim.count) continue;
+    if (!claim.count) return;
     const audience = await announcementAudience(db, row, io, now);
     if (audience && row.expiresAt > new Date() && !emitted.has(row.id)) {
       const data = { ...row.payload, announcementId: row.id, actor: audience.actor, roomId: audience.roomId,
@@ -136,12 +140,16 @@ export async function dispatchAnnouncements(db, io, now = new Date()) {
       emitted.set(row.id, row.expiresAt.getTime());
     }
     await db.globalAnnouncement.updateMany({ where: { id: row.id, leaseUntil }, data: { deliveredAt: new Date() } });
+    }));
+    for (const result of results) if (result.status === 'rejected') failures.push(result.reason);
   }
+  if (failures.length) throw failures[0]; // Finish unrelated candidates before reporting failure.
 }
 
 export async function runGlobalAnnouncements(db, io) {
-  if (!io || running.has(db)) return;
+  if (!io) return;
+  if (running.has(db)) { rerun.add(db); return; }
   running.add(db);
-  try { await collectAnnouncements(db); await dispatchAnnouncements(db, io); }
+  try { do { rerun.delete(db); await collectAnnouncements(db); await dispatchAnnouncements(db, io); } while (rerun.has(db)); }
   finally { running.delete(db); }
 }

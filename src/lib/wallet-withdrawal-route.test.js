@@ -10,7 +10,7 @@ import { GET } from "../app/api/wallet/route.js";
 import { currencyDefaults } from "./currency-policy.js";
 beforeEach(()=>{
   mocks.auth.mockResolvedValue({id:"user"});
-  mocks.user.mockResolvedValue({status:"ACTIVE",agencyId:"agency",role:"HOST",appRoles:["HOST"],coinBalance:1n,hostSalaryCoinBalance:90000n,couponBalance:0,totalTopUp:0n,diamondExchangeEnabled:true,updatedAt:new Date()});
+  mocks.user.mockResolvedValue({status:"ACTIVE",agencyId:"agency",role:"HOST",appRoles:["HOST"],walletRevision:9007199254740993n,resellerCoinBalance:0n,coinBalance:1n,hostSalaryCoinBalance:90000n,couponBalance:0,totalTopUp:0n,diamondExchangeEnabled:true,updatedAt:new Date()});
 });
 it("returns currency policy and reason even without a policy record",async()=>{
   mocks.policy.mockResolvedValue(null);
@@ -21,6 +21,9 @@ it("returns currency policy and reason even without a policy record",async()=>{
   expect(data.canWithdraw).toBe(false);
   expect(data.withdrawal.reason.code).toBe("PAYOUT_CONFIGURATION_INCOMPLETE");
   expect(data.diamonds).toBe("90000");
+  expect(data.walletRevision).toBe("9007199254740993");
+  expect(data.balances).toEqual({coins:"1",diamonds:"90000",businessCoins:"0",coupons:"0"});
+  expect(mocks.user).toHaveBeenCalledWith(expect.objectContaining({select:expect.objectContaining({walletRevision:true,coinBalance:true,hostSalaryCoinBalance:true})}));
 });
 it("keeps the actual policy visible when payouts are disabled",async()=>{
   mocks.policy.mockResolvedValue({version:7,rules:{...currencyDefaults,usdtEnabled:false,usdtMicrosPerUsd:"1000000",withdrawalMinDiamonds:"1",withdrawalMaxDiamonds:"1000000",commissionChart:[{minUsdMicros:"0",bps:"0",fixedUsdtMicros:"0",networkUsdtMicros:"0"}]}});

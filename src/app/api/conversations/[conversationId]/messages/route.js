@@ -1,4 +1,5 @@
 import { prisma } from "../../../../../lib/prisma";
+import { realtimeTiming } from '@/lib/realtime-timing';
 import { userChatCountry, countryMessageFilter } from "@/lib/country-chat";
 import { chatSenderPerks } from "@/lib/chat-perks-cache";
 import {
@@ -91,15 +92,20 @@ export async function GET(request, { params }) {
 }
 
 export async function POST(request, { params }) {
+  const timing = realtimeTiming('dm_http');
+  timing('request_received');
   try {
     const user = await requireMobileUser(request);
+    timing('authenticated');
     const { conversationId } = await params;
     const membership = await requireConversationParticipant(
       decodeURIComponent(conversationId),
       user.id,
     );
     const body = await request.json();
+    timing('membership_and_input');
     const senderPerks = await chatSenderPerks(user,requestOrigin(request));
+    timing('sender_perks');
     const message = await createMessage(
       membership.conversation,
       user,
@@ -107,10 +113,12 @@ export async function POST(request, { params }) {
       senderPerks,
       { clientMessageId: body?.clientMessageId, mediaId: body?.mediaId },
     );
+    timing('message_persisted');
     await emitConversationEvent(globalThis.portalIo,membership.conversation.publicId,"message:new", {
         conversationId: membership.conversation.publicId,
         message,
       });
+    timing('socket_published');
     return mobileJson({ success: true, data: { message } }, 201);
   } catch (error) {
     console.error("Message send failed", error);

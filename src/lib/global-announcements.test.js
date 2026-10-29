@@ -102,10 +102,11 @@ describe("source and visibility safeguards", () => {
   });
   it("coalesces overlapping worker ticks", async () => {
     const f = fixture(); let release;
-    f.db.$transaction.mockImplementation(() => new Promise(resolve => { release = resolve; }));
+    f.db.$transaction.mockImplementationOnce(() => new Promise(resolve => { release = resolve; })).mockResolvedValue(undefined);
     const first = runGlobalAnnouncements(f.db, f.io);
     await runGlobalAnnouncements(f.db, f.io);
     expect(f.db.$transaction).toHaveBeenCalledTimes(1);
     release(); await first;
+    expect(f.db.$transaction).toHaveBeenCalledTimes(2);
   });
 });
