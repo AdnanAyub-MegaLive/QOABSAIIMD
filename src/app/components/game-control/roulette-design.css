@@ -46,3 +46,11 @@
 .roulette-design footer>button{font-size:10px;min-height:28px;padding:3px 8px}
 .roulette-design footer>small{font-size:8px;width:100%;text-align:center}
 @media(max-height:650px){.roulette-design{padding:5px 8px!important}.roulette-design header:first-child{padding-top:0}.roulette-design header:first-child h1{font-size:27px!important}.roulette-design div[class*="_markets"]>button{min-height:49px!important}.roulette-design div[class*="_markets"]>button b{font-size:17px}.roulette-design div[class*="_markets"]>button small{font-size:14px}.roulette-design div[class*="_table"]{padding:12px 10px!important}.roulette-design footer>span{padding-top:5px;padding-bottom:5px}.roulette-design header:first-child>button:last-child{margin-top:32px}}
+
+.roulette-design div[class*="_chips"]>button.roulette-image-chip{width:54px;height:54px;min-width:0;min-height:0;padding:0;border:0;background-color:transparent;background-size:contain;background-position:center;background-repeat:no-repeat;box-shadow:none;transition:transform .15s,filter .15s}
+.roulette-image-chip>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.roulette-design div[class*="_chips"]>button.roulette-image-chip[aria-pressed=true]{transform:translateY(-3px) scale(1.08);filter:drop-shadow(0 0 5px #ffdf76)}
+.roulette-design div[class*="_chips"]{align-items:center}
+@media(max-height:650px){.roulette-design div[class*="_chips"]>button.roulette-image-chip{width:40px;height:40px}}
+.roulette-design .roulette-wheel-frame{width:min(90cqw,95cqh,330px);height:auto;max-height:95cqh}
+.roulette-design .shared-game-visuals .roulette-wheel-frame{width:min(85cqw,80cqh,280px)!important;height:min(85cqw,80cqh,280px)!important;align-self:center}
