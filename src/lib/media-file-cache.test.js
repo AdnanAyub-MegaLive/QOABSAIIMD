@@ -12,15 +12,15 @@ beforeEach(()=>{
 });
 afterEach(()=>vi.unstubAllEnvs());
 const get=(ttl=3600,headers={},v="abc")=>GET(new Request(createPublicDisplayAssetUrl("https://portal.test","AST-1",ttl,v),{headers}),{params:Promise.resolve({assetId:"AST-1"})});
-it('serves agency artwork without Bearer only with a valid current signed URL',async()=>{
- mocks.findUnique.mockResolvedValue({...asset,category:'AGENCY_ARTWORK',mimeType:'image/webp',fileData:Buffer.from('image')});
+it.each(['AGENCY_ARTWORK','PROFILE_DRESS'])('serves %s without Bearer only with a valid current signed URL',async category=>{
+ mocks.findUnique.mockResolvedValue({...asset,category,isGlobal:false,storeVisible:false,assignments:[{userId:'profile-owner'}],mimeType:category==='PROFILE_DRESS'?'video/mp4':'image/webp',fileData:Buffer.from('image')});
  const response=await get();expect(response.status).toBe(200);expect(await response.text()).toBe('image');
  expect((await get(-1)).status).toBe(401);
  expect((await get(3600,{},'old')).status).toBe(409);
  const url=new URL(createPublicDisplayAssetUrl('https://portal.test','AST-1',3600,'abc'));url.searchParams.set('displaySig','invalid');
  expect((await GET(new Request(url),{params:Promise.resolve({assetId:'AST-1'})})).status).toBe(401);
  expect((await GET(new Request('https://portal.test/api/uploads/AST-1/file'),{params:Promise.resolve({assetId:'AST-1'})})).status).toBe(401);
- mocks.findUnique.mockResolvedValue({...asset,category:'AGENCY_ARTWORK',active:false});expect((await get()).status).toBe(401);
+ mocks.findUnique.mockResolvedValue({...asset,category,active:false});expect((await get()).status).toBe(401);
 });
 it("serves matching public versions immutable with MIME and ETag",async()=>{
  const response=await get();expect(response.status).toBe(200);
