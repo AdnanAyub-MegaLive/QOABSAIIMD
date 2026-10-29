@@ -103,6 +103,9 @@ app.prepare().then(async()=>{
   notificationTimer.unref();
   const outboxTimer=setInterval(()=>void flushRealtimeOutbox(io).catch(error=>console.error("Outbox delivery failed",error.message)),250);
   outboxTimer.unref?.();
+  const {runGlobalAnnouncements}=await import("./src/lib/global-announcements.js");
+  const announcementTimer=setInterval(()=>void runGlobalAnnouncements(prisma,io).catch(error=>console.error("Global announcement worker failed",error.code??error.name)),1000);
+  announcementTimer.unref();
   const runRealtimeMaintenance=async()=>{try{const[, , , ,controls]=await Promise.all([finalizeExpiredPkSessions(),reconcileAudioRoomPresence(io),reconcileStaleVideoPresence(),expireGuestRequests(),reconcileExpiredAudioRoomControls()]);const changedRooms=new Map();for(const seat of controls.seats){await updateLiveKitPublishPermission(seat.audioRoom.roomId,seat.occupant.publicId,true);changedRooms.set(seat.audioRoom.roomId,seat.audioRoom);io.to(`user:${seat.occupant.publicId}`).emit("audio-room:seat-force-muted",{success:true,data:{roomId:seat.audioRoom.roomId,userId:seat.occupant.publicId,muted:false,expiresAt:null,expired:true}})}for(const member of controls.members)io.to(`user:${member.user.publicId}`).emit("audio-room:member-force-deafened",{success:true,data:{roomId:member.audioRoom.roomId,userId:member.user.publicId,deafened:false,expiresAt:null,expired:true}});for(const room of changedRooms.values())await broadcastAudioRoomSeatState(room,"",undefined,true)}catch(error){console.error("Realtime maintenance failed",error)}};
   setImmediate(runRealtimeMaintenance);
   const maintenanceTimer=setInterval(runRealtimeMaintenance,15000);

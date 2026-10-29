@@ -448,6 +448,7 @@ model SharedGameEntry {
   @@index([dayId,roomId,slot,userId])
   @@index([status,resolveAt])
   @@index([roomId,settledAt])
+  @@index([settledAt])
 }
 
 // Disposable ranking snapshots, never wallet or reward records.
@@ -1791,6 +1792,7 @@ model GiftRecoverySnapshot {
   giftId String @id
   data Json
   createdAt DateTime @default(now())
+  @@index([createdAt])
 }
 
 model GiftRefund {
@@ -1878,6 +1880,31 @@ model LuckyGiftPool {
   paidOut   BigInt   @default(0)
   collected BigInt   @default(0)
   updatedAt DateTime @updatedAt
+}
+
+// Presentation-only settings and delivery receipts; never wallet records.
+model GlobalAnnouncementPolicy {
+  id String @id @default("GLOBAL")
+  rules Json
+  cooldownSeconds Int @default(10)
+  lifetimeSeconds Int @default(60)
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt
+}
+
+model GlobalAnnouncement {
+  id String @id
+  actorId String
+  type String
+  roomId String
+  payload Json?
+  sourceIds String[]
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  deliveredAt DateTime?
+  leaseUntil DateTime?
+  @@index([actorId, type, createdAt])
+  @@index([deliveredAt, expiresAt])
 }
 
 model CoinAdjustment {
