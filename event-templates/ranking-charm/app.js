@@ -49,12 +49,28 @@
       const mime = person?.[`${prefix}MimeType`];
       const url = mime && !mime.startsWith('image/')
         ? person?.[`${prefix}PosterUrl`] : person?.[`${prefix}Url`];
-      if (url) tag.append(image(url, 'level-background'));
+      if (url) {
+        tag.setAttribute('data-artwork','true');
+        const background=image(url, 'level-background');
+        background.addEventListener('error',()=>tag.setAttribute('data-artwork','false'),{once:true});
+        tag.append(background);
+      }
       tag.append(el('b', 'level-value', `${track === 'user' ? 'W' : 'C'} ${level}`));
       n.append(tag);
     }
-    if (person?.badgeUrl) n.append(image(person.badgeMimeType === 'application/svga' ? person.badgePosterUrl : person.badgeUrl));
     return n;
+  }
+  function badges(person) {
+    const strip=el('div','owned-badges');strip.setAttribute('aria-label','Owned badges');
+    const seen=new Set();
+    for(const badge of person?.ownedBadges ?? []){
+      if(strip.children.length>=5)break;
+      const key=badge.assetId||badge.url;if(!key||seen.has(key))continue;seen.add(key);
+      const url=badge.mimeType?.startsWith('image/')?badge.url:badge.posterUrl;
+      if(!url)continue;
+      const art=image(url,'owned-badge');art.alt=badge.name||'Badge';art.title=art.alt;strip.append(art);
+    }
+    return strip;
   }
   function identity(person) { const n = el('button'); n.type = 'button'; n.append(image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable')); n.onclick = () => person && notify({ type: 'ranking:open-profile', publicId: person.publicId }); return n; }
   function entryName(entry) {
@@ -79,16 +95,21 @@
   function score(value) { const amount=BigInt(value||'0');let label=amount.toLocaleString();for(const [base,suffix] of [[1000000000n,'B'],[1000000n,'M'],[1000n,'k']])if(amount>=base){label=`${amount/base}.${String((amount%base)*100n/base).padStart(2,'0')}${suffix}`;break;}const n = el('span', 'score', label);n.title=amount.toLocaleString()+' Coins'; const coin = image('/event/ranking-charm/assets/490ae.png', 'coin'); n.append(coin); return n; }
   function render() {
     $('entries').replaceChildren(); $('hero').replaceChildren();
-    if (type === 'agency') $('hero').append(image('/event/ranking-charm/assets/9b423.png', 'agency-logo'));
-    else if (entries[0] && type !== 'cp') { const h = el('div', 'featured'); h.append(image(entries[0].person?.profileImage, 'portrait', true), image('/event/ranking-charm/assets/b2851.png', 'hero-frame'), entryName(entries[0]), levels(entries[0].person)); $('hero').append(h); }
-    else if (entries[0]) { const h = el('div', 'couple'); for (const p of [entries[0].person, entries[0].partner]) { const n = el('div', 'person'); n.append(identity(p),image('/event/ranking-charm/assets/f8573.png','cp-frame'), levels(p)); h.append(n); } $('hero').append(h); }
-    let podium;
-    if (type !== 'cp' && entries.some(e => e.rank <= 3)) { podium = el('div', 'podium'); $('entries').append(podium); }
-    entries.forEach(e => {
-      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/ranking-charm/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`),score(e.score)); row.append(value); $('entries').append(row); return; }
-      if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/ranking-charm/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person)); if(type==='agency')n.append(el('div','meta',`${e.memberCount} hosts · ${e.id}`),image(`/event/ranking-charm/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); n.append(score(e.score)); podium.append(n); }
-      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person)); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details,score(e.score)); $('entries').append(n); }
-    }); $('more').hidden = nextOffset === null;
+    const podium=el('div','podium'); $('hero').append(podium);
+    for(const e of entries){
+      if(e.rank<=3){
+        const card=el('article',`podium-card place-${e.rank}`),art=el('button','art');
+        art.type='button';art.setAttribute('aria-label',`Open ${e.name}'s profile`);
+        art.onclick=()=>e.person?.publicId&&notify({type:'ranking:open-profile',publicId:e.person.publicId});
+        art.append(image(e.person?.profileImage,'portrait',true));
+        const frame=el('img','frame');frame.src=`assets/frame-${e.rank}.gif`;frame.alt=`Rank ${e.rank}`;art.append(frame);
+        card.append(art,entryName(e),el('span','public-id',e.person?.specialId||e.person?.publicId||e.id),levels(e.person),badges(e.person),score(e.score));podium.append(card);
+      }else{
+        const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e),levels(e.person),badges(e.person));
+        row.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details,score(e.score));$('entries').append(row);
+      }
+    }
+    $('more').hidden=nextOffset===null;
   }
   async function load(append = false) {
     renderRules();
@@ -104,5 +125,5 @@
   $('search').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(),350);};$('more').onclick=()=>load(true);$('retry').onclick=()=>load();$('back').onclick=()=>notify({type:'ranking:close'});$('rules').onclick=()=>$('rules-dialog').showModal();$('close-rules').onclick=()=>$('rules-dialog').close();$('rewards').onclick=()=>$('rewards-dialog').showModal();$('close-rewards').onclick=()=>$('rewards-dialog').close();
   setInterval(()=>{if(!resetAt)return;const seconds=Math.max(0,Math.floor((resetAt-Date.now()-clockOffset)/1000));$('countdown').textContent=`${Math.floor(seconds/86400)?Math.floor(seconds/86400)+'d ':''}${String(Math.floor(seconds/3600)%24).padStart(2,'0')} : ${String(Math.floor(seconds/60)%60).padStart(2,'0')} : ${String(seconds%60).padStart(2,'0')}`;if(!seconds){resetAt=0;load();}},1000);
   rewardsPanel.replaceChildren(el('p','','Open this event from Mega Live to view rewards.'));
-  filters();if(fixedTrack){$('tracks').replaceChildren(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));$('search').hidden=type!=='agency';}notify({type:'ranking:ready',version:1});
+  render();filters();if(fixedTrack){$('tracks').replaceChildren(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));$('search').hidden=type!=='agency';}notify({type:'ranking:ready',version:1});
 })();

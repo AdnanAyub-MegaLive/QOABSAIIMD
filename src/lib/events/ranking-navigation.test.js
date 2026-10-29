@@ -91,15 +91,15 @@ describe('ranking native navigation',()=>{
     expect(get('award-rules').textContent).toContain('Both CP partners');
     get('close-rules').onclick();expect(get('rules-dialog').open).toBe(false);
   });
-  it('uses animated GIF podium frames on the standalone Wealth page',async()=>{
-    const {get,flush}=await fixture('wealth',null,'','ranking-wealth');
+  it.each(['wealth','charm'])('uses animated GIF podium frames on the standalone %s page',async track=>{
+    const {get,flush}=await fixture(track,null,'','ranking-' + track);
     await flush();
     const frames=descendants(get('hero')).filter(n=>n.className==='frame');
     expect(frames.map(n=>n.src)).toEqual(['assets/frame-1.gif','assets/frame-2.gif','assets/frame-3.gif']);
     expect(descendants(get('entries')).filter(n=>n.className==='row')).toHaveLength(1);
   });
-  it('uses portal Wealth and Charm backgrounds for podium and list levels',async()=>{
-    const {get}=await fixture('wealth',null,'','ranking-wealth');
+  it.each(['wealth','charm'])('uses portal level backgrounds on the %s podium and list',async track=>{
+    const {get}=await fixture(track,null,'','ranking-' + track);
     for(const container of ['hero','entries']){
       const tags=descendants(get(container)).filter(n=>n.className?.startsWith('level-tag '));
       expect(tags.length).toBeGreaterThan(0);
@@ -110,8 +110,8 @@ describe('ranking native navigation',()=>{
       }
     }
   });
-  it('caps each Wealth ranking identity at five owned badges',async()=>{
-    const {get}=await fixture('wealth',null,'','ranking-wealth');
+  it.each(['wealth','charm'])('caps each %s ranking identity at five owned badges',async track=>{
+    const {get}=await fixture(track,null,'','ranking-' + track);
     const strips=[...descendants(get('hero')),...descendants(get('entries'))].filter(n=>n.className==='owned-badges');
     expect(strips).toHaveLength(4);
     for(const strip of strips){
