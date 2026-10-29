@@ -1,0 +1,48 @@
+/* Artwork supplied for the emerald and gold roulette table. */
+.roulette-design{background:radial-gradient(ellipse at 50% 28%,#007c5b 0,#00453d 36%,#001b21 70%,#001015 100%)!important;color:#fff4cf!important;padding:18px 14px 12px!important;position:relative;grid-template-rows:auto minmax(90px,1fr) auto auto!important;gap:5px!important}
+.roulette-design header:first-child{position:relative;align-items:flex-start;padding:14px 14px 0}
+.roulette-design header:first-child h1{font-size:clamp(28px,5vh,46px)!important;letter-spacing:-1.5px;font-weight:850;text-shadow:0 2px 1px #806221;margin:0!important}
+.roulette-design header:first-child small:first-child{display:none}
+.roulette-design header:first-child small{letter-spacing:0;font-size:12px;font-weight:700}
+.roulette-design .roulette-close{position:absolute;right:2px;top:0;width:88px!important;height:34px;font-size:15px!important;border:0!important;border-radius:0!important;background: url('/games/roulette/design/pill.png') center/125% 170% no-repeat!important}
+.roulette-design header:first-child>button:last-child{margin-top:42px;font-size:14px;width:25px;height:25px;min-height:25px}
+.roulette-design .shared-game-visuals{height:100%;width:100%;display:grid;place-items:end center}
+.roulette-design .roulette-wheel-frame{height:100%;max-height:330px;width:auto;aspect-ratio:1;position:relative;max-width:90%;margin:0 auto;filter:drop-shadow(0 6px 12px #0008)}
+.roulette-design .roulette-wheel-frame>img{width:100%;height:100%;object-fit:contain}
+.roulette-design .roulette-gold-pointer{position:absolute;z-index:3;top:-7%;left:43%;width:14%;height:21%;background:url('/games/roulette/design/pointer.png') center/270% 170% no-repeat;pointer-events:none}
+.roulette-design [role=status]{
+    justify-self:center;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    font-weight:700;
+    font-size:11px;
+    min-height:26px;
+    width:90%;
+    background: #011C1D;
+    padding:4px 12px;
+    border-radius: 100px;
+    border: 2px solid #44F6F5;
+}
+.roulette-timer-icon{width:20px;height:20px;background:url('/games/roulette/design/timer.png') center/145% 125% no-repeat;margin-right:5px}
+.roulette-design [role=status]>div{width:100%}
+.shared-betting-contents{display:contents}
+.roulette-betting-panel{background:url('/games/roulette/design/betting-panel-v2.png') center/100% 100% no-repeat; padding:16px 8px 8px;display:grid;gap:5px;min-width:0}
+.roulette-design div[class*="_table"]{background:transparent!important;border:0!important;box-shadow:none!important;padding:17px 13px 14px!important;border-radius:22px!important}
+.roulette-design div[class*="_markets"]{gap:7px!important}
+.roulette-design div[class*="_markets"]>button{background:url('/games/roulette/design/market.png') center/138% 126% no-repeat!important;border:0!important;border-radius:10px!important;min-height:65px!important;gap:0!important;padding:7px 0!important}
+.roulette-design div[class*="_markets"]>button b{font-size:clamp(17px,2.8vh,26px);line-height:1.1;font-weight:850}
+.roulette-design div[class*="_markets"]>button small{color:#ffe272;font-size:18px;line-height:1.1;font-weight:800}
+.roulette-design div[class*="_markets"]>button span{color:#c5dfca;font-size:10px}
+.roulette-design div[class*="_markets"]>button:disabled{opacity:.85!important}
+.roulette-design div[class*="_chips"]{gap:7px;padding:6px 0}
+.roulette-design div[class*="_chips"]>button{height:31px;min-height:31px;width:auto;min-width:38px;border-radius:20px;font-size:10px;border:1px solid #8eecc5;background:#004c3a}
+.roulette-design button[class*="_play"]{background:url('/games/roulette/design/action.png') center/114% 150% no-repeat!important;color:#fff6d6;border:0!important;padding:10px 19px;font-weight:800}
+.roulette-design footer{gap:5px;flex-wrap:wrap}
+.roulette-design footer>span{background:url('/games/roulette/design/pill.png') center/120% 170% no-repeat;padding:10px 15px 10px 42px;position:relative;font-size:11px}
+.roulette-design footer>span:before{content:'';position:absolute;left:8px;top:7px;width:30px;height:28px;background:url('/games/roulette/design/coins.png') center/135% 135% no-repeat}
+.roulette-design footer>span b{font-size:17px}
+.roulette-design footer>button{font-size:10px;min-height:28px;padding:3px 8px}
+.roulette-design footer>small{font-size:8px;width:100%;text-align:center}
+@media(max-height:650px){.roulette-design{padding:5px 8px!important}.roulette-design header:first-child{padding-top:0}.roulette-design header:first-child h1{font-size:27px!important}.roulette-design div[class*="_markets"]>button{min-height:49px!important}.roulette-design div[class*="_markets"]>button b{font-size:17px}.roulette-design div[class*="_markets"]>button small{font-size:14px}.roulette-design div[class*="_table"]{padding:12px 10px!important}.roulette-design footer>span{padding-top:5px;padding-bottom:5px}.roulette-design header:first-child>button:last-child{margin-top:32px}}
