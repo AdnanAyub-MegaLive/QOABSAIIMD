@@ -4,7 +4,7 @@ import { WalletTransactionType } from "@prisma/client";
 const mocks = vi.hoisted(() => ({ db: {}, emit: vi.fn(), rows: [], ledger: [] }));
 vi.mock("@/lib/currency-policy",async()=>({...await import("./currency-policy.js"),currencyPolicy:async()=>({version:1,rules:{giftBasis:"GROSS",giftDiamondsNumerator:"1",giftCoinsDenominator:"1"}})}));
 vi.mock("@/lib/live-commerce", () => ({ getLiveCommerceRule: async () => ({ hostShareBps: 4000, agencyShareBps: 2000, companyShareBps: 4000, version: 1 }), applyLiveGiftReward: async () => {} }));
-vi.mock("@/lib/gift-operation", () => ({ giftOperation: () => ({}), priorGiftOperation: async () => null, runGiftOperation: async (_id,_operation,work) => work(mocks.db), flushRealtimeOutbox: async () => {} }));
+vi.mock("@/lib/gift-operation", () => ({ giftContentionKeys: recipients => recipients.map(r => r.id), giftOperation: () => ({}), priorGiftOperation: async () => null, runGiftOperation: async (_id,_operation,work) => work(mocks.db), flushRealtimeOutbox: async () => {} }));
 vi.mock("@/lib/progression", () => ({ awardGiftProgress: async () => null, publicProgression: async () => new Map(), appendOutbox: async (_tx,_channel,event,data) => mocks.emit(_channel,event,{success:true,data}) }));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.db }));
 vi.mock("@/lib/mobile-api", () => ({

@@ -38,18 +38,25 @@ export async function priorGiftOperation(senderId, operation, db=prisma) {
 export async function runGiftOperation(senderId,operation,work,db=prisma) {
   const timing = realtimeTiming('gift');
   timing('operation_received');
-  // Avoid conflicting snapshots for simultaneous taps from the same sender.
-  // This is process-local scheduling only; Serializable and conditional debits
-  // remain authoritative across processes and for different senders.
+  // Reserve all affected accounts before opening a database snapshot. Different
+  // senders crediting the same recipient otherwise repeatedly abort/retry.
+  // These are server-resolved IDs, never request-body scheduling keys. Database
+  // isolation and conditional debits remain authoritative across processes.
   const queues = globalThis[Symbol.for("portal.giftSenderQueues")] ??= new Map();
-  const previous = queues.get(senderId) ?? Promise.resolve();
+  const keys = [...new Set([senderId, ...(operation.contentionKeys ?? [])])];
+  const previous = Promise.all(keys.map(key => queues.get(key) ?? Promise.resolve()));
   let release;
   const gate = new Promise(resolve => { release = resolve; });
   const tail = previous.then(() => gate);
-  queues.set(senderId, tail);
+  // Reserve synchronously, as one operation: crossed A→B / B→A sends cannot
+  // acquire half the keys each and deadlock.
+  for (const key of keys) queues.set(key, tail);
   await previous;
   try { return await executeGiftOperation(senderId, operation, work, db, timing); }
-  finally { release(); if (queues.get(senderId) === tail) queues.delete(senderId); }
+  finally { release(); for (const key of keys) if (queues.get(key) === tail) queues.delete(key); }
+}
+export function giftContentionKeys(recipients) {
+  return [...new Set(recipients.flatMap(user => [user.id, ...(user.agencyId ? [`agency:${user.agencyId}`] : [])]))];
 }
 async function executeGiftOperation(senderId,operation,work,db,timing) {
   timing('queued_operation_started');
@@ -82,6 +89,7 @@ async function executeGiftOperation(senderId,operation,work,db,timing) {
     return committed;
   } catch(error) {
     if (!isRetryableGiftConflict(error)) throw error;
+    timing(`transaction_conflict_${attempt + 1}`);
     if (attempt === 3) throw Object.assign(new Error("Gift is busy. Retry with the same request ID."), { code: "GIFT_RETRY_REQUIRED", cause: error });
     // Wait outside the rolled-back transaction; stagger competing combo taps.
     await retryDelay(25 * 2 ** attempt + Math.floor(Math.random() * 25));

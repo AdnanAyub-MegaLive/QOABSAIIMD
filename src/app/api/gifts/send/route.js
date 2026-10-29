@@ -1,6 +1,6 @@
 import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
-import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
+import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { currencyPolicy } from "@/lib/currency-policy";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
@@ -137,6 +137,7 @@ export async function POST(request) {
     }
 
     const senderArtwork = await resolveGiftSender(sessionUser, requestOrigin(request));
+    operation.contentionKeys = giftContentionKeys([recipientUser]);
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
       let recoveryPk;
       await assertGiftRecipient(tx, recipientUser);

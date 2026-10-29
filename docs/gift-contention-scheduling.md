@@ -1,0 +1,11 @@
+# Concurrent gift settlement
+
+Gift operations now reserve the sender, server-resolved recipient account IDs and recipient agencies before opening a Serializable transaction. Single sends, multi-recipient sends (including Lucky) and backpack sends use the same scheduler. Reservations are acquired together and released after success or failure, so crossed sends cannot deadlock in the scheduler. Unrelated accounts and agencies continue concurrently.
+
+This prevents common-recipient/agency writes from starting competing snapshots in the same server process. Previously those transactions could abort and repeat the entire financial operation, including retry backoff. Idempotency fingerprints and saved results are unchanged. Conditional wallet/inventory debits, Serializable isolation, transaction rollback, recovery records, Lucky odds and pool accounting remain unchanged. No migration or mobile change is required.
+
+With `REALTIME_TIMINGS=true`, gift timing logs now include `transaction_conflict_1` through `transaction_conflict_4`, alongside queue-start and commit timing. Use these to distinguish queue wait, transaction execution and retries after deployment.
+
+Validation: 69 tests passed across gift postcommit, route batch, currency settlement, Lucky, query reuse and refund suites. A simulated optimistic-transaction test covers 250 sends from five senders to one recipient, replay of all 250, exact debits/credits and overspending rejection. Additional tests cover crossed recipient sets, release after failure and independent sends while a shared recipient is busy. These are isolated tests, not a production latency benchmark or a real PostgreSQL load test.
+
+Deployment and production verification are pending. This is process-local contention avoidance, not a replacement for database protection. Separate server processes can still conflict and use the existing retries. The shared Lucky pool still serializes pool updates until commit; this change does not eliminate that constraint or promise a specific response-time ceiling. Measure normal and Lucky concurrent sends after deployment before claiming the remaining latency is fully resolved. No existing users, balances, gifts or historical rewards were modified.

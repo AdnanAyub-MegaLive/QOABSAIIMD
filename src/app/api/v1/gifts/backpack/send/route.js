@@ -1,6 +1,6 @@
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
 import { currencyPolicy } from "@/lib/currency-policy";
-import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
+import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, giftJson as mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
@@ -35,6 +35,7 @@ export async function POST(request) {
     const gross = gift.coinPrice * BigInt(quantity), host = recipient.appRoles.includes("HOST");
     if (host && !recipient.agencyId) throw new Error("HOST_AGENCY_REQUIRED");
     const senderArtwork = await resolveGiftSender(sender, requestOrigin(request));
+    operation.contentionKeys = giftContentionKeys([recipient]);
     const response = await runGiftOperation(sender.id,operation,async (tx) => {
       await assertGiftRecipient(tx, recipient);
       const emitToAudioRoom=(id,event,payload)=>appendOutbox(tx,`audio-room:${id}`,event,payload.data);

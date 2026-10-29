@@ -1,6 +1,6 @@
 import { currencyPolicy } from '@/lib/currency-policy';
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from '@/lib/gift-currency-settlement';
-import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from '@/lib/gift-operation';
+import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from '@/lib/gift-operation';
 import { awardGiftProgress, appendOutbox, publicProgression } from '@/lib/progression';
 import { parseGiftBatchId } from '@/lib/gift-batch';
 import { prisma } from '@/lib/prisma';
@@ -45,6 +45,7 @@ export async function POST(request) {
     const byId = new Map(rows.map(row => [row.publicId, row])), recipients = ids.map(id => byId.get(id));
     const each = gift.coinPrice * BigInt(quantity), total = each * BigInt(ids.length), itemCount = quantity * ids.length;
     const senderArtwork = await resolveGiftSender(sender, origin);
+    operation.contentionKeys = giftContentionKeys(recipients);
     const response = await runGiftOperation(sender.id, operation, async tx => {
       for (const recipient of recipients) await assertGiftRecipient(tx, recipient);
       if (backpack) {

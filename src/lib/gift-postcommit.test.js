@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("./progression.js", () => ({ jsonSafe: value => value }));
 vi.mock("./gift-refunds.js", () => ({ recordGiftRecovery: vi.fn() }));
-import { runGiftOperation, isRetryableGiftConflict, giftOperation } from "./gift-operation.js";
+import { runGiftOperation, isRetryableGiftConflict, giftOperation, giftContentionKeys } from "./gift-operation.js";
 import { captureGiftEvent, giftEventTiming, rememberGiftRecovery } from "./gift-outbox-context.js";
 import { recordGiftRecovery } from './gift-refunds.js';
 it('fingerprints backpack funding separately from paid multi sends',()=>{
@@ -16,6 +16,52 @@ it('snapshots each multi-recipient Lucky reward instead of the aggregate',async(
  expect(recordGiftRecovery.mock.calls.map(c=>c[2].luckyCoins)).toEqual([100n,200n]);
 });
 afterEach(() => { delete globalThis.portalIo; });
+it('coordinates shared recipients and agencies using resolved IDs', () => {
+ expect(giftContentionKeys([{id:'a',agencyId:'agency'}, {id:'b',agencyId:'agency'}, {id:'a'}])).toEqual(['a','agency:agency','b']);
+});
+it('starts shared-recipient snapshots after commit while unrelated sends continue', async () => {
+ const db=database(()=>{}); let release, started;
+ const ready=new Promise(r=>{started=r;}); const gate=new Promise(r=>{release=r;});
+ const first=runGiftOperation('shared-a',{key:'a',fingerprint:'a',contentionKeys:['shared-r']},async()=>{started();await gate;return {};},db);
+ await ready;
+ const second=runGiftOperation('shared-b',{key:'b',fingerprint:'b',contentionKeys:['shared-r']},async()=>({done:true}),db);
+ await runGiftOperation('unrelated',{key:'c',fingerprint:'c',contentionKeys:['other-r']},async()=>({}),db);
+ expect(db.$transaction).toHaveBeenCalledTimes(2);
+ release(); await first; await expect(second).resolves.toEqual({done:true});
+ expect(db.$transaction).toHaveBeenCalledTimes(3);
+});
+it('handles crossed multi-recipient sends and releases every reservation on failure', async()=>{
+ const db=database(()=>{}); let active=0,peak=0;
+ const send=async()=>{active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,1));active--;return {};};
+ await Promise.all(Array.from({length:50},(_,i)=>runGiftOperation(i%2?'cross-a':'cross-b',{key:String(i),fingerprint:String(i),contentionKeys:i%2?['cross-b','cross-c']:['cross-c','cross-a']},send,db)));
+ expect(peak).toBe(1);expect(db.$transaction).toHaveBeenCalledTimes(50);
+ await expect(runGiftOperation('cross-a',{key:'fail',fingerprint:'fail',contentionKeys:['cross-b']},async()=>{throw Error('rollback');},db)).rejects.toThrow('rollback');
+ await runGiftOperation('cross-b',{key:'next',fingerprint:'next',contentionKeys:['cross-a']},send,db);
+ expect(globalThis[Symbol.for('portal.giftSenderQueues')].size).toBe(0);
+});
+it('settles 250 contending sends once each without stale snapshots or extra debits on replay', async()=>{
+ // Isolated optimistic transaction model: a shared-recipient revision change
+ // invalidates a snapshot, as concurrent Serializable updates do in Postgres.
+ let revision=0, conflicts=0, received=0n;
+ const balances=new Map(Array.from({length:5},(_,i)=>[`burst-${i}`,500n]));
+ const saved=new Map(); const db=database(()=>{});
+ db.$transaction=async fn=>{
+  const snapshot=revision, pending=new Map(), staged=new Map(balances);let credit=0n;
+  const tx={giftRequest:{findUnique:async({where})=>saved.get(JSON.stringify(where.senderId_key)),create:async({data})=>({id:JSON.stringify({senderId:data.senderId,key:data.key}),...data}),update:async({where,data})=>pending.set(where.id,{fingerprint:'burst',result:data.result})},
+   charge:async sender=>{if(staged.get(sender)<10n)throw Error('INSUFFICIENT_COINS');staged.set(sender,staged.get(sender)-10n);credit+=10n;await new Promise(r=>setTimeout(r,0));}};
+  const result=await fn(tx);
+  if(snapshot!==revision){conflicts++;throw {code:'P2034'};}
+  if(pending.size){revision++;for(const [k,v] of staged)balances.set(k,v);for(const [k,v] of pending)saved.set(k,v);received+=credit;}
+  return result;
+ };
+ const sends=Array.from({length:250},(_,i)=>({sender:`burst-${i%5}`,operation:{key:`tap-${i}`,fingerprint:'burst',contentionKeys:['burst-recipient']}}));
+ const send=({sender,operation})=>runGiftOperation(sender,operation,async tx=>{await tx.charge(sender);return {accepted:true};},db);
+ await Promise.all(sends.map(send));await Promise.all(sends.map(send));
+ expect(conflicts).toBe(0);expect(saved.size).toBe(250);expect(received).toBe(2500n);
+ expect([...balances.values()]).toEqual([0n,0n,0n,0n,0n]);
+ await expect(send({sender:'burst-0',operation:{key:'overspend',fingerprint:'burst',contentionKeys:['burst-recipient']}})).rejects.toThrow('INSUFFICIENT_COINS');
+ expect(saved.size).toBe(250);expect(received).toBe(2500n);
+});
 it('reuses same-transaction recovery inputs without rereading gift records',async()=>{
  const db=database(()=>{});const gift={id:'known-gift'},settlement={recipientDiamonds:100n};
  db.giftTransaction={findUniqueOrThrow:vi.fn()};recordGiftRecovery.mockClear();
