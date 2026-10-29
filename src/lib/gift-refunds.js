@@ -8,9 +8,9 @@ import { getRoomGiftLeaderboard } from "./gift-leaderboard.js";
 const error = (message, status=409) => Object.assign(new Error(message), {status});
 
 // Capture original effects inside the send transaction, never infer past prices.
-export async function recordGiftRecovery(tx, gift, {source, luckyCoins=0n, rewardAssetId=null, live=false} = {}) {
-  const settlement = await tx.giftSettlement.findUnique({where:{giftTransactionId:gift.id}});
-  const pk = gift.roomId ? await tx.audioRoomPkSession.findFirst({where:{status:"LIVE",OR:[{leftRoom:{roomId:gift.roomId}},{rightRoom:{roomId:gift.roomId}}]},select:{id:true}}) : null;
+export async function recordGiftRecovery(tx, gift, {source, luckyCoins=0n, rewardAssetId=null, live=false, settlement:knownSettlement, pk:knownPk} = {}) {
+  const settlement = knownSettlement ?? await tx.giftSettlement.findUnique({where:{giftTransactionId:gift.id}});
+  const pk = knownPk !== undefined ? knownPk : gift.roomId ? await tx.audioRoomPkSession.findFirst({where:{status:"LIVE",OR:[{leftRoom:{roomId:gift.roomId}},{rightRoom:{roomId:gift.roomId}}]},select:{id:true}}) : null;
   await tx.giftRecoverySnapshot.create({data:{giftId:gift.id,data:jsonSafe({version:1,source,senderId:gift.senderId,recipientId:gift.recipientUserId,
     coins:gift.coinValue,diamonds:settlement?.recipientDiamonds,agencyId:settlement?.agencyId,agencyCoins:settlement?.agencyCoins,
     giftAssetId:gift.giftAssetId,quantity:gift.quantity,talentId:gift.talentId,luckyCoins,rewardAssetId,

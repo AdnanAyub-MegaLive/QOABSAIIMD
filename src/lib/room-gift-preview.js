@@ -1,4 +1,5 @@
 import { giftMedia } from './gift-media.js';
+import { randomUUID } from 'node:crypto';
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 // Ephemeral visual feedback only. Never use this event for balances, rewards,
 // chat history, rankings or a settlement receipt. Old clients simply ignore it.
@@ -33,21 +34,29 @@ export async function roomGiftPreview(db, socket, user, input, origin, now = Dat
 export function registerRoomGiftPreviews({db,socket,user,origin,now=Date.now}) {
   const seen=new Map();let windowAt=0,count=0,inFlight=0;
   socket.on('audio-room:gift-preview',async(input={},ack=()=>{})=>{
+    const reply = value => { if(typeof ack==='function')ack(value); };
+    let key;
     try {
       const at=now();
       if(at-windowAt>=1000){windowAt=at;count=0;}
-      if(++count>30 || inFlight>=8) return;
+      if(++count>30 || inFlight>=8) return reply({success:false,error:{code:'PREVIEW_RATE_LIMITED'}});
       for(const [key,time] of seen) if(at-time>60000)seen.delete(key);
-      const key=input.giftBatchId;
-      if(typeof key!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(key) || seen.has(key))return;
+      // A batch identifies the whole combo, NOT a tap. Older apps without a
+      // per-tap ID still get each preview; never deduplicate by batch alone.
+      const tapId=input.previewId ?? input.requestId;
+      if(tapId!=null && (typeof tapId!=='string'||!/^[A-Za-z0-9._:-]{1,128}$/.test(tapId)))fail('VALIDATION_ERROR');
+      key=tapId==null?null:JSON.stringify([input.roomId,tapId]);
+      if(key && seen.has(key))return reply({success:true,data:{duplicate:true,previewId:tapId}});
       while(seen.size>=512)seen.delete(seen.keys().next().value);
-      seen.set(key,at);inFlight++;
+      if(key)seen.set(key,at);inFlight++;
       try {
         const data=await roomGiftPreview(db,socket,user,input,origin,at);
-        if(now()-at>3000)return;
+        if(now()-at>3000){if(key)seen.delete(key);return reply({success:false,error:{code:'PREVIEW_EXPIRED'}});}
+        data.previewId=tapId??randomUUID();
+        data.transactionId=`preview:${data.previewId}`;
         socket.to(`audio-room:${data.roomId}`).volatile.emit('audio-room:gift-preview',{success:true,data});
-        if(typeof ack==='function')ack({success:true});
+        reply({success:true,data:{previewId:data.previewId,giftBatchId:data.giftBatchId,expiresAt:data.expiresAt}});
       } finally {inFlight--;}
-    } catch(error) {if(typeof ack==='function')ack({success:false,error:{code:error.code ?? 'PREVIEW_UNAVAILABLE'}});}
+    } catch(error) {if(key)seen.delete(key);reply({success:false,error:{code:error.code ?? 'PREVIEW_UNAVAILABLE'}});}
   });
 }

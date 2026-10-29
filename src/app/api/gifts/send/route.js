@@ -1,3 +1,4 @@
+import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { currencyPolicy } from "@/lib/currency-policy";
@@ -137,6 +138,7 @@ export async function POST(request) {
 
     const senderArtwork = await resolveGiftSender(sessionUser, requestOrigin(request));
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
+      let recoveryPk;
       await assertGiftRecipient(tx, recipientUser);
       const chat = conversationId ? await requireChatGiftTarget(tx, conversationId, sessionUser.id, recipientUser.id) : null;
       if (live && !(await tx.videoLiveSession.findFirst({ where: { id: live.id, status: "LIVE" } }))) throw Object.assign(new Error("Live session has ended."), { code: "LIVE_NOT_FOUND" });
@@ -273,7 +275,7 @@ export async function POST(request) {
       });
       const liveTotals = live ? await tx.videoLiveSession.update({ where: { id: live.id }, data: { giftIncome: { increment: grossCoins }, revision: { increment: 1 } }, select: { giftIncome: true, revision: true } }) : null;
       if (live) await applyLiveGiftReward(tx, live, sessionUser.id, grossCoins);
-      const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:receivedDiamonds,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request)});
+      const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:receivedDiamonds,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request),settlement});
       const result = { gift, settlement, sender, luckyRewardCoins, luckyOutcome, liveTotals, progression };
 
     const origin = requestOrigin(request);
@@ -324,6 +326,7 @@ export async function POST(request) {
       await emitToAudioRoom(roomId, "gift:received", realtimePayload);
       try {
         const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoom: { roomId } }, { rightRoom: { roomId } }] }, include: { leftRoom: true, rightRoom: true } });
+        recoveryPk = pk;
         if (pk) {
           const side = pk.leftRoom.roomId === roomId ? "leftScore" : "rightScore";
           const updatedPk = await tx.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: grossCoins }, revision: { increment: 1 } } });
@@ -342,6 +345,7 @@ export async function POST(request) {
       }
     } else if (!liveId) await emitToUser(recipientId, "gift:received", realtimePayload);
 
+    rememberGiftRecovery(tx, result.gift, result.settlement, recoveryPk);
     return (
       {
         success: true,

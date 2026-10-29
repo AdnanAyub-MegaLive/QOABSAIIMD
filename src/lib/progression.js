@@ -75,11 +75,11 @@ export async function resolveGiftProgressRecipient(tx, gift, recipient) {
   // Exact canonical identity only. Never match names/email/phone or numeric suffixes.
   return talent ? tx.user.findFirst({ where: { publicId: talent.publicId, deletedAt: null }, select: { id: true, publicId: true } }) : null;
 }
-export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,credit,revealed=0n,reward=0n,recipientType,origin}) {
+export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,credit,revealed=0n,reward=0n,recipientType,origin,settlement:knownSettlement}) {
   // USER is Wealth Level: only gift sends qualify. CHARM belongs to the
   // recipient of that gift. Recharge, transfers, purchases and tasks cannot award XP.
   if (!["PAID", "BACKPACK", "LUCKY", "BLIND_BOX"].includes(source)) return null;
-  const settlement = await tx.giftSettlement.findUnique({ where: { giftTransactionId: gift.id } });
+  const settlement = knownSettlement ?? await tx.giftSettlement.findUnique({ where: { giftTransactionId: gift.id } });
   if (settlement?.recipientType === "HOST") await awardActivityXp(tx, "AGENCY", settlement.agencyId, gift.id, settlement.recipientDiamonds);
   const active=await currentConfiguration(tx);
   if (!active?.enabled) return null;

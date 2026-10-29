@@ -60,10 +60,12 @@ async function executeGiftOperation(senderId,operation,work,db) {
       if (events.comboTiming) payload.comboTiming = events.comboTiming;
       const giftIds=payload.transactionIds??(payload.transactionId?[payload.transactionId]:[]);
       for(const id of giftIds){
-        const gift=await tx.giftTransaction.findUniqueOrThrow({where:{id}});
+        const cached=events.recoveryInputs?.get(id);
+        const known=cached?.tx===tx?cached:null;
+        const gift=known?.gift??await tx.giftTransaction.findUniqueOrThrow({where:{id}});
         const reward=payload.revealedGift?.publicId?await tx.uploadAsset.findUnique({where:{publicId:payload.revealedGift.publicId},select:{id:true}}):null;
         const recipientResult = payload.recipients?.find(row => row.transactionId === id);
-        await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId)});
+        await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk});
       }
       await tx.giftRequest.update({where:{id:request.id},data:{result}});
       return result;

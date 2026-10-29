@@ -22,9 +22,27 @@ it('rejects outsiders, unseated recipients, invalid gifts and invalid quantities
 });
 it('deduplicates taps, uses volatile delivery and never relays to the sending socket',async()=>{
  const f=fixture();registerRoomGiftPreviews({...f,origin:'https://portal.test',now:()=>1000});const handler=f.socket.on.mock.calls[0][1];
- await handler(f.input);await handler(f.input);
+ await handler({...f.input,previewId:'tap-1'});await handler({...f.input,previewId:'tap-1'});
  expect(f.emit).toHaveBeenCalledTimes(1);expect(f.socket.to).toHaveBeenCalledWith('audio-room:r');
  expect(f.emit.mock.calls[0][0]).toBe('audio-room:gift-preview');
+});
+it('relays every tap sharing a combo batch and acknowledges duplicates',async()=>{
+ const f=fixture();registerRoomGiftPreviews({...f,origin:'',now:()=>1000});const handler=f.socket.on.mock.calls[0][1],ack=vi.fn();
+ await handler({...f.input,previewId:'tap-1'},ack);await handler({...f.input,previewId:'tap-2'},ack);await handler({...f.input,previewId:'tap-2'},ack);
+ expect(f.emit).toHaveBeenCalledTimes(2);expect(ack).toHaveBeenCalledTimes(3);expect(ack.mock.calls[2][0]).toMatchObject({success:true,data:{duplicate:true}});
+});
+it('does not drop legacy taps with a shared batch and no per-tap ID',async()=>{
+ const f=fixture();registerRoomGiftPreviews({...f,origin:'',now:()=>1000});const handler=f.socket.on.mock.calls[0][1];
+ await handler(f.input);await handler(f.input);expect(f.emit).toHaveBeenCalledTimes(2);
+ expect(f.emit.mock.calls[0][1].data.previewId).not.toBe(f.emit.mock.calls[1][1].data.previewId);
+});
+it('acknowledges throttled previews and allows retry after a failed validation lookup',async()=>{
+ const f=fixture();registerRoomGiftPreviews({...f,origin:'',now:()=>1000});const handler=f.socket.on.mock.calls[0][1],ack=vi.fn();
+ f.db.uploadAsset.findFirst.mockResolvedValueOnce(null);
+ await handler({...f.input,previewId:'retry'},ack);await handler({...f.input,previewId:'retry'},ack);
+ expect(ack.mock.calls[0][0].success).toBe(false);expect(ack.mock.calls[1][0].success).toBe(true);
+ for(let i=0;i<30;i++)await handler({...f.input,previewId:`tap-${i}`},ack);
+ expect(ack.mock.calls.at(-1)[0]).toMatchObject({success:false,error:{code:'PREVIEW_RATE_LIMITED'}});
 });
 it('drops stale previews and caps a burst',async()=>{
  const f=fixture();let time=1000;registerRoomGiftPreviews({...f,origin:'',now:()=>time});const handler=f.socket.on.mock.calls[0][1];

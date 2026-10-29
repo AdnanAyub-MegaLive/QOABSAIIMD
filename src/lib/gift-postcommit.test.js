@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 vi.mock("./progression.js", () => ({ jsonSafe: value => value }));
 vi.mock("./gift-refunds.js", () => ({ recordGiftRecovery: vi.fn() }));
 import { runGiftOperation, isRetryableGiftConflict, giftOperation } from "./gift-operation.js";
-import { captureGiftEvent, giftEventTiming } from "./gift-outbox-context.js";
+import { captureGiftEvent, giftEventTiming, rememberGiftRecovery } from "./gift-outbox-context.js";
 import { recordGiftRecovery } from './gift-refunds.js';
 it('fingerprints backpack funding separately from paid multi sends',()=>{
  const body={giftId:'AST-1',recipientIds:['USR-A'],roomId:'ROOM-1'};
@@ -16,6 +16,15 @@ it('snapshots each multi-recipient Lucky reward instead of the aggregate',async(
  expect(recordGiftRecovery.mock.calls.map(c=>c[2].luckyCoins)).toEqual([100n,200n]);
 });
 afterEach(() => { delete globalThis.portalIo; });
+it('reuses same-transaction recovery inputs without rereading gift records',async()=>{
+ const db=database(()=>{});const gift={id:'known-gift'},settlement={recipientDiamonds:100n};
+ db.giftTransaction={findUniqueOrThrow:vi.fn()};recordGiftRecovery.mockClear();
+ await runGiftOperation('cached-recovery',{key:'cached',fingerprint:'cached'},async tx=>{
+  rememberGiftRecovery(tx,gift,settlement,null);return {transactionId:gift.id,luckyRewardCoins:'10'};
+ },db);
+ expect(db.giftTransaction.findUniqueOrThrow).not.toHaveBeenCalled();
+ expect(recordGiftRecovery).toHaveBeenCalledWith(db,gift,expect.objectContaining({settlement,pk:null,luckyCoins:10n}));
+});
 function database(commit) {
   const db = { giftRequest: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ id: "request" }), update: vi.fn() }, realtimeOutbox: { updateMany: vi.fn() } };
   db.$transaction = vi.fn(async fn => { const result = await fn(db); await commit(); return result; }); return db;

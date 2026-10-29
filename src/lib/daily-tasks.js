@@ -65,6 +65,9 @@ export async function getDailyTasksOverview(user,now=new Date(),origin=null){
 // Trusted server events only. Multiple definitions may share one progress source.
 export async function addDailyTaskProgress(userId,type,amount,now=new Date(),db=prisma){
  if(!Number.isSafeInteger(amount)||amount<=0)return;
+ // These metrics are derived from committed, non-reversed gifts at read/claim
+ // time. They never increment instances here, so do not query definitions.
+ if(["SEND_GIFTS","TOP_SUPPORTER"].includes(type))return;
  const definitions=await db.dailyTaskDefinition.findMany({where:{...enabled,OR:[{metric:type},{metric:null,type}]}});
  for(const d of definitions){
   // Gift progress is recomputed from non-reversed transactions, never incremental claims.
