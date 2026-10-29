@@ -5,8 +5,8 @@ describe("audio room permission matrix", () => {
   it("gives owners every room-management capability", () => {
     expect(Object.values(roomPermissions.OWNER).every(Boolean)).toBe(true);
   });
-  it("lets delegated admins moderate, seats and chat without changing privacy or roles", () => {
-    expect(permissionsForRole("ADMIN")).toMatchObject({ canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageMusicCatalog: false, canManageRoles: false });
+  it("lets delegated admins manage room music and its catalogue without managing roles", () => {
+    expect(permissionsForRole("ADMIN")).toMatchObject({ canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageMusicCatalog: true, canManageRoles: false });
     expect(permissionsForRole("OWNER")).toMatchObject({ canManageMusic: true, canManageMusicCatalog: true });
   });
   it("fails closed for unknown roles", () => {

@@ -4,7 +4,7 @@ import { resolveUserPerks } from "./user-perks.js";
 
 export const roomPermissions = Object.freeze({
   OWNER: { canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageMusicCatalog: true, canManageRoles: true },
-  ADMIN: { canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageMusicCatalog: false, canManageRoles: false },
+  ADMIN: { canModerateMembers: true, canManageSeats: true, canManageChat: true, canManagePrivacy: true, canManageMusic: true, canManageMusicCatalog: true, canManageRoles: false },
   MEMBER: { canModerateMembers: false, canManageSeats: false, canManageChat: false, canManagePrivacy: false, canManageMusic: false, canManageMusicCatalog: false, canManageRoles: false },
 });
 
