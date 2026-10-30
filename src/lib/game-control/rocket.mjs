@@ -31,5 +31,5 @@ export function rocketCashoutResult(entry, now, crashCents) {
   if (now >= rocketCrashAt(entry.day, entry.slot, crashCents)) throw new Error("The rocket has crashed. Cash-out is closed.");
   const cents = rocketMultiplierCents(launchesAt, flightMs, now, rocketMaxMultiplier(entry.day.settings));
   const stake = BigInt(entry.amount), payout = stake * BigInt(cents) / 100n;
-  return { currency: entry.input.currency === "COINS" ? "COINS" : "PLAY_POINTS", bet: Number(stake), payout: Number(payout), outcome: payout > stake ? "win" : payout === stake ? "push" : "loss", result: `Cashed out at ${(cents / 100).toFixed(2)}×`, cashedOut: true, cashoutMultiplier: cents / 100, cashoutAt: now };
+  return { currency: entry.input.currency === "COINS" ? "COINS" : "PLAY_POINTS", bet: Number(stake), payout: payout <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(payout) : payout.toString(), outcome: payout > stake ? "win" : payout === stake ? "push" : "loss", result: `Cashed out at ${(cents / 100).toFixed(2)}×`, cashedOut: true, cashoutMultiplier: cents / 100, cashoutAt: now };
 }

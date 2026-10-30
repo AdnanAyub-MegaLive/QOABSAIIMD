@@ -560,9 +560,9 @@ export default function Portal() {
                             <b>2–36×</b>
                           </div>
                           <div>
-                            <small>Bet range</small>
+                            <small>Spending limit</small>
                             <b>
-                              {fmt(game.minBet)}–{fmt(game.maxBet)}
+                              Balance only
                             </b>
                           </div>
                         </div>
@@ -577,9 +577,9 @@ export default function Portal() {
                             <b>{game.engine === "rocket" ? "Cash-out" : miniGames[game.engine] ? "Coins" : `${game.payoutMultiplier}×`}</b>
                           </div>
                           <div>
-                            <small>Bet range</small>
+                            <small>Spending limit</small>
                             <b>
-                              {fmt(game.minBet)}–{fmt(game.maxBet)}
+                              Balance only
                             </b>
                           </div>
                         </div>
@@ -1218,7 +1218,7 @@ function MiniEditor({ game, onClose, onSave }) {
 }
 function StandardMiniEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState(game), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  return <Modal title={`Configure ${game.name}`} onClose={onClose}><form onSubmit={async e => { e.preventDefault(); setBusy(true); try { await onSave(form); } catch (err) { setError(err.message); } finally { setBusy(false); } }}><div className="modal-body"><CoinButtonFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><OutcomeWeightFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><p>{configurableRules[game.engine] || miniGames[game.engine].help}</p><p>Automatic application-wide rounds using the application coin wallet. Rule changes take effect at the next round; pausing stops new bets immediately.</p><div className="form-grid"><label>Name<input required maxLength={60} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label><label>Availability<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="paused">Paused</option><option value="active">Active</option></select></label>{["minBet", "maxBet"].map(field => <label key={field}>{field === "minBet" ? "Minimum coins" : "Maximum coins"}<input type="number" min={1} max={100000000} required value={form[field]} onChange={e => setForm({ ...form, [field]: Number(e.target.value) })} /></label>)}{!miniGames[game.engine].fixedPayout&&<label>Winning return (includes stake)<input type="number" min={1} max={100} step={0.01} required value={form.pointReturnMultiplier??(game.engine==="dice"?6:2)} onChange={e=>setForm({...form,pointReturnMultiplier:Number(e.target.value)})} /></label>}{game.engine==="reaction"&&<label>Reaction target (milliseconds)<input type="number" min={100} max={5000} required value={form.reactionWindowMs??1000} onChange={e=>setForm({...form,reactionWindowMs:Number(e.target.value)})} /></label>}</div><p>Skill outcomes remain based on correct answers and timing. Random outcomes use the configured weights, shared across all rooms for new rounds.</p>{error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? "Saving…" : "Save game"}</button></div></form></Modal>;
+  return <Modal title={`Configure ${game.name}`} onClose={onClose}><form onSubmit={async e => { e.preventDefault(); setBusy(true); try { await onSave(form); } catch (err) { setError(err.message); } finally { setBusy(false); } }}><div className="modal-body"><CoinButtonFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><OutcomeWeightFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} /><p>{configurableRules[game.engine] || miniGames[game.engine].help}</p><p>Automatic application-wide rounds using the application coin wallet. Rule changes take effect at the next round; pausing stops new bets immediately.</p><div className="form-grid"><label>Name<input required maxLength={60} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label><label>Availability<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="paused">Paused</option><option value="active">Active</option></select></label><p>Players may spend any whole-coin amount up to their available balance.</p>{!miniGames[game.engine].fixedPayout&&<label>Winning return (includes stake)<input type="number" min={1} max={100} step={0.01} required value={form.pointReturnMultiplier??(game.engine==="dice"?6:2)} onChange={e=>setForm({...form,pointReturnMultiplier:Number(e.target.value)})} /></label>}{game.engine==="reaction"&&<label>Reaction target (milliseconds)<input type="number" min={100} max={5000} required value={form.reactionWindowMs??1000} onChange={e=>setForm({...form,reactionWindowMs:Number(e.target.value)})} /></label>}</div><p>Skill outcomes remain based on correct answers and timing. Random outcomes use the configured weights, shared across all rooms for new rounds.</p>{error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? "Saving…" : "Save game"}</button></div></form></Modal>;
 }
 function FlipEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState({ ...game }),
@@ -1298,7 +1298,7 @@ function FlipEditor({ game, onClose, onSave }) {
             </label>
           </div>
           <div className="odds-setting">
-            <p>Shared room rounds preserve rules for bets already placed. Limits and return changes take effect at the next round; pausing applies immediately. For Lucky Flip, this probability controls Heads (Tails is the remainder), not an individual player’s win chance. Preview uses the automatic countdown flow with isolated, temporary coins.</p>
+            <p>Shared room rounds preserve rules for bets already placed. Return changes take effect at the next round; pausing applies immediately. For Lucky Flip, this probability controls Heads (Tails is the remainder), not an individual player’s win chance. Preview uses the automatic countdown flow with isolated, temporary coins.</p>
             <label htmlFor="win-prob">
               Heads probability (shared room rounds) <b>{form.winProbability}%</b>
             </label>
@@ -1348,30 +1348,8 @@ function FlipEditor({ game, onClose, onSave }) {
                 }
               />
             </label>
-            <label>
-              Minimum bet (coins)
-              <input
-                type="number"
-                min="1"
-                max="100000000"
-                step="1"
-                required
-                value={form.minBet}
-                onChange={(e) => set("minBet", Number(e.target.value))}
-              />
-            </label>
-            <label>
-              Maximum bet (coins)
-              <input
-                type="number"
-                min="1"
-                max="100000000"
-                step="1"
-                required
-                value={form.maxBet}
-                onChange={(e) => set("maxBet", Number(e.target.value))}
-              />
-            </label>
+
+
           </div>
           <div className="return-preview">
             <span>Theoretical return to player</span>
@@ -1478,32 +1456,8 @@ function RouletteEditor({ game, onClose, onSave }) {
                 <option value="paused">Paused</option>
               </select>
             </label>
-            <label>
-              Minimum total bet
-              <input
-                required
-                type="number"
-                min="1"
-                max="100000000"
-                value={form.minBet}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, minBet: Number(e.target.value) }))
-                }
-              />
-            </label>
-            <label>
-              Maximum total bet
-              <input
-                required
-                type="number"
-                min="1"
-                max="100000000"
-                value={form.maxBet}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, maxBet: Number(e.target.value) }))
-                }
-              />
-            </label>
+
+
           </div>
           <div className="info-strip">
             <CircleDot size={20} />

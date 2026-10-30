@@ -148,8 +148,7 @@ All viewers in the same room see the same seeded daily round outcome. The server
 reveals it after the entry window and uses that same outcome for every accepted
 wager. Started round schedules remain immutable; saved settings activate at the next round boundary;
 pausing a game immediately blocks new placements, but does not cancel accepted bets.
-The configured minimum applies to each placement; maximum applies to the player's
-cumulative placements in that game/room/round, including repeated clicks.
+Players can wager any positive whole-coin amount covered by their available wallet balance. Legacy minimum/maximum settings no longer cap live or preview placements. The atomic wallet debit rejects insufficient funds, including concurrent requests. Rocket retains one entry per flight.
 
 Each coin entry stores `input.currency = COINS`. Debit, GAME_WAGER ledger entry,
 and accepted entry are committed together. Settlement locks the entry and user,

@@ -30,6 +30,7 @@ export function resolveInstant(game, bet, choice, draw) {
     result = spec.choices[draw];
     multiplier = result === choice ? 1 : ({ rock: 'scissors', paper: 'rock', scissors: 'paper' }[choice] === result ? 1.9 : 0);
   }
-  const payout = Math.floor(bet * Math.round(multiplier * 100) / 100);
-  return { bet, choice, result, payout, outcome: payout > bet ? 'win' : payout === bet ? 'push' : 'loss', payoutMultiplier: multiplier, winProbability: null, revision: game.revision };
+  const exactPayout = BigInt(bet) * BigInt(Math.round(multiplier * 100)) / 100n;
+  const payout = exactPayout <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(exactPayout) : exactPayout.toString();
+  return { bet, choice, result, payout, outcome: exactPayout > BigInt(bet) ? 'win' : exactPayout === BigInt(bet) ? 'push' : 'loss', payoutMultiplier: multiplier, winProbability: null, revision: game.revision };
 }

@@ -24,7 +24,7 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
   if(old){if(old.slot!==input.slot||JSON.stringify(old.input)!==JSON.stringify(parsed))throw new GameError("Request ID conflict.",409);return view(old);}
   if(input.dayId!==day.id||input.slot!==clock.slot||clock.phase!=="open")throw new GameError("Entry closed. Wait for the next round.",409);
 
-  if(state.entries.filter(e=>e.slot===clock.slot).reduce((sum,e)=>sum+e.amount,0)+parsed.amount>day.settings.maxBet)throw new GameError("Total bets exceed this round’s limit.",409);
+
   if(day.settings.engine==="rocket"&&state.entries.some(e=>e.slot===clock.slot))throw new GameError("You are already aboard this flight.",409);
   if(state.points<parsed.amount)throw new GameError("Use Free refill.",409);
   const e={id:input.id,day,roomId,slot:clock.slot,amount:parsed.amount,input:parsed,answer:null,status:"PENDING",result:null,resolveAt:day.settings.engine==="rocket"?rocketCrashAt(day,clock.slot,sharedOutcome(day,roomId,clock.slot).crashCents):clock.revealsAt};

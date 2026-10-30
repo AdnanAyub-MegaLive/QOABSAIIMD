@@ -2,19 +2,17 @@
 import RoundResults from "./round-results";
 import {roundSummary} from "@/lib/game-control/round-summary.mjs";
 import {useCallback,useEffect,useRef,useState} from "react";
-import Image from "next/image";
-import rouletteImage from "../../../../public/games/roulette/wheel.png";
+import RouletteWheel from "./roulette-wheel";
+import GameRules from "./game-rules";
 import {api} from "./store";
 import {miniGames} from "@/lib/game-control/mini-games.mjs";
 import {markets} from "@/lib/game-control/roulette/engine.mjs";
-import {wheelOrder} from "@/lib/game-control/roulette/original-rules.mjs";
 import PointAmount from "./point-amount";
 import PizzaWheel from "./pizza-wheel";
 import TeenPattiTable from "./teen-patti-table";
 import MiniGameAnimation from "./mini-game-animation";
 import InstantStage from "./instant-stage";
 import FlipStage from "./flip-stage";
-import { configurableRules, outcomeOddsText } from "@/lib/game-control/outcome-weights.mjs";
 import {instantGames} from "@/lib/game-control/instant-games.mjs";
 import "./shared-visuals.css";
 import styles from "./play-panel.module.css";
@@ -24,6 +22,7 @@ export default function SharedPlayer({gameId,preview=false}){
  const request=useCallback(body=>preview?api("admin",{action:"preview-round",request:{...body,gameId}}):api("player",body),[preview,gameId]);
  const [state,setState]=useState(null),[error,setError]=useState(""),[now,setNow]=useState(0),[busy,setBusy]=useState(false);
  const [amount,setAmount]=useState(100),[custom,setCustom]=useState(false),[choice,setChoice]=useState(""),[bets,setBets]=useState({}),[answers,setAnswers]=useState([]),[question,setQuestion]=useState(0);
+ const [wheelReady,setWheelReady]=useState(null);
  const [pending,setPending]=useState(null),[help,setHelp]=useState(false);
  const offset=useRef(0),lastRound=useRef(""),guard=useRef(false),dialog=useRef(null),polling=useRef(false);
  const activeEntry=useRef(null);
@@ -63,14 +62,14 @@ export default function SharedPlayer({gameId,preview=false}){
  const latest=state?.mineEntries?.at(-1);
  const animationRound=outcome?{result:engine==="dice"?`Rolled ${outcome.result}`:engine==="rps"?`Computer: ${outcome.result}`:engine==="penalty"?`Keeper: ${outcome.result}`:outcome.result,choice:latest?.input.choice,outcome:summary.pending?undefined:BigInt(summary.net)>0n?"win":BigInt(summary.net)<0n?"loss":"push"}:null;
  const waiting=phase==="playing";
- const rotation=outcome&&engine==="roulette"?1080+(360-wheelOrder.indexOf(outcome.result)*360/37)%360:0;
+ const roundKey=state?`${state.dayId}:${state.slot}`:null;
  const visualResult=outcome?{id:`${state.dayId}:${state.slot}`,status:"settled",result:String(outcome.result),outcome:summary.pending?undefined:BigInt(summary.net)>0n?"win":BigInt(summary.net)<0n?"loss":"push"}:null;
  const quiz=state?.challenge?.questions?.[question];
  function placeChoice(value){if(locked)return;setChoice(value);void enter(value);}
  return <section className={`${styles.panel} ${engine==="roulette"?"roulette-design":""} ${engine==="teenpatti"?styles.teenPanel:""}`} aria-label="Shared room coin game">
-   <header className={styles.header}>{engine==="roulette"&&<button className="roulette-close" onClick={()=>{if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:"game:close"}));else window.history.back();}}>Close</button>}<div><small>{preview?"ADMIN PREVIEW · AUTOMATIC ROUNDS":"COIN WALLET · SHARED ROUNDS"}</small><h1>{game?.name||"Connecting…"}</h1><div className={styles.roundHistory} aria-label="Previous round results">{state?.history?.length ? state.history.slice(0,5).map(h=><span key={h.roundNumber} title={`Round ${h.roundNumber}`}>{engine==="reaction" ? "Round complete" : String(h.result ?? "Round complete")}</span>) : <span>Results appear after the first round</span>}</div><small>Round {state?.roundNumber||"—"} · Completed today {state?.totalRounds||0}</small></div><button onClick={()=>setHelp(true)} aria-label="Rules and round history">?</button></header>
+   <header className={styles.header}><div><h1>{game?.name||"Connecting…"}</h1><div className={styles.roundHistory} aria-label="Recent results">{state?.history?.slice(0,5).map(h=><span key={h.roundNumber} title={`Round ${h.roundNumber}`}>{engine==="reaction"?"✓":String(h.result??"✓")}</span>)}</div></div><button onClick={()=>setHelp(true)} aria-label="Game rules">?</button></header>
    <div className={styles.stage}>
-     {engine==="roulette"?<div className="shared-game-visuals"><div className="roulette-wheel-frame"><div className="roulette-gold-pointer"/><Image key={outcome?`${state.dayId}:${state.slot}`:"idle"} src={waiting&&!outcome?"/games/roulette/wheel-spin.gif":rouletteImage} unoptimized alt={outcome?`Roulette result ${outcome.result}`:"Roulette wheel"} width={300} height={300} className={outcome?styles.rouletteLanding:""} style={{"--wheel-landing":`${rotation}deg`}}/></div></div>
+     {engine==="roulette"?<RouletteWheel roundKey={roundKey} playing={waiting} result={outcome?.result} onSettled={setWheelReady}/>
       :instantGames[engine]?<div className="shared-game-visuals"><InstantStage engine={engine==="highlow"?"dice":engine} busy={waiting} result={visualResult} choice={latest?.input.choice||choice||options[0]}/></div>
       :engine==="teenpatti"?<TeenPattiTable phase={phase} remaining={remaining} outcome={outcome} totals={state?.totals} myTotals={state?.myTotals} mine={mine} onPlace={placeChoice} disabled={locked} roundNumber={state?.roundNumber}/>
       :engine==="flip"?<div className="shared-game-visuals"><FlipStage busy={waiting} result={visualResult} choice={latest?.input.choice||choice||"heads"}/></div>
@@ -78,19 +77,18 @@ export default function SharedPlayer({gameId,preview=false}){
       :engine?<MiniGameAnimation engine={engine} phase={outcome?"revealed":waiting?"playing":"idle"} round={animationRound} choice={latest?.input.choice||choice} challenge={state?.challenge?{...state.challenge,expiresAt:state.revealsAt}:null} now={now}/>:null}
    </div>
    <div className={engine==="roulette"?"roulette-betting-panel":"shared-betting-contents"}>
-   <div className={styles.status} role="status">{engine==="roulette"&&<span className="roulette-timer-icon"/>}{error||`${phase.toUpperCase()} · ${remaining}s · ${state?.participants||0} players · ${state?.totalPoints||0} ${currency}`}{outcome&&<div>{summary.payout} {currency} returned across {summary.count} bets{summary.pending>0?" · Settling…":""}</div>}</div>
-   {state?.settingsChangeAt&&<p role="status">Updated game rules apply from the next round.</p>}
+   <div className={styles.status} role="status">{engine==="roulette"&&<span className="roulette-timer-icon"/>}{error||`${state?.acceptingBets===false?"Betting paused":phase==="open"?"Place your bets":phase==="playing"?"Playing":phase==="reveal"?"Results":"Next round"} · ${remaining}s`}</div>
    <div className={styles.table}>
      {latest&&<span key={latest.id} className={styles.sharedEntryChip} aria-label="Latest bet">● +{latest.amount} · Total {summary.wager}</span>}
      {engine==="trivia"&&phase==="playing"&&quiz&&mine&&!mine.answered?<><p className={styles.question}>{question+1}/{state.challenge.questions.length} · {quiz.text}</p><div className={styles.miniChoices}>{quiz.options.map((text,i)=><button key={i} disabled={busy} onClick={()=>answer(String(i))}>{text}</button>)}</div></>
       :engine==="reaction"&&phase==="playing"&&state?.challenge&&mine&&!mine.answered?<button className={`${styles.reactionPad} ${now>=state.challenge.readyAt?styles.go:""}`} disabled={busy} onClick={()=>answer("tap")}>{now>=state.challenge.readyAt?"TAP NOW!":"WAIT…"}</button>
-      :engine==="roulette"?<div className={styles.markets}>{markets.map(m=><button key={m.label} disabled={locked} onClick={()=>{if(!Number.isSafeInteger(amount)||amount<1||total+amount>Number(balance))return;setBets({...bets,[m.label]:(bets[m.label]||0)+amount});}}><b>{m.label}</b><small>{m.payout}</small><span>{Number(state?.myTotals?.[m.label]||0)+(bets[m.label]||0)} coins</span></button>)}</div>
+      :engine==="roulette"?<div className={styles.markets}>{markets.map(m=><button key={m.label} disabled={locked} onClick={()=>{if(!Number.isSafeInteger(amount)||amount<1)return;if(!Number.isSafeInteger(total+amount)||BigInt(total+amount)>BigInt(balance)){setError("Not enough coins for this bet.");return;}setBets({...bets,[m.label]:(bets[m.label]||0)+amount});}}><b>{m.label}</b><small>{m.payout}</small><span>{Number(state?.myTotals?.[m.label]||0)+(bets[m.label]||0)} coins</span></button>)}</div>
       :<div className={engine==="teenpatti"?styles.sharedHands:styles.miniChoices}>{options.map((opt,i)=><button key={opt} disabled={locked} aria-pressed={choice===opt} data-winner={outcome?.winners?.includes(opt)||false} onClick={()=>setChoice(opt)}>{engine==="teenpatti"?<><small>HAND {opt}</small><span className={styles.threeCards}>{(outcome?.hands?.[i]?.cards||["?","?","?"]).map((card,j)=><i key={j}>{card}</i>)}</span><small>{outcome?.hands?.[i]?.label||"Hidden cards"}</small><small>{state?.totals?.[opt]||0} coins</small></>:opt}</button>)}</div>}
-     {phase==="open"&&<PointAmount roulette={engine==="roulette"} game={{...game,maxBet:engine==="roulette"?game?.maxBet:Math.min(game?.maxBet||0,Number(balance))}} value={amount} custom={custom} disabled={busy||!!pending} onChange={(n,c)=>{setAmount(n);setCustom(c);}}/>}
-     <div className={styles.actions}><span>{mine?mine.answered?"Answer saved":"Bet placed":phase==="open"?"Place a bet before time runs out":"Next round starts automatically"}<b>{state?.myTotal||0} coins this round</b></span>{engine==="roulette"&&!locked&&<button onClick={()=>setBets({})}>Clear</button>}{(!["teenpatti","pizza"].includes(engine)||pending)&&<button className={styles.play} disabled={busy||(!pending&&(locked||phase!=="open"||!game||!Number.isSafeInteger(total)||total<(game?.minBet||1)||total>Math.min(Number(balance),(game?.maxBet||0)-Number(state?.myTotal||0))||(!timed&&engine!=="roulette"&&options.length>1&&!choice)))} onClick={()=>enter()}>{pending?"Retry placement":"Place bet"}</button>}</div>
+     {phase==="open"&&<PointAmount game={game} balance={engine==="roulette"?String(BigInt(balance)-BigInt(total)):balance} value={amount} custom={custom} disabled={busy||!!pending} onChange={(n,c)=>{setAmount(n);setCustom(c);}}/>}
+     <div className={styles.actions}><span>{mine?mine.answered?"Answer saved":"Bet placed":phase==="open"?"Choose your bet":"Bets closed"}<b>{state?.myTotal||0} coins this round</b></span>{engine==="roulette"&&!locked&&<button onClick={()=>setBets({})}>Clear</button>}{(!["teenpatti","pizza"].includes(engine)||pending)&&<button className={styles.play} disabled={busy||(!pending&&(locked||phase!=="open"||!game||!Number.isSafeInteger(total)||total<1||BigInt(total)>BigInt(balance)||(!timed&&engine!=="roulette"&&options.length>1&&!choice)))} onClick={()=>enter()}>{pending?"Retry placement":"Place bet"}</button>}</div>
    </div>
    </div>
-   <footer className={styles.footer}><span><b>{BigInt(balance).toLocaleString()}</b> {currency}</span>{preview&&<button disabled={busy||!!pending} onClick={refill}>Refill practice coins</button>}<RoundResults state={state}/><small>{preview?"Practice only · No wallet changes":"Uses your application coin wallet"} · Daily reset 00:00 UTC</small></footer>
-   <dialog ref={dialog} className={styles.help} onClose={()=>setHelp(false)}><header><h2>Shared room rounds</h2><button onClick={()=>setHelp(false)}>Close</button></header><p>Rounds advance even without players. Join during the {state ? (state.closesAt-state.opensAt)/1000 : "configured"}-second entry window. Coins are debited immediately; payouts arrive after the shared reveal. Place repeatedly on different options while the countdown is open. Your wallet balance and the maximum total bet per round limit placements.</p><p>Daily round counters reset at midnight UTC; balances and history are preserved. Live games use your application coins. Admin previews use separate practice coins.</p><p>Trivia uses shared difficulty pools, cycling only when exhausted. All required answers must be correct. Reaction timing includes network latency.</p><p>{(engine==="rps"?`Rock beats scissors, scissors beats paper, paper beats rock. A tie returns your stake. A win returns ${game?.pointReturnMultiplier??2}× including stake.`:(configurableRules[engine] || instantGames[engine]?.rules)) || miniGames[engine]?.help || (engine==="flip"?`Heads chance ${game?.winProbability}%; tails chance ${100-(game?.winProbability||0)}%. Winning return ${game?.payoutMultiplier}× including stake.`:"Roulette: zero 36×, dozens 3×, red/black/odd/even 2×. Gross returns include stake.")}</p><p>{game && outcomeOddsText(game)}</p><h3>Recent rounds</h3>{state?.history?.map(h=><p key={h.roundNumber}>#{h.roundNumber}: {String(h.result??"Reaction round")}</p>)}</dialog>
+   <footer className={styles.footer}><span><b>{BigInt(balance).toLocaleString()}</b> {currency}</span>{preview&&<button disabled={busy||!!pending} onClick={refill}>Refill practice coins</button>}<RoundResults state={state} ready={engine!=="roulette"||wheelReady===roundKey}/>{preview&&<small>Practice coins</small>}</footer>
+   <dialog ref={dialog} className={styles.help} onClose={()=>setHelp(false)}><header><h2>{game?.name} rules</h2><button onClick={()=>setHelp(false)} aria-label="Close rules">×</button></header><GameRules game={game}/></dialog>
  </section>;
 }

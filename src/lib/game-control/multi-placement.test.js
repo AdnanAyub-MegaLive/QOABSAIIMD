@@ -15,12 +15,12 @@ function fixture(){
  const input=n=>({id:`00000000-0000-4000-8000-${String(n).padStart(12,"0")}`,gameId:"flip",dayId:day.id,slot:0,amount:100,choice:"heads"});
  return{db,tx,input,entries,ledger,rounds,logs,day,coins:()=>coins,points:()=>points,setCoins:n=>{coins=n;}};
 }
-it("enforces configured limits and validates choices",()=>{
- for(const amount of [0,1,1001,1.5,NaN])expect(()=>accepted(game,{amount,choice:"heads"})).toThrow();
+it("validates positive whole coins and choices without configured wager caps",()=>{
+ for(const amount of [0,-1,1.5,NaN,Number.MAX_SAFE_INTEGER+1])expect(()=>accepted(game,{amount,choice:"heads"})).toThrow();
  expect(accepted(game,{amount:100,choice:"heads"}).amount).toBe(100);
  expect(()=>accepted(game,{amount:100,choice:"fake"})).toThrow();
 });
-it("serializes placements, caps round totals, replays once and settles each once in coin ledger",async()=>{
+it("serializes placements, checks wallet funds, replays once and settles each once",async()=>{
  vi.spyOn(Date,"now").mockReturnValue(now);const f=fixture();
  const a={...f.input(1),amount:700},b={...f.input(2),amount:400,choice:"tails"};
  const results=await Promise.allSettled([enterSharedRound(identity,a,f.db),enterSharedRound(identity,b,f.db)]);
@@ -55,11 +55,11 @@ it("checks membership and pause before charging",async()=>{
  f.tx.audioRoomMember.findUnique=async()=>({socketCount:1});f.tx.gameDefinition.findUnique=async()=>({settings:{...game,status:"paused"}});
  await expect(enterSharedRound(identity,f.input(1),f.db)).rejects.toThrow(/paused/);expect(f.coins()).toBe(1000n);
 });
-it("preview isolates balances and enforces cumulative limits",()=>{
+it("preview isolates balances and checks available practice coins",()=>{
  const row={id:"flip",revision:1,settings:game},owner="multi-preview",s=previewRound(owner,row,{action:"shared-state"},now);
  for(let n=0;n<3;n++)previewRound(owner,row,{action:"shared-enter",id:`p${n}`,dayId:s.dayId,slot:s.slot,amount:100,choice:n===1?"tails":"heads"},now);
  const next=previewRound(owner,row,{action:"shared-state"},now);expect(next.myTotals).toEqual({heads:"200",tails:"100"});expect(next.availablePoints).toBe("9700");
- expect(()=>previewRound(owner,row,{action:"shared-enter",id:"too-much",dayId:s.dayId,slot:s.slot,amount:800,choice:"heads"},now)).toThrow(/limit/);
+ expect(()=>previewRound(owner,row,{action:"shared-enter",id:"too-much",dayId:s.dayId,slot:s.slot,amount:9701,choice:"heads"},now)).toThrow(/refill/);
 });
 
 it("switches new bets to revised settings without changing old receipts or paying twice",async()=>{
@@ -76,7 +76,7 @@ it("switches new bets to revised settings without changing old receipts or payin
  clock.mockReturnValue(Date.parse("2026-10-18T00:00:40Z"));
  const revised=[...days.values()].find(d=>d.id!==f.day.id);
  await expect(enterSharedRound(identity,{...f.input(11),slot:1},f.db)).rejects.toThrow(/closed/);
- await expect(enterSharedRound(identity,{...f.input(11),dayId:revised.id,amount:50},f.db)).rejects.toThrow(/Bet must/);
+ expect(accepted(revised.settings,{amount:50,choice:"heads"}).amount).toBe(50);
  const next={...f.input(12),dayId:revised.id,choice:"tails"};
  await enterSharedRound(identity,next,f.db);
  await enterSharedRound(identity,old,f.db); // retry a pre-change accepted request
@@ -86,4 +86,15 @@ it("switches new bets to revised settings without changing old receipts or payin
  expect(f.rounds.map(r=>r.payload.payout)).toEqual([200,300]);
  expect(f.coins()).toBe(1300n);expect(f.ledger).toHaveLength(4);
  expect(f.day.settings.revision).toBe(1);
+});
+
+it("allows funded stakes above the former per-bet and cumulative caps, but rejects overdrafts",async()=>{
+ vi.spyOn(Date,"now").mockReturnValue(now);const f=fixture();f.setCoins(1000000000n);
+ await enterSharedRound(identity,{...f.input(1),amount:600000000},f.db);
+ await enterSharedRound(identity,{...f.input(2),amount:400000000},f.db);
+ expect(f.coins()).toBe(0n);
+ await expect(enterSharedRound(identity,{...f.input(3),amount:1},f.db)).rejects.toThrow(/Not enough coins/);
+ expect(f.entries.size).toBe(2);
+ await settleSharedGames(f.db,new Date(now+30000));
+ expect(f.coins()).toBe(2000000000n);
 });

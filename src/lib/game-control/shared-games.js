@@ -56,7 +56,7 @@ export function accepted(game,input){
    try{bets=strictBets(input.bets,Number.MAX_SAFE_INTEGER);}catch(e){throw new GameError(e.message);}
    if(Object.values(bets).reduce((a,b)=>a+b,0)!==amount)throw new GameError("Selected points do not match.");
  }else if(options[game.engine]&&!options[game.engine].includes(choice))throw new GameError("Choose a valid option.");
- if(amount<game.minBet||amount>game.maxBet)throw new GameError(`Bet must be ${game.minBet}–${game.maxBet} coins.`);
+
  return {amount,choice:options[game.engine]?choice:null,bets,custom:input.custom===true};
 }
 export async function enterSharedRound(identity,input,db=prisma){
@@ -73,8 +73,6 @@ export async function enterSharedRound(identity,input,db=prisma){
    const now=Date.now(),day=await getDay(tx,input.gameId,now),clock=sharedClock(day,now);
    if(input.dayId!==day.id||input.slot!==clock.slot||clock.phase!=="open")throw new GameError("Entry closed. Wait for the next round.",409);
    if(day.settings.engine==="rocket"&&await tx.sharedGameEntry.findFirst({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId}}))throw new GameError("You are already aboard this flight.",409);
-   const placed=await tx.sharedGameEntry.aggregate({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},_sum:{amount:true}});
-   if((placed._sum.amount||0n)+BigInt(parsed.amount)>BigInt(day.settings.maxBet))throw new GameError("Total bets exceed this round's limit.",409);
    if(Date.now()>=clock.closesAt)throw new GameError("Entry closed. Wait for the next round.",409);
    const debit=await tx.user.updateMany({where:{id:identity.userId,coinBalance:{gte:BigInt(parsed.amount)}},data:{coinBalance:{decrement:BigInt(parsed.amount)}}});
    if(debit.count!==1)throw new GameError("Not enough coins in your application wallet.",409);

@@ -3,10 +3,10 @@ import {coinButtons,validateCoinButtons} from './coin-buttons.mjs';
 import {validateGame} from './rules.mjs';
 describe('coin button configuration',()=>{
  it('preserves legacy defaults and admin order',()=>{
-  expect(coinButtons({minBet:10,maxBet:500})).toEqual([10,100,500]);
+  expect(coinButtons({minBet:10,maxBet:500})).toEqual([10,100,500,1000]);
   expect(validateCoinButtons({minBet:10,maxBet:1000,coinButtons:[500,25,100]})).toEqual([500,25,100]);
  });
- it.each([[],[10,10],[0],[1001],[1.5],['100'],[10,20,30,40,50]].map(values=>[values]))('rejects invalid buttons %j',values=>{
+ it.each([[],[10,10],[0],[1.5],['100'],[10,20,30,40,50]].map(values=>[values]))('rejects invalid buttons %j',values=>{
   expect(()=>validateCoinButtons({minBet:1,maxBet:1000,coinButtons:values})).toThrow();
  });
  it.each(['rocket','flip','roulette','pizza','trivia','teenpatti'])('persists buttons for %s',engine=>{
@@ -22,3 +22,5 @@ it('allows 100M coin limits and buttons but rejects larger limits',()=>{
  expect(validateGame(input).coinButtons).toEqual([100,100000000]);
  expect(()=>validateGame({...input,maxBet:100000001})).toThrow();
 });
+
+it("chip shortcuts do not impose betting limits",()=>{expect(validateCoinButtons({minBet:10,maxBet:1000,coinButtons:[1,100000001]})).toEqual([1,100000001]);});

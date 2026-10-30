@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./store";
 import GameIcon from "./game-icon";
 import { rocketMultiplierCents, rocketMaxMultiplier } from "@/lib/game-control/rocket.mjs";
-import { outcomeOddsText } from "@/lib/game-control/outcome-weights.mjs";
+import GameRules from "./game-rules";
 import styles from "./rocket-player.module.css";
 const coins = value => BigInt(value ?? 0).toLocaleString();
 export default function RocketPlayer({ gameId, preview = false }) {
@@ -43,7 +43,7 @@ export default function RocketPlayer({ gameId, preview = false }) {
   const balance = state?.availableCoins ?? state?.availablePoints ?? "0";
   const stake = Number(mine?.amount ?? amount), estimated = Math.floor(stake * Math.round(multiplier * 100) / 100);
   const seconds = state ? Math.max(0, Math.ceil(((boarding ? state.closesAt : state.phase === "reset" ? state.resetAt : state.endsAt) - now) / 1000)) : 0;
-  const canBoard = boarding && state.acceptingBets !== false && !mine && !stale && Number.isSafeInteger(amount) && amount >= game.minBet && amount <= game.maxBet && BigInt(amount) <= BigInt(balance);
+  const canBoard = boarding && state.acceptingBets !== false && !mine && !stale && Number.isSafeInteger(amount) && amount >= 1 && BigInt(amount) <= BigInt(balance);
   const canCash = flying && mine?.status === "PENDING" && !stale;
   async function action() {
     if (guard.current || !state) return;
@@ -66,7 +66,7 @@ export default function RocketPlayer({ gameId, preview = false }) {
   let path = "M 61.2 154";
   for (let i = 1; i <= 40; i++) { const q = t * i / 40; path += ` L ${(18 + 66 * q) * 3.4} ${(70 - 54 * q * q) * 2.2}`; }
   return <div className={styles.shell}>
-    <div className={styles.context}><span>MEGA LIVE · {preview ? "ADMIN PREVIEW" : "SHARED ROOM"}</span><h2>{preview ? "Ready for takeoff?" : "One room. One flight."}</h2><p>{preview ? "Practice coins · No wallet changes" : `${state?.participants ?? 0} players aboard · Application coin wallet`}</p><small>{state?.roomId ?? "Connecting to the game…"}</small></div>
+
     <section className={styles.game} aria-label="Rocket shared room game">
       <header className={styles.header}><div><GameIcon engine="rocket" size={30}/><strong>ROCKET</strong><span>MAX {maxMultiplier}×</span></div><RoundResults state={state}/><button onClick={() => setHelp(true)} aria-label="Rocket rules and probabilities">?</button></header>
       <div className={styles.history} aria-label="Previous flights">{state?.history?.length ? state.history.slice(0, 5).map(h => <span key={h.roundNumber} className={h.crashCents >= 300 ? styles.high : ""}>{h.result}</span>) : <small>Flight history appears after the first round</small>}<small>{preview ? "PRACTICE" : "RECENT"}</small></div>
@@ -79,14 +79,14 @@ export default function RocketPlayer({ gameId, preview = false }) {
         <div className={styles.flightStatus}><span>{cash ? `Exited at ${result.cashoutMultiplier.toFixed(2)}×` : boarding ? mine ? "You’re aboard. Get ready." : "Board before the countdown ends" : crashed ? mine ? "Boarding coins lost" : "Next flight opens soon" : mine ? "Choose your exit" : "Board the next flight"}</span><b>{cash ? "CASHED OUT" : boarding ? `LAUNCH IN ${seconds}s` : flying ? "LIVE FLIGHT" : `NEXT IN ${seconds}s`}</b></div>
       </div>
       <div className={styles.stats}><div><small>{mine ? "YOUR BOARDED COINS" : "YOUR BOARDING AMOUNT"}</small><strong>◈ {Number.isSafeInteger(stake) && stake >= 0 ? coins(stake) : "—"}</strong></div><div><small>{cash ? "CASHED OUT · COINS" : mine && flying ? "CASH-OUT ESTIMATE · COINS" : "WALLET · COINS"}</small><strong className={cash || mine && flying ? styles.gain : ""}>{coins(cash ? result.payout : mine && flying ? estimated : balance)}</strong></div></div>
-      <div className={styles.amounts}><label>COINS<input type="number" aria-label="Boarding coins" min={game?.minBet ?? 1} max={game?.maxBet ?? 10000} step={1} value={amount} disabled={!boarding || !!mine || busy || !!pending} onChange={e => setAmount(Number(e.target.value))}/></label>{coinButtons(game).map(n => <button key={n} disabled={!boarding || !!mine || busy || !!pending || n < game?.minBet || n > game?.maxBet} onClick={() => setAmount(n)}>{n === 1000 ? "1K" : n}</button>)}</div>
+      <div className={styles.amounts}><label>COINS<input type="number" aria-label="Boarding coins" min={1} max={balance} step={1} value={amount} disabled={!boarding || !!mine || busy || !!pending} onChange={e => setAmount(Number(e.target.value))}/></label>{coinButtons(game).map(n => <button key={n} disabled={!boarding || !!mine || busy || !!pending || BigInt(n) > BigInt(balance)} onClick={() => setAmount(n)}>{n === 1000 ? "1K" : n}</button>)}<button disabled={!boarding || !!mine || busy || !!pending || BigInt(balance)<1n} onClick={()=>setAmount(Number(balance))}>All in</button></div>
       <div className={styles.bottom}>
         <button className={styles.action} disabled={busy || (!pending && !canBoard && !canCash)} onClick={action}><span><strong>{busy ? "Confirming…" : pending ? "Retry boarding" : cash ? "Cashed out successfully" : canCash ? "Cash out now" : boarding ? mine ? "You’re on board" : state?.acceptingBets === false ? "Boarding paused" : "Get on board" : crashed ? "Rocket crashed" : "Boarding closed"}</strong><small>{cash ? `Locked at ${result.cashoutMultiplier.toFixed(2)}×` : canCash ? "Server confirms your return on receipt" : boarding ? `Launching in ${seconds}s` : `Next flight in ${seconds}s`}</small></span><b>{cash ? coins(result.payout) : canCash ? coins(estimated) : boarding ? (Number.isSafeInteger(stake) && stake >= 0 ? coins(stake) : "—") : "—"} ◈</b></button>
         <p>Crash possible at 0–{maxMultiplier}× · Below 1× returns less than your stake</p>
       </div>
-      {state?.settingsChangeAt && <p role="status">Updated game rules apply from the next round.</p>}
+
       {error && <div className={styles.error} role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError("")}>×</button></div>}
-      <dialog ref={dialog} className={styles.help} onClose={() => setHelp(false)}><header><h2>Rocket rules</h2><button onClick={() => setHelp(false)}>Close</button></header><p>Board before launch. One boarding entry per player per flight. The multiplier starts at 0× and can crash at any 0.01× level through {maxMultiplier}×. Cash out before the crash. Still aboard at the crash means zero coins returned. No automatic payout at the maximum.</p><p>Below 1× returns less than your stake. Your cash-out is confirmed using the server time when the request is accepted; network latency can change the return from the displayed estimate. A request at or after the crash is too late.</p><p>An early crash stays visible until the next scheduled boarding window. Settings apply at the next round; saved previews update immediately.</p><p>{game && outcomeOddsText(game)}</p><p>Wallet: {coins(balance)} {preview ? "practice coins" : "application coins"}.</p>{preview && <button disabled={busy || !!pending} onClick={refill}>Refill practice coins</button>}<h3>Recent entries</h3>{state?.recentEntries?.map(e => <p key={e.id}>{e.result?.result || "Aboard"} · {coins(e.result?.payout ?? 0)} returned</p>)}</dialog>
+      <dialog ref={dialog} className={styles.help} onClose={() => setHelp(false)}><header><h2>Rocket rules</h2><button onClick={() => setHelp(false)}>Close</button></header><GameRules game={game}/>{preview && <button disabled={busy || !!pending} onClick={refill}>Refill practice coins</button>}<h3>Recent entries</h3>{state?.recentEntries?.map(e => <p key={e.id}>{e.result?.result || "Aboard"} · {coins(e.result?.payout ?? 0)} returned</p>)}</dialog>
     </section>
   </div>;
 }

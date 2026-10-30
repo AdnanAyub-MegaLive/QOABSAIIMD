@@ -54,3 +54,14 @@
 @media(max-height:650px){.roulette-design div[class*="_chips"]>button.roulette-image-chip{width:40px;height:40px}}
 .roulette-design .roulette-wheel-frame{width:min(90cqw,95cqh,330px);height:auto;max-height:95cqh}
 .roulette-design .shared-game-visuals .roulette-wheel-frame{width:min(85cqw,80cqh,280px)!important;height:min(85cqw,80cqh,280px)!important;align-self:center}
+
+/* A large, continuous vector wheel replaces the GIF/landing-image swap. */
+.roulette-design{padding:10px 10px 12px!important;grid-template-rows:auto auto auto auto!important;gap:8px!important;overflow-y:auto!important}
+.roulette-design header:first-child{padding:0 4px;align-items:center}.roulette-design header:first-child h1{font-size:26px!important;letter-spacing:-.6px}.roulette-design header:first-child>button:last-child{margin-top:0;width:36px;height:36px;font-size:18px}
+.roulette-design div[class*="_stage"]{height:clamp(210px,35dvh,340px);width:100%;container-type:size}
+.roulette-betting-panel{padding:12px 5px 8px;gap:8px}.roulette-design div[class*="_table"]{padding:8px!important}.roulette-design div[class*="_markets"]>button{min-height:54px!important}.roulette-design div[class*="_markets"]>button b{font-size:20px}.roulette-design div[class*="_markets"]>button small{font-size:13px}.roulette-design [role=status]{width:95%;font-size:12px;min-height:30px}
+.roulette-design div[class*="_chips"]{flex-wrap:wrap}.roulette-design div[class*="_chips"]>button{min-height:38px;height:auto;min-width:42px;width:auto;font-size:12px;padding:6px 9px}.roulette-design footer>span{font-size:12px}.roulette-design footer>button{min-height:38px;font-size:12px}
+@media(max-height:600px){.roulette-design div[class*="_stage"]{height:200px}.roulette-design div[class*="_markets"]>button{min-height:48px!important}}
+.roulette-design{height:auto;min-height:100dvh;align-content:start}.roulette-design div[class*="_stage"]{min-height:210px}
+.roulette-design div[class*="_markets"]>button span{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;max-width:100%;font-size:10px}
+.roulette-design{padding-bottom:70px!important}.roulette-design footer{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,560px);box-sizing:border-box;padding:6px 12px max(6px,env(safe-area-inset-bottom));background:#00251ff5;border-top:1px solid #d2af5c70;z-index:8;box-shadow:0 -6px 20px #001c1980}.roulette-design footer>span{max-width:72%;overflow-wrap:anywhere}.roulette-design footer>span b{font-size:16px}
