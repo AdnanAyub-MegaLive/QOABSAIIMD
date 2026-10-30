@@ -106,7 +106,7 @@ async function loadSnapshot(db, roomId, viewerId, query, now) {
 async function gameMetadata(db, ids, origin) {
   const rows = ids.length ? await db.gameDefinition.findMany({ where: { id: { in: ids } }, select: { id: true, settings: true, revision: true } }) : [];
   const assetIds = rows.map(r => r.settings.iconAssetId).filter(Boolean);
-  const assets = assetIds.length ? await db.uploadAsset.findMany({ where: { publicId: { in: assetIds } } }) : [];
+  const assets = assetIds.length ? await db.uploadAsset.findMany({ where: { publicId: { in: assetIds } }, omit: { fileData: true, posterFileData: true } }) : [];
   const byId = new Map(assets.map(a => [a.publicId, a]));
   return new Map(rows.map(row => {
     const asset = byId.get(row.settings.iconAssetId);

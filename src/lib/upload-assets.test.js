@@ -198,3 +198,7 @@ describe("banner upload contract", () => {
     });
   });
 });
+it("serializes poster URLs from metadata without loading animation or poster bytes",()=>{
+ const result=serializeUploadAsset({publicId:"AST-poster",category:"GIFTS",mimeType:"video/mp4",mediaVersion:"movie1",posterMediaVersion:"still1",posterMimeType:"image/webp",posterFileSize:123,createdAt:new Date(),updatedAt:new Date()},"https://portal.test/api/uploads/AST-poster/file?token=valid");
+ expect(result.posterUrl).toContain("poster=1");expect(result.posterUrl).toContain("v=still1");expect(result.posterMimeType).toBe("image/webp");
+});

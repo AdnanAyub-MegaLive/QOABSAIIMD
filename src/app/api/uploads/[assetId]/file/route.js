@@ -138,12 +138,13 @@ async function mediaResponse(asset, request) {
   if(version&&request.headers.get("if-none-match")?.split(",").some(tag=>["*",`"${version}"`,`W/"${version}"`].includes(tag.trim())))return new Response(null,{status:304,headers});
   const cdn = publicCdnUrl(asset, wantsPoster);
   if (cdn) return new Response(null, { status: 307, headers: { Location: cdn, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
-  const bytes = await prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { fileData: true, posterFileData: true, mediaVersion: true, posterMediaVersion: true } });
+  const bytes = await prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { ...(wantsPoster && asset.posterMimeType ? { posterFileData: true } : { fileData: true }), mediaVersion: true, posterMediaVersion: true } });
   if (!bytes) return new Response(null, { status: 404 });
   if ((wantsPoster ? bytes.posterMediaVersion : bytes.mediaVersion) !== version)
     return Response.json({success:false,error:{code:"MEDIA_VERSION_CHANGED",message:"Refresh the asset URL."}},{status:409,headers:{"Cache-Control":"no-store"}});
   asset = { ...asset, ...bytes };
   if (wantsPoster && asset.posterFileData) asset = { ...asset, fileData: asset.posterFileData, fileName: asset.posterFileName, mimeType: asset.posterMimeType };
+  if (!asset.fileData) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
   const total = asset.fileData.byteLength;
   const range = (asset.mimeType === "video/mp4" || asset.mimeType.startsWith("audio/"))
     ? parseByteRange(request.headers.get("range"), total)

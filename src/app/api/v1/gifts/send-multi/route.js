@@ -34,7 +34,7 @@ export async function POST(request) {
     const giftBatchId = parseGiftBatchId(body.giftBatchId), comboId = parseGiftBatchId(body.comboId), origin = requestOrigin(request);
     const [room, gift, rows, policy, participants] = await Promise.all([
       prisma.audioRoom.findFirst({ where: { roomId, status: 'LIVE' } }),
-      prisma.uploadAsset.findFirst({ where: { publicId: giftId, category: 'GIFTS', active: true, giftTier: { in: ['CLASSIC', 'PREMIUM', 'VIP', 'LUCKY'] }, coinPrice: { gt: 0n } } }),
+      prisma.uploadAsset.findFirst({ omit: { fileData: true, posterFileData: true }, where: { publicId: giftId, category: 'GIFTS', active: true, giftTier: { in: ['CLASSIC', 'PREMIUM', 'VIP', 'LUCKY'] }, coinPrice: { gt: 0n } } }),
       prisma.user.findMany({ where: { publicId: { in: ids }, deletedAt: null, status: 'ACTIVE' }, select: { id: true, publicId: true, name: true, appRoles: true, agencyId: true } }),
       getProfitSplitRule(), audioRoomParticipantIds(roomId),
     ]);

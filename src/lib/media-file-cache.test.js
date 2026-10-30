@@ -53,3 +53,18 @@ it("serves current-version signed URLs after forced logout but rejects revoked, 
  mocks.findUnique.mockResolvedValue({...asset,isGlobal:false,storeVisible:false,assignments:[]});
  expect((await signed()).status).toBe(401);
 });
+it("fetches only the poster bytes for a signed poster request", async () => {
+ const metadata = {...asset, mimeType:"video/mp4", posterMimeType:"image/webp", posterFileName:"poster.webp"};
+ mocks.findUnique.mockImplementation(async ({select}) => select.posterFileData
+   ? {posterFileData:Buffer.from("small-poster"),mediaVersion:"abc",posterMediaVersion:"def"}
+   : metadata);
+ const url=createPublicDisplayAssetUrl("https://portal.test","AST-1",3600,"def")+"&poster=1";
+ const response=await GET(new Request(url),{params:Promise.resolve({assetId:"AST-1"})});
+ expect(response.status).toBe(200);expect(response.headers.get("content-type")).toBe("image/webp");expect(await response.text()).toBe("small-poster");
+ expect(mocks.findUnique.mock.calls[1][0].select).not.toHaveProperty("fileData");
+});
+it("fetches only original bytes and retains video range responses",async()=>{
+ mocks.findUnique.mockResolvedValueOnce({...asset,mimeType:"video/mp4"}).mockResolvedValueOnce({fileData:Buffer.from("abcdef"),mediaVersion:"abc",posterMediaVersion:"def"});
+ const response=await get(3600,{Range:"bytes=1-3"});expect(response.status).toBe(206);expect(await response.text()).toBe("bcd");
+ expect(mocks.findUnique.mock.calls[1][0].select).not.toHaveProperty("posterFileData");
+});

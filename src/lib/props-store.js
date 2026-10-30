@@ -139,7 +139,7 @@ export function storeAssetPayload(asset, user, entitlement, equipped) {
     mimeType: asset.mimeType,
     fileSize: asset.fileSize,
     url: asset.url,
-    posterUrl: asset.posterFileData ? `${asset.url}&poster=1` : null,
+    posterUrl: (asset.posterMimeType || asset.posterFileData) ? `${asset.url}&poster=1` : null,
     posterMimeType: asset.posterMimeType ?? null,
     distribution: asset.distribution,
     price: asset.coinPrice?.toString() ?? null,

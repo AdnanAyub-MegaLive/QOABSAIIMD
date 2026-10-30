@@ -158,7 +158,7 @@ export function serializeUploadAsset(asset,url) {
     mediaVersion:asset.mediaVersion??null,
     posterMediaVersion:asset.posterMediaVersion??null,
     cacheKey: publicCdnUrl(asset) || `${asset.publicId}:${asset.mediaVersion??(asset.updatedAt??asset.createdAt).toISOString()}`,
-    posterUrl:publicCdnUrl(asset, true) || (asset.posterFileData?versionedUrl(`${url}${url.includes("?")?"&":"?"}poster=1`,asset.posterMediaVersion):null),
+    posterUrl:publicCdnUrl(asset, true) || ((asset.posterMimeType || asset.posterFileData)?versionedUrl(`${url}${url.includes("?")?"&":"?"}poster=1`,asset.posterMediaVersion):null),
     posterMimeType:asset.posterMimeType??null,
     posterFileSize:asset.posterFileSize??null,
     actionUrl:asset.category==="BANNERS"

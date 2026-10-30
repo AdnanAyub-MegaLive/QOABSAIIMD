@@ -82,6 +82,7 @@ export async function GET(request) {
     const now = new Date();
     const active = { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
     const assets = await prisma.uploadAsset.findMany({
+      omit: { fileData: true, posterFileData: true },
       where: {
         ...(category ? { category } : { category: { notIn: ["BANNERS", "LIVE_GIFTS", "APK"] } }),
         ...(category === "BANNERS"

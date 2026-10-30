@@ -24,7 +24,7 @@ export async function POST(request) {
     const giftId = String(body?.giftId ?? ""), recipientId = String(body?.recipientId ?? ""), roomId = String(body?.roomId ?? ""), quantity = Number(body?.quantity ?? 1);
     if (!giftId || !recipientId || !roomId || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) throw Object.assign(new Error("Valid gift, recipient, room and quantity are required."), { code: "VALIDATION_ERROR" });
     const [gift, recipient, room, policy, participants] = await Promise.all([
-      prisma.uploadAsset.findFirst({ where: { publicId: giftId, category: "GIFTS", active: true, coinPrice: { gt: 0n } } }),
+      prisma.uploadAsset.findFirst({ omit: { fileData: true, posterFileData: true }, where: { publicId: giftId, category: "GIFTS", active: true, coinPrice: { gt: 0n } } }),
       prisma.user.findFirst({ where: { publicId: recipientId, deletedAt: null, status: "ACTIVE" } }),
       prisma.audioRoom.findFirst({ where: { roomId, status: "LIVE" } }), getProfitSplitRule(), audioRoomParticipantIds(roomId),
     ]);

@@ -40,6 +40,7 @@ export async function GET(request) {
       throw error;
     }
     const assets = await prisma.uploadAsset.findMany({
+      omit: { fileData: true, posterFileData: true },
       where: {
         active: true,
         archivedAt: null,
