@@ -34,12 +34,15 @@ export default function RouletteWheel({roundKey,playing,result,onSettled}) {
   const modal=dialog.current;
   if(modal&&!modal.open)modal.showModal();
   const nodes=[small.current,large.current].filter(Boolean),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let frame,timer,cancelled=false;const animations=[];
+  let timer,cancelled=false,spinning=false;const animations=[];
   const paint=a=>{angle.current=a;for(const node of nodes)node.style.transform=`rotate(${a}deg)`;};
+  const base=angle.current;
   if(result==null){
-   const start=performance.now(),base=angle.current;
-   const tick=now=>{paint(base+(now-start)*(reduced?0:.25));frame=requestAnimationFrame(tick);};
-   frame=requestAnimationFrame(tick);
+   // Compositor animations keep moving when polling or the WebView's main thread is busy.
+   if(!reduced){
+    spinning=true;
+    for(const node of nodes)animations.push(node.animate([{transform:`rotate(${base}deg)`},{transform:`rotate(${base+360}deg)`}],{duration:1440,iterations:Infinity,easing:'linear'}));
+   }
   }else{
    const target=rouletteLandingAngle(angle.current,result),duration=reduced?0:ROULETTE_LANDING_MS;
    for(const node of nodes)animations.push(node.animate([{transform:`rotate(${angle.current}deg)`},{transform:`rotate(${target}deg)`}],{duration,easing:'cubic-bezier(.12,.7,.18,1)',fill:'forwards'}));
@@ -48,7 +51,11 @@ export default function RouletteWheel({roundKey,playing,result,onSettled}) {
     timer=setTimeout(()=>{modal?.close();callback.current(roundKey);},ROULETTE_RESULT_HOLD_MS);
    }).catch(()=>{});
   }
-  return()=>{cancelled=true;cancelAnimationFrame(frame);clearTimeout(timer);for(const animation of animations)animation.cancel();};
+  return()=>{
+   cancelled=true;clearTimeout(timer);
+   if(spinning)paint(base+Number(animations[0]?.currentTime??0)/4);
+   for(const animation of animations)animation.cancel();
+  };
  // landedKey is deliberately not a dependency: finishing must not cancel the result hold timer.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[roundKey,playing,result]);
