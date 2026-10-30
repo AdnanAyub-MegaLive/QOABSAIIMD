@@ -37,25 +37,36 @@
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { n.hidden = true; }, { once: true }); return n; };
-  function levels(person) {
+  function levels(person, entry) {
     const n = el('div', 'levels');
-    for (const track of ['user', 'charm']) {
-      const level = person?.[`${track}Level`] ?? 0;
-      const label = track === 'user' ? 'Wealth' : 'Charm';
+    const subject = type === 'agency' ? entry : person;
+    for (const track of type === 'cp' ? ['user', 'charm'] : [type === 'wealth' ? 'user' : type]) {
+      const level = subject?.[`${track}Level`] ?? (type === 'agency' ? entry?.level : 0);
+      if (level == null) continue;
+      const label = track === 'user' ? 'Wealth' : track === 'agency' ? 'Agency' : 'Charm';
       const tag = el('span', `level-tag level-tag-${track}`);
       tag.setAttribute('aria-label', `${label} level ${level}`);
       tag.title = `${label} level ${level}`;
       const prefix = `${track}LevelBackground`;
-      const mime = person?.[`${prefix}MimeType`];
+      const mime = subject?.[`${prefix}MimeType`];
       const url = mime && !mime.startsWith('image/')
-        ? person?.[`${prefix}PosterUrl`] : person?.[`${prefix}Url`];
+        ? subject?.[`${prefix}PosterUrl`] : subject?.[`${prefix}Url`];
       if (url) {
         tag.setAttribute('data-artwork','true');
         const background=image(url, 'level-background');
         background.addEventListener('error',()=>tag.setAttribute('data-artwork','false'),{once:true});
         tag.append(background);
       }
-      tag.append(el('b', 'level-value', `${track === 'user' ? 'W' : 'C'} ${level}`));
+      tag.append(el('b', 'level-value', `${track === 'user' ? 'W' : track === 'agency' ? 'A' : 'C'} ${level}`));
+      n.append(tag);
+    }
+    if (type !== 'cp' && person?.vip?.level > 0) {
+      const tag = el('span', 'vip-tag');
+      tag.setAttribute('aria-label', `VIP ${person.vip.level}`);
+      const art = person.vip.artwork;
+      const url = art?.mimeType?.startsWith('image/') ? art.url : art?.posterUrl;
+      if (url) { const icon = image(url, 'vip-art'); icon.alt = `VIP ${person.vip.level}`; tag.append(icon); }
+      tag.append(el('b', 'vip-value', `VIP ${person.vip.level}`));
       n.append(tag);
     }
     return n;
@@ -103,9 +114,9 @@
         art.onclick=()=>e.person?.publicId&&notify({type:'ranking:open-profile',publicId:e.person.publicId});
         art.append(image(e.person?.profileImage,'portrait',true));
         const frame=el('img','frame');frame.src=`assets/frame-${e.rank}.gif`;frame.alt=`Rank ${e.rank}`;art.append(frame);
-        card.append(art,entryName(e),el('span','public-id',e.person?.specialId||e.person?.publicId||e.id),levels(e.person),badges(e.person),score(e.score));podium.append(card);
+        card.append(art,entryName(e),el('span','public-id',String(e.person?.specialId||e.person?.publicId||e.id||'').replace(/^USR-/,'')),levels(e.person,e),badges(e.person),score(e.score));podium.append(card);
       }else{
-        const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e),levels(e.person),badges(e.person));
+        const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e),levels(e.person,e),badges(e.person));
         row.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details,score(e.score));$('entries').append(row);
       }
     }

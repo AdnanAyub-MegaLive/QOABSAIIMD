@@ -3,6 +3,9 @@ import { prisma } from '../prisma.js';
 import { resolveUserPerks } from '../user-perks.js';
 import { avatarDisplayUrl } from '../avatar-history.js';
 import { rankingWindow } from './ranking-contract.js';
+import { vipIsActive } from '../vip-contract.js';
+import { activitySnapshot } from '../activity-levels.js';
+import { levelTagBackgrounds, tagBackground } from '../level-tag-backgrounds.js';
 import { decorationMedia } from '../decoration-media.js';
 
 // Event scores are gift face value in Coins, never wallet balances or XP.
@@ -49,14 +52,29 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
   const hasMore = rows.length > 20, visible = rows.slice(0, 20);
   const ids = [...new Set(visible.flatMap(row => [row.personId, row.partnerId]).filter(Boolean))];
   const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, publicId: true, name: true, profileImage: true, country: true,
-    uploadAssignments: { where: { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }], asset: { active: true, category: 'BADGES' } },
+    ...(type === 'cp' ? {} : { vipMembership: { include: { tier: { include: { assets: { where: { privilege: { in: ['VIP_LOGO', 'BADGE'] }, asset: { active: true } }, orderBy: { assetId: 'asc' }, include: { asset: { select: { publicId: true, mimeType: true, mediaVersion: true, posterMimeType: true, posterMediaVersion: true } } } } } } } } }),
+    uploadAssignments: { where: { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }], ...(type === 'cp' ? {} : { source: { not: 'VIP_TIER' } }), asset: { active: true, category: 'BADGES', ...(type === 'cp' ? {} : { vipBenefits: { none: { privilege: { in: ['VIP_LOGO', 'BADGE'] } } } }) } },
       orderBy: [{ assignedAt: 'desc' }, { assetId: 'asc' }], take: 5,
       select: { asset: { select: { publicId: true, name: true, mimeType: true, mediaVersion: true, posterMimeType: true, posterMediaVersion: true } } } },
   } });
   const perks = await resolveUserPerks(users, origin, ['FRAMES', 'BADGES']);
+  // Read agency XP in one batch; legacy Agency.level is not the configured progression level.
+  const agencyProgress = new Map();
+  if (type === 'agency' && visible.length) {
+    const [rule, totals] = await Promise.all([
+      db.activityLevelRule.findUnique({ where: { track: 'AGENCY' } }),
+      db.activityLevelAward.groupBy({ by: ['subjectId'], where: { track: 'AGENCY', subjectId: { in: visible.map(r => r.id) } }, _sum: { xp: true } }),
+    ]);
+    for (const row of visible) agencyProgress.set(row.id, activitySnapshot(rule, totals.find(t => t.subjectId === row.id)?._sum.xp ?? 0n, origin));
+    const backgrounds = await levelTagBackgrounds(db, origin, [...agencyProgress.values()].map(p => ({ track: 'AGENCY', level: p.level })));
+    for (const [id, progress] of agencyProgress) agencyProgress.set(id, { ...progress, ...tagBackground(backgrounds, 'AGENCY', progress.level) });
+  }
   const identities = new Map(users.map(u => {
     const p = perks.get(u.publicId), levels = p?.progression;
+    const membership = vipIsActive(u.vipMembership, now) ? u.vipMembership : null;
+    const vipAsset = membership?.tier.assets.find(a => a.privilege === 'VIP_LOGO')?.asset ?? membership?.tier.assets.find(a => a.privilege === 'BADGE')?.asset;
     return [u.id, { publicId: u.publicId, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
+      ...(type === 'cp' ? {} : { vip: membership ? { level: membership.tier.level, artwork: vipAsset ? decorationMedia(vipAsset, origin) : null } : null }),
       ownedBadges: (u.uploadAssignments ?? []).map(({asset}) => ({ ...decorationMedia(asset, origin), name: asset.name })),
       userLevel: levels?.userLevel ?? 0, charmLevel: levels?.charmLevel ?? 0,
       userLevelBadgeUrl: levels?.userLevelBadgeUrl ?? null, charmLevelBadgeUrl: levels?.charmLevelBadgeUrl ?? null,
@@ -69,7 +87,8 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
   }));
   return { type, period, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: 'Coins',
     rule: type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
-    entries: visible.map(row => ({ id: row.publicId, name: row.name, rank: Number(row.rank), score: row.score.toString(), level: row.level, country: row.country,
+    entries: visible.map(row => ({ id: row.publicId, name: row.name, rank: Number(row.rank), score: row.score.toString(), level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
+      ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,
       memberCount: row.memberCount, person: identities.get(row.personId) ?? null, partner: identities.get(row.partnerId) ?? null })),
     nextOffset: hasMore ? offset + 20 : null };
 }

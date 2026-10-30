@@ -117,3 +117,5 @@ header{padding-top:calc(34px + env(safe-area-inset-top));height:calc(335px + env
 
 #rewards-dialog,#rules-dialog{max-height:80dvh;overflow-y:auto}
 #rewards-dialog .reward-details{margin:0;padding:0;border:0;background:none}
+
+.levels .vip-tag{display:inline-flex;align-items:center;gap:3px;color:#ffe4a0;font-size:10px;white-space:nowrap}.levels .vip-art{width:auto;max-width:54px;height:22px;object-fit:contain}.levels .level-tag-agency{background:#805222}

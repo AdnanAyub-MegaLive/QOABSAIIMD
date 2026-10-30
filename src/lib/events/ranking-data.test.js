@@ -17,3 +17,22 @@ describe('ranking data',()=>{
     expect(data.entries).toHaveLength(20);expect(data.entries[0].score).toBe('900719925474099300');expect(data.nextOffset).toBe(20);
   });
 });
+it.each(['active','missing','expired','revoked','future','disabled'])('exposes only the current VIP tier for %s membership',async state=>{
+  const membership={startsAt:new Date(Date.now()-60000),expiresAt:new Date(Date.now()+60000),revokedAt:null,tier:{active:true,level:4,assets:[]}};
+  if(state==='expired')membership.expiresAt=new Date(0);
+  if(state==='revoked')membership.revokedAt=new Date();
+  if(state==='future')membership.startsAt=new Date(Date.now()+30000);
+  if(state==='disabled')membership.tier.active=false;
+  const db={$queryRaw:async()=>[{id:'u',publicId:'USR-0012',personId:'u',rank:1n,score:25n}],user:{findMany:vi.fn().mockResolvedValue([{id:'u',publicId:'USR-0012',vipLevel:99,vipMembership:state==='missing'?null:membership}])}};
+  const data=await eventRankings({type:'wealth',period:'today',origin:'https://portal.example'},db);
+  expect(data.entries[0].person.vip).toEqual(state==='active'?{level:4,artwork:null}:null);
+  expect(db.user.findMany.mock.calls[0][0].select.uploadAssignments.where.source).toEqual({not:'VIP_TIER'});
+});
+it('derives agency level and tag from configured XP thresholds, never owner or legacy level',async()=>{
+  const db={$queryRaw:async()=>[{id:'agency',publicId:'AGN-1',personId:'owner',rank:1n,score:100n,level:99}],user:{findMany:async()=>[]},
+    activityLevelRule:{findUnique:async()=>({enabled:true,levels:[{level:0,threshold:'0'},{level:3,threshold:'100'}]})},
+    activityLevelAward:{groupBy:async()=>[{subjectId:'agency',_sum:{xp:150n}}]},levelTagBackground:{findMany:vi.fn().mockResolvedValue([])}};
+  const data=await eventRankings({type:'agency',period:'today',origin:'https://portal.example'},db);
+  expect(data.entries[0]).toMatchObject({level:3,agencyLevel:3,agencyLevelBackgroundUrl:null});
+  expect(db.levelTagBackground.findMany.mock.calls[0][0].where.OR).toEqual([{track:'AGENCY',level:3}]);
+});

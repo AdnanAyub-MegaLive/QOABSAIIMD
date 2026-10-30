@@ -22,7 +22,7 @@ async function fixture(track, rewardPolicy=null, pathname='', template='rankings
   vm.runInNewContext(readFileSync(`event-templates/${template}/app.js`,'utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
@@ -46,9 +46,9 @@ describe('ranking native navigation',()=>{
   it('overlays actual levels on uploaded artwork and uses posters for non-image media',async()=>{
     const {get}=await fixture('wealth');
     const tags=descendants(get('hero')).filter(n=>n.className?.startsWith('level-tag '));
-    expect(tags).toHaveLength(2);
-    expect(tags.map(n=>n.children.find(c=>c.className==='level-value').textContent)).toEqual(['W 42','C 17']);
-    expect(tags.map(n=>n.children.find(c=>c.className==='level-background').src)).toEqual(['https://cdn.example/wealth.png','https://cdn.example/charm.png']);
+    expect(tags).toHaveLength(1);
+    expect(tags.map(n=>n.children.find(c=>c.className==='level-value').textContent)).toEqual(['W 42']);
+    expect(tags.map(n=>n.children.find(c=>c.className==='level-background').src)).toEqual(['https://cdn.example/wealth.png']);
   });
   it('shows configured rewards as TOP cards with prop artwork',async()=>{
     const {get}=await fixture('wealth',{enabled:true,effectiveFrom:'2026-10-19T00:00:00Z',rewards:[{rank:1,coins:'500',diamonds:'20',props:[{name:'Gold frame',days:7,url:'https://media.example/frame.gif',mimeType:'image/gif'}],vip:{name:'VIP 3',days:2}}]});
@@ -117,6 +117,19 @@ describe('ranking native navigation',()=>{
     for(const strip of strips){
       expect(strip.children).toHaveLength(5);
       expect(strip.children[0].src).toBe('https://cdn.example/badge-0.gif');
+    }
+  });
+  it.each(['wealth','charm','agency'])('shows only the relevant %s level and active VIP on all positions',async track=>{
+    const {get,messages}=await fixture(track,null,'',`ranking-${track}`);
+    const nodes=[...descendants(get('hero')),...descendants(get('entries'))];
+    const tags=nodes.filter(n=>n.className?.startsWith('level-tag '));
+    expect(tags).toHaveLength(4);
+    expect(tags.map(n=>n.children.find(c=>c.className==='level-value').textContent)).toEqual(Array(4).fill({wealth:'W 42',charm:'C 17',agency:'A 6'}[track]));
+    expect(nodes.filter(n=>n.className==='vip-value').map(n=>n.textContent)).toEqual(['VIP 3']);
+    if(track!=='agency'){
+      expect(nodes.filter(n=>n.className==='public-id').map(n=>n.textContent)).toEqual(['1','2','3']);
+      nodes.find(n=>n.className==='name entry-name').onclick();
+      expect(messages.at(-1)).toEqual({type:'ranking:open-profile',publicId:'USR-1'});
     }
   });
   it('preserves the close message',async()=>{const {get,messages}=await fixture();messages.length=0;get('back').onclick();expect(messages).toEqual([{type:'ranking:close'}]);});

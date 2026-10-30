@@ -10,7 +10,7 @@ function db(initial={}) {
 it("encrypts bank details with tamper detection and validates input",()=>{
  vi.stubEnv("PAYOUT_BANK_ENCRYPTION_KEY","a".repeat(64));
  const value=encryptBank(bank);expect(value).not.toContain(bank.accountNumber);expect(decryptBank(value)).toEqual(bank);
- expect(()=>decryptBank("b"+value.slice(1))).toThrow();
+ expect(()=>decryptBank((value[0] === "b" ? "c" : "b")+value.slice(1))).toThrow();
  expect(()=>normalizeBank({...bank,accountNumber:""})).toThrow();
  expect(()=>normalizeBank({...bank,bankName:"a\nb"})).toThrow();
 });
