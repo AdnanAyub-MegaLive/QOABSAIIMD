@@ -1,4 +1,5 @@
 import { publicCdnUrl, canPublishMedia } from "@/lib/media-cdn-policy";
+import { mediaByteCache } from "@/lib/media-byte-cache";
 import { auth } from "../../../../../../auth";
 import { prisma } from "../../../../../lib/prisma";
 import mobileSession from "../../../../../lib/mobile-session.cjs";
@@ -138,7 +139,9 @@ async function mediaResponse(asset, request) {
   if(version&&request.headers.get("if-none-match")?.split(",").some(tag=>["*",`"${version}"`,`W/"${version}"`].includes(tag.trim())))return new Response(null,{status:304,headers});
   const cdn = publicCdnUrl(asset, wantsPoster);
   if (cdn) return new Response(null, { status: 307, headers: { Location: cdn, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
-  const bytes = await prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { ...(wantsPoster && asset.posterMimeType ? { posterFileData: true } : { fileData: true }), mediaVersion: true, posterMediaVersion: true } });
+  const posterBytes = Boolean(wantsPoster && asset.posterMimeType);
+  const bytes = await mediaByteCache.get(asset.publicId, posterBytes, wantsPoster && !posterBytes ? null : version, () =>
+    prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { ...(posterBytes ? { posterFileData: true } : { fileData: true }), mediaVersion: true, posterMediaVersion: true } }));
   if (!bytes) return new Response(null, { status: 404 });
   if ((wantsPoster ? bytes.posterMediaVersion : bytes.mediaVersion) !== version)
     return Response.json({success:false,error:{code:"MEDIA_VERSION_CHANGED",message:"Refresh the asset URL."}},{status:409,headers:{"Cache-Control":"no-store"}});

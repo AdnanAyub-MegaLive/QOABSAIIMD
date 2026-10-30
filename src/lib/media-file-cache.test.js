@@ -4,8 +4,10 @@ vi.mock("../../auth",()=>({auth:mocks.auth}));
 vi.mock("./prisma",()=>({prisma:{uploadAsset:{findUnique:mocks.findUnique},user:{findUnique:mocks.user}}}));
 import { GET } from "../app/api/uploads/[assetId]/file/route.js";
 import { createPublicDisplayAssetUrl, createSignedAssetUrl } from "./upload-assets.js";
+import { mediaByteCache } from "./media-byte-cache.js";
 const asset={publicId:"AST-1",mediaVersion:"abc",posterMediaVersion:"def",category:"GIFTS",active:true,isGlobal:true,mimeType:"image/gif",fileName:"gift.gif",assignments:[]};
 beforeEach(()=>{
+ mediaByteCache.clear();
  vi.stubEnv("AUTH_SECRET","test-media-key");vi.stubEnv("MEDIA_CDN_ENABLED","false");
  mocks.auth.mockResolvedValue(null);
  mocks.findUnique.mockReset().mockResolvedValue({...asset,fileData:Buffer.from("gif"),posterFileData:Buffer.from("poster")});
