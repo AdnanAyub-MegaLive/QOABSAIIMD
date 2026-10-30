@@ -15,7 +15,7 @@ export function serializeTransaction(tx) {
           try {
           // No SQL text/parameters or account identifiers in diagnostics.
           const sql = args[0]?.sql ?? '';
-          const table = /(?:FROM|INTO|UPDATE)\s+"?(?:public"?\.)?"?([A-Za-z_]+)/i.exec(sql)?.[1] ?? name;
+          const table = /(?:FROM|INTO|UPDATE)\s+"?(?:public"?\.)?"?([A-Za-z_]+)/i.exec(sql)?.[1] ?? /^[A-Z]+/.exec(sql)?.[0] ?? name;
           const timings = context.queryTimings ??= {};
           const entry = timings[table] ??= { count: 0, ms: 0, maxMs: 0 };
           const ms = performance.now() - started;

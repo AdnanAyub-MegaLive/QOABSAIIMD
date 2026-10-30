@@ -3,7 +3,7 @@ import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 import { validateProgressionThresholds } from "./progression-thresholds.js";
 import { versionMediaPayload } from "./media-payload.js";
-import { giftOutboxContext, captureGiftEvent, isGiftEvent, giftEventTiming } from "./gift-outbox-context.js";
+import { giftOutboxContext, captureGiftEvent, isGiftEvent, giftEventTiming, rememberGiftProgress } from "./gift-outbox-context.js";
 export const TRACKS = ["USER", "CHARM"];
 const MAX = 9223372036854775807n;
 export const jsonSafe = value => JSON.parse(JSON.stringify(value, (_, v) => typeof v === "bigint" ? v.toString() : v));
@@ -106,6 +106,7 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
     await tx.userProgress.update({where:{userId_track:{userId:user.id,track}},data:{lifetimePoints:total,currentLevel:updated.level,revision:{increment:1}}});
     const snapshot={...updated,...tagBackground(await levelTagBackgrounds(tx,origin,[{track,level:updated.level}]),track,updated.level),previousLevel,levelsGained:config.levels.filter(l=>l.track===track&&l.level>previousLevel&&l.level<=updated.level).map(l=>l.level).sort((a,b)=>a-b)};
     await appendOutbox(tx,`user:${user.publicId}`,"progression:updated",{...snapshot,track,userId:user.publicId,sourceTransactionId:gift.id});
+    rememberGiftProgress(tx,user.publicId,track,snapshot);
     if(track==="USER") senderSnapshot=snapshot;
   }
   return senderSnapshot;

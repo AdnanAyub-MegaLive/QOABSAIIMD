@@ -47,7 +47,7 @@ it('settles 250 contending sends once each without stale snapshots or extra debi
  const saved=new Map(); const db=database(()=>{});
  db.$transaction=async fn=>{
   const snapshot=revision, pending=new Map(), staged=new Map(balances);let credit=0n;
-  const tx={giftRequest:{findUnique:async({where})=>saved.get(JSON.stringify(where.senderId_key)),create:async({data})=>({id:JSON.stringify({senderId:data.senderId,key:data.key}),...data}),update:async({where,data})=>pending.set(where.id,{fingerprint:'burst',result:data.result})},
+  const tx={giftRequest:{findUnique:async({where})=>saved.get(JSON.stringify(where.senderId_key)),create:async({data})=>pending.set(JSON.stringify({senderId:data.senderId,key:data.key}),{fingerprint:data.fingerprint,result:data.result})},
    charge:async sender=>{if(staged.get(sender)<10n)throw Error('INSUFFICIENT_COINS');staged.set(sender,staged.get(sender)-10n);credit+=10n;await new Promise(r=>setTimeout(r,0));}};
   const result=await fn(tx);
   if(snapshot!==revision){conflicts++;throw {code:'P2034'};}
@@ -83,7 +83,7 @@ it("persists identical response/event deadlines and replays without extending th
   const send = vi.fn(async () => { eventData = giftEventTiming("audio-room:r", "gift:received", {}); return { data: {} }; });
   const result = await runGiftOperation("combo-sender", operation, send, db);
   expect(result.data.comboTiming).toEqual(eventData.comboTiming);
-  expect(db.giftRequest.create).toHaveBeenCalledWith({ data: { senderId: "combo-sender", key: operation.key, fingerprint: operation.fingerprint } });
+  expect(db.giftRequest.create).toHaveBeenCalledWith({ data: { senderId: "combo-sender", key: operation.key, fingerprint: operation.fingerprint, result } });
   db.giftRequest.findUnique.mockResolvedValue({ fingerprint: operation.fingerprint, result });
   const retry = { ...operation, presentation: { ...operation.presentation, receivedAt: operation.presentation.receivedAt + 60000 } };
   expect(await runGiftOperation("combo-sender", retry, send, db)).toEqual(result);

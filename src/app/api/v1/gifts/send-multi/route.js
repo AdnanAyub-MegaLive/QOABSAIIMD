@@ -1,7 +1,7 @@
 import { currencyPolicy } from '@/lib/currency-policy';
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from '@/lib/gift-currency-settlement';
 import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from '@/lib/gift-operation';
-import { awardGiftProgress, appendOutbox, publicProgression } from '@/lib/progression';
+import { awardGiftProgress, appendOutbox } from '@/lib/progression';
 import { parseGiftBatchId } from '@/lib/gift-batch';
 import { prisma } from '@/lib/prisma';
 import { mobileApiError, giftJson, mobileOptions, requireMobileUser } from '@/lib/mobile-api';
@@ -10,7 +10,7 @@ import { getProfitSplitRule } from '@/lib/profit-rules';
 import { ledgerData } from '@/lib/wallet';
 import { giftMedia } from '@/lib/gift-media';
 import { requestOrigin } from '@/lib/user-perks';
-import { resolveGiftSender } from '@/lib/gift-sender';
+import { resolveGiftSender, settledGiftSender } from '@/lib/gift-sender';
 import { luckyPolicy, settleLuckyRewards, multiplierLabel } from '@/lib/lucky-gifts';
 
 export function OPTIONS() { return mobileOptions(); }
@@ -95,7 +95,7 @@ export async function POST(request) {
       const balance = await tx.user.findUniqueOrThrow({ where: { id: sender.id }, select: { coinBalance: true } });
       const data = { requestId: operation.key, senderId: sender.publicId, roomId, giftId, recipientIds: ids, quantity, totalCoins: backpack ? '0' : total.toString(), totalGiftCoins: total.toString(), source: backpack ? 'BACKPACK' : 'COINS', bagItemId: backpack ? bagItemId : null, consumedItems: backpack ? itemCount : 0, transactionIds: results.map(r => r.transactionId), recipients: results, senderCoinBalance: balance.coinBalance.toString(), luckyRewardCoins: totalLucky.toString(), giftBatchId, comboId, giftTier: gift.giftTier, catalogCategory: gift.giftCategory };
       await tx.auditLog.create({ data: { action: backpack ? 'BACKPACK_GIFT_SENT' : 'MULTI_GIFT_SENT', category: 'FINANCE', entityType: 'GiftTransaction', entityId: operation.key, description: `${sender.publicId} sent an atomic gift to ${ids.length} recipients.`, metadata: data } });
-      const giftSender = { ...senderArtwork, ...(await publicProgression([sender], origin, tx)).get(sender.publicId) };
+      const giftSender = settledGiftSender(senderArtwork, tx);
       const media = { id: gift.publicId, name: gift.name, category: gift.giftTier, ...giftMedia(gift, origin), unitPrice: gift.coinPrice.toString(), quantity, totalCoins: each.toString() };
       for (const result of results) await appendOutbox(tx, `audio-room:${roomId}`, 'gift:received', { ...result, requestId: operation.key, roomId, giftId, giftBatchId, comboId, source: data.source, giftTier: gift.giftTier, catalogCategory: gift.giftCategory, quantity, totalCoins: each.toString(), recipientIds: [result.recipientId], transactionIds: [result.transactionId], sender: giftSender, gift: media });
       return { ...data, gift: media, progression };

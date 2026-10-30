@@ -18,7 +18,7 @@ vi.mock("@/lib/profit-rules", () => ({ coinsForShare: (n, b) => n * BigInt(b) / 
 vi.mock("@/lib/realtime", () => ({ audioRoomParticipantIds: async () => new Set(["USR-S", "USR-A", "USR-B", ...Array.from({length:26},(_,i)=>`USR-QA${i}`)]), emitToAudioRoom: mocks.emit, emitToUser: mocks.emit, emitToVideoLive: mocks.emit }));
 vi.mock("@/lib/upload-assets", () => ({ createPublicDisplayAssetUrl: () => "https://portal.test/gift" }));
 vi.mock("@/lib/user-perks", () => ({ requestOrigin: () => "https://portal.test" }));
-vi.mock("@/lib/gift-sender", () => ({ resolveGiftSender: async u => ({ id: u.publicId }) }));
+vi.mock("@/lib/gift-sender", () => ({ resolveGiftSender: async u => ({ id: u.publicId }), settledGiftSender: s => s }));
 vi.mock("@/lib/wallet", () => ({ ledgerData: d => d }));
 vi.mock("@/lib/gift-leaderboard", () => ({ getRoomGiftLeaderboard: async () => ({ topGifters: [], topReceivers: [] }) }));
 vi.mock("@/lib/daily-tasks", () => ({ addDailyTaskProgress: async () => {} }));
@@ -35,7 +35,7 @@ beforeEach(() => {
   mocks.emit.mockClear(); mocks.rows.length = 0; mocks.ledger.length = 0;
   Object.assign(mocks.db, {
     uploadAsset: { findFirst: async () => ({ id: "gift", publicId: "AST-1", name: "Rose", giftTier: "LUCKY", giftRewardMinBps: 0, giftRewardMaxBps: 0, coinPrice: 100n }) },
-    user: { findFirst: async ({ where }) => ({ id: where.publicId, publicId: where.publicId, appRoles: [] }), updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn(async () => ({})), findUniqueOrThrow: async () => ({ coinBalance: 1000n }) },
+    user: { findFirst: async ({ where }) => ({ id: where.publicId, publicId: where.publicId, appRoles: [] }), updateMany: vi.fn(async () => ({ count: 1 })), updateManyAndReturn: vi.fn(async () => [{coinBalance:1000n}]), update: vi.fn(async () => ({})), findUniqueOrThrow: async () => ({ coinBalance: 1000n }) },
     talent: { findUnique: async () => null },
     audioRoom: { findFirst: async () => ({ id: "room", roomId: "ROOM-1" }) },
     audioRoomPkSession: { findFirst: async () => null },
@@ -133,7 +133,7 @@ describe.each([["standard", standard], ["backpack", backpack], ["lucky", lucky]]
     expect(mocks.rows[0]).toMatchObject({senderId:"sender",recipientUserId:"sender",coinValue:100n});
     expect(mocks.ledger.some(row=>row.userId==="sender"&&row.type==="GIFT_RECEIVED"&&row.diamonds===100n)).toBe(true);
     if (_name === "backpack") expect(mocks.db.userGiftInventory.updateMany).toHaveBeenCalled();
-    else expect(mocks.db.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:{id:"sender",coinBalance:{gte:100n}}}));
+    else expect(mocks.db.user.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({where:{id:"sender",coinBalance:{gte:100n}}}));
   });
   it("persists and echoes the same batch without merging recipient transactions", async () => {
     for (const recipientId of ["USR-A", "USR-B"]) {
@@ -173,7 +173,7 @@ it("allows a self-gift outside a room",async()=>{
 
 it("still rejects self-gifts with insufficient Coins",async()=>{
   mocks.db.user.findFirst=async()=>({id:"sender",publicId:"USR-S",appRoles:[]});
-  mocks.db.user.updateMany.mockResolvedValue({count:0});
+  mocks.db.user.updateManyAndReturn.mockResolvedValue([]);
   const response=await standard(request({recipientId:"USR-S",roomId:null}));
   expect(response.status).not.toBe(201);
   expect(mocks.rows).toHaveLength(0);

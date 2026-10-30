@@ -1,7 +1,7 @@
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
 import { currencyPolicy } from "@/lib/currency-policy";
 import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from "@/lib/gift-operation";
-import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
+import { awardGiftProgress, appendOutbox } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, giftJson as mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { audioRoomParticipantIds } from "@/lib/realtime";
@@ -10,7 +10,7 @@ import { ledgerData } from "@/lib/wallet";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { giftMedia } from "@/lib/gift-media";
 import { requestOrigin } from "@/lib/user-perks";
-import { resolveGiftSender } from "@/lib/gift-sender";
+import { resolveGiftSender, settledGiftSender } from "@/lib/gift-sender";
 import { parseGiftBatchId } from "@/lib/gift-batch";
 
 export function OPTIONS() { return mobileOptions(); }
@@ -52,7 +52,7 @@ export async function POST(request) {
       await tx.auditLog.create({ data: { action: "BACKPACK_GIFT_SENT", category: "FINANCE", entityType: "GiftTransaction", entityId: giftTx.id, description: `${sender.publicId} sent backpack gift ${gift.publicId} to ${recipient.publicId}.`, metadata: { roomId, quantity, grossCoins: gross.toString() } } });
       const progression=await awardGiftProgress(tx,{sender,recipient,gift:giftTx,source:"BACKPACK",gross,credit,recipientType:host?"HOST":"NORMAL_USER",origin:requestOrigin(request)});
       const result=giftTx;
-    const origin = requestOrigin(request), giftSender = { ...senderArtwork, ...(await publicProgression([sender],origin,tx)).get(sender.publicId) }, data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, ...giftMedia(gift, origin) } };
+    const origin = requestOrigin(request), giftSender = settledGiftSender(senderArtwork, tx), data = { transactionId: result.id, roomId, giftId, recipientId, quantity, totalCoins: gross.toString(), source: "BACKPACK", sender: giftSender, gift: { id: gift.publicId, name: gift.name, ...giftMedia(gift, origin) } };
     data.giftBatchId = result.giftBatchId;
     Object.assign(data, { requestId: operation.key, transactionIds: [result.id], recipientIds: [recipientId], giftTier: gift.giftTier, catalogCategory: gift.giftCategory, createdAt: result.createdAt.toISOString() });
     await emitToAudioRoom(roomId, "gift:received", { success: true, data });

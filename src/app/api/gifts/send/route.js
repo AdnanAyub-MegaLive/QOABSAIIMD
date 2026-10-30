@@ -2,7 +2,7 @@ import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
 import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { currencyPolicy } from "@/lib/currency-policy";
-import { awardGiftProgress, appendOutbox, publicProgression } from "@/lib/progression";
+import { awardGiftProgress, appendOutbox } from "@/lib/progression";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -14,7 +14,7 @@ import { getProfitSplitRule } from "@/lib/profit-rules";
 import { audioRoomParticipantIds } from "@/lib/realtime";
 import { giftMedia } from "@/lib/gift-media";
 import { requestOrigin } from "@/lib/user-perks";
-import { resolveGiftSender } from "@/lib/gift-sender";
+import { resolveGiftSender, settledGiftSender } from "@/lib/gift-sender";
 import { ledgerData } from "@/lib/wallet";
 import { addDailyTaskProgress } from "@/lib/daily-tasks";
 import { randomInt } from "node:crypto";
@@ -147,14 +147,15 @@ export async function POST(request) {
       const emitToUser = (id,event,payload) => appendOutbox(tx,`user:${id}`,event,payload.data);
       const emitToAudioRoom = (id,event,payload) => appendOutbox(tx,`audio-room:${id}`,event,payload.data);
       const emitToVideoLive = (id,event,payload) => appendOutbox(tx,`live-video:${id}`,event,payload.data);
-      const debited = await tx.user.updateMany({
+      const debited = await tx.user.updateManyAndReturn({
         where: { id: sessionUser.id, coinBalance: { gte: grossCoins } },
         data: {
           coinBalance: { decrement: grossCoins },
           totalSpent: { increment: grossCoins },
         },
+        select: { coinBalance: true },
       });
-      if (!debited.count) throw new Error("INSUFFICIENT_COINS");
+      if (!debited.length) throw new Error("INSUFFICIENT_COINS");
 
       const currency = await currencyPolicy(tx);
       const lucky = giftAsset.giftTier === "LUCKY" ? await luckyPolicy(tx) : null;
@@ -269,17 +270,14 @@ export async function POST(request) {
       if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); ledgerRows.push(ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps: luckyOutcome.multiplierBps, multiplier: multiplierLabel(luckyOutcome.multiplierBps), limitedByPool: luckyOutcome.limitedByPool } })); }
       // All journal rows remain atomic with the balances and gift, in one insert.
       await tx.walletTransaction.createMany({ data: ledgerRows });
-      const sender = await tx.user.findUniqueOrThrow({
-        where: { id: sessionUser.id },
-        select: { coinBalance: true },
-      });
+      const sender = { coinBalance: debited[0].coinBalance + luckyRewardCoins };
       const liveTotals = live ? await tx.videoLiveSession.update({ where: { id: live.id }, data: { giftIncome: { increment: grossCoins }, revision: { increment: 1 } }, select: { giftIncome: true, revision: true } }) : null;
       if (live) await applyLiveGiftReward(tx, live, sessionUser.id, grossCoins);
       const progression = await awardGiftProgress(tx, {sender:sessionUser,recipient:recipientUser,gift,source:giftAsset.giftTier === "LUCKY" ? "LUCKY" : giftAsset.giftTier === "BLIND_BOX" ? "BLIND_BOX" : "PAID",gross:grossCoins,credit:receivedDiamonds,reward:luckyRewardCoins,revealed:blindBoxReward ? blindBoxReward.coinPrice*BigInt(quantity) : 0n,recipientType:isHost ? "HOST" : "NORMAL_USER",origin:requestOrigin(request),settlement});
       const result = { gift, settlement, sender, luckyRewardCoins, luckyOutcome, liveTotals, progression };
 
     const origin = requestOrigin(request);
-    const giftSender = { ...senderArtwork, ...(await publicProgression([sessionUser], origin, tx)).get(sessionUser.publicId) };
+    const giftSender = settledGiftSender(senderArtwork, tx);
     const revealedGift = blindBoxReward ? { publicId: blindBoxReward.publicId, name: blindBoxReward.name, quantity, ...giftMedia(blindBoxReward, origin) } : null;
     const giftDetails = { publicId: giftAsset.publicId, name: giftAsset.name, ...giftMedia(giftAsset, origin), coinPrice: giftAsset.coinPrice.toString() };
     const extras = { requestId: operation.key, recipientIds: [recipientId], transactionIds: [result.gift.id], giftTier: giftAsset.giftTier, catalogCategory: giftAsset.giftCategory, giftBatchId: result.gift.giftBatchId, comboId, lucky: result.luckyOutcome ? { rewardCoins: result.luckyRewardCoins.toString(), rewardBps: result.luckyOutcome.multiplierBps, multiplier: multiplierLabel(result.luckyOutcome.multiplierBps), bigWin: result.luckyOutcome.bigWin } : null, blindBox: revealedGift ? { revealedGift } : null };

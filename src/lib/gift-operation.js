@@ -66,7 +66,6 @@ async function executeGiftOperation(senderId,operation,work,db,timing) {
     const committed = await giftOutboxContext.run(events, () => db.$transaction(async tx=>{
       timing('transaction_started');
       const old=await priorGiftOperation(senderId,operation,tx); if(old) return old;
-      const request=await tx.giftRequest.create({data:{senderId,key:operation.key,fingerprint:operation.fingerprint}});
       const result=jsonSafe(await work(tx));
       const payload=result.data??result;
       if (events.comboTiming) payload.comboTiming = events.comboTiming;
@@ -79,7 +78,10 @@ async function executeGiftOperation(senderId,operation,work,db,timing) {
         const recipientResult = payload.recipients?.find(row => row.transactionId === id);
         await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk});
       }
-      await tx.giftRequest.update({where:{id:request.id},data:{result}});
+      // A pending row was never visible outside this transaction. Insert its
+      // completed result once instead of INSERT then UPDATE. The unique key
+      // still rolls back a competing transaction before any effects commit.
+      await tx.giftRequest.create({data:{senderId,key:operation.key,fingerprint:operation.fingerprint,result}});
       return result;
     },{isolationLevel:"Serializable",timeout:20000}));
     timing('transaction_committed');

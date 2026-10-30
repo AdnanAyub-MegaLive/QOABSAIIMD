@@ -1,4 +1,5 @@
-import { perkMediaFields } from "./decoration-media.js";
+import { perkMediaFields, namedDecoration } from "./decoration-media.js";
+import { giftProgressSnapshot } from './gift-outbox-context.js';
 import { resolveUserPerks } from "./user-perks.js";
 
 export function giftSenderPayload(user, perks = null) {
@@ -26,4 +27,17 @@ export async function resolveGiftSender(user, origin) {
     console.error("Gift sender perks resolution failed", error);
     return giftSenderPayload(user);
   }
+}
+
+// Reuse the snapshots produced by this transaction, including both tracks for
+// a self-gift. Unchanged tracks retain the artwork loaded before settlement.
+export function settledGiftSender(sender, tx) {
+  const result = { ...sender };
+  const wealth = giftProgressSnapshot(tx, sender.publicId ?? sender.id, 'USER');
+  const charm = giftProgressSnapshot(tx, sender.publicId ?? sender.id, 'CHARM');
+  if (wealth) Object.assign(result, { level: wealth.level, userLevel: wealth.level, userLevelBadgeUrl: wealth.badgeUrl,
+    ...namedDecoration('userLevelBackground', wealth.background) });
+  if (charm) Object.assign(result, { charmLevel: charm.level, anchorLevel: charm.level, charmLevelBadgeUrl: charm.badgeUrl,
+    ...namedDecoration('charmLevelBackground', charm.background) });
+  return result;
 }
