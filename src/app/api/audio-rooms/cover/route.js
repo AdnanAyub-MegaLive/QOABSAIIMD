@@ -1,3 +1,4 @@
+import { hasVipPrivilege, vipError } from "@/lib/vip-capabilities";
 import { roomCoverDto } from "@/lib/room-cover";
 import { roomFrameInclude } from "@/lib/room-frame";
 import { decodeLiveCover } from "@/lib/video-cover";
@@ -88,6 +89,7 @@ export async function POST(request) {
         413,
       );
 
+    if (file.type === "image/gif" && !await hasVipPrivilege(user.id, "GIF_ROOM_COVER")) throw vipError("GIF_ROOM_COVER_REQUIRED");
     const imageData = Buffer.from(await file.arrayBuffer());
     if(file.type==="image/gif")await decodeLiveCover(imageData,file.type);
     if (!validImageSignature(imageData, file.type))

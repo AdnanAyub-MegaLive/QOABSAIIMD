@@ -1,3 +1,4 @@
+import { userVip } from "@/lib/vip-capabilities";
 import { observedDeviceIp, observedDeviceLocation } from "@/lib/device-observation";
 import { profileEditPermissions } from "@/lib/profile-edit-policy";
 import { prisma } from "@/lib/prisma";
@@ -250,7 +251,7 @@ export async function POST(request) {
               roles: account.appRoles,
               ...managementIdentity(account),
               status: account.status,
-              vipLevel: account.vipLevel,
+              ...await userVip(account.id),
               createdAt: account.createdAt.toISOString(),
             },
           },

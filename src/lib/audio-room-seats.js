@@ -1,3 +1,4 @@
+import { hasVipPrivilege } from "./vip-capabilities.js";
 import { perkMediaFields } from "./decoration-media.js";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
@@ -198,7 +199,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
       where: { audioRoomId_seatId: { audioRoomId: room.id, seatId } },
     });
     if (!target) throw new Error("SEAT_NOT_FOUND");
-    if (target.isLocked) throw new Error("SEAT_LOCKED");
+    if (target.isLocked && !await hasVipPrivilege(userId, "ROOM_ANTI_LOCK", tx)) throw new Error("SEAT_LOCKED");
     if (target.occupantUserId && target.occupantUserId !== userId)
       throw new Error("SEAT_OCCUPIED");
     if (target.occupantUserId === userId) return target;
@@ -218,7 +219,7 @@ export async function takeAudioRoomSeat(room, userId, seatId) {
       where: {
         id: target.id,
         occupantUserId: null,
-        isLocked: false,
+        isLocked: target.isLocked,
       },
       data: {
         occupantUserId: userId,
@@ -252,7 +253,7 @@ export async function moveAudioRoomSeat(room, userId, fromSeatId, toSeatId) {
     if (!source || source.occupantUserId !== userId)
       throw new Error("SOURCE_SEAT_NOT_OWNED");
     if (!target) throw new Error("SEAT_NOT_FOUND");
-    if (target.isLocked) throw new Error("SEAT_LOCKED");
+    if (target.isLocked && !await hasVipPrivilege(userId, "ROOM_ANTI_LOCK", tx)) throw new Error("SEAT_LOCKED");
     if (target.occupantUserId) throw new Error("SEAT_OCCUPIED");
 
     await tx.audioRoomSeat.update({

@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ db: { vipMembership: { findUnique: vi.fn() }, userProfileVisit: { findMany: vi.fn() }, userBlock: { findMany: vi.fn() }, userFollow: { findMany: vi.fn() } }, auth: vi.fn(), access: vi.fn() }));
+const mocks = vi.hoisted(() => ({ db: { vipMembership: { findUnique: vi.fn(), findMany: vi.fn(async()=>[]) }, userProfileVisit: { findMany: vi.fn() }, userBlock: { findMany: vi.fn() }, userFollow: { findMany: vi.fn() } }, auth: vi.fn(), access: vi.fn() }));
 vi.mock("./prisma.js", () => ({ prisma: mocks.db }));
 vi.mock("./mobile-api.js", () => ({ requireMobileUser: mocks.auth, mobileJson: (body, status = 200) => Response.json(body, { status }), mobileApiError: () => Response.json({}, { status: 401 }) }));
 vi.mock("./public-profile.js", () => ({ profileAccess: mocks.access, equippedProfileAssets: async () => new Map(), publicPerson: {}, activePerson: {}, wallOffset: () => 0, wallCursor: () => "next" }));

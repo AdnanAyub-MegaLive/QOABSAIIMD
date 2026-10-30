@@ -81,7 +81,7 @@ export async function mobileUserProfile(userId, origin = null) {
     roles: [...new Set([...(user.appRoles??[]),...(card.agency?.isOwner?["HOST"]:[])])],
     ...managementIdentity(user),
     status: user.status,
-    vipLevel: user.vipLevel,
+    vipLevel: perks?.vipLevel ?? 0,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };

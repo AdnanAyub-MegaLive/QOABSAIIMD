@@ -8,7 +8,7 @@
   const scoring={wealth:'Ranked by the Coin value of gifts sent during the selected period.',charm:'Ranked by the Coin value of gifts received during the selected period.',agency:'Ranked by gifts received by hosts, attributed to their agency at the time of gift settlement.',cp:'Ranked by gifts exchanged between active CP partners since their relationship began, within the selected period.'};
   function renderRules(){
     $('rules-title').textContent=`${labels[type]} event rules`;
-    $('rule-text').textContent=`${scoring[type]} Refunded gifts are excluded. Daily periods reset at midnight UTC; weekly periods start on Monday; monthly periods start on the first day of the month. Equal scores use public ID order.`;
+    $('rule-text').textContent=`${scoring[type]} Refunded gifts are excluded. Daily periods reset at midnight UTC; weekly periods start on Monday; monthly periods start on the first day of the month. Equal personal scores prioritize active VIP Ranking priority, then higher VIP tier, then public ID. Agency and CP ties use public ID.`;
     $('award-rules').textContent=`${type==='agency'?'Rewards go to the agency owner.':type==='cp'?'Both CP partners receive the full configured reward.':'Rewards go to the ranked user.'} Rewards follow the admin settings for this event and period and are processed after the period closes. No rewards apply before activation. Awards requiring review may be delayed. Profile blocks may hide entries; awards use global ranking positions.`;
     $('rewards-title').textContent=`${labels[type]} · ${{today:'Daily',week:'Weekly',month:'Monthly'}[period]} rewards`;
   }

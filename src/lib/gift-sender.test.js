@@ -7,6 +7,7 @@ describe("gift sender payload", () => {
       { publicId: "USR-1", name: "Sender", profileImage: "https://example.test/avatar.webp", vipLevel: 3 },
       { frameUrl: "frame", badgeUrl: "badge", chatBoxUrl: "chat-box" },
     )).toEqual({
+      vipPrivileges:[],vipNameColor:null,
       id: "USR-1",
       publicId: "USR-1",
       name: "Sender",
@@ -15,7 +16,7 @@ describe("gift sender payload", () => {
       badgeUrl: "badge",
       chatBoxUrl: "chat-box",
       level: 0,
-      vipLevel: 3,
+      vipLevel: 0,
       anchorLevel: 0,
     });
   });

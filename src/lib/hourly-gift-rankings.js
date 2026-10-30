@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { usersVip } from "./vip-capabilities.js";
 import { rankingHash } from "./room-ranking-contract.js";
 import { resolveUserPerks } from "./user-perks.js";
 import { perkMediaFields } from "./decoration-media.js";
@@ -91,12 +92,14 @@ export async function getHourlyGiftRankings({ user, origin }, db = prisma, clock
   const ids = [...new Set([user.id, ...snapshot.data.current.map(r => r.userId), ...snapshot.data.previous.map(r => r.userId)])];
   const allowed = await visibleUsers(db, ids, user.id, now);
   if (!allowed.has(user.id)) throw hourlyError("FORBIDDEN", "Your account cannot access rankings.", 403);
-  const current = orderHourlyScores(snapshot.data.current, allowed), previous = orderHourlyScores(snapshot.data.previous, allowed);
+  const vip = await usersVip(ids, db, now);
+  const priority = new Map(ids.map(id => [id, vip.get(id)?.vipPrivileges.includes("RANKING_PRIORITY") ? vip.get(id).vipLevel : 0]));
+  const current = orderHourlyScores(snapshot.data.current, allowed, priority), previous = orderHourlyScores(snapshot.data.previous, allowed, priority);
   // Unknown funding can change every position/threshold. Do not label a partial
   // sum as an exact global rank, or turn unknown sending into zero.
   const currentAvailable = snapshot.data.unverified.current === "0", previousAvailable = snapshot.data.unverified.previous === "0";
   const top50 = currentAvailable ? current.slice(0, 50) : [], top3 = previousAvailable ? previous.slice(0, 3) : [];
-  const position = currentAvailable ? hourlyViewerPosition(current, user.id) : { ranked: null, rank: null, sentCoins: null, unit: HOURLY_GIFT_UNIT, inTop50: null, additionalCoinsToTop50: null };
+  const position = currentAvailable ? hourlyViewerPosition(current, user.id, priority) : { ranked: null, rank: null, sentCoins: null, unit: HOURLY_GIFT_UNIT, inTop50: null, additionalCoinsToTop50: null };
   const displayIds = [...new Set([user.id, ...top50.map(r => r.userId), ...top3.map(r => r.userId)])];
   const people = await db.user.findMany({ where: { ...activeUser(now), id: { in: displayIds } }, select: {
     id: true, publicId: true, name: true, profileImage: true,

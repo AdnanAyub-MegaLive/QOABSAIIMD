@@ -94,6 +94,7 @@ export async function ownedProfileBadges(userId, origin, db = prisma) {
   return rows.map(row => ({ ...decorationMedia(row.asset, origin), name: row.asset.name, expiresAt: row.expiresAt?.toISOString() ?? null }));
 }
 
+import { usersVip } from "./vip-capabilities.js";
 export async function profileExtras(target, viewer, origin, db = prisma) {
   const agency = await profileAgency(db,target.id,target.agency);
   const specialIds = await activeSpecialIds([target.id],db);
@@ -111,14 +112,15 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
   const blocked = await db.userBlock.findMany({ where: { OR: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }, select: { blockerId: true, blockedId: true } });
   const hidden = new Set(blocked.map(b => b.blockerId === viewer.id ? b.blockedId : b.blockerId));
   const decorations = await equippedProfileAssets([...people, ...related], origin, db);
-  const identity = p => ({ publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), ...namedDecoration("frame", decorations.get(p.id)?.avatarFrame), ...namedDecoration("badge", decorations.get(p.id)?.profileBadge) });
+  const vip = await usersVip([target.id, ...people.map(p => p.id), ...related.map(p => p.id)], db);
+  const identity = p => ({ ...vip.get(p.id), publicId: p.publicId, name: p.name, profileImage: avatarDisplayUrl(p.profileImage, origin), ...namedDecoration("frame", decorations.get(p.id)?.avatarFrame), ...namedDecoration("badge", decorations.get(p.id)?.profileBadge) });
   const assets = await displayAssets([...roleRows.map(r => r.assetPublicId), agency?.logoAssetPublicId, agency?.badgeAssetPublicId], origin, db);
   const equippedAssets = equipment.get(target.id);
   const levels = progress.get(target.publicId);
   const game = await activityProgress("GAME", target.id, origin, db);
   const agencyProgress = agency ? await activityProgress("AGENCY", agency.id, origin, db) : null;
   const cardArt = await profileCardArtwork(db,target.id,levels?.charmLevel??0,origin,agency);
-  return { specialId: specialIds.get(target.id)??null, roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
+  return { ...vip.get(target.id), specialId: specialIds.get(target.id)??null, roles, roleBadges: roles.map(code => { const configured = roleRows.find(r => r.code === code); return { code, label: configured?.label ?? displayApplicationRole(code), imageUrl: assets.get(configured?.assetPublicId)?.url ?? null }; }),
     ownedBadges, ownedProps, equippedAssets, frameUrl: equippedAssets.avatarFrame?.url ?? null, badgeUrl: equippedAssets.profileBadge?.url ?? null,
     userTagUrl: equippedAssets.userTag?.url ?? null,
     profileBackgroundUrl: equippedAssets.profileBackground?.url ?? null, profileBackgroundPosterUrl: equippedAssets.profileBackground?.posterUrl ?? null, profileBackgroundMimeType: equippedAssets.profileBackground?.mimeType ?? null,

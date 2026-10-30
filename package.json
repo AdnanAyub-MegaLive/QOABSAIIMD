@@ -19,7 +19,8 @@
     "db:seed": "prisma db seed && node prisma/seed-events.mjs",
     "events:seed": "node prisma/seed-events.mjs",
     "wallet:setup": "node scripts/setup-wallet-db.mjs",
-    "legacy-ids:import": "node scripts/import-legacy-id-mappings.mjs"
+    "legacy-ids:import": "node scripts/import-legacy-id-mappings.mjs",
+    "test:vip:http": "node scripts/test-vip-capabilities.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
@@ -54,6 +55,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.10",
     "prisma": "7.10.0",
+    "socket.io-client": "^4.8.3",
     "tailwindcss": "^4",
     "vitest": "^4.1.10"
   }

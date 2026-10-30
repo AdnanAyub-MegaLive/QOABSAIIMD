@@ -78,7 +78,7 @@ export async function calculateRankings({
   const sorted = sortRankingEntries(
     users
       .map((user) => ({
-        user,
+        user: { ...user, vipPrivileges: perks.get(user.publicId)?.vipPrivileges ?? [], vipLevel: perks.get(user.publicId)?.vipLevel ?? 0 },
         score: scoreResult.scores.get(user.id) ?? 0n,
         breakdown: scoreResult.breakdowns.get(user.id) ?? [],
       }))
@@ -199,7 +199,7 @@ function serializeEntry(entry, perks, liveRoomByUser, scoreLabel, includeDetails
     badgeUrl: userPerks?.badgeUrl ?? null,
     isVerified: Boolean(entry.user.isVerified),
     isOfficial: Boolean(entry.user.isOfficial),
-    vipLevel: entry.user.vipLevel,
+    vipLevel: userPerks?.vipLevel ?? 0, vipPrivileges: userPerks?.vipPrivileges ?? [], vipNameColor: userPerks?.vipNameColor ?? null,
     isLive: Boolean(liveRoomId),
     liveRoomId,
     score: entry.score.toString(),

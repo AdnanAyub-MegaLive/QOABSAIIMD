@@ -1,3 +1,4 @@
+import { userVip } from "@/lib/vip-capabilities";
 import { prisma } from "../../../../lib/prisma";
 import { versionMediaPayload } from "@/lib/media-payload";
 import mobileSession from "../../../../lib/mobile-session.cjs";
@@ -166,7 +167,7 @@ export async function PATCH(request) {
           role: user.role,
           roles: user.appRoles,
           status: user.status,
-          vipLevel: user.vipLevel,
+          ...await userVip(user.id),
           createdAt: user.createdAt.toISOString(),
           updatedAt: user.updatedAt.toISOString(),
         },

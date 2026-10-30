@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { roomAccessCheck } from "./room-access-check.js";
 const now=new Date("2026-10-14T12:00:00Z"),room={id:"r",roomId:"ROOM-1",ownerId:"owner",status:"IDLE",startedAt:now};
-const db={audioRoomBan:{findFirst:async()=>null},audioRoomAdmission:{findUnique:async()=>null}};
+const db={vipMembership:{findUnique:async()=>null},audioRoomBan:{findFirst:async()=>null},audioRoomAdmission:{findUnique:async()=>null}};
 it("allows idle rooms and needs no write methods",async()=>{expect((await roomAccessCheck(db,room,"listener",now)).code).toBeNull()});
 it("returns permanent or timed ban details only when banned",async()=>{
  for(const expiresAt of [null,new Date("2026-10-15T12:00:00Z")]){const data=await roomAccessCheck({...db,audioRoomBan:{findFirst:async()=>({reason:"test",expiresAt})}},room,"u",now);expect(data).toMatchObject({code:"ROOM_BANNED",ban:{reason:"test",expiresAt:expiresAt?.toISOString()??null}})}

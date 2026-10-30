@@ -55,7 +55,7 @@ function fixture() {
   let rows = people.map(p => ({ kind: "SCORE", period: "current", userId: p.id, score: "100" }));
   rows.push({ kind: "SCORE", period: "previous", userId: "u00", score: "900" });
   let tail = Promise.resolve();
-  const db = {
+  const db = {vipMembership:{findUnique:async()=>null,findMany:async()=>[]},
     roomRankingRevision: { findMany: async () => [{ id: "__hourly_gifts__", revision }] },
     hourlyGiftRankingCache: { findUnique: async ({ where }) => cache.get(where.id) ?? null, upsert: async ({ where, create, update }) => { const value = cache.has(where.id) ? { id: where.id, ...update } : create; cache.set(where.id, value); return value; } },
     $queryRaw: vi.fn(async q => q.text?.includes('FROM "GiftTransaction"') ? rows : [{ locked: 1 }]), $executeRaw: async () => 0,

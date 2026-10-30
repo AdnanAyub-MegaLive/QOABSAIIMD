@@ -1,6 +1,22 @@
+import { Prisma } from "@prisma/client";
 import { perkMediaFields } from "./decoration-media.js";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
+
+async function roomGiftTotals(db, roomId, groupField, take, skip = 0) {
+  const field = groupField === "senderId" ? Prisma.sql`g."senderId"` : Prisma.sql`g."recipientUserId"`;
+  const now = new Date();
+  const rows = await db.$queryRaw(Prisma.sql`
+    SELECT ${field} AS "userId", SUM(g."coinValue") AS score
+    FROM "GiftTransaction" g JOIN "User" u ON u.id=${field}
+    LEFT JOIN "VipMembership" v ON v."userId"=u.id AND v."revokedAt" IS NULL AND v."startsAt"<=${now} AND v."expiresAt">${now}
+    LEFT JOIN "VipTier" t ON t.id=v."tierId" AND t.active=true
+    WHERE g."roomId"=${roomId} AND g."reversedAt" IS NULL
+    GROUP BY ${field},u."publicId",t.level,t.privileges
+    ORDER BY score DESC, CASE WHEN 'RANKING_PRIORITY'=ANY(t.privileges) THEN t.level ELSE 0 END DESC,u."publicId" ASC
+    LIMIT ${take} OFFSET ${skip}`);
+  return rows.map(row=>({[groupField]:row.userId,_sum:{coinValue:row.score}}));
+}
 
 const emptyLeaderboard = () => ({ topGifters: [], topReceivers: [] });
 
@@ -21,20 +37,8 @@ export async function getRoomGiftLeaderboard(roomId, origin, db = prisma) {
   if (!normalizedRoomId) return emptyLeaderboard();
 
   const [gifterTotals, receiverTotals] = await Promise.all([
-    db.giftTransaction.groupBy({
-      by: ["senderId"],
-      where: { roomId: normalizedRoomId, reversedAt: null },
-      _sum: { coinValue: true },
-      orderBy: { _sum: { coinValue: "desc" } },
-      take: 3,
-    }),
-    db.giftTransaction.groupBy({
-      by: ["recipientUserId"],
-      where: { roomId: normalizedRoomId, reversedAt: null, recipientUserId: { not: null } },
-      _sum: { coinValue: true },
-      orderBy: { _sum: { coinValue: "desc" } },
-      take: 3,
-    }),
+    roomGiftTotals(db, normalizedRoomId, "senderId", 3),
+    roomGiftTotals(db, normalizedRoomId, "recipientUserId", 3),
   ]);
 
   const userIds = [
@@ -114,23 +118,7 @@ export async function getRoomGiftRanking(
 ) {
   const normalizedRoomId = String(roomId ?? "").trim();
   const groupField = type === "senders" ? "senderId" : "recipientUserId";
-  const totals = await prisma.giftTransaction.groupBy({
-    by: [groupField],
-    where: {
-      roomId: normalizedRoomId,
-      reversedAt: null,
-      ...(groupField === "recipientUserId"
-        ? { recipientUserId: { not: null } }
-        : {}),
-    },
-    _sum: { coinValue: true },
-    orderBy: [
-      { _sum: { coinValue: "desc" } },
-      { [groupField]: "asc" },
-    ],
-    skip: offset,
-    take: limit,
-  });
+  const totals = await roomGiftTotals(prisma, normalizedRoomId, groupField, limit, offset);
   const userIds = totals.map((item) => item[groupField]).filter(Boolean);
   const users = userIds.length
     ? await prisma.user.findMany({

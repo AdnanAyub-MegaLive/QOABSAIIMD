@@ -5,7 +5,7 @@ function setup(){
  const room={id:'r',roomId:'0001',ownerId:'owner',privacyMode:'PUBLIC',status:'LIVE'};
  const sockets=[{data:{audioPresenceLeaseUntil:now.getTime()+10000},rooms:new Set(['audio-room:0001'])}];
  const fetchSockets=vi.fn(async()=>sockets);
- const db={userFollow:{count:vi.fn(async()=>2)},userBlock:{findFirst:vi.fn(async()=>null)},user:{findFirst:vi.fn(async()=>target)},audioRoom:{findUnique:vi.fn(async()=>room)},audioRoomBan:{findFirst:vi.fn(async()=>null)}};
+ const db={vipMembership:{findUnique:async()=>null},userFollow:{count:vi.fn(async()=>2)},userBlock:{findFirst:vi.fn(async()=>null)},user:{findFirst:vi.fn(async()=>target)},audioRoom:{findUnique:vi.fn(async()=>room)},audioRoomBan:{findFirst:vi.fn(async()=>null)}};
  return {db,room,sockets,fetchSockets,viewer,target,now,run:()=>joinableAudioPresence(db,viewer,target,{in:()=>({fetchSockets})},now)};
 }
 it('returns only a lease-bounded hint for mutual followers, independent of seat or ownership',async()=>{

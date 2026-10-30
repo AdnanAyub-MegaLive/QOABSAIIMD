@@ -1,3 +1,4 @@
+import { assertVipModeration } from "./vip-capabilities.js";
 export function roomGuardError(code) { return Object.assign(new Error(code), { code }); }
 export async function assertRoomModerationTarget(db, room, actorId, targetId) {
   if (actorId === room.ownerId) return;
@@ -17,12 +18,12 @@ export async function guardRoomSocketAction(db, socket, actorId, event, input = 
   if (!socket.rooms.has(`audio-room:${room.roomId}`)) throw roomGuardError("JOIN_ROOM_FIRST");
   if (event === "audio-room:seat-kick") {
     const seat = await db.audioRoomSeat.findUnique({ where: { audioRoomId_seatId: { audioRoomId: room.id, seatId: String(input.seatId ?? "") } } });
-    if (seat?.occupantUserId) await assertRoomModerationTarget(db, room, actorId, seat.occupantUserId);
+    if (seat?.occupantUserId) { await assertRoomModerationTarget(db, room, actorId, seat.occupantUserId); await assertVipModeration(db, room, actorId, seat.occupantUserId, "ANTI_MIC_BAN"); }
   } else if (["audio-room:seat-force-mute", "audio-room:member-force-deafen", "audio-room:seat-move-member"].includes(event)) {
     const target = await db.user.findUnique({ where: { publicId: String(input.userId ?? "") }, select: { id: true } });
-    if (target) await assertRoomModerationTarget(db, room, actorId, target.id);
+    if (target) { await assertRoomModerationTarget(db, room, actorId, target.id); if (event === "audio-room:seat-force-mute" && input.muted) await assertVipModeration(db, room, actorId, target.id, "ANTI_MIC_BAN"); }
   } else if (event === "audio-room:seats-bulk" && String(input.action).toUpperCase() === "CLEAR_ALL" && actorId !== room.ownerId) {
     const seats = await db.audioRoomSeat.findMany({ where: { audioRoomId: room.id, occupantUserId: { not: null } }, select: { occupantUserId: true } });
-    for (const seat of seats) await assertRoomModerationTarget(db, room, actorId, seat.occupantUserId);
+    for (const seat of seats) { await assertRoomModerationTarget(db, room, actorId, seat.occupantUserId); await assertVipModeration(db, room, actorId, seat.occupantUserId, "ANTI_MIC_BAN"); }
   }
 }

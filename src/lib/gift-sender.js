@@ -13,7 +13,7 @@ export function giftSenderPayload(user, perks = null) {
     badgeUrl: perks?.badgeUrl ?? null,
     chatBoxUrl: perks?.chatBoxUrl ?? null,
     level: Number.isSafeInteger(user.level) ? user.level : 0,
-    vipLevel: Number.isSafeInteger(user.vipLevel) ? user.vipLevel : 0,
+    vipLevel: perks?.vipLevel ?? 0,
     anchorLevel: Number.isSafeInteger(user.anchorLevel) ? user.anchorLevel : 0,
     ...perks?.progression,
   };

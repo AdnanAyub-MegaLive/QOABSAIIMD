@@ -42,7 +42,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     FROM gifts g JOIN people u ON u.id=${type === 'wealth' ? Prisma.sql`g."senderId"` : Prisma.sql`g.receiver`} GROUP BY u.id,u."publicId",u.name,u.country`;
   // Rank before filtering search results, so an agency's global rank stays stable.
   const rows = await db.$queryRaw(Prisma.sql`${base}, scores AS (${scores}), ranked AS (
-    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC,"publicId" ASC) AS rank FROM scores WHERE score>0
+    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, ${['wealth','charm'].includes(type) ? Prisma.sql`COALESCE((SELECT t.level FROM "VipMembership" v JOIN "VipTier" t ON t.id=v."tierId" WHERE v."userId"=scores."personId" AND v."revokedAt" IS NULL AND v."startsAt"<=${now} AND v."expiresAt">${now} AND t.active=true AND 'RANKING_PRIORITY'=ANY(t.privileges)),0)` : Prisma.sql`0::int`} DESC,"publicId" ASC) AS rank FROM scores WHERE score>0
   ) SELECT * FROM ranked WHERE (${q}='' OR POSITION(LOWER(${q}) IN LOWER(name))>0 OR POSITION(LOWER(${q}) IN LOWER("publicId"))>0)
     AND NOT EXISTS (SELECT 1 FROM "UserBlock" b WHERE
       (b."blockerId"=${viewerId} AND b."blockedId" IN (ranked."personId", ranked."partnerId")) OR
@@ -73,7 +73,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     const p = perks.get(u.publicId), levels = p?.progression;
     const membership = vipIsActive(u.vipMembership, now) ? u.vipMembership : null;
     const vipAsset = membership?.tier.assets.find(a => a.privilege === 'VIP_LOGO')?.asset ?? membership?.tier.assets.find(a => a.privilege === 'BADGE')?.asset;
-    return [u.id, { publicId: u.publicId, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
+    return [u.id, { vipPrivileges: p?.vipPrivileges ?? [], vipNameColor: p?.vipNameColor ?? null, publicId: u.publicId, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
       ...(type === 'cp' ? {} : { vip: membership ? { level: membership.tier.level, artwork: vipAsset ? decorationMedia(vipAsset, origin) : null } : null }),
       ownedBadges: (u.uploadAssignments ?? []).map(({asset}) => ({ ...decorationMedia(asset, origin), name: asset.name })),
       userLevel: levels?.userLevel ?? 0, charmLevel: levels?.charmLevel ?? 0,

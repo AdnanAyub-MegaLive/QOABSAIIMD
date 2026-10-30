@@ -7,7 +7,7 @@ function fixture(){
   const roles={admin:{role:'ADMIN'},admin2:{role:'ADMIN'}};
   const row={id:'req',audioRoomId:'r',requesterId:'target',seatId:'row0-seat1',status:'PENDING',note:null,createdAt:new Date(),expiresAt:new Date(Date.now()+60000),audioRoom:room,requester:users.target};
   const seat={id:'s',audioRoomId:'r',seatId:'row0-seat1',occupantUserId:null,isLocked:true,isForceMuted:true};
-  const db={
+  const db={vipMembership:{findUnique:async()=>null},
     audioRoom:{findUnique:vi.fn(async()=>room),update:vi.fn()},
     user:{findUnique:vi.fn(async({where})=>where.id?users[where.id]:Object.values(users).find(u=>u.publicId===where.publicId))},
     audioRoomMember:{findUnique:vi.fn(async()=>({socketCount:1}))},

@@ -17,6 +17,7 @@ beforeEach(() => {
   assets = ["BADGES","FRAMES","ROOM_BACKGROUNDS"].map(category => ({ id:`global-${category}`, publicId:`AST-global-${category}`, category, isGlobal:true, mimeType:"image/png", assignments:[] }));
   assets.push({id:"owned",publicId:"AST-owned",category:"BADGES",isGlobal:false,mimeType:"application/svga",assignments:[{userId:"u3"}]});
   equipped = [{userId:"u3",category:"BADGES",assetId:"owned"}];
+  db.vipMembership={findUnique:vi.fn(async()=>null),findMany:vi.fn(async()=>[])};
   db.uploadAsset={findMany:vi.fn(async({where})=>assets.filter(a=>!where.publicId||where.publicId.in.includes(a.publicId)))};
   db.userEquippedProp={findMany:vi.fn(async({where})=>equipped.filter(e=>where.userId.in.includes(e.userId)&&where.category.in.includes(e.category)).map(e=>({...e,asset:assets.find(a=>a.id===e.assetId)})))};
   db.conversation={upsert:async()=>({id:"world"}),findMany:async()=>users.map(u=>({id:`c-${u.id}`,publicId:`CONV-${u.id}`,kind:"DIRECT",createdAt:new Date(),messages:[],participants:[{userId:viewer.id,user:viewer},{userId:u.id,user:u}]}))};

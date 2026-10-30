@@ -1,8 +1,10 @@
+import { hasVipPrivilege } from "./vip-capabilities.js";
 import { roomAccessCheck } from './room-access-check.js';
 
 // Short navigation hint, never admission. Ambiguous multi-room sessions fail closed.
 export async function joinableAudioPresence(db, viewer, target, io = globalThis.portalIo, now = new Date()) {
   if (!io || viewer.id === target.id) return null;
+  if (await hasVipPrivilege(target.id, "INVISIBLE_ENTRY", db)) return null;
   const eligible = async () => {
     const [follows, blocked, active] = await Promise.all([
       db.userFollow.count({where:{OR:[{followerId:viewer.id,followedId:target.id},{followerId:target.id,followedId:viewer.id}]}}),

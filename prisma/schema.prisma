@@ -540,6 +540,7 @@ model UserProgress {
 }
 
 model ProgressLedger {
+  vipMultiplierBps Int @default(10000)
   id String @id @default(cuid())
   userId String
   track String
@@ -897,6 +898,8 @@ model UserAvatarHistory {
 }
 
 model VipTier {
+  xpMultiplierBps Int @default(10000)
+  nameColor String?
   archivedAt DateTime?
   ownerships VipOwnership[]
   purchases VipPurchase[]

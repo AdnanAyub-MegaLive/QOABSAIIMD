@@ -30,7 +30,8 @@ export function rankingScoreLabel(type) {
 export function sortRankingEntries(entries) {
   return [...entries].sort((left, right) => {
     if (left.score !== right.score) return left.score > right.score ? -1 : 1;
-    return left.user.publicId.localeCompare(right.user.publicId);
+    const priority = user => user.vipPrivileges?.includes("RANKING_PRIORITY") ? user.vipLevel : 0;
+    return priority(right.user) - priority(left.user) || left.user.publicId.localeCompare(right.user.publicId);
   });
 }
 

@@ -45,7 +45,7 @@ export default function MessageHistoryTable({ records, query, type, page, pageSi
         {[...groups].map(([key, items]) => <details key={key} open className="overflow-hidden rounded-xl border border-[#e1ebe8]">
           <summary className="cursor-pointer bg-[#f6faf8] px-4 py-3 text-sm font-semibold">{items[0].senderName} <span className="ml-2 font-mono text-xs text-[#71847f]">{items[0].senderId || "System / deleted account"}</span><span className="float-right text-xs text-[#71847f]">{items.length} records</span></summary>
           <div className="divide-y divide-[#edf2f1]">{items.map(record => <article key={record.type + record.id} className="p-4">
-            <div className="flex flex-wrap justify-between gap-2 text-xs text-[#71847f]"><span>{typeLabel(record.type)} · {record.destinationName} · {record.destinationId}</span><time>{record.createdAt}</time></div>
+            <div className="flex flex-wrap justify-between gap-2 text-xs text-[#71847f]"><span>{record.prioritySupport && <strong className="mr-2 rounded bg-purple-100 px-2 py-1 text-purple-800">Priority VIP support</strong>}{typeLabel(record.type)} · {record.destinationName} · {record.destinationId}</span><time>{record.createdAt}</time></div>
             {record.participants.length > 0 && <p className="mt-1 text-xs text-[#71847f]">With {record.participants.map(p => p.name + " (" + p.id + ")").join(", ")}</p>}
             <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[#334d49]">{record.body}</p>
             <div className="mt-3 flex gap-3 text-[10px] text-[#71847f]"><span>{record.id}</span>{record.senderId && <Link href={`/users/${encodeURIComponent(record.senderId)}`} className="font-semibold text-[#087f74]">View user profile →</Link>}</div>

@@ -12,20 +12,20 @@ export function giftHours(now = new Date()) {
     previous: { start: previousStart.toISOString(), end: start.toISOString() } };
 }
 
-export function orderHourlyScores(rows, visibleIds) {
+export function orderHourlyScores(rows, visibleIds, priority = new Map()) {
   return rows.filter(r => visibleIds.has(r.userId) && BigInt(r.score) > 0n)
-    .sort((a, b) => BigInt(a.score) === BigInt(b.score) ? (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0) : BigInt(a.score) > BigInt(b.score) ? -1 : 1)
+    .sort((a, b) => BigInt(a.score) === BigInt(b.score) ? ((priority.get(b.userId)??0)-(priority.get(a.userId)??0) || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0)) : BigInt(a.score) > BigInt(b.score) ? -1 : 1)
     .map((r, index) => ({ userId: r.userId, score: r.score, rank: index + 1 }));
 }
 
-export function hourlyViewerPosition(entries, viewerId) {
+export function hourlyViewerPosition(entries, viewerId, priority = new Map()) {
   const mine = entries.find(e => e.userId === viewerId);
   const inTop50 = Boolean(mine && mine.rank <= 50);
   const score = mine?.score ?? "0";
   let additional = 0n;
   if (!inTop50) {
     const cutoff = entries[49];
-    additional = cutoff ? BigInt(cutoff.score) - BigInt(score) + (viewerId < cutoff.userId ? 0n : 1n) : 1n;
+    additional = cutoff ? BigInt(cutoff.score) - BigInt(score) + (((priority.get(viewerId)??0) > (priority.get(cutoff.userId)??0) || ((priority.get(viewerId)??0) === (priority.get(cutoff.userId)??0) && viewerId < cutoff.userId)) ? 0n : 1n) : 1n;
     if (additional < 1n) additional = 1n;
   }
   return { ranked: Boolean(mine), rank: mine?.rank ?? null, sentCoins: score, unit: HOURLY_GIFT_UNIT, inTop50, additionalCoinsToTop50: additional.toString() };

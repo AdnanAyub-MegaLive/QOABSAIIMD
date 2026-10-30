@@ -16,9 +16,9 @@ export function namedDecoration(prefix, media) {
   return Object.fromEntries([['Url','url'],['MimeType','mimeType'],['MediaVersion','mediaVersion'],['PosterUrl','posterUrl'],['PosterMimeType','posterMimeType'],['PosterMediaVersion','posterMediaVersion']].map(([suffix,key]) => [prefix + suffix, media?.[key] ?? null]));
 }
 
-// Copy only media fields, never wallet/private progression data or arbitrary keys.
+// Public presentation capabilities and media only; never wallet/private data or arbitrary keys.
 export function perkMediaFields(perks, prefixes = ["frame", "badge", "chatBox", "businessCard", "entrance", "ride", "roomBackground"]) {
-  const result = {};
+  const result = { vipPrivileges: perks?.vipPrivileges ?? [], vipLevel: perks?.vipLevel ?? 0, vipNameColor: perks?.vipNameColor ?? null };
   for (const prefix of prefixes) for (const suffix of ["MimeType", "MediaVersion", "PosterUrl", "PosterMimeType", "PosterMediaVersion"]) {
     const key = prefix + suffix;
     if (perks && Object.hasOwn(perks, key)) result[key] = perks[key];

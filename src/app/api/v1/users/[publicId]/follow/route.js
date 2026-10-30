@@ -1,3 +1,4 @@
+import { hasVipPrivilege, vipError } from "@/lib/vip-capabilities";
 import { prisma } from "@/lib/prisma";
 import { notifyAction } from "@/lib/action-notifications";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
@@ -39,6 +40,7 @@ export async function POST(request, { params }) {
   try {
     const { viewer, target } = await targetFor(request, params);
     await prisma.$transaction(async tx => {
+    if (await hasVipPrivilege(target.id, "FORBIDDEN_FOLLOW", tx)) throw vipError("FOLLOW_FORBIDDEN");
     await tx.userFollow.upsert({
       where: { followerId_followedId: { followerId: viewer.id, followedId: target.id } },
       create: { followerId: viewer.id, followedId: target.id }, update: {},

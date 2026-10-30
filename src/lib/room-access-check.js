@@ -1,3 +1,4 @@
+import { hasVipPrivilege } from "./vip-capabilities.js";
 // Mirrors join restriction precedence without reconciling/writing expired restrictions.
 export async function roomAccessCheck(db, room, userId, now = new Date()) {
   const result = { roomId: room?.roomId ?? null, code: null };
@@ -17,7 +18,7 @@ export async function roomAccessCheck(db, room, userId, now = new Date()) {
   if (!["LIVE", "IDLE"].includes(status)) return { ...result, code: "ROOM_UNAVAILABLE" };
   if (room.ownerId !== userId) {
     if (room.joiningDisabled && activeUntil(room.joiningDisabledUntil)) return { ...result, code: "ROOM_OWNER_ONLY" };
-    if (room.passwordHash) return { ...result, code: "ROOM_PASSWORD_REQUIRED" };
+    if (room.passwordHash && !await hasVipPrivilege(userId, "ROOM_ANTI_LOCK", db)) return { ...result, code: "ROOM_PASSWORD_REQUIRED" };
     if (result.payment && !result.payment.admitted) return { ...result, code: "ROOM_PAYMENT_REQUIRED" };
   }
   return result;

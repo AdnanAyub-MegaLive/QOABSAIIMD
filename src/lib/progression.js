@@ -1,3 +1,4 @@
+import { userVip } from "./vip-capabilities.js";
 import { prisma } from "./prisma.js";
 import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
@@ -93,7 +94,9 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
     const rule=config.rules.find(r=>r.track===track&&r.source===source&&r.recipientType===(track==="USER"?"ANY":recipientType));
     if(!config.enabled || !rule || (recipient?.id===sender.id&&!rule.allowSelf)) continue;
     const amount=rule.basis === "GIFT_XP" ? BigInt((track === "USER" ? asset?.senderXp : asset?.receiverXp) ?? 0) * BigInt(gift.quantity) : {COST:gross,CREDIT:credit,REVEALED:revealed,REWARD:reward}[rule.basis];
-    const points=amount*BigInt(rule.numerator)/BigInt(rule.denominator);
+    const boost = track === "USER" ? (await userVip(user.id, tx)).vipXpMultiplierBps : 10000;
+    const numerator = BigInt(rule.numerator), denominator = BigInt(rule.denominator);
+    const points=amount*numerator*BigInt(boost)/(denominator*10000n);
     if(points===0n) continue;
     const sourceType=track==="USER"?"GIFT_SENT":"GIFT_RECEIVED";
     const key={userId:user.id,track,sourceType,sourceId:gift.id,sourceLineId:gift.id};
@@ -102,7 +105,7 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
     const previousLevel=row.currentLevel, total=row.lifetimePoints+points;
     if(total>MAX) throw progressionError("Progression total exceeds supported range.");
     const updated=levelSnapshot({...row,lifetimePoints:total,revision:row.revision+1},config.levels,origin);
-    await tx.progressLedger.create({data:{...key,deltaPoints:points,ruleVersion:config.version,eligibleAmount:amount,numerator:BigInt(rule.numerator),denominator:BigInt(rule.denominator),basis:rule.basis}});
+    await tx.progressLedger.create({data:{...key,deltaPoints:points,ruleVersion:config.version,eligibleAmount:amount,numerator,denominator,vipMultiplierBps:boost,basis:rule.basis}});
     await tx.userProgress.update({where:{userId_track:{userId:user.id,track}},data:{lifetimePoints:total,currentLevel:updated.level,revision:{increment:1}}});
     const snapshot={...updated,...tagBackground(await levelTagBackgrounds(tx,origin,[{track,level:updated.level}]),track,updated.level),previousLevel,levelsGained:config.levels.filter(l=>l.track===track&&l.level>previousLevel&&l.level<=updated.level).map(l=>l.level).sort((a,b)=>a-b)};
     await appendOutbox(tx,`user:${user.publicId}`,"progression:updated",{...snapshot,track,userId:user.publicId,sourceTransactionId:gift.id});

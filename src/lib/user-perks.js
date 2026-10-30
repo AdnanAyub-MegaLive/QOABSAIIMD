@@ -1,3 +1,4 @@
+import { usersVip } from "./vip-capabilities.js";
 import { prisma } from "./prisma.js";
 import { publicProgression } from "./progression.js";
 import { decorationMedia, namedDecoration, perkMediaFields } from "./decoration-media.js";
@@ -84,7 +85,8 @@ export async function resolveUserPerks(
     ]),
   );
   if (!uniqueUsers.length) return result;
-  const progression = await publicProgression(uniqueUsers, origin);
+  const [progression, vip] = await Promise.all([publicProgression(uniqueUsers, origin), usersVip(uniqueUsers.map(u => u.id))]);
+  for (const user of uniqueUsers) Object.assign(result.get(user.publicId), vip.get(user.id));
   for (const user of uniqueUsers) result.get(user.publicId).progression = progression.get(user.publicId);
 
   const now = new Date();

@@ -1,3 +1,4 @@
+import { userVip } from "@/lib/vip-capabilities";
 import { prisma } from "../../../../lib/prisma";
 import { profileEditPermissions } from "@/lib/profile-edit-policy";
 import { managementIdentity } from "@/lib/user-roles";
@@ -210,7 +211,7 @@ export async function POST(request) {
             roles: user.appRoles,
             ...managementIdentity(user),
             status: user.status,
-            vipLevel: user.vipLevel,
+            ...await userVip(user.id),
             createdAt: user.createdAt.toISOString(),
             sessionVersion: user.sessionVersion,
           },

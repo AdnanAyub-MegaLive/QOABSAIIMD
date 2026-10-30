@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { normalizeRoomMix, roomMixSnapshot, setRoomMix, inviteToRoom, registerRoomTools } from "./room-tools.js";
 function fixture() {
   const room = { id: "r", roomId: "ROOM-1", title: "Test", status: "LIVE", ownerId: "u", privacyMode: "PUBLIC" };
-  const tx = {
+  const tx = {vipMembership:{findUnique:async()=>null},
     audioRoom: { findUnique: vi.fn().mockResolvedValue(room) },
     audioRoomRole: { findUnique: vi.fn().mockResolvedValue(null) },
     $queryRaw: vi.fn(),

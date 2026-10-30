@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { usersVip, vipPriority } from "./vip-capabilities.js";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
 import { decorationMedia, perkMediaFields } from "./decoration-media.js";
@@ -123,6 +124,12 @@ export async function getRoomRankings({ roomId, user, query, origin }, db = pris
     catch (e) { if (e.code !== "RANKING_CHANGED" || attempt >= 2) throw e; }
   }
   const data = snapshot.data, category = data.categories[query.category];
+  if (["WEALTH", "CHARM"].includes(query.category)) {
+    const vip = await usersVip(category.entries.map(e => e.userId), db, now);
+    category.entries = [...category.entries].sort((a,b) => BigInt(a.score) === BigInt(b.score)
+      ? vipPriority(vip.get(a.userId), vip.get(b.userId)) || a.userId.localeCompare(b.userId)
+      : BigInt(a.score) > BigInt(b.score) ? -1 : 1).map((e,i) => ({...e,rank:i+1}));
+  }
   const offset = (query.page - 1) * query.limit;
   const pageEntries = category.entries.slice(offset, offset + query.limit);
   const mine = category.entries.find(e => e.userId === user.id);

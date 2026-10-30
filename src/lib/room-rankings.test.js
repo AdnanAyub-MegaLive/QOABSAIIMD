@@ -25,7 +25,7 @@ function fixture() {
   const now = new Date(); let revision = 1n, snapshot;
   const users = Array.from({ length: 5 }, (_, i) => ({ id: `u${i}`, publicId: `USR-${i}`, name: `Test ${i}`, specialIds: [], profileImage: null }));
   const rows = users.map(u => ({ category: "WEALTH", userId: u.id, score: "100" }));
-  const db = {
+  const db = {vipMembership:{findMany:async()=>[]},
     audioRoom: { findUnique: async () => ({ id: "room", roomId: "ROOM-test", ownerId: "owner", status: "LIVE", isBlocked: false }) },
     audioRoomBan: { findFirst: async () => null },
     audioRoomMember: { findUnique: async () => ({ socketCount: 1 }) },

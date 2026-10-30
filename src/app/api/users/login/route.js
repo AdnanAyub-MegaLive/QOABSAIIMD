@@ -1,3 +1,4 @@
+import { userVip } from "@/lib/vip-capabilities";
 import { observedDeviceIp, observedDeviceLocation } from "@/lib/device-observation";
 import { profileEditPermissions } from "@/lib/profile-edit-policy";
 import { prisma } from "../../../../lib/prisma";
@@ -254,7 +255,7 @@ async function login(request) {
         roles: user.appRoles,
         ...managementIdentity(user),
         status: user.status,
-        vipLevel: user.vipLevel,
+        ...await userVip(user.id),
         createdAt: user.createdAt.toISOString(),
       },
       login,

@@ -164,6 +164,9 @@ app.prepare().then(async()=>{
       await target.leave(`live-video:${liveId}`);
     }
   };
+  const {userVip,hasVipPrivilege}=await import("./src/lib/vip-capabilities.js");
+  const {emitVipRoomPresence}=await import("./src/lib/vip-room-presence.js");
+  const emitRoomPresence=(room,user,event,data)=>emitVipRoomPresence(prisma,io,room,user,event,data);
   const registerRoomPresence=async(room,user,origin)=>{
     const previous=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}}});
     const sockets=await io.in(`user:${user.publicId}`).fetchSockets();
@@ -171,12 +174,12 @@ app.prepare().then(async()=>{
     await prisma.audioRoomMember.upsert({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}},create:{audioRoomId:room.id,userId:user.id,socketCount},update:{socketCount,lastSeenAt:new Date()}});
     const total=await prisma.audioRoomMember.count({where:{audioRoomId:room.id,socketCount:{gt:0}}});
     const updated=await prisma.audioRoom.update({where:{id:room.id},data:{participantCount:total,...(!previous||previous.socketCount===0?{revision:{increment:1}}:{})},select:{revision:true}});
-    if(!previous||previous.socketCount===0){const snapshot=await serializeRoomMembers({...room,revision:updated.revision},origin,{take:1,q:user.publicId});io.to(`audio-room:${room.roomId}`).emit("audio-room:member-joined",{success:true,data:{roomId:room.roomId,revision:updated.revision,total,member:snapshot.members[0]??null}})}
+    if(!previous||previous.socketCount===0){const snapshot=await serializeRoomMembers({...room,revision:updated.revision},origin,{take:1,q:user.publicId,viewerId:room.ownerId});await emitRoomPresence(room,user,"audio-room:member-joined",{roomId:room.roomId,revision:updated.revision,total,member:snapshot.members[0]??null})}
     return{total,revision:updated.revision,newEntrance:!previous||previous.socketCount===0};
   };
   const unregisterRoomPresence=async(room,user,origin)=>{
     const current=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}}});if(!current)return{total:await prisma.audioRoomMember.count({where:{audioRoomId:room.id,socketCount:{gt:0}}}),left:false};
-    const next=Math.max(0,current.socketCount-1);await prisma.audioRoomMember.update({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}},data:{socketCount:next,lastSeenAt:new Date()}});const total=await prisma.audioRoomMember.count({where:{audioRoomId:room.id,socketCount:{gt:0}}});const updated=await prisma.audioRoom.update({where:{id:room.id},data:{participantCount:total,...(next===0?{revision:{increment:1}}:{})},select:{revision:true}});if(next===0)io.to(`audio-room:${room.roomId}`).emit("audio-room:member-left",{success:true,data:{roomId:room.roomId,revision:updated.revision,total,userId:user.publicId}});return{total,left:next===0,revision:updated.revision};
+    const next=Math.max(0,current.socketCount-1);await prisma.audioRoomMember.update({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}},data:{socketCount:next,lastSeenAt:new Date()}});const total=await prisma.audioRoomMember.count({where:{audioRoomId:room.id,socketCount:{gt:0}}});const updated=await prisma.audioRoom.update({where:{id:room.id},data:{participantCount:total,...(next===0?{revision:{increment:1}}:{})},select:{revision:true}});if(next===0)await emitRoomPresence(room,user,"audio-room:member-left",{roomId:room.roomId,revision:updated.revision,total,userId:user.publicId});return{total,left:next===0,revision:updated.revision};
   };
   globalThis.portalSendNotification=async({userId=null,title,body})=>{
     const target=userId?await prisma.user.findUnique({where:{publicId:userId},select:{id:true,publicId:true}}):null;
@@ -329,7 +332,7 @@ app.prepare().then(async()=>{
           socket.emit("session:revoked",response);socket.disconnect(true);return;
         }
         const {guardRoomSocketAction}=await import("./src/lib/room-moderation-guard.js");
-        try{await guardRoomSocketAction(prisma,socket,user.id,packet[0],packet[1]);}catch(error){const ack=packet[packet.length-1];if(typeof ack==="function")ack({success:false,error:{code:["ROOM_PERMISSION_DENIED","JOIN_ROOM_FIRST","ROOM_UNAVAILABLE"].includes(error.code)?error.code:"ROOM_ACTION_FAILED",message:error.code==="JOIN_ROOM_FIRST"?"Join this room before performing this action.":"You cannot perform this room action."}});return;}
+        try{await guardRoomSocketAction(prisma,socket,user.id,packet[0],packet[1]);}catch(error){const ack=packet[packet.length-1];if(typeof ack==="function")ack({success:false,error:{code:["VIP_PROTECTED","ROOM_PERMISSION_DENIED","JOIN_ROOM_FIRST","ROOM_UNAVAILABLE"].includes(error.code)?error.code:"ROOM_ACTION_FAILED",message:error.code==="VIP_PROTECTED"?error.message:error.code==="JOIN_ROOM_FIRST"?"Join this room before performing this action.":"You cannot perform this room action."}});return;}
         nextPacket();
       }catch(error){nextPacket(new Error("SESSION_VALIDATION_FAILED"));}
     });
@@ -483,7 +486,7 @@ app.prepare().then(async()=>{
         const joinError=listenerRoomJoinError(room);
         if(joinError)return ack({success:false,error:joinError});
         if(room.joiningDisabled&&room.ownerId!==user.id)return ack({success:false,error:{code:"ROOM_OWNER_ONLY",details:{expiresAt:room.joiningDisabledUntil?.toISOString()??null}}});
-        if(room.passwordHash&&room.ownerId!==user.id){
+        if(room.passwordHash&&room.ownerId!==user.id&&!await hasVipPrivilege(user.id,"ROOM_ANTI_LOCK")){
           if(!String(password??"").trim())return ack(roomControlError("ROOM_PASSWORD_REQUIRED"));
           if(!await bcrypt.compare(String(password),room.passwordHash))return ack(roomControlError("ROOM_PASSWORD_INVALID"));
         }
@@ -508,14 +511,14 @@ app.prepare().then(async()=>{
         const ownerIdentity=await getEffectiveUserId(room.owner.id,room.owner.publicId);
         await prisma.audioRoomSeatInvitation.updateMany({where:{targetId:user.id,status:"PENDING",expiresAt:{lte:new Date()}},data:{status:"EXPIRED",respondedAt:new Date()}});
         const pendingSeatInvitations=await prisma.audioRoomSeatInvitation.findMany({where:{audioRoomId:room.id,targetId:user.id,status:"PENDING",expiresAt:{gt:new Date()}},include:{inviter:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{createdAt:"desc"}});
-        const [liveKit,giftLeaderboard,access,members,chatHistory,musicState]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30}),readRoomChatHistory(room,connectionOrigin,{limit:30}),serializeRoomMusicForDelivery(room.entertainmentState,connectionOrigin)]);
+        const [liveKit,giftLeaderboard,access,members,chatHistory,musicState]=await Promise.all([liveKitAccessFor(user,room.roomId,isOwner||room.seats.length>0),getRoomGiftLeaderboard(room.roomId,connectionOrigin),resolveRoomAccess(room,user.id),serializeRoomMembers(room,connectionOrigin,{take:30,viewerId:user.id}),readRoomChatHistory(room,connectionOrigin,{limit:30}),serializeRoomMusicForDelivery(room.entertainmentState,connectionOrigin)]);
         await recordAudioRoomVisit(prisma,user.id,room.id);
         joinSucceeded=true;
         ack({success:true,data:{roomBanners:await roomBannerSnapshot(room.roomId),roomId:room.roomId,title:room.title,...roomCoverDto(room,connectionOrigin),participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,giftInteractions:serializeGiftInteractions(room.giftInteractions),announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,mixState:roomMixSnapshot(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,...rtcFields(liveKit),roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{...perkMediaFields(roomPerks),publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         for(const invitation of pendingSeatInvitations)socket.emit("audio-room:seat-invited",{success:true,data:{invitationId:invitation.id,roomId:room.roomId,seatId:invitation.seatId,status:invitation.status,expiresAt:invitation.expiresAt.toISOString(),inviter:invitation.inviter,recovered:true}});
         const recovered=(recoveringRooms.get(recoveryKey(user,room.roomId))??0)>Date.now();
         recoveringRooms.delete(recoveryKey(user,room.roomId));
-        if(!alreadyJoined&&presence.newEntrance&&!recovered){
+        if(!alreadyJoined&&presence.newEntrance&&!recovered&&!joiningPerks?.vipPrivileges.includes("INVISIBLE_ENTRY")){
           io.to(roomChannel).emit("audio-room:entrance",await versionMediaPayload({
             success:true,
             data:{
@@ -527,6 +530,7 @@ app.prepare().then(async()=>{
               isVerified:Boolean(user.isVerified),
               isOfficial:Boolean(user.isOfficial),
               dob:formatDateOnly(user.dob),
+              vipPrivileges:joiningPerks?.vipPrivileges??[],
               entranceUrl:joiningPerks?.entranceUrl??null,
               rideUrl:joiningPerks?.rideUrl??null,
             },

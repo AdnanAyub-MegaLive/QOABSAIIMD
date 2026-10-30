@@ -1,3 +1,5 @@
+import { isVipPrioritySupport } from "@/lib/vip-support";
+import { usersVip } from "@/lib/vip-capabilities";
 import { requirePagePermission } from "@/lib/portal-admin";
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
@@ -92,15 +94,18 @@ export default async function MessagesPage({ searchParams }) {
   const conversations = conversationIds.length ? await prisma.conversation.findMany({
     where: { id: { in: conversationIds } },
     select: {
-      id: true,
-      participants: { select: { user: { select: { publicId: true, name: true } } } },
+      id: true, kind: true,
+      participants: { select: { user: { select: { id: true, publicId: true, name: true, appRoles: true } } } },
     },
   }) : [];
+  const supportVip = await usersVip(conversations.flatMap(c => c.participants.map(p => p.user.id)));
+  const priorityConversations = new Set(conversations.filter(c => isVipPrioritySupport(c, supportVip)).map(c => c.id));
   const participantsByConversation = new Map(conversations.map((conversation) => [
     conversation.id,
     conversation.participants.map(({ user }) => ({ id: user.publicId, name: user.name })),
   ]));
   const records = rows.map((row) => ({
+    prioritySupport: row.messageType === "DIRECT" && priorityConversations.has(row.conversationDbId),
     id: row.publicId,
     type: row.messageType,
     body: row.body,

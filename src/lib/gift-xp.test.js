@@ -4,7 +4,7 @@ function database() {
   const rows=new Map(),ledger=[];
   const levels=["USER","CHARM"].flatMap(track=>Array.from({length:11},(_,level)=>({track,level,thresholdPoints:BigInt(level*900),benefits:[]})));
   const config={version:1,enabled:true,levels,rules:["USER","CHARM"].flatMap(track=>["PAID","BACKPACK","LUCKY","BLIND_BOX"].map(source=>({track,source,recipientType:track==="USER"?"ANY":"HOST",basis:"GIFT_XP",allowSelf:false,numerator:"1",denominator:"1"})))};
-  return {levelTagBackground:{findMany:async()=>[]},rows,ledger,giftSettlement:{findUnique:async()=>null},progressionConfiguration:{findFirst:async()=>config},uploadAsset:{findUnique:async()=>({senderXp:100000n,receiverXp:50000n})},
+  return {vipMembership:{findUnique:async()=>null},levelTagBackground:{findMany:async()=>[]},rows,ledger,giftSettlement:{findUnique:async()=>null},progressionConfiguration:{findFirst:async()=>config},uploadAsset:{findUnique:async()=>({senderXp:100000n,receiverXp:50000n})},
     userProgress:{findUnique:async({where})=>rows.get(JSON.stringify(where.userId_track))??null,create:async({data})=>{const row={...data,lifetimePoints:0n,currentLevel:0,revision:0,configuration:config};rows.set(JSON.stringify({userId:data.userId,track:data.track}),row);return row;},update:async({where,data})=>{const row=rows.get(JSON.stringify(where.userId_track));Object.assign(row,{...data,revision:row.revision+1});return row;}},
     progressLedger:{findUnique:async({where})=>ledger.find(r=>Object.entries(where.userId_track_sourceType_sourceId_sourceLineId).every(([k,v])=>r[k]===v)),create:async({data})=>{ledger.push(data);}},realtimeOutbox:{create:async()=>({id:"event"})}};
 }
@@ -67,3 +67,13 @@ it("applies self-gift eligibility after Talent account resolution",async()=>{
  expect(db.ledger).toHaveLength(0);
 });
 it.each(["BACKPACK","LUCKY","BLIND_BOX"])("uses configured gift XP for %s",async source=>{const db=database();await awardGiftProgress(db,{...input,source});expect(db.ledger.map(r=>r.deltaPoints)).toEqual([200000n,100000n]);});
+it('applies active VIP boost to Wealth once and records the multiplier; Charm stays unchanged',async()=>{
+ const db=database();db.vipMembership.findUnique=async()=>({startsAt:new Date(Date.now()-1000),expiresAt:new Date(Date.now()+60000),tier:{active:true,level:1,privileges:['LEVEL_BOOST'],xpMultiplierBps:15000}});
+ await awardGiftProgress(db,input);await awardGiftProgress(db,input);
+ expect(db.ledger.map(r=>[r.track,r.deltaPoints,r.vipMultiplierBps])).toEqual([['USER',300000n,15000],['CHARM',100000n,10000]]);
+ expect(db.ledger[0].numerator).toBe(1n);expect(db.ledger[0].denominator).toBe(1n);
+});
+it('does not multiply XP for an expired membership',async()=>{
+ const db=database();db.vipMembership.findUnique=async()=>({startsAt:new Date(0),expiresAt:new Date(0),tier:{active:true,level:99,privileges:['LEVEL_BOOST'],xpMultiplierBps:100000}});
+ await awardGiftProgress(db,input);expect(db.ledger.map(r=>r.deltaPoints)).toEqual([200000n,100000n]);
+});
