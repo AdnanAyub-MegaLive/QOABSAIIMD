@@ -102,11 +102,12 @@ export async function settleLuckyReward(tx, { gross, contribution, policy, rando
 
 // Equivalent sequential draws against one running balance, but just one read
 // and one write for a multi-recipient batch. No separate pool or altered odds.
-export async function settleLuckyRewards(tx, entries, policy, random = randomInt) {
+export async function settleLuckyRewards(tx, entries, policy, random = randomInt, session = null) {
   if (!entries.length) return [];
   // Read the balance in the locking query itself. Existing pools need only
   // this read and the update, not an upsert + lock + separate balance read.
-  let [pool] = await tx.$queryRaw`SELECT "id", "balance" FROM "LuckyGiftPool" WHERE "id" = ${LUCKY_POLICY_ID} FOR UPDATE`;
+  let pool = session?.pool;
+  if (!pool) [pool] = await tx.$queryRaw`SELECT "id", "balance" FROM "LuckyGiftPool" WHERE "id" = ${LUCKY_POLICY_ID} FOR UPDATE`;
   if (!pool) {
     await tx.luckyGiftPool.upsert({ where: { id: LUCKY_POLICY_ID }, update: {}, create: { id: LUCKY_POLICY_ID } });
     [pool] = await tx.$queryRaw`SELECT "id", "balance" FROM "LuckyGiftPool" WHERE "id" = ${LUCKY_POLICY_ID} FOR UPDATE`;
@@ -121,9 +122,25 @@ export async function settleLuckyRewards(tx, entries, policy, random = randomInt
     paidOut += choice.rewardCoins;
     return { ...choice, bigWin: choice.rewardCoins > 0n && choice.rewardCoins >= BigInt(policy.bigWinMinCoins) };
   });
-  await tx.luckyGiftPool.update({
-    where: { id: LUCKY_POLICY_ID },
-    data: { balance, collected: { increment: collected }, paidOut: { increment: paidOut } },
-  });
+  if (session) {
+    session.pool = { ...pool, balance };
+    session.collected = (session.collected ?? 0n) + collected;
+    session.paidOut = (session.paidOut ?? 0n) + paidOut;
+  } else {
+    await tx.luckyGiftPool.update({
+      where: { id: LUCKY_POLICY_ID },
+      data: { balance, collected: { increment: collected }, paidOut: { increment: paidOut } },
+    });
+  }
   return outcomes;
+}
+
+// A session belongs to exactly one transaction attempt. The row stays locked
+// until commit; flush is mandatory before committing that attempt.
+export async function flushLuckyPoolSession(tx, session) {
+  if (!session?.pool) return;
+  await tx.luckyGiftPool.update({ where: { id: LUCKY_POLICY_ID }, data: {
+    balance: session.pool.balance,
+    collected: { increment: session.collected }, paidOut: { increment: session.paidOut },
+  } });
 }

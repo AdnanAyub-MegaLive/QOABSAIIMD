@@ -70,23 +70,19 @@ async function executeGiftOperation(senderId,operation,work,db,timing) {
     events.comboTiming = giftComboTiming(operation.presentation, senderId);
     const committed = await giftOutboxContext.run(events, () => db.$transaction(async tx=>{
       timing('transaction_started');
-      const old=await priorGiftOperation(senderId,operation,tx); if(old) return old;
-      const result=jsonSafe(await work(tx));
-      const payload=result.data??result;
-      if (events.comboTiming) payload.comboTiming = events.comboTiming;
-      const giftIds=payload.transactionIds??(payload.transactionId?[payload.transactionId]:[]);
-      for(const id of giftIds){
-        const cached=events.recoveryInputs?.get(id);
-        const known=cached?.tx===tx?cached:null;
-        const gift=known?.gift??await tx.giftTransaction.findUniqueOrThrow({where:{id}});
-        const reward=payload.revealedGift?.publicId?await tx.uploadAsset.findUnique({where:{publicId:payload.revealedGift.publicId},select:{id:true}}):null;
-        const recipientResult = payload.recipients?.find(row => row.transactionId === id);
-        await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk});
+      if (!operation.taps) return settleOperation(tx, senderId, operation, work, events);
+      const old = await priorGiftOperation(senderId, operation, tx);
+      if (old) return old;
+      const taps = [];
+      for (const tap of operation.taps) {
+        events.comboTiming = giftComboTiming(tap.presentation, senderId);
+        const result = await settleOperation(tx, senderId, tap, inner => work(inner, tap), events);
+        taps.push({ tapId: tap.key, result });
       }
-      // A pending row was never visible outside this transaction. Insert its
-      // completed result once instead of INSERT then UPDATE. The unique key
-      // still rolls back a competing transaction before any effects commit.
-      await tx.giftRequest.create({data:{senderId,key:operation.key,fingerprint:operation.fingerprint,result}});
+      await operation.finalize?.(tx);
+      const balance = await tx.user.findUniqueOrThrow({ where: { id: senderId }, select: { coinBalance: true } });
+      const result = { requestId: operation.key, taps, senderCoinBalance: balance.coinBalance.toString() };
+      await tx.giftRequest.create({ data: { senderId, key: operation.key, fingerprint: operation.fingerprint, result } });
       return result;
     },{isolationLevel:"Serializable",timeout:20000}));
     timing('transaction_committed');
@@ -104,4 +100,25 @@ async function executeGiftOperation(senderId,operation,work,db,timing) {
     // Wait outside the rolled-back transaction; stagger competing combo taps.
     await retryDelay(25 * 2 ** attempt + Math.floor(Math.random() * 25));
   }
+}
+
+async function settleOperation(tx, senderId, operation, work, events) {
+  const old=await priorGiftOperation(senderId,operation,tx); if(old) return old;
+  const result=jsonSafe(await work(tx));
+  const payload=result.data??result;
+  if (events.comboTiming) payload.comboTiming = events.comboTiming;
+  const giftIds=payload.transactionIds??(payload.transactionId?[payload.transactionId]:[]);
+  for(const id of giftIds){
+    const cached=events.recoveryInputs?.get(id);
+    const known=cached?.tx===tx?cached:null;
+    const gift=known?.gift??await tx.giftTransaction.findUniqueOrThrow({where:{id}});
+    const reward=payload.revealedGift?.publicId?await tx.uploadAsset.findUnique({where:{publicId:payload.revealedGift.publicId},select:{id:true}}):null;
+    const recipientResult = payload.recipients?.find(row => row.transactionId === id);
+    await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk});
+  }
+  // A pending row was never visible outside this transaction. Insert its
+  // completed result once instead of INSERT then UPDATE. The unique key
+  // still rolls back a competing transaction before any effects commit.
+  await tx.giftRequest.create({data:{senderId,key:operation.key,fingerprint:operation.fingerprint,result}});
+  return result;
 }

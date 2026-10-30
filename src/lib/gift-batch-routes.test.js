@@ -30,6 +30,7 @@ import { POST as standard } from "../app/api/gifts/send/route";
 import { POST as backpack } from "../app/api/v1/gifts/backpack/send/route";
 import { POST as lucky } from "../app/api/v1/gifts/lucky/send/route";
 import { POST as multi } from "../app/api/v1/gifts/send-multi/route";
+import { prepareMultiGift } from './multi-gift-settlement';
 
 beforeEach(() => {
   mocks.emit.mockClear(); mocks.rows.length = 0; mocks.ledger.length = 0;
@@ -52,6 +53,27 @@ beforeEach(() => {
 });
 
 const request = body => new Request("https://portal.test/api/gifts/send", { method: "POST", body: JSON.stringify({ giftId: "AST-1", roomId: "ROOM-1", recipientId: "USR-A", ...body }) });
+it('batches independent tap settlement and flushes the Lucky pool once without merging gift accounting', async () => {
+  mocks.db.user.findMany=async()=>['USR-A','USR-B'].map(publicId=>({id:publicId,publicId,appRoles:[]}));
+  mocks.db.luckyGiftPolicy.findUnique=vi.fn(async()=>({id:'GLOBAL',poolContributionBps:6000,bigWinMinCoins:1n,multipliers:[{multiplierBps:10000,weight:1}],version:1}));
+  mocks.db.luckyGiftPool.findUniqueOrThrow=async()=>({id:'GLOBAL',balance:10000n});
+  mocks.db.luckyGiftPool.update=vi.fn();
+  const body={roomId:'ROOM-1',giftId:'AST-1',recipientIds:['USR-A','USR-B'],comboId:'combo'};
+  const prepared=await prepareMultiGift({id:'sender',publicId:'USR-S'},body,request(body),{batch:true});
+  const first=await prepared.settle(mocks.db,{key:'tap-0001'});
+  const second=await prepared.settle(mocks.db,{key:'tap-0002'});
+  expect(mocks.db.luckyGiftPolicy.findUnique).toHaveBeenCalledOnce();
+  expect(mocks.db.$queryRaw).toHaveBeenCalledOnce();
+  expect(mocks.db.luckyGiftPool.update).not.toHaveBeenCalled();
+  await prepared.finalize(mocks.db);
+  expect(mocks.db.luckyGiftPool.update).toHaveBeenCalledExactlyOnceWith({where:{id:'GLOBAL'},data:{balance:9840n,collected:{increment:240n},paidOut:{increment:400n}}});
+  expect(first.luckyRewardCoins).toBe('200');expect(second.luckyRewardCoins).toBe('200');
+  expect(new Set([...first.transactionIds,...second.transactionIds]).size).toBe(4);
+  expect(mocks.rows.map(row=>row.coinValue)).toEqual([100n,100n,100n,100n]);
+  expect(mocks.ledger.filter(row=>row.type==='GIFT_SENT').map(row=>[row.referenceId,row.coins])).toEqual([['tap-0001',200n],['tap-0002',200n]]);
+  expect(mocks.ledger.filter(row=>row.type==='LUCKY_GIFT_REWARD')).toHaveLength(4);
+  expect(mocks.emit.mock.calls.filter(call=>call[1]==='gift:received').map(call=>call[2].data.requestId)).toEqual(['tap-0001','tap-0001','tap-0002','tap-0002']);
+});
 it('writes paid gift debit, recipient Diamonds and Lucky return in one journal insert',async()=>{
  mocks.db.luckyGiftPolicy.findUnique=async()=>({poolContributionBps:6000,bigWinMinCoins:1n,multipliers:[{multiplierBps:10000,weight:1}],version:1});
  mocks.db.luckyGiftPool.findUniqueOrThrow=async()=>({id:'GLOBAL',balance:10000n});
