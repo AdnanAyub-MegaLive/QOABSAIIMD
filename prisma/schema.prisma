@@ -2355,6 +2355,8 @@ model AudioRoom {
   participantCount      Int                          @default(0)
   passwordHash          String?
   chatLocked            Boolean                      @default(false)
+  showHeaderAndTrophy   Boolean                      @default(true)
+  settingsRevision      Int                          @default(0)
   chatRevision          Int                          @default(0)
   chatClearedAt         DateTime?
   announcement          String?

@@ -21,13 +21,23 @@ export async function PATCH(request, { params }) {
     const actor = await requireMobileUser(request),
       { roomId } = await params,
       body = await request.json();
+    if (!body || typeof body !== "object" || Array.isArray(body))
+      throw Object.assign(new Error("Provide a room settings object."), { code: "VALIDATION_ERROR" });
     const room = await prisma.audioRoom.findUnique({
       where: { roomId: decodeURIComponent(roomId) },
       select: { id: true, roomId: true, ownerId: true, privacyMode: true, paidEntryCoins: true, seatLayout: true },
     });
     if (!room) throw new Error("ROOM_UNAVAILABLE");
+    if ("showHeaderAndTrophy" in body && actor.id !== room.ownerId)
+      throw Object.assign(new Error("Only the room owner can change header visibility."), { code: "ROOM_OWNER_REQUIRED" });
     await requireRoomPermission(room, actor.id, "canManagePrivacy");
     const data = {};
+    if ("showHeaderAndTrophy" in body) {
+      if (typeof body.showHeaderAndTrophy !== "boolean")
+        throw Object.assign(new Error("showHeaderAndTrophy must be a boolean."), { code: "VALIDATION_ERROR" });
+      data.showHeaderAndTrophy = body.showHeaderAndTrophy;
+      data.settingsRevision = { increment: 1 };
+    }
     if ("title" in body) {
       const title = String(body.title ?? "").trim();
       if (title.length < 2 || title.length > 120)
@@ -101,7 +111,7 @@ export async function PATCH(request, { params }) {
       throw Object.assign(new Error("paidEntryCoins is required when privacyMode is PAID."), { code: "VALIDATION_ERROR" });
     const layoutResult = await prisma.$transaction(async tx => {
     const updated = await tx.audioRoom.update({
-      where: { id: room.id },
+      where: { id: room.id, ...("showHeaderAndTrophy" in data ? { ownerId: actor.id } : {}) },
       data: { ...data, revision: { increment: 1 } },
       select: {
         ...roomFrameInclude, ownerId:true, roomFrameVersion:true,
@@ -115,6 +125,8 @@ export async function PATCH(request, { params }) {
         privacyMode: true,
         paidEntryCoins: true,
         revision: true,
+        showHeaderAndTrophy: true,
+        settingsRevision: true,
         seatLayout: true,
         giftInteractions: true,
         updatedAt: true,
@@ -135,6 +147,11 @@ export async function PATCH(request, { params }) {
       success: true,
       data: result,
     });
+    if ("showHeaderAndTrophy" in data)
+      emitToAudioRoom(room.roomId, "audio-room:settings-changed", { success: true, data: {
+        roomId: room.roomId, showHeaderAndTrophy: updated.showHeaderAndTrophy,
+        settingsRevision: updated.settingsRevision, revision: updated.revision,
+      } });
     if (data.giftInteractions)
       emitToAudioRoom(room.roomId, "audio-room:gift-interactions", { success: true, data: { roomId: room.roomId, ...serializeGiftInteractions(updated.giftInteractions), revision: updated.revision } });
     if (data.seatLayout) {

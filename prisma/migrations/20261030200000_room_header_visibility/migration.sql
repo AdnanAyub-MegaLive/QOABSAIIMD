@@ -1,0 +1,3 @@
+ALTER TABLE "AudioRoom"
+  ADD COLUMN "showHeaderAndTrophy" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN "settingsRevision" INTEGER NOT NULL DEFAULT 0;

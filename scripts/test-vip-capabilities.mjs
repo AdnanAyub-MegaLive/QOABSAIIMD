@@ -75,6 +75,31 @@ try{
  assert.equal(muted.error?.code,'VIP_PROTECTED',JSON.stringify(muted));
  const follow=await request(`/api/v1/users/${vip.publicId}/follow`,2,{method:'POST'});assert.equal(follow.status,403,JSON.stringify(follow));assert.equal(follow.error.code,'FOLLOW_FORBIDDEN');
  const {assertVipModeration}=await import('../src/lib/vip-capabilities.js');await assertVipModeration(db,room,owner.id,vip.id,'ANTI_KICK');
+ // Owner-controlled display: exercise real persistence, fan-out and reconnect snapshots.
+ const displayEvents=sockets.map(()=>[]);
+ sockets.forEach((socket,i)=>socket.on('audio-room:settings-changed',event=>displayEvents[i].push(event.data)));
+ const beforeDisplay=await db.audioRoom.findUnique({where:{id:room.id}});
+ assert.equal(beforeDisplay.showHeaderAndTrophy,true,'Existing/new rooms must start visible');
+ const patchDisplay=(actor,body)=>request(path,actor,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ for(const actor of [1,2]){
+  const rejected=await patchDisplay(actor,{showHeaderAndTrophy:false});
+  assert.equal(rejected.status,403,JSON.stringify(rejected));assert.equal(rejected.error.code,'ROOM_OWNER_REQUIRED');
+ }
+ for(const value of [null,'false',0,[],{}])assert.equal((await patchDisplay(0,{showHeaderAndTrophy:value})).status,422);
+ const hidden=await patchDisplay(0,{showHeaderAndTrophy:false});assert.equal(hidden.status,200,JSON.stringify(hidden));
+ assert.equal(hidden.data.room.showHeaderAndTrophy,false);
+ const displayRevision=hidden.data.room.settingsRevision;assert.equal(displayRevision,beforeDisplay.settingsRevision+1);
+ await delay(350);
+ for(const events of displayEvents)assert(events.some(e=>e.roomId===room.roomId&&e.showHeaderAndTrophy===false&&e.settingsRevision===displayRevision),'A room member missed the visibility broadcast');
+ const renamed=await patchDisplay(0,{title:'Private display verification'});
+ assert.equal(renamed.data.room.showHeaderAndTrophy,false);assert.equal(renamed.data.room.settingsRevision,displayRevision);
+ const stored=await db.audioRoom.findUnique({where:{id:room.id}});
+ for(const key of ['privacyMode','paidEntryCoins','passwordHash','giftInteractions','seatLayout','seatRevision','chatLocked','joiningDisabled','bannerRevision'])assert.deepEqual(stored[key],beforeDisplay[key],`Display changed unrelated ${key}`);
+ sockets[2].disconnect();await delay(350);
+ const rejoined=await joined(2,password);
+ assert.equal(rejoined.data.showHeaderAndTrophy,false);assert.equal(rejoined.data.settingsRevision,displayRevision);
+ const shown=await patchDisplay(0,{showHeaderAndTrophy:true});assert.equal(shown.data.room.showHeaderAndTrophy,true);assert.equal(shown.data.room.settingsRevision,displayRevision+1);
+ console.log('PASS real HTTP/socket: owner-only header/trophy setting persisted, invalid inputs rejected, all four clients received it, reconnect retained it, unrelated settings unchanged.');
  console.log('PASS real HTTP/socket: admin kick and ban rejected VIP_PROTECTED; force-mute rejected; membership intact.');
  console.log('PASS real HTTP/socket: invisible VIP joins password room without password; no entrance/public member event; member API hides identity from listener and exposes it to admin.');
  console.log('PASS real HTTP: FOLLOW_FORBIDDEN; priority member order; owner override policy; locked-seat VIP bypass and non-VIP GIF rejection.');
