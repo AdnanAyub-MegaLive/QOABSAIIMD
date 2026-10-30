@@ -137,7 +137,7 @@ export async function POST(request) {
     }
 
     const senderArtwork = await resolveGiftSender(sessionUser, requestOrigin(request));
-    operation.contentionKeys = giftContentionKeys([recipientUser]);
+    operation.contentionKeys = giftContentionKeys([recipientUser], { lucky: giftAsset.giftTier === "LUCKY" });
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
       let recoveryPk;
       const ledgerRows = [];

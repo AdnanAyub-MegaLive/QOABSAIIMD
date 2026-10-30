@@ -45,7 +45,7 @@ export async function POST(request) {
     const byId = new Map(rows.map(row => [row.publicId, row])), recipients = ids.map(id => byId.get(id));
     const each = gift.coinPrice * BigInt(quantity), total = each * BigInt(ids.length), itemCount = quantity * ids.length;
     const senderArtwork = await resolveGiftSender(sender, origin);
-    operation.contentionKeys = giftContentionKeys(recipients);
+    operation.contentionKeys = giftContentionKeys(recipients, { lucky: !backpack && gift.giftTier === 'LUCKY' });
     const response = await runGiftOperation(sender.id, operation, async tx => {
       for (const recipient of recipients) await assertGiftRecipient(tx, recipient);
       if (backpack) {

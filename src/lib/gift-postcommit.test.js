@@ -19,6 +19,21 @@ afterEach(() => { delete globalThis.portalIo; });
 it('coordinates shared recipients and agencies using resolved IDs', () => {
  expect(giftContentionKeys([{id:'a',agencyId:'agency'}, {id:'b',agencyId:'agency'}, {id:'a'}])).toEqual(['a','agency:agency','b']);
 });
+it('waits for the shared Lucky pool before opening a snapshot without blocking unrelated normal gifts', async () => {
+ const db=database(()=>{});let release,started;
+ const ready=new Promise(r=>{started=r}),gate=new Promise(r=>{release=r});
+ const operation=(id,lucky)=>({key:id,fingerprint:id,contentionKeys:giftContentionKeys([{id:`recipient-${id}`}],{lucky})});
+ const first=runGiftOperation('pool-a',operation('pool-a',true),async()=>{started();await gate;return {};},db);
+ await ready;
+ const second=runGiftOperation('pool-b',operation('pool-b',true),async()=>({done:true}),db);
+ await runGiftOperation('normal-c',operation('normal-c',false),async()=>({}),db);
+ expect(db.$transaction).toHaveBeenCalledTimes(2);
+ release();await first;await expect(second).resolves.toEqual({done:true});
+ expect(db.$transaction).toHaveBeenCalledTimes(3);
+ await expect(runGiftOperation('pool-a',operation('fail',true),async()=>{throw Error('rollback')},db)).rejects.toThrow('rollback');
+ await runGiftOperation('pool-b',operation('next',true),async()=>({}),db);
+ expect(globalThis[Symbol.for('portal.giftSenderQueues')].size).toBe(0);
+});
 it('starts shared-recipient snapshots after commit while unrelated sends continue', async () => {
  const db=database(()=>{}); let release, started;
  const ready=new Promise(r=>{started=r;}); const gate=new Promise(r=>{release=r;});

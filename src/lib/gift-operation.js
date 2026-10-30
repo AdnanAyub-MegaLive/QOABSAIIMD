@@ -55,8 +55,13 @@ export async function runGiftOperation(senderId,operation,work,db=prisma) {
   try { return await executeGiftOperation(senderId, operation, work, db, timing); }
   finally { release(); for (const key of keys) if (queues.get(key) === tail) queues.delete(key); }
 }
-export function giftContentionKeys(recipients) {
-  return [...new Set(recipients.flatMap(user => [user.id, ...(user.agencyId ? [`agency:${user.agencyId}`] : [])]))];
+export function giftContentionKeys(recipients, { lucky = false } = {}) {
+  // The existing single pool already serializes draws in PostgreSQL. Waiting
+  // before opening a Serializable snapshot avoids stale snapshots and repeated
+  // aborted financial work when different recipients share that same pool.
+  // Normal/backpack sends do not reserve this key; DB locks remain authoritative
+  // for other workers, refunds and administrative pool operations.
+  return [...new Set([...recipients.flatMap(user => [user.id, ...(user.agencyId ? [`agency:${user.agencyId}`] : [])]), ...(lucky ? ['pool:lucky:GLOBAL'] : [])])];
 }
 async function executeGiftOperation(senderId,operation,work,db,timing) {
   timing('queued_operation_started');
