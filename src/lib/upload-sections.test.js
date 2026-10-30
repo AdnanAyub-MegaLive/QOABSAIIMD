@@ -1,12 +1,14 @@
 import { expect, it } from "vitest";
 import { UPLOAD_SECTIONS, filterUploadRecords } from "../app/uploads/upload-sections";
+import { uploadCategories } from "./upload-assets.js";
 it("keeps gifts separate and preserves supporting media while consolidating duplicate categories",()=>{
   const categories=Object.values(UPLOAD_SECTIONS).flat();
-  expect(categories).toHaveLength(18);
-  expect(new Set(categories).size).toBe(18);
+  expect([...categories].sort()).toEqual([...Object.keys(uploadCategories),"APK"].sort());
+  expect(new Set(categories).size).toBe(categories.length);
   expect(UPLOAD_SECTIONS["Other Assets"]).toContain("APK");
   expect(UPLOAD_SECTIONS.Gifts).toEqual(["Gifts"]);
-  expect(UPLOAD_SECTIONS.Props).toHaveLength(11);
+  expect(UPLOAD_SECTIONS.Props).toContain("Business Cards");
+  expect(uploadCategories["Business Cards"]).toBe("BUSINESS_CARD");
   expect(categories).not.toContain("Medals");
   expect(categories).not.toContain("Role Artwork");
   expect(categories).not.toContain("Tail-lights");

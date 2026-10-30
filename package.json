@@ -14,6 +14,8 @@
     "test:games:db": "node scripts/test-games-db.mjs",
     "test:rocket:db": "node scripts/test-rocket-db.mjs",
     "test:games:http": "node scripts/test-games-http.mjs",
+    "test:features:http": "node scripts/test-profile-chat-features.mjs",
+    "check:media": "node scripts/check-media-tools.mjs",
     "db:seed": "prisma db seed && node prisma/seed-events.mjs",
     "events:seed": "node prisma/seed-events.mjs",
     "wallet:setup": "node scripts/setup-wallet-db.mjs",

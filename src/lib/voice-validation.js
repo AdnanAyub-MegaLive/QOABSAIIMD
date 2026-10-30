@@ -12,6 +12,8 @@ export async function validateVoice(bytes,durationMs){
   const {stdout}=await exec(process.env.FFPROBE_PATH||"ffprobe",["-v","error","-protocol_whitelist","file","-show_streams","-show_format","-of","json",path],{timeout:10000,maxBuffer:65536,windowsHide:true});
   const info=JSON.parse(stdout),streams=info.streams??[],seconds=Number(info.format?.duration);
   if(!info.format?.format_name?.split(",").includes("m4a")||streams.length!==1||streams[0].codec_type!=="audio"||streams[0].codec_name!=="aac"||streams[0].channels!==1||!Number.isFinite(seconds)||seconds<=0||seconds>60||Math.abs(seconds*1000-durationMs)>1500)throw Error("Invalid audio");
+  // Container metadata can be valid even when AAC packets cannot play.
+  await exec(process.env.FFMPEG_PATH||"ffmpeg",["-v","error","-xerror","-err_detect","explode","-protocol_whitelist","file","-i",path,"-map","0:a:0","-f","null","-"],{timeout:15000,maxBuffer:65536,windowsHide:true});
   return Math.ceil(seconds*1000);
  }catch(error){throw Object.assign(new Error(error.code==="ENOENT"?"Audio validation is unavailable.":"Use a valid mono AAC M4A recording, at most 60 seconds."),{code:error.code==="ENOENT"?"VOICE_STORAGE_UNAVAILABLE":"VALIDATION_ERROR"});}
  finally{await rm(dir,{recursive:true,force:true});}

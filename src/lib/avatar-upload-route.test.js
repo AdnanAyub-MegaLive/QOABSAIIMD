@@ -1,7 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), limited: vi.fn(), read: vi.fn(), decode: vi.fn(), save: vi.fn(), log: vi.fn() }));
-vi.mock("./prisma", () => ({ prisma: { apiRequestLog: { create: mocks.log } } }));
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
+vi.mock("@/lib/prisma", () => ({ prisma: { apiRequestLog: { create: mocks.log } } }));
 vi.mock("@/lib/mobile-v1", async () => await import("./mobile-v1.js"));
 vi.mock("@/lib/mobile-api", () => ({
   requireMobileUser: mocks.auth, mobileJson: (body, status = 200) => Response.json(body, { status }),
@@ -9,7 +8,7 @@ vi.mock("@/lib/mobile-api", () => ({
 }));
 vi.mock("@/lib/rate-limit", () => ({ isRateLimited: mocks.limited }));
 vi.mock("@/lib/user-perks", () => ({ requestOrigin: () => "https://portal.test" }));
-vi.mock("@/lib/avatar-upload", () => ({ readAvatarFile: mocks.read, decodeAvatar: mocks.decode, saveAvatar: mocks.save }));
+vi.mock("@/lib/avatar-upload", async original => ({ ...await original(), readAvatarFile: mocks.read, decodeAvatar: mocks.decode, saveAvatar: mocks.save }));
 import { POST } from "../app/api/v1/users/me/avatar/route.js";
 const request = () => new Request("https://portal.test/api/v1/users/me/avatar", { method: "POST" });
 beforeEach(() => {
@@ -38,5 +37,7 @@ it("returns 201 with only the authenticated user's saved picture", async () => {
   const response = await POST(request());
   expect(response.status).toBe(201);
   expect(await response.json()).toEqual({ success: true, data: { profileImage: "https://portal.test/signed-avatar" } });
-  expect(mocks.save).toHaveBeenCalledWith({}, "authenticated-user", "bytes", "https://portal.test");
+  expect(mocks.read).toHaveBeenCalledWith(expect.any(Request), 25 * 1024 * 1024);
+  expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({apiRequestLog:{create:mocks.log}}), "authenticated-user", "bytes", "https://portal.test");
+  expect(mocks.log).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({statusCode:201})}));
 });
