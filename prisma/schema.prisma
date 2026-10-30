@@ -253,6 +253,7 @@ model User {
   profileCoverItems ProfileCoverItem[]
   profileCover ProfileCover?
   audioRoomVisits AudioRoomVisit[]
+  audioMicSessions AudioRoomMicSession[]
   onboardingCompletedAt DateTime?
   countryChangeUsedAt DateTime?
   birthdayChangeUsedAt DateTime?
@@ -2340,6 +2341,7 @@ model AudioRoom {
   bannerRevision        Int @default(0)
   bannerBroadcastRevision Int @default(0)
   visits                AudioRoomVisit[]
+  micSessions           AudioRoomMicSession[]
   id                    String                       @id @default(cuid())
   roomId                String                       @unique
   ownerId               String
@@ -2860,4 +2862,20 @@ model AgencySalaryPolicy {
   tiers Json
   diamondsPerUsd BigInt @default(90000)
   updatedAt DateTime @updatedAt
+}
+
+// Durable seat occupancy, independent of the mutable seat row. Heartbeats bound crash gaps.
+model AudioRoomMicSession {
+  id String @id @default(dbgenerated("(gen_random_uuid())::text"))
+  audioRoomId String
+  userId String
+  seatRecordId String
+  startedAt DateTime
+  endedAt DateTime?
+  lastSeenAt DateTime
+  audioRoom AudioRoom @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@index([audioRoomId, endedAt])
 }

@@ -18,7 +18,7 @@ export function socketUserCounts(sockets) {
 export async function reconcileAudioRoomPresence(io, now = new Date()) {
   if (!io) return { rooms: 0, corrected: 0 };
   const rooms = await prisma.audioRoom.findMany({
-    where: { OR: [{ participantCount: { gt: 0 } }, { members: { some: { socketCount: { gt: 0 } } } }] },
+    where: { OR: [{ participantCount: { gt: 0 } }, { members: { some: { socketCount: { gt: 0 } } } }, { micSessions: { some: { endedAt: null } } }, { seats: { some: { occupantUserId: { not: null } } } }] },
     select: { id: true, roomId: true, participantCount: true, revision: true },
   });
   let corrected = 0;
@@ -34,6 +34,8 @@ export async function reconcileAudioRoomPresence(io, now = new Date()) {
     const desired = new Map(connectedPublicIds.map((publicId) => [userByPublicId.get(publicId), counts.get(publicId)]).filter(([userId]) => userId));
     const changed = current.some((member) => member.socketCount !== (desired.get(member.userId) ?? 0)) || [...desired].some(([userId, count]) => !current.some((member) => member.userId === userId && member.socketCount === count));
     const total = desired.size;
+    // Heartbeat even when the public participant count has not changed.
+    await prisma.$executeRaw`SELECT refresh_audio_mic_attendance(${room.id}, ${[...desired.keys()]}::text[], ${now}::timestamp)`;
     if (!changed && room.participantCount === total) continue;
     await prisma.$transaction(async (tx) => {
       await tx.audioRoomMember.updateMany({ where: { audioRoomId: room.id, socketCount: { gt: 0 } }, data: { socketCount: 0, lastSeenAt: now } });

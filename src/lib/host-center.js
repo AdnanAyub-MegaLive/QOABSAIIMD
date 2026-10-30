@@ -2,14 +2,19 @@ import { createHash } from "node:crypto";
 import { salaryMonth, sessionAttendance } from "./agency-salary.js";
 import { agencyWork } from "./agency-work.js";
 import { hostReportAliases } from "./host-report-identity.js";
+import { audioMicAttendance } from "./audio-mic-attendance.js";
 
 export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   const period = salaryMonth(selectedMonth, now);
   const user = await db.user.findUnique({ where: { id: userId }, select: {
     id: true, publicId: true, status: true, deletedAt: true, appRoles: true,
-    agency: { select: { publicId: true, name: true } },
+    agency: { select: { publicId: true, name: true, status: true } },
+    ownedAgencies: { where: { status: "ACTIVE" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 1,
+      select: { publicId: true, name: true, status: true } },
   } });
-  if (!user || user.deletedAt || user.status !== "ACTIVE" || !user.appRoles?.includes("HOST") || !user.agency) {
+  // Personal activity spans agencies; prefer membership, then the earliest active owned agency.
+  const agency = user?.agency?.status === "ACTIVE" ? user.agency : user?.ownedAgencies?.find(a => a.status === "ACTIVE");
+  if (!user || user.deletedAt || user.status !== "ACTIVE" || !user.appRoles?.includes("HOST") || !agency) {
     throw Object.assign(new Error("An active host with an agency is required."), { code: "HOST_CENTER_FORBIDDEN", status: 403 });
   }
   const talents = await db.talent.findMany({ where: { publicId: user.publicId }, select: { id: true, publicId: true } });
@@ -28,6 +33,7 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   const policy = await db.agencySalaryPolicy.findUnique({ where: { month: period.month } });
   const videos = await db.videoLiveSession.findMany({ where: { hostId: user.id, ...overlap }, select: { startedAt: true, endedAt: true } });
   const legacy = await db.liveSession.findMany({ where: { talentId: { in: talentIds }, ...overlap }, select: { startedAt: true, endedAt: true } });
+  const audio = await audioMicAttendance(db, user.id, period, now);
   const work = agencyWork(settlements, policy, aliases);
   const groups = new Map();
   for (const row of settlements) {
@@ -46,14 +52,14 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   }).sort((a,b) => (a.agency?.publicId ?? "").localeCompare(b.agency?.publicId ?? ""));
   const incomplete = work.unvaluedGiftCount > 0 || missingSettlementCount > 0;
   const data = {
-    hostPublicId: user.publicId, agency: user.agency, month: period.month, timezone: "UTC",
+    hostPublicId: user.publicId, agency: { publicId: agency.publicId, name: agency.name }, month: period.month, timezone: "UTC",
     period: { start: period.start.toISOString(), endExclusive: period.end.toISOString() },
     earnings: { monthlyReceivedGiftDiamonds: incomplete ? null : work.totalDiamonds,
       recordedGiftDiamonds: work.totalDiamonds, unit: "DIAMONDS", coverage: incomplete ? "INCOMPLETE" : "RECORDED_SETTLEMENTS",
       unvaluedGiftCount: work.unvaluedGiftCount, missingSettlementCount },
-    attendance: { ...sessionAttendance([...videos, ...legacy], period.start, period.end, now),
-      coverage: "RECORDED_VIDEO_AND_LEGACY_LIVE_SESSIONS", qualifyingDays: null,
-      notice: "Recorded activity only; missing historical audio attendance cannot be reconstructed. No qualifying attendance rules are applied." },
+    attendance: { ...sessionAttendance([...videos, ...legacy, ...audio], period.start, period.end, now),
+      coverage: "RECORDED_AUDIO_VIDEO_AND_LEGACY_LIVE_SESSIONS", qualifyingDays: null,
+      notice: "Recorded audio mic/seat time, video and linked legacy live sessions; overlapping time is counted once, in UTC. Listening off-seat is not hosting. Historical audio time without records cannot be reconstructed. No qualifying attendance rules are applied." },
     targets: { type: "AGENCY_COMMISSION_NOT_HOST_SALARY", policyConfigured: Boolean(policy), policyVersion: policy?.version ?? null,
       tiers: policy?.tiers ?? null, bySettlementAgency: breakdown,
       personalTarget: null, remainingPersonalTarget: null, requiredDays: null, requiredHours: null, hostSalaryLevel: null },

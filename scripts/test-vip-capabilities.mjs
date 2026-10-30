@@ -5,7 +5,7 @@ import {config} from 'dotenv';
 import {Client} from 'pg';
 import {spawn,spawnSync} from 'node:child_process';
 import {randomUUID,randomBytes} from 'node:crypto';
-import {openSync,closeSync} from 'node:fs';
+import {openSync,closeSync,readFileSync} from 'node:fs';
 import {io} from 'socket.io-client';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcrypt';
@@ -13,7 +13,7 @@ config({path:'.env.local',quiet:true});
 const deployed=process.argv.includes('--deployed');
 const run=randomUUID().replaceAll('-','').slice(0,12), databaseName=`vip_test_${run}`;
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
-let admin,server,logFd,db,tier,room,created=false;const users=[],sockets=[];
+let admin,server,logFd,db,tier,room,agency,created=false;const users=[],sockets=[];
 try{
  if(!deployed){
   const url=new URL(process.env.DATABASE_URL);url.pathname='/postgres';admin=new Client({connectionString:url.href});await admin.connect();
@@ -21,6 +21,10 @@ try{
   Object.assign(process.env,{AUTH_SECRET:randomBytes(48).toString('hex'),PORT:'3116',HOSTNAME:'127.0.0.1',MOBILE_API_BASE_URL:'http://127.0.0.1:3116',RTC_PROVIDER:'LIVEKIT',LIVEKIT_URL:'wss://vip-test.example.com',LIVEKIT_API_KEY:'vip-test',LIVEKIT_API_SECRET:randomBytes(32).toString('hex')});
   delete process.env.REALTIME_DATABASE_URL;
   const push=spawnSync(process.execPath,['node_modules/prisma/build/index.js','db','push'],{env:process.env,encoding:'utf8'});assert.equal(push.status,0,'Disposable schema failed');
+  // db push cannot install SQL triggers. Recreate this empty table only in the new disposable database.
+  const hooks=new Client({connectionString:process.env.DATABASE_URL});await hooks.connect();
+  try{await hooks.query('DROP TABLE "AudioRoomMicSession"');await hooks.query(readFileSync('prisma/migrations/20261030210000_audio_mic_attendance/migration.sql','utf8'));}finally{await hooks.end();}
+
  }
  ({prisma:db}=await import('../src/lib/prisma.js'));
  const {createMobileSessionToken}= (await import('../src/lib/mobile-session.cjs')).default;
@@ -100,6 +104,32 @@ try{
  assert.equal(rejoined.data.showHeaderAndTrophy,false);assert.equal(rejoined.data.settingsRevision,displayRevision);
  const shown=await patchDisplay(0,{showHeaderAndTrophy:true});assert.equal(shown.data.room.showHeaderAndTrophy,true);assert.equal(shown.data.room.settingsRevision,displayRevision+1);
  console.log('PASS real HTTP/socket: owner-only header/trophy setting persisted, invalid inputs rejected, all four clients received it, reconnect retained it, unrelated settings unchanged.');
+
+ // Host Center: private zero-balance fixtures, including an owner who is not a member.
+ agency=await db.agency.create({data:{publicId:`AGN-HOSTQA-${run}`,name:'Private Host Center QA',ownerUserId:owner.id,status:'ACTIVE'}});
+ await db.user.update({where:{id:owner.id},data:{appRoles:['HOST']}});
+ assert.equal((await db.user.findUnique({where:{id:owner.id}})).agencyId,null);
+ await db.user.update({where:{id:observer.id},data:{appRoles:['HOST'],agencyId:agency.id}});
+ await db.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:{in:[owner.id,observer.id]}},data:{occupantUserId:null,occupiedAt:null}});
+ const thirtyMinutesAgo=new Date(Date.now()-30*60000);
+ await db.audioRoomSeat.update({where:{audioRoomId_seatId:{audioRoomId:room.id,seatId:'row0-seat3'}},data:{occupantUserId:owner.id,occupiedAt:thirtyMinutesAgo,isMuted:true}});
+ await db.audioRoomSeat.update({where:{audioRoomId_seatId:{audioRoomId:room.id,seatId:'row0-seat2'}},data:{occupantUserId:observer.id,occupiedAt:thirtyMinutesAgo,isMuted:false}});
+ await db.$executeRaw`SELECT refresh_audio_mic_attendance(${room.id}, ${users.map(u=>u.id)}::text[], ${new Date()}::timestamp)`;
+ const month=new Date().toISOString().slice(0,7);
+ for(const actor of [0,2]){
+  const report=await request(`/api/v1/me/host-center?month=${month}`,actor);
+  assert.equal(report.status,200,JSON.stringify(report));assert.equal(report.data.agency.publicId,agency.publicId);
+  assert.equal(report.data.attendance.liveMinutes,30);assert.equal(report.data.attendance.activeDays,1);
+ }
+ await db.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:{in:[owner.id,observer.id]}},data:{occupantUserId:null,occupiedAt:null}});
+ for(const actor of [0,2]){
+  const afterLeaving=await request(`/api/v1/me/host-center?month=${month}`,actor);
+  assert.equal(afterLeaving.status,200);assert.equal(afterLeaving.data.attendance.liveMinutes,30);
+ }
+ assert.equal((await request(`/api/v1/me/host-center?month=${month}`,1)).status,403,'Non-HOST should remain forbidden');
+ await db.agency.update({where:{id:agency.id},data:{status:'INACTIVE'}});
+ assert.equal((await request(`/api/v1/me/host-center?month=${month}`,0)).status,403,'Inactive owned agency should not authorize Host Center');
+ console.log('PASS real HTTP Host Center contract: 30-minute audio mic fixtures report 30 minutes/1 day before and after unseating; HOST agency owner without membership returns 200; non-HOST/inactive-agency access stays forbidden.');
  console.log('PASS real HTTP/socket: admin kick and ban rejected VIP_PROTECTED; force-mute rejected; membership intact.');
  console.log('PASS real HTTP/socket: invisible VIP joins password room without password; no entrance/public member event; member API hides identity from listener and exposes it to admin.');
  console.log('PASS real HTTP: FOLLOW_FORBIDDEN; priority member order; owner override policy; locked-seat VIP bypass and non-VIP GIF rejection.');
@@ -108,6 +138,7 @@ try{
  if(server){server.kill('SIGTERM');await delay(500);if(server.exitCode===null)server.kill('SIGKILL');}else await delay(500);
  if(db){
   if(room)await db.audioRoom.deleteMany({where:{id:room.id}});
+  if(agency)await db.agency.deleteMany({where:{id:agency.id}});
   if(users.length)await db.user.deleteMany({where:{id:{in:users.map(u=>u.id)}}});
   if(tier)await db.vipTier.deleteMany({where:{id:tier.id}});
   await db.$disconnect();
