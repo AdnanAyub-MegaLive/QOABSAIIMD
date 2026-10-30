@@ -10,11 +10,11 @@ import {pizzaSettings,pizzaResult} from "./pizza.mjs";
 export const DAY_MS=86400000;
 export function sharedDuration(game){return Object.values(roundTiming(game)).reduce((sum, seconds)=>sum+seconds,0)*1000;}
 export function sharedClock(day, now=Date.now()){
- const start=new Date(day.day).getTime(),duration=day.durationMs,elapsed=Math.max(0,now-start),slots=Math.floor(DAY_MS/duration);
+ const start=new Date(day.day).getTime(),duration=day.durationMs,elapsed=Math.max(0,now-start),resetAt=Math.floor(start/DAY_MS)*DAY_MS+DAY_MS,slots=Math.floor((resetAt-start)/duration),offset=day.settings.scheduleRoundOffset||0;
  const timing=roundTiming(day.settings);
  const slot=Math.min(Math.floor(elapsed/duration),slots-1),opensAt=start+slot*duration,closesAt=opensAt+timing.selectionSeconds*1000,revealsAt=opensAt+duration-timing.resultSeconds*1000,endsAt=opensAt+duration;
- const phase=now>=start+DAY_MS||now>=endsAt?"reset":now<closesAt?"open":now<revealsAt?"playing":"reveal";
- return {slot,roundNumber:slot+1,totalRounds:Math.min(slots,Math.floor(elapsed/duration)),opensAt,closesAt,revealsAt,endsAt,resetAt:start+DAY_MS,phase};
+ const phase=now>=resetAt||now>=endsAt?"reset":now<closesAt?"open":now<revealsAt?"playing":"reveal";
+ return {slot,roundNumber:offset+slot+1,totalRounds:offset+Math.min(slots,Math.floor(elapsed/duration)),opensAt,closesAt,revealsAt,endsAt,resetAt,phase};
 }
 export function seededRandom(seed,scope){let counter=0;return max=>{if(!Number.isInteger(max)||max<1||max>4294967296)throw new Error("Invalid random range");const bound=Math.floor(4294967296/max)*max;let n;do{n=createHmac("sha256",seed).update(`${scope}:${counter++}`).digest().readUInt32BE(0);}while(n>=bound);return n%max;};}
 // Persist the scope in each daily snapshot so deployed changes never reroll existing wagers.

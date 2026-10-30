@@ -45,7 +45,7 @@ export default function SharedPlayer({gameId,preview=false}){
  const total=engine==="roulette"?Object.values(bets).reduce((a,b)=>a+b,0):amount;
  const options=["pizza","teenpatti"].includes(engine)?[]:engine==="flip"?["heads","tails"]:miniGames[engine]?.choices||[];
  const timed=["reaction","trivia"].includes(engine);
- const locked=busy||!!pending||phase!=="open";
+ const locked=busy||!!pending||!!error||state?.acceptingBets===false||phase!=="open";
  async function enter(selectedChoice){
    if(guard.current||!state)return;guard.current=true;setBusy(true);setError("");
    const payload=pending||{action:"shared-enter",id:crypto.randomUUID(),gameId,dayId:state.dayId,slot:state.slot,amount:total,custom,choice:typeof selectedChoice==="string"?selectedChoice:choice||(options.length===1?options[0]:""),bets:engine==="roulette"?bets:undefined};
@@ -79,6 +79,7 @@ export default function SharedPlayer({gameId,preview=false}){
    </div>
    <div className={engine==="roulette"?"roulette-betting-panel":"shared-betting-contents"}>
    <div className={styles.status} role="status">{engine==="roulette"&&<span className="roulette-timer-icon"/>}{error||`${phase.toUpperCase()} · ${remaining}s · ${state?.participants||0} players · ${state?.totalPoints||0} ${currency}`}{outcome&&<div>{summary.payout} {currency} returned across {summary.count} bets{summary.pending>0?" · Settling…":""}</div>}</div>
+   {state?.settingsChangeAt&&<p role="status">Updated game rules apply from the next round.</p>}
    <div className={styles.table}>
      {latest&&<span key={latest.id} className={styles.sharedEntryChip} aria-label="Latest bet">● +{latest.amount} · Total {summary.wager}</span>}
      {engine==="trivia"&&phase==="playing"&&quiz&&mine&&!mine.answered?<><p className={styles.question}>{question+1}/{state.challenge.questions.length} · {quiz.text}</p><div className={styles.miniChoices}>{quiz.options.map((text,i)=><button key={i} disabled={busy} onClick={()=>answer(String(i))}>{text}</button>)}</div></>
@@ -86,7 +87,7 @@ export default function SharedPlayer({gameId,preview=false}){
       :engine==="roulette"?<div className={styles.markets}>{markets.map(m=><button key={m.label} disabled={locked} onClick={()=>{if(!Number.isSafeInteger(amount)||amount<1||total+amount>Number(balance))return;setBets({...bets,[m.label]:(bets[m.label]||0)+amount});}}><b>{m.label}</b><small>{m.payout}</small><span>{Number(state?.myTotals?.[m.label]||0)+(bets[m.label]||0)} coins</span></button>)}</div>
       :<div className={engine==="teenpatti"?styles.sharedHands:styles.miniChoices}>{options.map((opt,i)=><button key={opt} disabled={locked} aria-pressed={choice===opt} data-winner={outcome?.winners?.includes(opt)||false} onClick={()=>setChoice(opt)}>{engine==="teenpatti"?<><small>HAND {opt}</small><span className={styles.threeCards}>{(outcome?.hands?.[i]?.cards||["?","?","?"]).map((card,j)=><i key={j}>{card}</i>)}</span><small>{outcome?.hands?.[i]?.label||"Hidden cards"}</small><small>{state?.totals?.[opt]||0} coins</small></>:opt}</button>)}</div>}
      {phase==="open"&&<PointAmount roulette={engine==="roulette"} game={{...game,maxBet:engine==="roulette"?game?.maxBet:Math.min(game?.maxBet||0,Number(balance))}} value={amount} custom={custom} disabled={busy||!!pending} onChange={(n,c)=>{setAmount(n);setCustom(c);}}/>}
-     <div className={styles.actions}><span>{mine?mine.answered?"Answer saved":"Bet placed":phase==="open"?"Place a bet before time runs out":"Next round starts automatically"}<b>{state?.myTotal||0} coins this round</b></span>{engine==="roulette"&&!locked&&<button onClick={()=>setBets({})}>Clear</button>}{(!["teenpatti","pizza"].includes(engine)||pending)&&<button className={styles.play} disabled={busy||(!pending&&(phase!=="open"||!game||!Number.isSafeInteger(total)||total<(game?.minBet||1)||total>Math.min(Number(balance),(game?.maxBet||0)-Number(state?.myTotal||0))||(!timed&&engine!=="roulette"&&options.length>1&&!choice)))} onClick={()=>enter()}>{pending?"Retry placement":"Place bet"}</button>}</div>
+     <div className={styles.actions}><span>{mine?mine.answered?"Answer saved":"Bet placed":phase==="open"?"Place a bet before time runs out":"Next round starts automatically"}<b>{state?.myTotal||0} coins this round</b></span>{engine==="roulette"&&!locked&&<button onClick={()=>setBets({})}>Clear</button>}{(!["teenpatti","pizza"].includes(engine)||pending)&&<button className={styles.play} disabled={busy||(!pending&&(locked||phase!=="open"||!game||!Number.isSafeInteger(total)||total<(game?.minBet||1)||total>Math.min(Number(balance),(game?.maxBet||0)-Number(state?.myTotal||0))||(!timed&&engine!=="roulette"&&options.length>1&&!choice)))} onClick={()=>enter()}>{pending?"Retry placement":"Place bet"}</button>}</div>
    </div>
    </div>
    <footer className={styles.footer}><span><b>{BigInt(balance).toLocaleString()}</b> {currency}</span>{preview&&<button disabled={busy||!!pending} onClick={refill}>Refill practice coins</button>}<RoundResults state={state}/><small>{preview?"Practice only · No wallet changes":"Uses your application coin wallet"} · Daily reset 00:00 UTC</small></footer>

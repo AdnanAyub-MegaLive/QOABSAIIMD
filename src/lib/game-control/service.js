@@ -6,6 +6,7 @@ import { resolveRoulette, strictBets } from "./roulette/engine.mjs";
 import { miniGames, makeChallenge, publicChallenge, resolveMini } from "./mini-games.mjs";
 import { selectTrivia } from "./trivia-rounds.mjs";
 import { dealTeenPatti } from "./teen-patti.mjs";
+import { scheduleGameSettings } from "./shared-schedule.js";
 import { notifyGameCatalogUpdated } from "../game-catalog-update.js";
 
 export class GameError extends Error {
@@ -35,6 +36,7 @@ export async function saveGame(input, actor) {
       ? await tx.gameDefinition.update({ where: { id: settings.id }, data: { settings, revision } })
       : await tx.gameDefinition.create({ data: { id: settings.id, settings, revision } });
     const game = serializeGame(row);
+    await scheduleGameSettings(tx, game, Date.now());
     const audit = { id: randomUUID(), gameId: game.id, gameName: game.name, actor, action: beforeRow ? "Settings updated" : "Game created", before: beforeRow ? serializeGame(beforeRow) : null, after: game, createdAt: new Date().toISOString() };
     await tx.gameSettingsAudit.create({ data: { id: audit.id, gameId: game.id, payload: audit } });
     await tx.auditLog.create({ data: { action: "GAME_SETTINGS_UPDATED", category: "GAME_MANAGEMENT", entityType: "GameDefinition", entityId: game.id, description: `${actor} saved ${game.name} revision ${revision}.`, metadata: audit } });

@@ -1,3 +1,4 @@
+import { activeGameSchedule, scheduleGameSettings, utcGameDay } from "./shared-schedule.js";
 import { Prisma } from "@prisma/client";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import { roundTiming } from "./round-timing.mjs";
@@ -23,18 +24,24 @@ export async function requireGameRoom(db,identity){
  if(ban)throw new GameError("You cannot play in this room.",403);
  return user;
 }
-async function getDay(db,gameId,now,viewExistingRocket=false){
+async function getDay(db,gameId,now,viewExisting=false,readOnly=false){
  if(typeof gameId!=="string")throw new GameError("Invalid game.");
  const gameRow=await db.gameDefinition.findUnique({where:{id:gameId}});
- if(!gameRow||gameRow.settings.engine==="external"||(gameRow.settings.status!=="active"&&!(viewExistingRocket&&gameRow.settings.engine==="rocket")))throw new GameError("Game paused or unavailable.",409);
- const date=new Date(now).toISOString().slice(0,10),id=`${gameId}:${date}`,settings={...serializeGame(gameRow),outcomeScope:"application-v1"};
- if(gameRow.settings.status!=="active"){
-   const existing=await db.sharedGameDay.findUnique({where:{id}});
-   if(!existing)throw new GameError("Game paused or unavailable.",409);
-   return {...existing,acceptingBets:false};
+ if(!gameRow||gameRow.archivedAt||gameRow.settings.engine==="external")throw new GameError("Game paused or unavailable.",409);
+ const acceptingBets=gameRow.settings.status==="active";
+ if(!acceptingBets&&!viewExisting)throw new GameError("Game paused or unavailable.",409);
+ const settings={...serializeGame(gameRow),outcomeScope:"application-v1"};
+ let day=await activeGameSchedule(db,gameId,now);
+ if(!day){
+   if(readOnly)return null;
+   if(!acceptingBets)throw new GameError("Game paused or unavailable.",409);
+   const {start,date}=utcGameDay(now),id=`${gameId}:${date}`;
+   day=await db.sharedGameDay.upsert({where:{id},create:{id,gameId,day:new Date(start),settings,seed:randomBytes(32).toString("hex"),durationMs:sharedDuration(settings)},update:{}});
  }
- const day=await db.sharedGameDay.upsert({where:{id},create:{id,gameId,day:new Date(`${date}T00:00:00Z`),settings,seed:randomBytes(32).toString("hex"),durationMs:sharedDuration(settings)},update:{}});
- return {...day,acceptingBets:true};
+ // Also repairs an old daily snapshot on first access after deployment.
+ const settingsChangeAt=await scheduleGameSettings(db,settings,now,day,readOnly);
+ if(settingsChangeAt===undefined)return null;
+ return {...day,acceptingBets,settingsChangeAt};
 }
 export function accepted(game,input){
  const amount=input.amount;
@@ -173,7 +180,16 @@ export async function settleSharedGames(db=prisma,now=new Date(),where={}){
 export async function sharedSnapshot(identity,input,db=prisma){
  await requireGameRoom(db,identity);
  await settleSharedGames(db,new Date(),{userId:identity.userId});
- const now=Date.now(),day=await getDay(db,input.gameId,now,true),clock=sharedClock(day,now);
+ let now=Date.now(),day=await getDay(db,input.gameId,now,true,true);
+ if(!day){
+   // Only initialization or an unscheduled revision needs the mutation lock.
+   ({now,day}=await db.$transaction(async tx=>{
+     await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id=${input.gameId} FOR UPDATE`;
+     const now=Date.now();
+     return {now,day:await getDay(tx,input.gameId,now,true)};
+   }));
+ }
+ const clock=sharedClock(day,now);
  const entries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot},select:{userId:true,amount:true,input:true}});
  const mineEntries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},orderBy:[{createdAt:"asc"},{id:"asc"}]});
  const mine=mineEntries.find(e=>!e.answer)||mineEntries.at(-1);
@@ -186,7 +202,7 @@ export async function sharedSnapshot(identity,input,db=prisma){
      challenge={tier:quiz.tier,questions:quiz.questions.map(({id,text,options,answer})=>({id,text,options,...(clock.phase==="reveal"?{answer}:{})}))};
    }else if(day.settings.engine==="reaction")challenge={readyAt:clock.closesAt+sharedOutcome(day,identity.roomId,clock.slot).delayMs};
  }
- const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:slot+1,...sharedOutcome(day,identity.roomId,slot)});
+ const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:(day.settings.scheduleRoundOffset||0)+slot+1,...sharedOutcome(day,identity.roomId,slot)});
  let winners=[],winnersPending=false;
  const publicResult=["reveal","reset"].includes(clock.phase)||(day.settings.engine==="rocket"&&now>=rocketCrashAt(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents));
  const global=day.settings.outcomeScope==="application-v1";
@@ -205,5 +221,5 @@ export async function sharedSnapshot(identity,input,db=prisma){
  }
  const totals=entryTotals(entries);
  const rocket=day.settings.engine==="rocket"?publicRocketState(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents,now):null;
- return {winners,winnersPending,winnersScope:global?"application":"room",serverTime:now,rocket,acceptingBets:day.acceptingBets,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:(["reveal","reset"].includes(clock.phase)||rocket?.crashed)?sharedOutcome(day,identity.roomId,clock.slot):null};
+ return {winners,winnersPending,winnersScope:global?"application":"room",serverTime:now,rocket,settingsChangeAt:day.settingsChangeAt,acceptingBets:day.acceptingBets,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:(["reveal","reset"].includes(clock.phase)||rocket?.crashed)?sharedOutcome(day,identity.roomId,clock.slot):null};
 }

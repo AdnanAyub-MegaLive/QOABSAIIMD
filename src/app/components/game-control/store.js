@@ -6,7 +6,7 @@ import { miniGames, resolveMini } from "@/lib/game-control/mini-games.mjs";
 import { dealTeenPatti } from "@/lib/game-control/teen-patti.mjs";
 const Context = createContext(null);
 export async function api(surface, body) {
-  const response = await fetch(`/api/games/${surface}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const response = await fetch(`/api/games/${surface}`, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   let data;
   try { data = await response.json(); } catch { throw new Error("The server could not complete this request."); }
   if (!response.ok) { const error = new Error(data.error || "Request failed."); error.status = response.status; throw error; }

@@ -26,7 +26,7 @@ These are shared result probabilities, not a guaranteed win percentage for each 
 
 Each game has selection/betting, playing, and results durations, individually configurable from 1 to 3,600 whole seconds. Reaction playing time must allow five seconds for the signal plus the configured reaction target window. Trivia playing time covers all questions in the round.
 
-Saving changes increments the configuration revision. Admin previews use the saved settings immediately. Live shared games retain their UTC daily settings snapshot until the next midnight UTC, so existing bets and results are unchanged. Pausing blocks new bets immediately. Settings are stored in existing JSON configuration fields; no database migration is needed.
+Saving changes increments the configuration revision. Admin previews use the saved settings immediately. Live shared games activate saved settings at the next round boundary. Multiple saves before that boundary use the latest revision. Existing rounds keep their original rules, timing, seed and settlement; counters still reset at midnight UTC. If a full new round cannot fit before midnight, the new settings start at midnight. Open players refresh automatically (every two seconds, or every half-second for Rocket). Pausing blocks new bets immediately. Settings are stored in existing JSON configuration fields; no database migration is needed.
 
 ## Rocket integration
 
@@ -40,7 +40,7 @@ Validation: `npx vitest run src/lib/game-control`; `node scripts/test-rocket-db.
 
 ### Configurable Rocket maximum
 
-Admins may set the maximum multiplier to a whole number from 1× to 10× (default 5×). Changing it in the editor resets crash weights to equal chances per 0.01× level; edit the new ranges before saving. Flight duration covers the full climb to the selected maximum. Daily snapshots preserve both timing and maximum for existing rounds. Uncashed entries always settle for zero, including crashes at 0× and at the maximum.
+Admins may set the maximum multiplier to a whole number from 1× to 10× (default 5×). Changing it in the editor resets crash weights to equal chances per 0.01× level; edit the new ranges before saving. Flight duration covers the full climb to the selected maximum. Immutable round schedules preserve both timing and maximum for existing bets. Uncashed entries always settle for zero, including crashes at 0× and at the maximum.
 
 
 ## Application-wide outcomes

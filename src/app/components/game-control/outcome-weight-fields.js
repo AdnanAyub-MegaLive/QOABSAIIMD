@@ -10,7 +10,7 @@ export default function OutcomeWeightFields({ game, onChange }) {
       const max = Number(event.target.value);
       onChange({ rocketMaxMultiplier: max, outcomeWeights: undefined });
     }} /><small>Changing the maximum resets crash weights to equal chances per 0.01× level. Set the weights below before saving.</small></label>}
-    <p>Chance = weight ÷ total weight. Set a weight to 0 to disable that outcome. These control the shared room result; each player’s winning chance depends on their choice. Live changes apply next midnight UTC; saved previews update immediately.</p>
+    <p>Chance = weight ÷ total weight. Set a weight to 0 to disable that outcome. These control the shared room result; each player’s winning chance depends on their choice. Live changes apply at the next round; saved previews update immediately.</p>
     {game.engine === "rocket" && <p>These are crash-range probabilities, not player win rates. Each 0.01× level within a range is equally likely. A crash at 0× is immediate; the configured maximum is also a crash, not an automatic payout.</p>}
     {game.engine === "teenpatti" && <p>Weights choose the winning hand position on non-tied deals. Card strength determines the winner; tied deals keep their original positions and rules.</p>}
     <div className="form-grid">{options.map((option, i) => <label key={option.label}>{option.label} — {total ? (weights[i] / total * 100).toFixed(2) : "0.00"}%
