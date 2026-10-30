@@ -13,7 +13,7 @@ function fixture() {
   const sockets = users.map(u => ({ data: { internalUserId: u.id, sessionVersion: 1 }, emit: vi.fn() }));
   sockets.push({ data: { internalUserId: "viewer", sessionVersion: 0 }, emit: vi.fn() });
   const db = {
-    globalAnnouncement: { findMany: vi.fn().mockResolvedValue([row]), updateMany: vi.fn().mockResolvedValue({ count: 1 }), create: vi.fn(), deleteMany: vi.fn(), findFirst: vi.fn().mockResolvedValue(null) },
+    globalAnnouncement: { findMany: vi.fn().mockResolvedValue([row]), updateMany: vi.fn().mockResolvedValue({ count: 1 }), create: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn(), findFirst: vi.fn().mockResolvedValue(null) },
     globalAnnouncementPolicy: { findUnique: vi.fn().mockResolvedValue(policy()) },
     audioRoom: { findUnique: vi.fn().mockResolvedValue(room) },
     user: { findUnique: vi.fn().mockResolvedValue({ id: "actor", publicId: "USR-1", name: "QA", status: "ACTIVE" }), findMany: vi.fn().mockResolvedValue(users) },
@@ -92,7 +92,7 @@ describe("source and visibility safeguards", () => {
     ]);
     f.db.globalAnnouncement.findFirst.mockResolvedValue({ id: "earlier" });
     await collectAnnouncements(f.db, f.now);
-    expect(f.db.globalAnnouncement.create.mock.calls[0][0].data.deliveredAt).toEqual(f.now);
+    expect(f.db.globalAnnouncement.createMany.mock.calls[0][0].data[0].deliveredAt).toEqual(f.now);
   });
   it("does nothing with all switches off", async () => {
     const f = fixture(); f.db.globalAnnouncementPolicy.findUnique.mockResolvedValue({ ...announcementDefaults });
@@ -109,4 +109,15 @@ describe("source and visibility safeguards", () => {
     release(); await first;
     expect(f.db.$transaction).toHaveBeenCalledTimes(2);
   });
+});
+
+it('batches suppressed receipts while preserving same-batch cooldown for visible announcements', async()=>{
+ const f=fixture();const c={type:'BIG_GIFT',actorId:'actor',roomId:'ROOM-1',amount:'100',confirmed:f.now,sourceIds:['gift'],details:{}};
+ f.db.$queryRaw.mockReset().mockResolvedValueOnce([{locked:true}]).mockResolvedValueOnce([{...c,id:'visible'},...Array.from({length:99},(_,i)=>({...c,id:`suppressed-${i}`}))]);
+ f.db.globalAnnouncement.findFirst.mockResolvedValueOnce(null).mockResolvedValue({id:'visible'});
+ await collectAnnouncements(f.db,f.now);
+ expect(f.db.globalAnnouncement.create).toHaveBeenCalledTimes(1);
+ expect(f.db.globalAnnouncement.createMany).toHaveBeenCalledTimes(1);
+ expect(f.db.globalAnnouncement.createMany.mock.calls[0][0].data).toHaveLength(99);
+ expect(f.db.globalAnnouncement.createMany.mock.calls[0][0].data.every(r=>r.deliveredAt===f.now)).toBe(true);
 });

@@ -19,7 +19,7 @@ export async function roomGiftPreview(db, socket, user, input, origin, now = Dat
         seats:{where:{occupantUserId:{not:null}},select:{occupant:{select:{publicId:true}}}},
       },
     }),
-    db.uploadAsset.findFirst({where:{publicId:giftId,category:'GIFTS',active:true,giftTier:'LUCKY',coinPrice:{gt:0n}}}),
+    db.uploadAsset.findFirst({where:{publicId:giftId,category:'GIFTS',active:true,giftTier:'LUCKY',coinPrice:{gt:0n}},select:{publicId:true,name:true,category:true,active:true,isGlobal:true,storeVisible:true,mimeType:true,mediaVersion:true,posterMimeType:true,posterMediaVersion:true,cdnUrl:true,posterCdnUrl:true}}),
   ]);
   if (!room || room.status!=='LIVE' || room.isBlocked || !socket.rooms.has(channel)) fail('ROOM_UNAVAILABLE');
   if (!gift) fail('GIFT_NOT_FOUND');

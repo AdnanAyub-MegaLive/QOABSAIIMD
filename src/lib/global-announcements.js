@@ -58,6 +58,7 @@ export async function collectAnnouncements(db, now = new Date()) {
     if (!policy || !Object.values(policy.rules).some(rule => rule.enabled)) return;
     const since = new Date(Math.max(policy.updatedAt.getTime(), now.getTime() - policy.lifetimeSeconds * 1000));
     const candidates = await tx.$queryRaw(announcementCandidatesSql(since, now));
+    const ignored = [];
     for (const c of candidates) {
       let payload = null;
       if (qualifiesForAnnouncement(c, policy)) {
@@ -69,11 +70,16 @@ export async function collectAnnouncements(db, now = new Date()) {
           policyRevision: policy.revision, occurredAt: c.confirmed.toISOString() };
       }
       // Record ignored candidates too: lowering thresholds never replays them.
-      await tx.globalAnnouncement.create({ data: { id: c.id, actorId: c.actorId, type: c.type,
+      const data = { id: c.id, actorId: c.actorId, type: c.type,
         roomId: c.roomId, sourceIds: c.sourceIds, payload: payload ?? Prisma.DbNull,
         expiresAt: new Date(c.confirmed.getTime() + policy.lifetimeSeconds * 1000),
-        deliveredAt: payload ? null : now } });
+        deliveredAt: payload ? null : now };
+      // Visible candidates stay sequential so cooldown checks observe this batch.
+      // Suppressed receipts need no per-row round trip, but remain durable.
+      if (payload) await tx.globalAnnouncement.create({data});
+      else ignored.push(data);
     }
+    if (ignored.length) await tx.globalAnnouncement.createMany({data:ignored});
     // Disposable presentation receipts only, never transaction/history tables.
     await tx.globalAnnouncement.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 86400000) } } });
   }, { timeout: 5000, maxWait: 1000 });
@@ -86,7 +92,7 @@ export function isPublicAnnouncementRoom(room) {
 
 async function announcementAudience(db, row, io, now) {
   const [room, actor, policy] = await Promise.all([
-    db.audioRoom.findUnique({ where: { roomId: row.roomId } }),
+    db.audioRoom.findUnique({ where: { roomId: row.roomId }, select:{id:true,roomId:true,ownerId:true,status:true,privacyMode:true,passwordHash:true,isBlocked:true,joiningDisabled:true,endedAt:true,paidEntryCoins:true} }),
     db.user.findUnique({ where: { id: row.actorId }, select: { id: true, publicId: true, name: true, status: true, deletedAt: true } }),
     db.globalAnnouncementPolicy.findUnique({ where: { id: "GLOBAL" } }),
   ]);

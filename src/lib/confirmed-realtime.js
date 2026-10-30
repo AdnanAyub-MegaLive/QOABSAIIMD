@@ -46,7 +46,10 @@ export function flushConfirmedRealtime(db, io, telemetry = () => {}, trigger = '
       }
       if (delivered.length) await db.confirmedRealtimeEvent.updateMany({ where: { id: { in: delivered }, deliveredAt: null }, data: { deliveredAt: new Date(), attempts: { increment: 1 } } });
       const cutoff = Date.now() - 300000;
-      for (const [id, time] of state.emitted) if (time < cutoff) state.emitted.delete(id);
+      if (!state.lastPrunedAt || Date.now() - state.lastPrunedAt >= 1000) {
+        for (const [id, time] of state.emitted) if (time < cutoff) state.emitted.delete(id);
+        state.lastPrunedAt = Date.now();
+      }
       if (state.emitted.size > 20000) state.emitted.delete(state.emitted.keys().next().value);
       if (rows.length === 100 && delivered.length === rows.length) state.again = true;
     } while (state.again);

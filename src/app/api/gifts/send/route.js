@@ -323,7 +323,7 @@ export async function POST(request) {
     if (roomId) {
       await emitToAudioRoom(roomId, "gift:received", realtimePayload);
       try {
-        const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoom: { roomId } }, { rightRoom: { roomId } }] }, include: { leftRoom: true, rightRoom: true } });
+        const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: {select:{roomId:true}}, rightRoom: {select:{roomId:true}} } });
         recoveryPk = pk;
         if (pk) {
           const side = pk.leftRoom.roomId === roomId ? "leftScore" : "rightScore";

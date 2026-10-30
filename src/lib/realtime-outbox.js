@@ -19,7 +19,10 @@ export async function deliverCommittedGiftEvents(rows, io = globalThis.portalIo,
 async function deliver(rows, io, db) {
   const state = stateFor(io);
   const now = Date.now();
-  for (const [id, at] of state.emitted) if (now - at > 300000) state.emitted.delete(id);
+  if (!state.lastPrunedAt || now - state.lastPrunedAt >= 1000) {
+    for (const [id, at] of state.emitted) if (now - at > 300000) state.emitted.delete(id);
+    state.lastPrunedAt = now;
+  }
   const owned = rows.filter(row => !state.inFlight.has(row.id));
   for (const row of owned) state.inFlight.add(row.id);
   const delivered = [], failed = [];

@@ -11,6 +11,7 @@ function fixture(){
 it('builds only visual data from trusted identity and artwork, with no financial writes',async()=>{
  const f=fixture();const result=await roomGiftPreview(f.db,f.socket,f.user,{...f.input,sender:{publicId:'spoof'},gift:{mediaUrl:'https://attacker.test'},lucky:{rewardCoins:'999'}},'https://portal.test',1000);
  expect(result.sender.publicId).toBe('sender');expect(result.gift.mediaUrl).toBe('https://server.test/art.png');
+ expect(f.db.uploadAsset.findFirst.mock.calls[0][0].select).toMatchObject({publicId:true,mediaVersion:true});expect(f.db.uploadAsset.findFirst.mock.calls[0][0].select).not.toHaveProperty('fileData');
  expect(result.preview).toBe(true);expect(result).not.toHaveProperty('lucky');expect(result).not.toHaveProperty('totalCoins');
  expect(result.expiresAt).toBe(new Date(4000).toISOString());
 });
