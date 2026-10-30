@@ -140,6 +140,7 @@ export async function POST(request) {
     operation.contentionKeys = giftContentionKeys([recipientUser]);
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
       let recoveryPk;
+      const ledgerRows = [];
       await assertGiftRecipient(tx, recipientUser);
       const chat = conversationId ? await requireChatGiftTarget(tx, conversationId, sessionUser.id, recipientUser.id) : null;
       if (live && !(await tx.videoLiveSession.findFirst({ where: { id: live.id, status: "LIVE" } }))) throw Object.assign(new Error("Live session has ended."), { code: "LIVE_NOT_FOUND" });
@@ -173,8 +174,7 @@ export async function POST(request) {
           liveSessionId: live?.id ?? null,
         },
       });
-      await tx.walletTransaction.create({
-        data: ledgerData({
+      ledgerRows.push(ledgerData({
           userId: sessionUser.id,
           type: "GIFT_SENT",
           direction: "DEBIT",
@@ -183,8 +183,7 @@ export async function POST(request) {
           coins: grossCoins,
           referenceId: gift.id,
           metadata: { giftId: giftAsset.publicId, quantity, recipientId, roomId, liveId },
-        }),
-      });
+        }));
       if (talent)
         await tx.talent.update({
           where: { id: talent.id },
@@ -198,8 +197,7 @@ export async function POST(request) {
           data: { hostSalaryCoinBalance: { increment: receivedDiamonds } },
         });
       if (recipientUser && receivedDiamonds > 0n)
-        await tx.walletTransaction.create({
-          data: ledgerData({
+        ledgerRows.push(ledgerData({
             userId: recipientUser.id,
             type: "GIFT_RECEIVED",
             direction: "CREDIT",
@@ -213,8 +211,7 @@ export async function POST(request) {
               grossCoins: grossCoins.toString(),
               recipientType: isHost ? "HOST" : "NORMAL_USER",
             },
-          }),
-        });
+          }));
       if (agencyId)
         await tx.agency.update({
           where: { id: agencyId },
@@ -269,7 +266,9 @@ export async function POST(request) {
       // Finish recipient accounting before taking the platform-wide pool lock.
       const luckyOutcome = lucky ? await settleLuckyReward(tx, { gross: grossCoins, contribution: luckyPoolCoins, policy: lucky }) : null;
       const luckyRewardCoins = luckyOutcome?.rewardCoins ?? 0n;
-      if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); await tx.walletTransaction.create({ data: ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps: luckyOutcome.multiplierBps, multiplier: multiplierLabel(luckyOutcome.multiplierBps), limitedByPool: luckyOutcome.limitedByPool } }) }); }
+      if (luckyRewardCoins > 0n) { await tx.user.update({ where: { id: sessionUser.id }, data: { coinBalance: { increment: luckyRewardCoins } } }); ledgerRows.push(ledgerData({ userId: sessionUser.id, type: "LUCKY_GIFT_REWARD", direction: "CREDIT", title: "Lucky Gift reward", coins: luckyRewardCoins, referenceId: gift.id, metadata: { giftId: giftAsset.publicId, rewardBps: luckyOutcome.multiplierBps, multiplier: multiplierLabel(luckyOutcome.multiplierBps), limitedByPool: luckyOutcome.limitedByPool } })); }
+      // All journal rows remain atomic with the balances and gift, in one insert.
+      await tx.walletTransaction.createMany({ data: ledgerRows });
       const sender = await tx.user.findUniqueOrThrow({
         where: { id: sessionUser.id },
         select: { coinBalance: true },

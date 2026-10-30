@@ -41,7 +41,7 @@ beforeEach(() => {
     audioRoomPkSession: { findFirst: async () => null },
     giftTransaction: { create: async ({ data }) => { const row = { ...data, id: `tx-${mocks.rows.length}`, createdAt: new Date() }; mocks.rows.push(row); return row; } },
     giftSettlement: { create: async ({ data }) => data },
-    walletTransaction: { create: async ({ data }) => { mocks.ledger.push(data); return data; } },
+    walletTransaction: { createMany: vi.fn(async ({data}) => { mocks.ledger.push(...data); return {count:data.length}; }), create: async ({ data }) => { mocks.ledger.push(data); return data; } },
     auditLog: { create: async () => ({}) },
     userGiftInventory: { updateMany: vi.fn(async () => ({ count: 1 })) },
     luckyGiftPolicy: { findUnique: async () => ({ id: "GLOBAL", poolContributionBps: 6000, bigWinMinCoins: 10000n, multipliers: [{ multiplierBps: 0, weight: 1 }], version: 1 }) },
@@ -52,6 +52,15 @@ beforeEach(() => {
 });
 
 const request = body => new Request("https://portal.test/api/gifts/send", { method: "POST", body: JSON.stringify({ giftId: "AST-1", roomId: "ROOM-1", recipientId: "USR-A", ...body }) });
+it('writes paid gift debit, recipient Diamonds and Lucky return in one journal insert',async()=>{
+ mocks.db.luckyGiftPolicy.findUnique=async()=>({poolContributionBps:6000,bigWinMinCoins:1n,multipliers:[{multiplierBps:10000,weight:1}],version:1});
+ mocks.db.luckyGiftPool.findUniqueOrThrow=async()=>({id:'GLOBAL',balance:10000n});
+ const response=await standard(request({}));expect(response.status).toBe(201);
+ expect(mocks.db.walletTransaction.createMany).toHaveBeenCalledOnce();
+ expect(mocks.ledger.map(x=>x.type)).toEqual(['GIFT_SENT','GIFT_RECEIVED','LUCKY_GIFT_REWARD']);
+ expect(mocks.ledger.map(x=>x.referenceId)).toEqual(['tx-0','tx-0','tx-0']);
+ expect(mocks.ledger[0].coins).toBe(100n);expect(mocks.ledger[1].diamonds).toBe(100n);expect(mocks.ledger[2].coins).toBe(100n);
+});
 it('sends 26 Lucky gifts in input order, with one debit and one draw/event per recipient', async () => {
  const ids=Array.from({length:26},(_,i)=>`USR-QA${i}`);
  mocks.db.user.findMany=async()=>[...ids].reverse().map(publicId=>({id:publicId,publicId,appRoles:[]}));

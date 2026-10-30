@@ -83,6 +83,9 @@ async function executeGiftOperation(senderId,operation,work,db,timing) {
       return result;
     },{isolationLevel:"Serializable",timeout:20000}));
     timing('transaction_committed');
+    if (events.queryTimings) {
+      try { console.info('Gift query timing', JSON.stringify(events.queryTimings)); } catch { /* diagnostics only */ }
+    }
     // Only after commit, outside the transaction retry block's awaited work.
     // Delivery failure must never retry a committed charge or fail its response.
     void Promise.resolve().then(() => deliverCommittedGiftEvents(events, globalThis.portalIo, db)).catch(error => console.error("Immediate gift delivery failed", error?.message));

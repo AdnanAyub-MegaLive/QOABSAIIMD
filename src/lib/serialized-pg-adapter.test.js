@@ -1,6 +1,20 @@
 import { it, expect } from 'vitest';
 import { serializeTransaction, serializePgTransactions } from './serialized-pg-adapter.js';
 import { validationResult, unwrapAction } from './action-validation.js';
+import { giftOutboxContext } from './gift-outbox-context.js';
+
+it('collects opt-in query durations without SQL or parameters and isolates contexts',async()=>{
+ const previous=process.env.REALTIME_TIMINGS;process.env.REALTIME_TIMINGS='true';
+ try{
+  const tx=serializeTransaction({queryRaw:async()=>42,executeRaw:async()=>{},commit:async()=>{},rollback:async()=>{}});
+  const context=[];
+  expect(await giftOutboxContext.run(context,()=>tx.queryRaw({sql:'SELECT "coinBalance" FROM "public"."User" WHERE id=$1',args:['secret-id']}))).toBe(42);
+  expect(context.queryTimings.User.count).toBe(1);expect(context.queryTimings.User.ms).toBeGreaterThanOrEqual(0);
+  expect(JSON.stringify(context.queryTimings)).not.toMatch(/secret-id|coinBalance|SELECT/);
+  const next=[];await giftOutboxContext.run(next,()=>tx.queryRaw({sql:'SELECT id FROM "User"'}));
+  expect(next.queryTimings.User.count).toBe(1);expect(context.queryTimings.User.count).toBe(1);
+ }finally{if(previous===undefined)delete process.env.REALTIME_TIMINGS;else process.env.REALTIME_TIMINGS=previous;}
+});
 
 it('serializes concurrent queries on one transaction, preserving results', async () => {
   let active=0, peak=0;
