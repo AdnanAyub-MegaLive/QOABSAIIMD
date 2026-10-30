@@ -20,7 +20,14 @@ npx prisma generate
 npm run build
 test -s .next/BUILD_ID
 test -s .next/required-server-files.json
-test -s .next/server/preview-props.json
+# Next stores preview configuration in the prerender manifest.
+node - <<'NODE'
+const fs = require("node:fs");
+const manifest = JSON.parse(fs.readFileSync(".next/prerender-manifest.json", "utf8"));
+for (const key of ["previewModeId", "previewModeSigningKey", "previewModeEncryptionKey"]) {
+  if (!manifest.preview?.[key]) throw new Error(`Missing preview configuration: ${key}`);
+}
+NODE
 pm2 restart megalive-portal --update-env
 pm2 save
 trap - ERR
