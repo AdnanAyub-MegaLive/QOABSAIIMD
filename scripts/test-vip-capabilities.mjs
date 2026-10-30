@@ -23,7 +23,7 @@ try{
   const push=spawnSync(process.execPath,['node_modules/prisma/build/index.js','db','push'],{env:process.env,encoding:'utf8'});assert.equal(push.status,0,'Disposable schema failed');
   // db push cannot install SQL triggers. Recreate this empty table only in the new disposable database.
   const hooks=new Client({connectionString:process.env.DATABASE_URL});await hooks.connect();
-  try{await hooks.query('DROP TABLE "AudioRoomMicSession"');await hooks.query(readFileSync('prisma/migrations/20261030210000_audio_mic_attendance/migration.sql','utf8'));}finally{await hooks.end();}
+  try{await hooks.query('DROP TABLE "AudioRoomMicSession"');await hooks.query(readFileSync('prisma/migrations/20261030210000_audio_mic_attendance/migration.sql','utf8'));await hooks.query('ALTER TABLE "User" DROP COLUMN "hostSince"');await hooks.query(readFileSync('prisma/migrations/20261030220000_host_since/migration.sql','utf8'));}finally{await hooks.end();}
 
  }
  ({prisma:db}=await import('../src/lib/prisma.js'));
@@ -120,6 +120,9 @@ try{
   const report=await request(`/api/v1/me/host-center?month=${month}`,actor);
   assert.equal(report.status,200,JSON.stringify(report));assert.equal(report.data.agency.publicId,agency.publicId);
   assert.equal(report.data.attendance.liveMinutes,30);assert.equal(report.data.attendance.activeDays,1);
+  assert.equal(report.data.hostSince.slice(0,7),month);
+  const prior=new Date(`${month}-01T00:00:00Z`);prior.setUTCMonth(prior.getUTCMonth()-1);
+  const rejected=await request(`/api/v1/me/host-center?month=${prior.toISOString().slice(0,7)}`,actor);assert.equal(rejected.status,422);assert.equal(rejected.error.code,'HOST_MONTH_BEFORE_START');
  }
  await db.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:{in:[owner.id,observer.id]}},data:{occupantUserId:null,occupiedAt:null}});
  for(const actor of [0,2]){
@@ -129,6 +132,7 @@ try{
  assert.equal((await request(`/api/v1/me/host-center?month=${month}`,1)).status,403,'Non-HOST should remain forbidden');
  await db.agency.update({where:{id:agency.id},data:{status:'INACTIVE'}});
  assert.equal((await request(`/api/v1/me/host-center?month=${month}`,0)).status,403,'Inactive owned agency should not authorize Host Center');
+ console.log('PASS real HTTP host start boundary: hostSince returned as ISO date; the preceding month rejected with HTTP 422.');
  console.log('PASS real HTTP Host Center contract: 30-minute audio mic fixtures report 30 minutes/1 day before and after unseating; HOST agency owner without membership returns 200; non-HOST/inactive-agency access stays forbidden.');
  console.log('PASS real HTTP/socket: admin kick and ban rejected VIP_PROTECTED; force-mute rejected; membership intact.');
  console.log('PASS real HTTP/socket: invisible VIP joins password room without password; no entrance/public member event; member API hides identity from listener and exposes it to admin.');

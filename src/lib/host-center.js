@@ -7,7 +7,7 @@ import { audioMicAttendance } from "./audio-mic-attendance.js";
 export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   const period = salaryMonth(selectedMonth, now);
   const user = await db.user.findUnique({ where: { id: userId }, select: {
-    id: true, publicId: true, status: true, deletedAt: true, appRoles: true,
+    id: true, publicId: true, status: true, deletedAt: true, appRoles: true, hostSince: true,
     agency: { select: { publicId: true, name: true, status: true } },
     ownedAgencies: { where: { status: "ACTIVE" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 1,
       select: { publicId: true, name: true, status: true } },
@@ -17,6 +17,11 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   if (!user || user.deletedAt || user.status !== "ACTIVE" || !user.appRoles?.includes("HOST") || !agency) {
     throw Object.assign(new Error("An active host with an agency is required."), { code: "HOST_CENTER_FORBIDDEN", status: 403 });
   }
+  const hostSince = user.hostSince?.toISOString() ?? null;
+  if (hostSince && period.month < hostSince.slice(0, 7))
+    throw Object.assign(new Error(`Host Center is available from ${hostSince.slice(0, 7)}.`), {
+      code: "HOST_MONTH_BEFORE_START", status: 422, details: { hostSince, earliestMonth: hostSince.slice(0, 7) },
+    });
   const talents = await db.talent.findMany({ where: { publicId: user.publicId }, select: { id: true, publicId: true } });
   const aliases = hostReportAliases([user], talents);
   const talentIds = [...aliases.keys()];
@@ -52,7 +57,7 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   }).sort((a,b) => (a.agency?.publicId ?? "").localeCompare(b.agency?.publicId ?? ""));
   const incomplete = work.unvaluedGiftCount > 0 || missingSettlementCount > 0;
   const data = {
-    hostPublicId: user.publicId, agency: { publicId: agency.publicId, name: agency.name }, month: period.month, timezone: "UTC",
+    hostPublicId: user.publicId, hostSince, agency: { publicId: agency.publicId, name: agency.name }, month: period.month, timezone: "UTC",
     period: { start: period.start.toISOString(), endExclusive: period.end.toISOString() },
     earnings: { monthlyReceivedGiftDiamonds: incomplete ? null : work.totalDiamonds,
       recordedGiftDiamonds: work.totalDiamonds, unit: "DIAMONDS", coverage: incomplete ? "INCOMPLETE" : "RECORDED_SETTLEMENTS",

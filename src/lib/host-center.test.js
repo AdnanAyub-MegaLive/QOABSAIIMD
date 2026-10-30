@@ -84,3 +84,14 @@ it("prefers active membership over owned agencies without moving settlement attr
   db.user.findUnique.mockResolvedValue({id:"u",publicId:"TLN-1",status:"ACTIVE",appRoles:["HOST"],agency:{publicId:"AGN-MEMBER",name:"Membership",status:"ACTIVE"},ownedAgencies:[{publicId:"AGN-OWN",name:"Owned",status:"ACTIVE"}]});
   expect((await hostCenter(db,"u","2026-10",now)).agency.publicId).toBe("AGN-MEMBER");
 });
+it("returns an ISO start date and rejects earlier months before querying activity", async () => {
+  const user=await db.user.findUnique();user.hostSince=new Date("2026-10-15T12:30:00Z");
+  const report=await hostCenter(db,"u","2026-10",now);
+  expect(report.hostSince).toBe("2026-10-15T12:30:00.000Z");
+  db.giftSettlement.findMany.mockClear();
+  await expect(hostCenter(db,"u","2026-09",now)).rejects.toMatchObject({code:"HOST_MONTH_BEFORE_START",status:422,details:{earliestMonth:"2026-10"}});
+  expect(db.giftSettlement.findMany).not.toHaveBeenCalled();
+});
+it("does not invent a host start for legacy accounts with no historical evidence", async () => {
+  expect((await hostCenter(db,"u","2026-09",now)).hostSince).toBeNull();
+});

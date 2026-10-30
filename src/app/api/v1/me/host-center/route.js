@@ -14,6 +14,7 @@ export async function GET(request) {
       const data = await prisma.$transaction(tx => hostCenter(tx, user.id, month), { isolationLevel: "RepeatableRead" });
       return mobileJson({ success: true, data });
     } catch (error) {
+      if (error.code === "HOST_MONTH_BEFORE_START") return mobileJson({ success: false, error: { code: error.code, message: error.message, details: error.details } }, 422);
       if (error.code === "HOST_CENTER_FORBIDDEN") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, 403);
       return mobileApiError(error, "HOST_CENTER_FAILED");
     }

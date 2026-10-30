@@ -20,3 +20,9 @@ it("rejects unauthenticated requests before querying the report", async () => {
   expect((await GET(new Request("https://portal.test/api/v1/me/host-center"))).status).toBe(401);
   expect(m.report).not.toHaveBeenCalled();
 });
+it("returns a clear 422 and the earliest supported month",async()=>{
+ m.auth.mockResolvedValue({id:"authenticated"});m.tx.mockImplementation(fn=>fn("db"));
+ m.report.mockRejectedValue(Object.assign(new Error("Host Center is available from 2026-10."),{code:"HOST_MONTH_BEFORE_START",details:{hostSince:"2026-10-01T00:00:00.000Z",earliestMonth:"2026-10"}}));
+ const response=await GET(new Request("https://portal.test/api/v1/me/host-center?month=2026-09"));
+ expect(response.status).toBe(422);expect((await response.json()).error).toMatchObject({code:"HOST_MONTH_BEFORE_START",details:{earliestMonth:"2026-10"}});
+});

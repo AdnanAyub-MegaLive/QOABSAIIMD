@@ -280,6 +280,7 @@ model User {
   diamondExchangeEnabled Boolean @default(true)
   id                         String                        @id @default(cuid())
   publicId                   String                        @unique
+  hostSince                  DateTime?
   googleSubject              String?                       @unique
   name                       String
   email                      String?                       @unique
