@@ -73,6 +73,9 @@ function publicOccupant(user, perks) {
     ...perkMediaFields(perks),
     frameUrl: perks?.frameUrl ?? null,
     badgeUrl: perks?.badgeUrl ?? null,
+    chatBoxUrl: perks?.chatBoxUrl ?? null,
+    userTagUrl: perks?.userTagUrl ?? null,
+    seatStyleUrl: perks?.seatStyleUrl ?? null,
     businessCardUrl: perks?.businessCardUrl ?? null,
     businessCardPosterUrl: perks?.businessCardPosterUrl ?? null,
     businessCardMimeType: perks?.businessCardMimeType ?? null,
@@ -105,7 +108,7 @@ export async function readAudioRoomSeatState(room, origin) {
     }),
   ]);
   const occupants = seats.map((seat) => seat.occupant).filter(Boolean);
-  const perks = await resolveUserPerks(occupants, origin, ["FRAMES", "BADGES", "BUSINESS_CARD"]);
+  const perks = await resolveUserPerks(occupants, origin, ["FRAMES", "BADGES", "BUSINESS_CARD", "CHAT_BOXES", "USER_TAGS", "SEAT_STYLES"]);
   const rows = new Map();
   let updatedAt = room.updatedAt ?? room.createdAt ?? new Date();
   for (const seat of seats) {

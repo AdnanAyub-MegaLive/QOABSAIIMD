@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "../../../../../lib/prisma.js";
 import { invalidateChatPerks } from "@/lib/chat-perks-cache";
 import {
@@ -39,7 +40,8 @@ export async function POST(request) {
         assetId: null,
       });
       invalidateChatPerks(user.id);
-      await syncRoomDecorations(user, requestedCategory, requestOrigin(request)).catch((error) => console.error("Room decoration sync failed", error));
+      const origin = requestOrigin(request);
+      after(() => syncRoomDecorations(user, requestedCategory, origin).catch((error) => console.error("Room decoration sync failed", error)));
       return mobileJson({
         success: true,
         data: { category: requestedCategory, assetId: null, equipped: false },
@@ -71,7 +73,8 @@ export async function POST(request) {
       assetId: asset.publicId,
     });
     invalidateChatPerks(user.id);
-    await syncRoomDecorations(user, asset.category, requestOrigin(request)).catch((error) => console.error("Room decoration sync failed", error));
+    const origin = requestOrigin(request);
+    after(() => syncRoomDecorations(user, asset.category, origin).catch((error) => console.error("Room decoration sync failed", error)));
     return mobileJson({
       success: true,
       data: {

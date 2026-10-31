@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(_request, { params }) {
   const { postId } = await params;
   const post = await prisma.post.findUnique({
-    where: { publicId: decodeURIComponent(postId), status: "APPROVED" },
+    where: { publicId: decodeURIComponent(postId), status: "APPROVED", author: { deletedAt: null, status: "ACTIVE" } },
     select: { imageData: true, imageMime: true },
   });
   if (!post?.imageData || !post.imageMime)

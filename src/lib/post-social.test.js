@@ -50,25 +50,47 @@ describe("Discover interactions", () => {
     expect(created.commentCount).toBe(1);
     expect(await deletePostComment(db, "PST-1", actor, created.comment.id)).toEqual({ commentCount: 0 });
     expect(await deletePostComment(db, "PST-1", actor, created.comment.id)).toEqual({ commentCount: 0 });
-    expect((await listPostComments(db, "PST-1")).comments).toEqual([]);
+    expect((await listPostComments(db, "PST-1", "viewer")).comments).toEqual([]);
   });
   it("rejects unrelated deleters and cross-post IDs", async () => {
     await addPostComment(db, "PST-1", "writer", "hello");
     await expect(deletePostComment(db, "PST-1", "other", "comment-0")).rejects.toMatchObject({ status: 403 });
     comments[0].postId = "other-post";
     await expect(deletePostComment(db, "PST-1", "writer", "comment-0")).rejects.toMatchObject({ status: 404 });
-    await expect(listPostComments(db, "PST-1", "comment-0")).rejects.toMatchObject({ status: 422 });
+    await expect(listPostComments(db, "PST-1", "viewer", "comment-0")).rejects.toMatchObject({ status: 422 });
   });
   it("uses stable tuple pagination and a 20-comment page", async () => {
     for (let i = 0; i < 21; i++) await addPostComment(db, "PST-1", "writer", "hello");
-    const page = await listPostComments(db, "PST-1");
+    const page = await listPostComments(db, "PST-1", "viewer");
     expect(page.comments).toHaveLength(20);
     expect(page.nextCursor).toBe("comment-19");
-    await listPostComments(db, "PST-1", page.nextCursor);
+    await listPostComments(db, "PST-1", "viewer", page.nextCursor);
     expect(db.postComment.findMany.mock.calls.at(-1)[0]).toMatchObject({ where: { deletedAt: null, OR: expect.any(Array) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 21 });
   });
   it("returns not found for missing posts", async () => {
     db.post.findFirst.mockResolvedValue(null);
     await expect(setPostLike(db, "missing", "a", true)).rejects.toMatchObject({ status: 404 });
   });
+});
+
+it("rejects comment reads when the post visibility query excludes the author", async () => {
+  db.post.findFirst.mockResolvedValue(null);
+  await expect(listPostComments(db, "PST-1", "viewer")).rejects.toMatchObject({ status: 404 });
+  expect(db.post.findFirst.mock.calls[0][0].where.author).toEqual({
+    status: "ACTIVE", deletedAt: null,
+    blockedUsers: { none: { blockedId: "viewer" } },
+    blockedByUsers: { none: { blockerId: "viewer" } },
+  });
+  expect(db.postComment.findMany).not.toHaveBeenCalled();
+});
+it("filters comment authors before applying pagination", async () => {
+  await listPostComments(db, "PST-1", "viewer");
+  expect(db.postComment.findMany.mock.calls[0][0].where.author).toEqual({
+    status: "ACTIVE", deletedAt: null,
+    blockedUsers: { none: { blockedId: "viewer" } },
+    blockedByUsers: { none: { blockerId: "viewer" } },
+  });
+});
+it("requires a viewer for comment reads", async () => {
+  await expect(listPostComments(db, "PST-1")).rejects.toMatchObject({ status: 401 });
 });

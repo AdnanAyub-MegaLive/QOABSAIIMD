@@ -1,24 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { walletHistorySearch } from "./wallet-history-search.js";
-const db = () => ({ user: { findMany: vi.fn(async () => []) }, currencyRequest: { findMany: vi.fn(async () => []) } });
+const user = { id: "me", publicId: "USR-me" };
 describe("wallet history search", () => {
-  it("preserves the no-search path without extra queries", async () => {
-    const store = db(); expect(await walletHistorySearch(store, "transactions", " ")).toEqual({}); expect(store.user.findMany).not.toHaveBeenCalled();
+  it("keeps empty search free of extra queries", async () => {
+    const db = { $queryRaw: vi.fn() };
+    expect(await walletHistorySearch(db, "transactions", "", user)).toEqual({});
+    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
-  it("matches case-insensitive enum fragments and text", async () => {
-    const result = await walletHistorySearch(db(), "transactions", "gift");
-    expect(result.OR).toContainEqual({ type: { in: ["LUCKY_GIFT_REWARD", "GIFT_SENT", "GIFT_RECEIVED", "STORE_GIFT_SENT", "STORE_GIFT_RECEIVED"] } });
-    expect(result.OR).toContainEqual({ title: { contains: "gift", mode: "insensitive" } });
+  it("binds search text and ownership and returns a bounded ID page", async () => {
+    const db = { $queryRaw: vi.fn(async () => [{ id: "match" }]) };
+    expect(await walletHistorySearch(db, "transactions", "' OR TRUE --", user, "cursor", 20)).toEqual({ id: { in: ["match"] } });
+    const sql = db.$queryRaw.mock.calls[0][0];
+    expect(sql.text).not.toContain("' OR TRUE --");
+    expect(sql.values).toContain("me");
+    expect(sql.values).toContain(21);
+    expect(sql.text).toContain('h."createdAt", h.id');
   });
-  it("keeps exact large amounts without floating point loss", async () => {
-    const result = await walletHistorySearch(db(), "transactions", "9007199254740993");
-    expect(result.OR).toContainEqual({ diamonds: 9007199254740993n });
+  it("rejects oversized queries", async () => {
+    await expect(walletHistorySearch({}, "currency", "x".repeat(121), user)).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
-  it("resolves counterparties by active special ID", async () => {
-    const store = db(); store.user.findMany.mockResolvedValue([{ id: "u", publicId: "USR-1" }]);
-    const result = await walletHistorySearch(store, "currency", "SPECIAL");
-    expect(result.OR).toContainEqual({ recipientPublicId: { in: ["USR-1"] } });
-    expect(store.user.findMany.mock.calls[0][0].where.OR[2].specialIds.some.specialId).toEqual({ contains: "SPECIAL", mode: "insensitive" });
-  });
-  it("rejects oversized queries", async () => { await expect(walletHistorySearch(db(), "currency", "x".repeat(121))).rejects.toMatchObject({ code: "VALIDATION_ERROR" }); });
 });

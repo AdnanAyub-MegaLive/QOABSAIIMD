@@ -1,4 +1,4 @@
-import { walletHistorySearch } from "@/lib/wallet-history-search";
+import { walletHistorySearch, walletCategoryWhere } from "@/lib/wallet-history-search";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { serializeWalletTransaction } from "@/lib/wallet";
@@ -11,12 +11,13 @@ export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
     const url = new URL(request.url);
-    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") ?? 20) || 20));
+    const limit = Math.min(50, Math.max(1, Math.floor(Number(url.searchParams.get("limit") ?? 20)) || 20));
+    const category = url.searchParams.get("category") ?? "ALL";
+    const categoryWhere = walletCategoryWhere(category);
     const cursor = String(url.searchParams.get("cursor") ?? "").trim();
-    const where = { AND: [{ userId: user.id }, await walletHistorySearch(prisma, "transactions", url.searchParams.get("q"))] };
     if (cursor) {
       const ownedCursor = await prisma.walletTransaction.findFirst({
-        where: { ...where, publicId: cursor },
+        where: { userId: user.id, publicId: cursor },
         select: { publicId: true },
       });
       if (!ownedCursor) {
@@ -25,11 +26,12 @@ export async function GET(request) {
         throw error;
       }
     }
+    const where = { AND: [{ userId: user.id }, categoryWhere, await walletHistorySearch(prisma, "transactions", url.searchParams.get("q"), user, cursor, limit, null, category)] };
     const records = await prisma.walletTransaction.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
-      ...(cursor ? { cursor: { publicId: cursor }, skip: 1 } : {}),
+      ...(cursor && !url.searchParams.get("q")?.trim() ? { cursor: { publicId: cursor }, skip: 1 } : {}),
     });
     const hasMore = records.length > limit;
     const transactions = records.slice(0, limit);

@@ -10,7 +10,7 @@ export async function postSocialRequest(request, params, action) {
     let data;
     if(action==="comment-like"||action==="comment-unlike")data=await setCommentLike(prisma,postId,user.id,commentId,action==="comment-like");
     else if (action === "like" || action === "unlike") data = await setPostLike(prisma, postId, user.id, action === "like");
-    else if (action === "list") data = await listPostComments(prisma, postId, new URL(request.url).searchParams.get("cursor")?.trim());
+    else if (action === "list") data = await listPostComments(prisma, postId, user.id, new URL(request.url).searchParams.get("cursor")?.trim());
     else if (action === "delete") data = await deletePostComment(prisma, postId, user.id, commentId);
     else {
       if (isRateLimited(`post-comment:${user.id}`, { limit: 10, windowMs: 60000 })) {

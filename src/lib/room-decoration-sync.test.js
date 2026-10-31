@@ -16,7 +16,7 @@ describe("syncRoomDecorations", () => {
     ]) } };
     await syncRoomDecorations(user, "FRAMES", "https://portal.test", db);
     expect(broadcast).toHaveBeenCalledTimes(1);
-    expect(emit).toHaveBeenCalledWith("R1", "audio-room:member-updated", expect.objectContaining({ success: true, data: { roomId: "R1", member: expect.objectContaining({ publicId: "USR-1", frameUrl: "https://f", name: "Member", profileImage: "https://avatar" }) } }));
+    expect(emit).toHaveBeenCalledWith("R1", "audio-room:member-updated", expect.objectContaining({ success: true, data: { roomId: "R1", decorationsOnly: true, member: expect.objectContaining({ publicId: "USR-1", frameUrl: "https://f", name: "Member", profileImage: "https://avatar" }) } }));
     expect(emit).toHaveBeenCalledWith("R2", "audio-room:member-updated", expect.objectContaining({ data: expect.objectContaining({ roomId: "R2" }) }));
     delete globalThis.portalBroadcastAudioRoomSeats;
   });

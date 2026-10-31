@@ -52,7 +52,7 @@ export async function serializeRoomMembers(room, origin, { q = null, skip = 0, t
   const [roles, seats, perks] = await Promise.all([
     prisma.audioRoomRole.findMany({ where: { audioRoomId: room.id, userId: { in: userIds } } }),
     prisma.audioRoomSeat.findMany({ where: { audioRoomId: room.id, occupantUserId: { in: userIds } } }),
-    resolveUserPerks(rows.map((r) => r.user), origin, ["FRAMES", "BADGES", "BUSINESS_CARD", "RIDES", "TAIL_LIGHTS"]),
+    resolveUserPerks(rows.map((r) => r.user), origin, ["FRAMES", "BADGES", "BUSINESS_CARD", "RIDES", "TAIL_LIGHTS", "CHAT_BOXES", "USER_TAGS", "SEAT_STYLES"]),
   ]);
   return { total, members: rows.map(row => roomMemberDto(row, room, roles, seats, perks)) };
 }

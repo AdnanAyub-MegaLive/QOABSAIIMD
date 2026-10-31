@@ -10,11 +10,11 @@ import { GET as queue, PATCH as review } from "../app/api/admin/posts/route.js";
 beforeEach(() => { vi.clearAllMocks(); db.post.findMany.mockResolvedValue([]); db.post.findUnique.mockResolvedValue(null); permission.mockResolvedValue({ id: "a" }); });
 it("public feed requires approval", async () => {
   await feed(new Request("https://portal.test/api/posts"));
-  expect(db.post.findMany.mock.calls[0][0].where).toEqual({ status: "APPROVED" });
+  expect(db.post.findMany.mock.calls[0][0].where.AND[0]).toEqual({ OR: [{ status: "APPROVED" }, { authorId: "viewer" }], author: { status: "ACTIVE", deletedAt: null, blockedUsers: { none: { blockedId: "viewer" } }, blockedByUsers: { none: { blockerId: "viewer" } } } });
 });
 it("public image URL cannot expose an unapproved post", async () => {
   expect((await image(new Request("https://portal.test/api/posts/PST-1/image"), { params: Promise.resolve({ postId: "PST-1" }) })).status).toBe(404);
-  expect(db.post.findUnique.mock.calls[0][0].where).toMatchObject({ status: "APPROVED" });
+  expect(db.post.findUnique.mock.calls[0][0].where).toMatchObject({ status: "APPROVED", author: { deletedAt: null, status: "ACTIVE" } });
 });
 it("denies unauthenticated admin queue and image access", async () => {
   permission.mockRejectedValue(Object.assign(new Error("Sign in"), { status: 401, code: "UNAUTHORIZED" }));

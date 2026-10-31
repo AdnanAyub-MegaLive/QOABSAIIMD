@@ -675,6 +675,8 @@ model CurrencyRequest {
   updatedAt DateTime @updatedAt
   @@unique([userId, idempotencyKey])
   @@index([status, createdAt])
+  @@index([userId, createdAt, id])
+  @@index([recipientPublicId, createdAt, id])
 }
 
 model ResellerPayout {

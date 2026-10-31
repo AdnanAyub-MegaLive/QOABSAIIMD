@@ -1,3 +1,5 @@
+import { postSelect, postDto, postVisibility } from "@/lib/post-presentation";
+import { postFeedPage } from "@/lib/post-feed-page";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -7,7 +9,6 @@ import {
 } from "@/lib/mobile-api";
 import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 
-const pageSize = 20;
 const maxImageSize = 10 * 1024 * 1024;
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -42,36 +43,16 @@ function validImageSignature(bytes, mime) {
 export async function GET(request) {
   try {
     const viewer = await requireMobileUser(request);
+    const visibility = postVisibility(viewer.id);
     const cursor = new URL(request.url).searchParams.get("cursor")?.trim() || null;
-    if (cursor) {
-      const exists = await prisma.post.findUnique({ where: { publicId: cursor, status: "APPROVED" }, select: { id: true } });
-      if (!exists) return validation("The post cursor is invalid.", { cursor: "Post not found." });
-    }
+    const pagination = await postFeedPage(prisma, viewer.id, cursor);
     const records = await prisma.post.findMany({
-      where: { status: "APPROVED" },
-      ...(cursor ? { cursor: { publicId: cursor }, skip: 1 } : {}),
-      select: {
-        _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
-        likes: { where: { userId: viewer.id }, select: { userId: true } },
-        publicId: true,
-        description: true,
-        imageUrl: true,
-        createdAt: true,
-        author: {
-          select: {
-            id: true,
-            publicId: true,
-            name: true,
-            profileImage: true,
-            isOfficial: true,
-          },
-        },
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: pageSize + 1,
+      where: { AND: [visibility, pagination.after] },
+      select: postSelect(viewer.id),
+      orderBy: pagination.orderBy,
+      take: pagination.take,
     });
-    const hasMore = records.length > pageSize;
-    const page = records.slice(0, pageSize);
+    const { items: page, nextCursor } = pagination.result(records);
     const origin = requestOrigin(request);
     const perksByPublicId = await resolveUserPerks(
       page.map((post) => post.author),
@@ -81,26 +62,8 @@ export async function GET(request) {
     return mobileJson({
       success: true,
       data: {
-        posts: page.map((post) => ({
-          id: post.publicId,
-          likeCount: post._count.likes,
-          commentCount: post._count.comments,
-          liked: post.likes.length > 0,
-          description: post.description,
-          imageUrl: post.imageUrl ? new URL(post.imageUrl, origin).toString() : null,
-          createdAt: post.createdAt.toISOString(),
-          author: {
-            publicId: post.author.publicId,
-            fullName: post.author.name,
-            profileImage: post.author.profileImage,
-            isOfficial: Boolean(post.author.isOfficial),
-            frameUrl:
-              perksByPublicId.get(post.author.publicId)?.frameUrl ?? null,
-            badgeUrl:
-              perksByPublicId.get(post.author.publicId)?.badgeUrl ?? null,
-          },
-        })),
-        nextCursor: hasMore ? page.at(-1)?.publicId ?? null : null,
+        posts: page.map(post => postDto(post, viewer.id, origin, perksByPublicId)),
+        nextCursor,
       },
     });
   } catch (error) {

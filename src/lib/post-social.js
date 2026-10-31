@@ -1,3 +1,4 @@
+import { postVisibility } from "./post-presentation.js";
 import { discoverNotification, notifyMentions } from "./discover-notifications.js";
 import { assertChatWordsAllowed } from "./chat-word-policy.js";
 const fail = (code, message, status) => { throw Object.assign(new Error(message), { code, status }); };
@@ -76,8 +77,14 @@ export async function deletePostComment(db, publicId, userId, commentId) {
     return { commentCount: await tx.postComment.count({ where: { postId: post.id, deletedAt: null } }) };
   });
 }
-export async function listPostComments(db, publicId, cursor) {
-  const post = await requirePost(db, publicId);
+export async function listPostComments(db, publicId, userId, cursor) {
+  if (!userId) fail("UNAUTHORIZED", "Sign in to view comments.", 401);
+  const visibility = postVisibility(userId);
+  const post = await db.post.findFirst({
+    where: { publicId, ...visibility, status: "APPROVED" },
+    select: { id: true },
+  });
+  if (!post) fail("POST_NOT_FOUND", "Post not found.", 404);
   let after;
   if (cursor) {
     const row = await db.postComment.findFirst({ where: { id: cursor, postId: post.id } });
@@ -85,7 +92,7 @@ export async function listPostComments(db, publicId, cursor) {
     // Tuple pagination still works if the cursor comment was soft-deleted.
     after = { OR: [{ createdAt: { lt: row.createdAt } }, { createdAt: row.createdAt, id: { lt: row.id } }] };
   }
-  const rows = await db.postComment.findMany({ where: { postId: post.id, deletedAt: null, ...after }, include: { author: { select: authorSelect }, _count:{select:{likes:true}} }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 21 });
+  const rows = await db.postComment.findMany({ where: { postId: post.id, deletedAt: null, author: visibility.author, ...after }, include: { author: { select: authorSelect }, _count:{select:{likes:true}} }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 21 });
   const page = rows.slice(0, 20);
   return { comments: page.map(commentDto), nextCursor: rows.length > 20 ? page.at(-1).id : null };
 }

@@ -13,9 +13,10 @@ export async function GET(request){try{
   const url=new URL(request.url),cursor=url.searchParams.get("cursor");
   const limit=Math.min(50,Math.max(1,Number(url.searchParams.get("limit")??20)||20));
   if(!Number.isInteger(limit))throw Object.assign(new Error("Invalid limit."),{code:"VALIDATION_ERROR"});
-  const where={AND:[{OR:[{userId:user.id},{recipientPublicId:user.publicId}]},await walletHistorySearch(prisma,"currency",url.searchParams.get("q"))]};
-  if(cursor&&!await prisma.currencyRequest.findFirst({where:{...where,id:cursor},select:{id:true}}))throw Object.assign(new Error("Invalid cursor."),{code:"VALIDATION_ERROR"});
-  const rows=await prisma.currencyRequest.findMany({where,orderBy:[{createdAt:"desc"},{id:"desc"}],take:limit+1,...(cursor?{cursor:{id:cursor},skip:1}:{})});
+  const owned={OR:[{userId:user.id},{recipientPublicId:user.publicId}]};
+  if(cursor&&!await prisma.currencyRequest.findFirst({where:{...owned,id:cursor},select:{id:true}}))throw Object.assign(new Error("Invalid cursor."),{code:"VALIDATION_ERROR"});
+  const where={AND:[owned,await walletHistorySearch(prisma,"currency",url.searchParams.get("q"),user,cursor,limit)]};
+  const rows=await prisma.currencyRequest.findMany({where,orderBy:[{createdAt:"desc"},{id:"desc"}],take:limit+1,...(cursor&&!url.searchParams.get("q")?.trim()?{cursor:{id:cursor},skip:1}:{})});
   const page=rows.slice(0,limit);
   return mobileJson({success:true,data:{requests:page.map(currencyRequestDto),nextCursor:rows.length>limit?page.at(-1).id:null}});
 }catch(e){return mobileApiError(e,"CURRENCY_REQUEST_FAILED");}}

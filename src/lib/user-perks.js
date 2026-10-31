@@ -1,3 +1,4 @@
+import { vipTagAssets } from "./vip-tag-cache.js";
 import { usersVip } from "./vip-capabilities.js";
 import { activeSearchSpecialId } from "./user-search.js";
 import { prisma } from "./prisma.js";
@@ -57,18 +58,11 @@ export function socketOrigin(socket) {
   ).replace(/\/$/, "");
 }
 
-const VIP_TAG_CACHE_MS = 60_000;
-let vipTagCache = { at: 0, rows: [] };
-
-async function vipTagAssets() {
-  if (Date.now() - vipTagCache.at < VIP_TAG_CACHE_MS) return vipTagCache.rows;
-  const rows = await prisma.uploadAsset.findMany({
-    where: { active: true, archivedAt: null, category: "USER_TAGS", distribution: "VIP", minimumVipLevel: { not: null } },
-    select: { publicId: true, mimeType: true, posterMimeType: true, mediaVersion: true, posterMediaVersion: true, minimumVipLevel: true },
-    orderBy: [{ minimumVipLevel: "desc" }, { createdAt: "desc" }],
-  });
-  vipTagCache = { at: Date.now(), rows };
-  return rows;
+export async function currentVipTag(level, origin) {
+  if (!level) return namedDecoration("vipTag", null);
+  const rows = await vipTagAssets(prisma);
+  const asset = rows.find(row => row.minimumVipLevel <= level);
+  return namedDecoration("vipTag", asset ? decorationMedia(asset, origin) : null);
 }
 
 export async function resolveUserPerks(
@@ -106,7 +100,7 @@ export async function resolveUserPerks(
     usersVip(uniqueUsers.map(u => u.id)),
     prisma.specialIdAssignment.findMany({ where: { userId: { in: uniqueUsers.map(u => u.id) }, ...activeSearchSpecialId(new Date()) }, select: { userId: true, specialId: true }, orderBy: [{ startsAt: "desc" }, { id: "asc" }] }),
   ]);
-  const vipTags = [...vip.values()].some(v => v.vipLevel > 0) ? await vipTagAssets() : [];
+  const vipTags = [...vip.values()].some(v => v.vipLevel > 0) ? await vipTagAssets(prisma) : [];
   for (const user of uniqueUsers) {
     const perks = Object.assign(result.get(user.publicId), vip.get(user.id));
     perks.specialId = specialIds.find(row => row.userId === user.id)?.specialId ?? null;

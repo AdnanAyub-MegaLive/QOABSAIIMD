@@ -1,3 +1,4 @@
+import { postSelect, postDto, postVisibility } from "@/lib/post-presentation";
 import { prisma } from "@/lib/prisma";
 import {
   mobileApiError,
@@ -5,7 +6,7 @@ import {
   mobileOptions,
   requireMobileUser,
 } from "@/lib/mobile-api";
-import { requestOrigin } from "@/lib/user-perks";
+import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 
 const maxImageSize = 10 * 1024 * 1024;
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -37,7 +38,7 @@ export async function PATCH(request, { params }) {
     const { postId } = await params;
     const post = await prisma.post.findUnique({
       where: { publicId: decodeURIComponent(postId) },
-      select: { id: true, publicId: true, authorId: true, description: true, imageUrl: true },
+      select: { id: true, publicId: true, authorId: true, description: true, imageUrl: true, reviewRevision: true },
     });
     if (!post) return responseError("POST_NOT_FOUND", "Post not found.", 404);
     if (post.authorId !== user.id)
@@ -74,7 +75,7 @@ export async function PATCH(request, { params }) {
     const version = Date.now();
     const updated = await prisma.$transaction(async (tx) => {
       const changed = await tx.post.update({
-        where: { id: post.id },
+        where: { id: post.id, reviewRevision: post.reviewRevision },
         data: {
           status: "PENDING", reviewReason: null, reviewedAt: null, reviewedByAdminId: null, reviewRevision: { increment: 1 },
           ...(updatesDescription ? { description } : {}),
@@ -120,6 +121,8 @@ export async function PATCH(request, { params }) {
       },
     });
   } catch (error) {
+    if (error.code === "P2025")
+      return responseError("POST_EDIT_CONFLICT", "This post changed. Refresh before editing it again.", 409);
     console.error("Discover post update failed", error);
     return mobileApiError(error, "POST_UPDATE_FAILED");
   }
@@ -153,5 +156,25 @@ export async function DELETE(request, { params }) {
   } catch (error) {
     console.error("Discover post deletion failed", error);
     return mobileApiError(error, "POST_DELETE_FAILED");
+  }
+}
+
+export async function GET(request, { params }) {
+  try {
+    const viewer = await requireMobileUser(request);
+    const { postId } = await params;
+    const post = await prisma.post.findFirst({
+      where: {
+        publicId: postId,
+        ...postVisibility(viewer.id),
+      },
+      select: postSelect(viewer.id),
+    });
+    if (!post) return responseError("POST_NOT_FOUND", "Post not found.", 404);
+    const origin = requestOrigin(request);
+    const perks = await resolveUserPerks([post.author], origin, ["FRAMES", "BADGES"]);
+    return mobileJson({ success: true, data: postDto(post, viewer.id, origin, perks) });
+  } catch (error) {
+    return mobileApiError(error, "POST_LOAD_FAILED");
   }
 }
