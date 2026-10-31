@@ -8,6 +8,8 @@ import {
 } from "../../../../../lib/mobile-api.js";
 import { equippablePropCategories } from "../../../../../lib/props-store.js";
 import { emitToUser } from "../../../../../lib/realtime.js";
+import { syncRoomDecorations } from "../../../../../lib/room-decoration-sync.js";
+import { requestOrigin } from "../../../../../lib/user-perks.js";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -37,6 +39,7 @@ export async function POST(request) {
         assetId: null,
       });
       invalidateChatPerks(user.id);
+      await syncRoomDecorations(user, requestedCategory, requestOrigin(request)).catch((error) => console.error("Room decoration sync failed", error));
       return mobileJson({
         success: true,
         data: { category: requestedCategory, assetId: null, equipped: false },
@@ -68,6 +71,7 @@ export async function POST(request) {
       assetId: asset.publicId,
     });
     invalidateChatPerks(user.id);
+    await syncRoomDecorations(user, asset.category, requestOrigin(request)).catch((error) => console.error("Room decoration sync failed", error));
     return mobileJson({
       success: true,
       data: {

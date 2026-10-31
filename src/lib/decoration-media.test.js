@@ -17,7 +17,7 @@ describe("equipped animated media", () => {
     expect(new URL(media.url).searchParams.has("displaySig")).toBe(true);
     const fields = namedDecoration("frame", media);
     expect(perkMediaFields({ ...fields, wallet: "private" })).toMatchObject({ frameMimeType: "application/svga", framePosterMimeType: "image/webp" });
-    expect(perkMediaFields({ wallet: "private" })).toEqual({vipPrivileges:[],vipLevel:0,vipNameColor:null});
+    expect(perkMediaFields({ wallet: "private" })).toEqual({vipPrivileges:[],vipLevel:0,vipNameColor:null,specialId:null,vipTagUrl:null,vipTagMimeType:null,vipTagPosterUrl:null});
     db.userEquippedProp.findMany.mockResolvedValue([{ userId: "u", category, asset: { ...asset, category, isGlobal: false, assignments: [] } }]);
     expect((await equippedProfileAssets([{ id: "u" }], "https://portal.example", db)).get("u")[key]).toBeNull();
   });

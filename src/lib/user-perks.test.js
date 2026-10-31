@@ -18,6 +18,7 @@ beforeEach(() => {
   assets.push({id:"owned",publicId:"AST-owned",category:"BADGES",isGlobal:false,mimeType:"application/svga",assignments:[{userId:"u3"}]});
   equipped = [{userId:"u3",category:"BADGES",assetId:"owned"}];
   db.vipMembership={findUnique:vi.fn(async()=>null),findMany:vi.fn(async()=>[])};
+  db.specialIdAssignment={findMany:vi.fn(async()=>[])};
   db.uploadAsset={findMany:vi.fn(async({where})=>assets.filter(a=>!where.publicId||where.publicId.in.includes(a.publicId)))};
   db.userEquippedProp={findMany:vi.fn(async({where})=>equipped.filter(e=>where.userId.in.includes(e.userId)&&where.category.in.includes(e.category)).map(e=>({...e,asset:assets.find(a=>a.id===e.assetId)})))};
   db.conversation={upsert:async()=>({id:"world"}),findMany:async()=>users.map(u=>({id:`c-${u.id}`,publicId:`CONV-${u.id}`,kind:"DIRECT",createdAt:new Date(),messages:[],participants:[{userId:viewer.id,user:viewer},{userId:u.id,user:u}]}))};
@@ -77,4 +78,22 @@ it("an expired or another user's assignment never falls back to a global badge",
   expect(perks.get("USR-1").badgeUrl).toBeNull();
   expect(perks.get("USR-3").badgeUrl).toBeNull();
   expect(db.uploadAsset.findMany.mock.calls[0][0].where.OR[1].assignments.some.OR).toEqual([{expiresAt:null},{expiresAt:{gt:expect.any(Date)}}]);
+});
+
+it("adds the active special ID and the VIP-level tag to every user's perks", async () => {
+  const now = Date.now();
+  db.specialIdAssignment.findMany = vi.fn(async () => [{ userId: "u1", specialId: "PHOJI" }]);
+  db.vipMembership.findMany = vi.fn(async () => [{ userId: "u2", revokedAt: null, startsAt: new Date(now - 1000), expiresAt: new Date(now + 86_400_000), tier: { active: true, level: 2, privileges: [] } }]);
+  const tagAssets = [
+    { publicId: "AST-vip2", mimeType: "image/png", minimumVipLevel: 2 },
+    { publicId: "AST-vip1", mimeType: "image/png", minimumVipLevel: 1 },
+  ];
+  const original = db.uploadAsset.findMany;
+  db.uploadAsset.findMany = vi.fn(async (args) => args.where.distribution === "VIP" ? tagAssets : original(args));
+  const perks = await resolveUserPerks(users.slice(0, 2), "https://portal.test", ["FRAMES"]);
+  expect(perks.get("USR-1").specialId).toBe("PHOJI");
+  expect(perks.get("USR-1").vipTagUrl).toBeNull();
+  expect(perks.get("USR-2").specialId).toBeNull();
+  expect(perks.get("USR-2").vipTagUrl).toContain("AST-vip2");
+  expect(db.specialIdAssignment.findMany).toHaveBeenCalledTimes(1);
 });

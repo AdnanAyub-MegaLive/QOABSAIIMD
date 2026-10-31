@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import ProfileCovers from './profile-covers';
+import PostReview from './post-review';
 import { requirePagePermission } from '@/lib/portal-admin';
 import RoomManagementShell from '../components/room-management-shell';
 import { prisma } from '@/lib/prisma';
@@ -29,6 +30,7 @@ export default async function ContentModerationPage({searchParams}) {
   const current={...filters,blocksPage:data.blocksPage,friendsPage:data.friendsPage};
   return <RoomManagementShell title="Content & Social Safety"><div className="space-y-7">
     <ProfileCovers/>
+    <PostReview/>
     <div><h2 className="text-2xl font-bold">Social activity review</h2><p className="mt-1 text-sm text-slate-500">Read-only records. Search either person by name or public ID. All friend requests and block relationships are available through pagination.</p></div>
     <section className="rounded-2xl border bg-white p-5"><h3 className="font-bold">Recent posts (latest 100)</h3><div className="mt-3 divide-y">{posts.map(p=><div key={p.publicId} className="py-3 text-sm"><b>{p.author.name}</b> <span>{p.author.publicId} · {p.publicId}</span><p>{p.description||'Image post'}</p></div>)}{!posts.length&&<p>No posts.</p>}</div></section>
     <div className="grid gap-5 lg:grid-cols-2">

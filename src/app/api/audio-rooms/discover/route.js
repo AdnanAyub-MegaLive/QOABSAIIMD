@@ -10,6 +10,7 @@ import {
 } from "../../../../lib/user-perks";
 import { formatDateOnly } from "../../../../lib/date-only";
 import { serializeRoomBackground } from "../../../../lib/room-background";
+import { roomCardStats } from "@/lib/room-card-stats";
 import { serializeRoomSeatStyle } from "../../../../lib/room-seat-style";
 
 const corsHeaders = {
@@ -56,6 +57,7 @@ export async function GET(request) {
         },
       },
       select: {
+        id: true,
         roomId: true,
         ownerId: true,
         announcement: true,
@@ -98,6 +100,7 @@ export async function GET(request) {
       origin,
       ["FRAMES", "BADGES"],
     );
+    const cardStats = await roomCardStats(rooms);
 
     return json({
       success: true,
@@ -108,6 +111,7 @@ export async function GET(request) {
           country: room.country ?? null,
           ...roomCoverDto(room, origin),
           participantCount: room.participantCount,
+          ...cardStats.get(room.roomId),
           isLocked: Boolean(room.passwordHash),
           status: room.status,
           startedAt: room.startedAt,

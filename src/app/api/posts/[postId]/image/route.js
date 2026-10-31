@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(_request, { params }) {
   const { postId } = await params;
   const post = await prisma.post.findUnique({
-    where: { publicId: decodeURIComponent(postId) },
+    where: { publicId: decodeURIComponent(postId), status: "APPROVED" },
     select: { imageData: true, imageMime: true },
   });
   if (!post?.imageData || !post.imageMime)
@@ -15,7 +15,7 @@ export async function GET(_request, { params }) {
     headers: {
       "Content-Type": post.imageMime,
       "Content-Length": String(post.imageData.byteLength),
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
     },

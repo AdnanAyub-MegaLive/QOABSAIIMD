@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, requireMobileUser } from "@/lib/mobile-api";
 import { v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
+import { activeSearchSpecialId } from "@/lib/user-search";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export async function GET(request) {
       const user = await requireMobileUser(request);
       const records = await prisma.userBlock.findMany({
         where: { blockerId: user.id },
-        include: { blocked: { select: { publicId: true, name: true, profileImage: true } } },
+        include: { blocked: { select: { publicId: true, name: true, profileImage: true, specialIds: { where: activeSearchSpecialId(new Date()), select: { specialId: true }, orderBy: [{ startsAt: "desc" }, { id: "asc" }], take: 1 } } } },
         orderBy: { createdAt: "desc" },
         take: 500,
       });
@@ -26,6 +27,8 @@ export async function GET(request) {
             userId: record.blocked.publicId,
             name: record.blocked.name,
             profileImage: record.blocked.profileImage ?? null,
+            specialId: record.blocked.specialIds[0]?.specialId ?? null,
+            displayId: record.blocked.publicId.replace(/^[A-Z]+-/, ""),
             createdAt: record.createdAt.toISOString(),
           })),
         },

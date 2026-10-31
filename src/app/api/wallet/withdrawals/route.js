@@ -1,3 +1,4 @@
+import { walletHistorySearch } from "@/lib/wallet-history-search";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -13,9 +14,10 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") ?? 20) || 20));
     const cursor = String(url.searchParams.get("cursor") ?? "").trim();
+    const where = { AND: [{ userId: user.id }, await walletHistorySearch(prisma, "withdrawals", url.searchParams.get("q"))] };
     if (cursor) {
       const ownedCursor = await prisma.walletWithdrawal.findFirst({
-        where: { publicId: cursor, userId: user.id },
+        where: { ...where, publicId: cursor },
         select: { publicId: true },
       });
       if (!ownedCursor) {
@@ -25,7 +27,7 @@ export async function GET(request) {
       }
     }
     const withdrawals = await prisma.walletWithdrawal.findMany({
-      where: { userId: user.id },
+      where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor ? { cursor: { publicId: cursor }, skip: 1 } : {}),
@@ -33,7 +35,7 @@ export async function GET(request) {
     const hasMore = withdrawals.length > limit;
     const page = withdrawals.slice(0, limit);
     const {currencyRequestDto}=await import("@/lib/currency-operations");
-    const currencyRequests=await prisma.currencyRequest.findMany({where:{userId:user.id,kind:"USDT"},orderBy:[{createdAt:"desc"},{id:"desc"}],take:50});
+    const currencyRequests=await prisma.currencyRequest.findMany({where:{AND:[{userId:user.id,kind:"USDT"},await walletHistorySearch(prisma,"currency",url.searchParams.get("q"))]},orderBy:[{createdAt:"desc"},{id:"desc"}],take:50});
     return mobileJson({
       success: true,
       data: {

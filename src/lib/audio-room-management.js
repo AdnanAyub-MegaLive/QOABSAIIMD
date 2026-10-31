@@ -52,9 +52,13 @@ export async function serializeRoomMembers(room, origin, { q = null, skip = 0, t
   const [roles, seats, perks] = await Promise.all([
     prisma.audioRoomRole.findMany({ where: { audioRoomId: room.id, userId: { in: userIds } } }),
     prisma.audioRoomSeat.findMany({ where: { audioRoomId: room.id, occupantUserId: { in: userIds } } }),
-    resolveUserPerks(rows.map((r) => r.user), origin, ["FRAMES", "BADGES", "BUSINESS_CARD"]),
+    resolveUserPerks(rows.map((r) => r.user), origin, ["FRAMES", "BADGES", "BUSINESS_CARD", "RIDES", "TAIL_LIGHTS"]),
   ]);
-  return { total, members: rows.map((row) => { const seat = seats.find((s) => s.occupantUserId === row.userId); const role = room.ownerId === row.userId ? "OWNER" : roles.find((r) => r.userId === row.userId)?.role ?? (seat ? "SPEAKER" : "LISTENER"); const p = perks.get(row.user.publicId); return { ...p?.progression, ...perkMediaFields(p), publicId: row.user.publicId, displayId: row.user.publicId.replace(/^[A-Z]+-/, ""), name: row.user.name, profileImage: row.user.profileImage, frameUrl: p?.frameUrl ?? null, badgeUrl: p?.badgeUrl ?? null, businessCardUrl:p?.businessCardUrl??null,businessCardPosterUrl:p?.businessCardPosterUrl??null,businessCardMimeType:p?.businessCardMimeType??null, role, seatId: seat?.seatId ?? null, muted: seat?.isMuted ?? true, speaking: seat?.isSpeaking ?? false, deafened: Boolean(row.isDeafened), deafenedUntil: row.deafenedUntil?.toISOString() ?? null, gender: row.user.gender, dob: row.user.dob?.toISOString().slice(0,10) ?? null, isOfficial: Boolean(row.user.isOfficial), joinedAt: row.joinedAt.toISOString() }; }) };
+  return { total, members: rows.map(row => roomMemberDto(row, room, roles, seats, perks)) };
 }
 
 export function roomManagementError(code, message) { const e = new Error(message ?? code); e.code = code; return e; }
+
+export function roomMemberDto(row, room, roles, seats, perks) {
+  const seat = seats.find((s) => s.occupantUserId === row.userId); const role = room.ownerId === row.userId ? "OWNER" : roles.find((r) => r.userId === row.userId)?.role ?? (seat ? "SPEAKER" : "LISTENER"); const p = perks.get(row.user.publicId); return { ...p?.progression, ...perkMediaFields(p), publicId: row.user.publicId, displayId: row.user.publicId.replace(/^[A-Z]+-/, ""), name: row.user.name, profileImage: row.user.profileImage, frameUrl: p?.frameUrl ?? null, badgeUrl: p?.badgeUrl ?? null, userTagUrl: p?.userTagUrl ?? null, userTagMimeType: p?.userTagMimeType ?? null, chatBoxUrl: p?.chatBoxUrl ?? null, seatStyleUrl: p?.seatStyleUrl ?? null, rideUrl: p?.rideUrl ?? null, businessCardUrl:p?.businessCardUrl??null,businessCardPosterUrl:p?.businessCardPosterUrl??null,businessCardMimeType:p?.businessCardMimeType??null, role, seatId: seat?.seatId ?? null, muted: seat?.isMuted ?? true, speaking: seat?.isSpeaking ?? false, deafened: Boolean(row.isDeafened), deafenedUntil: row.deafenedUntil?.toISOString() ?? null, gender: row.user.gender, dob: row.user.dob?.toISOString().slice(0,10) ?? null, isOfficial: Boolean(row.user.isOfficial), joinedAt: row.joinedAt.toISOString() };
+}

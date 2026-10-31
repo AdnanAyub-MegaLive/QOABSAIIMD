@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { notifyMentions } from "@/lib/discover-notifications";
 import {
   mobileApiError,
   mobileJson,
@@ -45,10 +44,11 @@ export async function GET(request) {
     const viewer = await requireMobileUser(request);
     const cursor = new URL(request.url).searchParams.get("cursor")?.trim() || null;
     if (cursor) {
-      const exists = await prisma.post.findUnique({ where: { publicId: cursor }, select: { id: true } });
+      const exists = await prisma.post.findUnique({ where: { publicId: cursor, status: "APPROVED" }, select: { id: true } });
       if (!exists) return validation("The post cursor is invalid.", { cursor: "Post not found." });
     }
     const records = await prisma.post.findMany({
+      where: { status: "APPROVED" },
       ...(cursor ? { cursor: { publicId: cursor }, skip: 1 } : {}),
       select: {
         _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
@@ -140,12 +140,13 @@ export async function POST(request) {
         data: {
           publicId,
           authorId: author.id,
+          status: "PENDING",
           description,
           imageUrl: imageData ? `/api/posts/${publicId}/image` : null,
           imageData,
           imageMime: imageData ? file.type : null,
         },
-        select: { publicId: true, createdAt: true },
+        select: { publicId: true, createdAt: true, status: true },
       });
       await tx.auditLog.create({
         data: {
@@ -157,10 +158,9 @@ export async function POST(request) {
           metadata: { userId: author.publicId, hasDescription: Boolean(description), hasImage: Boolean(imageData) },
         },
       });
-      await notifyMentions(tx,{actorId:author.id,text:description,postId:post.publicId});
       return post;
     });
-    return mobileJson({ success: true, data: { id: created.publicId, createdAt: created.createdAt.toISOString() } }, 201);
+    return mobileJson({ success: true, data: { id: created.publicId, status: created.status, createdAt: created.createdAt.toISOString() } }, 201);
   } catch (error) {
     console.error("Discover post creation failed", error);
     return mobileApiError(error, "POST_CREATE_FAILED");

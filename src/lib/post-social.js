@@ -9,7 +9,7 @@ export function commentText(value) {
   return value.trim();
 }
 async function requirePost(db, publicId) {
-  const post = await db.post.findFirst({ where: { publicId, author: { deletedAt: null, status: "ACTIVE" } }, select: { id: true, authorId: true } });
+  const post = await db.post.findFirst({ where: { publicId, status: "APPROVED", author: { deletedAt: null, status: "ACTIVE" } }, select: { id: true, authorId: true } });
   if (!post) fail("POST_NOT_FOUND", "Post not found.", 404);
   return post;
 }

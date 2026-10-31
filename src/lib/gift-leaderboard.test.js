@@ -18,7 +18,7 @@ describe("room gift management helpers", () => {
         },
       ),
     ).toEqual({
-      vipPrivileges:[],vipLevel:0,vipNameColor:null,
+      vipPrivileges:[],vipLevel:0,vipNameColor:null,specialId:null,vipTagUrl:null,vipTagMimeType:null,vipTagPosterUrl:null,
       publicId: "USR-1",
       name: "Baidi",
       profileImage: null,

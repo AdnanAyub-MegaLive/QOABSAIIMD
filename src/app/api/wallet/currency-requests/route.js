@@ -1,3 +1,4 @@
+import { walletHistorySearch } from "@/lib/wallet-history-search";
 import { prisma } from "@/lib/prisma";
 import { requireMobileUser, mobileJson, mobileApiError, mobileOptions } from "@/lib/mobile-api";
 import { createCurrencyRequest, currencyRequestDto, updateOwnCurrencyRequest } from "@/lib/currency-operations";
@@ -12,7 +13,7 @@ export async function GET(request){try{
   const url=new URL(request.url),cursor=url.searchParams.get("cursor");
   const limit=Math.min(50,Math.max(1,Number(url.searchParams.get("limit")??20)||20));
   if(!Number.isInteger(limit))throw Object.assign(new Error("Invalid limit."),{code:"VALIDATION_ERROR"});
-  const where={OR:[{userId:user.id},{recipientPublicId:user.publicId}]};
+  const where={AND:[{OR:[{userId:user.id},{recipientPublicId:user.publicId}]},await walletHistorySearch(prisma,"currency",url.searchParams.get("q"))]};
   if(cursor&&!await prisma.currencyRequest.findFirst({where:{...where,id:cursor},select:{id:true}}))throw Object.assign(new Error("Invalid cursor."),{code:"VALIDATION_ERROR"});
   const rows=await prisma.currencyRequest.findMany({where,orderBy:[{createdAt:"desc"},{id:"desc"}],take:limit+1,...(cursor?{cursor:{id:cursor},skip:1}:{})});
   const page=rows.slice(0,limit);

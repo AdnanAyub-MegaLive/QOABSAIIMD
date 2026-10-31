@@ -29,6 +29,15 @@ export function audioRoomSeatIds(layout = defaultAudioRoomSeatLayout) {
 
 export const defaultAudioRoomSeatIds = audioRoomSeatIds();
 
+const ownerCentreLayouts = [[3, 2, 3, 1], [3, 3, 3, 3, 1], [4, 4, 4, 4, 1]];
+
+export function ownerCentreSeatId(layout) {
+  const normalized = normalizeAudioRoomSeatLayout(layout);
+  return ownerCentreLayouts.some(shape => shape.length === normalized.length && shape.every((count, row) => count === normalized[row]))
+    ? `row${normalized.length - 1}-seat1`
+    : null;
+}
+
 export async function ensureAudioRoomSeats(audioRoomId, layout = defaultAudioRoomSeatLayout) {
   const seatIds = audioRoomSeatIds(layout);
   await prisma.audioRoomSeat.createMany({

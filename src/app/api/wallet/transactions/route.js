@@ -1,3 +1,4 @@
+import { walletHistorySearch } from "@/lib/wallet-history-search";
 import { prisma } from "@/lib/prisma";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { serializeWalletTransaction } from "@/lib/wallet";
@@ -12,9 +13,10 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") ?? 20) || 20));
     const cursor = String(url.searchParams.get("cursor") ?? "").trim();
+    const where = { AND: [{ userId: user.id }, await walletHistorySearch(prisma, "transactions", url.searchParams.get("q"))] };
     if (cursor) {
       const ownedCursor = await prisma.walletTransaction.findFirst({
-        where: { publicId: cursor, userId: user.id },
+        where: { ...where, publicId: cursor },
         select: { publicId: true },
       });
       if (!ownedCursor) {
@@ -24,7 +26,7 @@ export async function GET(request) {
       }
     }
     const records = await prisma.walletTransaction.findMany({
-      where: { userId: user.id },
+      where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor ? { cursor: { publicId: cursor }, skip: 1 } : {}),

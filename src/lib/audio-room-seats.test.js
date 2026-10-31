@@ -57,3 +57,13 @@ describe("audio room seat contract", () => {
     });
   });
 });
+
+describe("ownerCentreSeatId", () => {
+  it("returns the owner's centre seat only for owner-centre layouts", async () => {
+    const { ownerCentreSeatId } = await import("./audio-room-seats");
+    expect(ownerCentreSeatId([3, 2, 3, 1])).toBe("row3-seat1");
+    expect(ownerCentreSeatId([3, 3, 3, 3, 1])).toBe("row4-seat1");
+    expect(ownerCentreSeatId([4, 4, 4, 4, 1])).toBe("row4-seat1");
+    expect(ownerCentreSeatId([5, 5, 5, 5])).toBeNull();
+  });
+});

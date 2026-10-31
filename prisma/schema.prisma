@@ -1694,7 +1694,18 @@ model AgencyJoinRequest {
   @@index([agencyId, createdAt])
 }
 
+enum PostReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Post {
+  status PostReviewStatus @default(PENDING)
+  reviewReason String?
+  reviewedAt DateTime?
+  reviewedByAdminId String?
+  reviewRevision Int @default(0)
   id          String   @id @default(cuid())
   publicId    String   @unique
   authorId    String
@@ -1705,6 +1716,7 @@ model Post {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt, id])
   likes       PostLike[]
   comments    PostComment[]
 

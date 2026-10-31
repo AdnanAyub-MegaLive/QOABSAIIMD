@@ -76,6 +76,7 @@ export async function PATCH(request, { params }) {
       const changed = await tx.post.update({
         where: { id: post.id },
         data: {
+          status: "PENDING", reviewReason: null, reviewedAt: null, reviewedByAdminId: null, reviewRevision: { increment: 1 },
           ...(updatesDescription ? { description } : {}),
           ...(hasReplacement
             ? {
@@ -87,7 +88,7 @@ export async function PATCH(request, { params }) {
               ? { imageData: null, imageMime: null, imageUrl: null }
               : {}),
         },
-        select: { publicId: true, description: true, imageUrl: true, updatedAt: true },
+        select: { publicId: true, description: true, imageUrl: true, updatedAt: true, status: true },
       });
       await tx.auditLog.create({
         data: {
@@ -110,6 +111,7 @@ export async function PATCH(request, { params }) {
       success: true,
       data: {
         id: updated.publicId,
+        status: updated.status,
         description: updated.description,
         imageUrl: updated.imageUrl
           ? new URL(updated.imageUrl, requestOrigin(request)).toString()

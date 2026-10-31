@@ -80,7 +80,7 @@ app.prepare().then(async()=>{
   const {isRateLimited}=await import("./src/lib/rate-limit.js");
   const {resolveCatalogTrack}=await import("./src/lib/music-catalog.js");
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileExpiredAudioRoomControls,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
-  const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
+  const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,ownerCentreSeatId,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
   const httpServer=createServer((request,response)=>{setRequestClientIp(request);applyWebCacheHeaders(request,response);return handle(request,response)});
   const io=new Server(httpServer,{pingInterval:25000,pingTimeout:20000,cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
@@ -289,6 +289,7 @@ app.prepare().then(async()=>{
   };
 
   const {syncAudioRoomRemoval}=await import("./src/lib/audio-room-removal-sync.js");
+  globalThis.portalBroadcastAudioRoomSeats=(room,origin)=>broadcastAudioRoomSeatState(room,origin,undefined,true);
   globalThis.portalSyncAudioRoomRemoval=(roomId,publicId,origin)=>syncAudioRoomRemoval(prisma,io,broadcastAudioRoomSeatState,roomId,publicId,origin);
 
   io.use(async(socket,nextSocket)=>{
@@ -531,6 +532,10 @@ app.prepare().then(async()=>{
               isOfficial:Boolean(user.isOfficial),
               dob:formatDateOnly(user.dob),
               vipPrivileges:joiningPerks?.vipPrivileges??[],
+              vipLevel:joiningPerks?.vipLevel??0,
+              specialId:joiningPerks?.specialId??null,
+              vipTagUrl:joiningPerks?.vipTagUrl??null,
+              vipTagMimeType:joiningPerks?.vipTagMimeType??null,
               entranceUrl:joiningPerks?.entranceUrl??null,
               rideUrl:joiningPerks?.rideUrl??null,
             },
@@ -898,7 +903,7 @@ app.prepare().then(async()=>{
       try{const id=String(roomId??""),targetId=String(targetPublicId??""),targetSeatId=String(seatId??"");const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});if(!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});const target=await prisma.user.findUnique({where:{publicId:targetId},select:{id:true,publicId:true,name:true}});if(!target)return ack({success:false,error:{code:"USER_NOT_FOUND"}});const member=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:target.id}}});if(!member?.socketCount)return ack({success:false,error:{code:"VIEWER_NOT_IN_ROOM"}});const moved=await moveAudioRoomMember(room,target.id,targetSeatId,{allowLocked:true});await updateLiveKitPublishPermission(id,target.publicId,true);const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);const data={requestId:String(requestId??""),roomId:id,userId:target.publicId,seatId:moved.seatId,seatState};io.to(`user:${target.publicId}`).emit("audio-room:seat-moved",{success:true,data});ack({success:true,data})}catch(error){console.error("Audio room member move failed",error);ack({success:false,error:seatErrorPayload(error)})}
     });
     socket.on("audio-room:seats-bulk",async({roomId,action,requestId}={},ack=()=>{})=>{
-      try{const id=String(roomId??""),operation=String(action??"").toUpperCase();if(!["LOCK_ALL","UNLOCK_ALL","CLEAR_ALL"].includes(operation))return ack({success:false,error:{code:"SEAT_BULK_ACTION_INVALID"}});const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});if(!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});await ensureAudioRoomSeats(room.id,room.seatLayout);let removed=[];if(operation==="CLEAR_ALL"){removed=await prisma.audioRoomSeat.findMany({where:{audioRoomId:room.id,occupantUserId:{not:null}},include:{occupant:{select:{publicId:true}}}});await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:{not:null}},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isForceMuted:false,forceMutedUntil:null,isSpeaking:false}});await Promise.all(removed.map(item=>updateLiveKitPublishPermission(id,item.occupant.publicId,false)))}else await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id},data:{isLocked:operation==="LOCK_ALL"}});const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);const data={requestId:String(requestId??""),roomId:id,action:operation,removedUserIds:removed.map(item=>item.occupant.publicId),seatState};io.to(`audio-room:${id}`).emit("audio-room:seats-bulk-updated",{success:true,data});ack({success:true,data})}catch(error){console.error("Audio room bulk seat action failed",error);ack({success:false,error:{code:"SEAT_BULK_FAILED"}})}
+      try{const id=String(roomId??""),operation=String(action??"").toUpperCase();if(!["LOCK_ALL","UNLOCK_ALL","CLEAR_ALL"].includes(operation))return ack({success:false,error:{code:"SEAT_BULK_ACTION_INVALID"}});const room=await prisma.audioRoom.findUnique({where:{roomId:id}});if(!room||room.status!=="LIVE")return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});if(!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats)return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});await ensureAudioRoomSeats(room.id,room.seatLayout);let removed=[];if(operation==="CLEAR_ALL"){removed=await prisma.audioRoomSeat.findMany({where:{audioRoomId:room.id,occupantUserId:{not:null}},include:{occupant:{select:{publicId:true}}}});await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,occupantUserId:{not:null}},data:{occupantUserId:null,occupiedAt:null,isMuted:true,isForceMuted:false,forceMutedUntil:null,isSpeaking:false}});await Promise.all(removed.map(item=>updateLiveKitPublishPermission(id,item.occupant.publicId,false)))}else{const centre=operation==="LOCK_ALL"?ownerCentreSeatId(room.seatLayout):null;await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,...(centre?{seatId:{not:centre}}:{})},data:{isLocked:operation==="LOCK_ALL"}});if(centre)await prisma.audioRoomSeat.updateMany({where:{audioRoomId:room.id,seatId:centre},data:{isLocked:false}})}const seatState=await broadcastAudioRoomSeatState(room,connectionOrigin,undefined,true);const data={requestId:String(requestId??""),roomId:id,action:operation,removedUserIds:removed.map(item=>item.occupant.publicId),seatState};io.to(`audio-room:${id}`).emit("audio-room:seats-bulk-updated",{success:true,data});ack({success:true,data})}catch(error){console.error("Audio room bulk seat action failed",error);ack({success:false,error:{code:"SEAT_BULK_FAILED"}})}
     });
     socket.on("audio-room:seat-request",async(input={},ack=()=>{})=>{
       try{
