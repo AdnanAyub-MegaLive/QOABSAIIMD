@@ -1,3 +1,4 @@
+import { persistRoomMessage, plainRoomMessage } from "./src/lib/room-message-delivery.js";
 // Set mode before Next imports its environment-dependent server modules.
 process.env.NODE_ENV = process.argv.includes("--dev") ? "development" : (process.env.NODE_ENV || "production");
 // Next 16 route modules use this flag (not NODE_ENV) to choose dev manifests.
@@ -718,12 +719,12 @@ app.prepare().then(async()=>{
         if(!canSendLockedRoomMessage(room,user.id))return ack(roomControlError("CHAT_LOCKED"));
         if(normalizedRequestId){
           const duplicate=await prisma.audioRoomMessage.findFirst({where:{audioRoomId:room.id,senderId:user.id,requestId:normalizedRequestId},include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}}});
-          if(duplicate){const [data]=await serializeRoomChatMessages([duplicate],connectionOrigin);return ack({success:true,data:{...data,duplicate:true}})}
+          if(duplicate){void flushRealtimeOutbox(io).catch(()=>{});return ack({success:true,data:{...plainRoomMessage(duplicate),duplicate:true}})}
         }
         const { assertChatWordsAllowed } = await import("./src/lib/chat-word-policy.js");
         await assertChatWordsAllowed(prisma,text);
         const messageId=`ARM-${randomUUID().replaceAll("-","").slice(0,16).toUpperCase()}`;
-        const storedMessage=await prisma.audioRoomMessage.create({
+        const storedMessage=await persistRoomMessage(prisma,{
           data:{
             publicId:messageId,
             audioRoomId:room.id,
@@ -737,14 +738,14 @@ app.prepare().then(async()=>{
             chatRevision:room.chatRevision,
           },
           include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}},
-        });
-        const [data]=await serializeRoomChatMessages([storedMessage],connectionOrigin);
-        io.to(`audio-room:${id}`).emit("audio-room:message",await versionMediaPayload({success:true,data}));
+        },connectionOrigin,()=>resolveUserPerks([user],connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]));
+        const data=plainRoomMessage(storedMessage);
+        void flushRealtimeOutbox(io).catch(error=>console.error("Room message delivery deferred",error.code??error.name));
         ack({success:true,data});
       }catch(error){
         if(error?.code==="P2002"&&String(requestId??"").trim()){
           const duplicate=await prisma.audioRoomMessage.findFirst({where:{roomPublicId:String(roomId??""),senderId:user.id,requestId:String(requestId).trim()},include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}}});
-          if(duplicate){const [data]=await serializeRoomChatMessages([duplicate],connectionOrigin);return ack({success:true,data:{...data,duplicate:true}})}
+          if(duplicate){void flushRealtimeOutbox(io).catch(()=>{});return ack({success:true,data:{...plainRoomMessage(duplicate),duplicate:true}})}
         }
         if(error?.code==="INAPPROPRIATE_WORD")return ack({success:false,error:{code:error.code,message:error.message}});
         console.error("Audio room message failed",error);

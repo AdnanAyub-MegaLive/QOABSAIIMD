@@ -49,6 +49,16 @@ async function deliver(rows, io, db) {
           payload = await versionMediaPayload(payload, db);
         }
         io.to(row.channel).emit(row.event, payload);
+        if (isGiftEvent(row.event) && process.env.REALTIME_TIMINGS === "true") {
+          try {
+            console.info("Realtime timing", {
+              pipeline: "gift", stage: "gift_emitted",
+              requestId: payload.data.requestId ?? null, eventId: row.id,
+              transactionId: payload.data.transactionId ?? null,
+              at: new Date().toISOString(),
+            });
+          } catch {}
+        }
         state.emitted.set(row.id, Date.now());
         if (state.emitted.size > 20000) state.emitted.delete(state.emitted.keys().next().value);
         delivered.push(row.id);

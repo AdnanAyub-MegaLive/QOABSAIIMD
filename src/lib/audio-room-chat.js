@@ -24,9 +24,9 @@ export function decodeRoomChatCursor(value) {
   }
 }
 
-export async function serializeRoomChatMessages(messages, origin) {
+export async function serializeRoomChatMessages(messages, origin, resolvedPerks = null) {
   const users = messages.map((message) => message.sender).filter(Boolean);
-  const perks = await resolveUserPerks(users, origin, ["FRAMES", "BADGES", "CHAT_BOXES"]);
+  const perks = resolvedPerks ?? await resolveUserPerks(users, origin, ["FRAMES", "BADGES", "CHAT_BOXES"]);
   return messages.map((message) => {
     const senderPerks = perks.get(message.senderPublicId);
     return {

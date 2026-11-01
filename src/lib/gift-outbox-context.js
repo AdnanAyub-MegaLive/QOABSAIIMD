@@ -27,3 +27,13 @@ export function rememberGiftProgress(tx, publicId, track, snapshot) {
 export function giftProgressSnapshot(tx, publicId, track) {
   return giftOutboxContext.getStore()?.progressSnapshots?.get(tx)?.get(`${publicId}:${track}`);
 }
+
+export async function giftTransactionRead(tx, key, read) {
+  const context = giftOutboxContext.getStore();
+  if (!context) return read();
+  const stores = context.reads ??= new WeakMap();
+  if (!stores.has(tx)) stores.set(tx, new Map());
+  const cache = stores.get(tx);
+  if (!cache.has(key)) cache.set(key, Promise.resolve().then(read));
+  return cache.get(key);
+}

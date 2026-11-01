@@ -83,8 +83,9 @@ describe("source and visibility safeguards", () => {
   });
   it("an emission error leaves the durable announcement unacknowledged for retry", async () => {
     const f = fixture(); f.io.fetchSockets.mockRejectedValue(new Error("offline"));
-    await expect(dispatchAnnouncements(f.db, f.io, f.now)).rejects.toThrow("offline");
-    expect(f.db.globalAnnouncement.updateMany).toHaveBeenCalledTimes(1);
+    await dispatchAnnouncements(f.db, f.io, f.now);
+    expect(f.db.globalAnnouncement.updateMany).toHaveBeenCalledTimes(2);
+    expect(f.db.globalAnnouncement.updateMany.mock.calls[1][0].data).toEqual({ leaseUntil: expect.any(Date) });
   });
   it("records cooldown suppression without queueing more banners", async () => {
     const f = fixture(); f.db.$queryRaw.mockReset().mockResolvedValueOnce([{ locked: true }]).mockResolvedValueOnce([
@@ -120,4 +121,31 @@ it('batches suppressed receipts while preserving same-batch cooldown for visible
  expect(f.db.globalAnnouncement.createMany).toHaveBeenCalledTimes(1);
  expect(f.db.globalAnnouncement.createMany.mock.calls[0][0].data).toHaveLength(99);
  expect(f.db.globalAnnouncement.createMany.mock.calls[0][0].data.every(r=>r.deliveredAt===f.now)).toBe(true);
+});
+
+it("shares socket enumeration across a full batch and drains the next batch immediately", async () => {
+  const f = fixture();
+  const rows = Array.from({ length: 10 }, (_, i) => ({ ...f.row, id: "drain-" + i }));
+  f.db.globalAnnouncement.findMany.mockResolvedValueOnce(rows).mockResolvedValueOnce([]);
+  await runGlobalAnnouncements(f.db, f.io);
+  expect(f.db.globalAnnouncement.findMany).toHaveBeenCalledTimes(2);
+  expect(f.io.fetchSockets).toHaveBeenCalledTimes(1);
+});
+
+it("dispatches pending announcements even when collection fails", async () => {
+  const f = fixture();
+  f.row.id = "collection-failure-unique";
+  f.db.$transaction.mockRejectedValue(new Error("collection failed"));
+  await runGlobalAnnouncements(f.db, f.io);
+  expect(f.db.globalAnnouncement.findMany).toHaveBeenCalled();
+  expect(f.sockets[2].emit).toHaveBeenCalledOnce();
+});
+it("continues to healthy pending rows after a failed full batch", async () => {
+  const f = fixture();
+  f.db.globalAnnouncement.findMany.mockResolvedValueOnce(Array.from({length:10},(_,i)=>({...f.row,id:`failed-batch-${i}`})))
+    .mockResolvedValueOnce([{...f.row,id:"healthy-after-failure"}]);
+  f.io.fetchSockets.mockRejectedValueOnce(new Error("temporary failure")).mockResolvedValue(f.sockets);
+  await runGlobalAnnouncements(f.db,f.io);
+  expect(f.db.globalAnnouncement.findMany).toHaveBeenCalledTimes(2);
+  expect(f.sockets[2].emit).toHaveBeenCalledOnce();
 });

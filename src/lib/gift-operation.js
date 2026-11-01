@@ -36,7 +36,7 @@ export async function priorGiftOperation(senderId, operation, db=prisma) {
   return previous?.result??null;
 }
 export async function runGiftOperation(senderId,operation,work,db=prisma) {
-  const timing = realtimeTiming('gift');
+  const timing = realtimeTiming('gift', operation.key);
   timing('operation_received');
   // Reserve all affected accounts before opening a database snapshot. Different
   // senders crediting the same recipient otherwise repeatedly abort/retry.

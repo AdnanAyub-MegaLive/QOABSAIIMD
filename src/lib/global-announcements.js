@@ -90,7 +90,7 @@ export function isPublicAnnouncementRoom(room) {
     !room.isBlocked && !room.joiningDisabled && !room.endedAt && !room.paidEntryCoins);
 }
 
-async function announcementAudience(db, row, io, now) {
+async function announcementAudience(db, row, io, now, getSockets) {
   const [room, actor, policy] = await Promise.all([
     db.audioRoom.findUnique({ where: { roomId: row.roomId }, select:{id:true,roomId:true,ownerId:true,status:true,privacyMode:true,passwordHash:true,isBlocked:true,joiningDisabled:true,endedAt:true,paidEntryCoins:true} }),
     db.user.findUnique({ where: { id: row.actorId }, select: { id: true, publicId: true, name: true, status: true, deletedAt: true } }),
@@ -103,7 +103,7 @@ async function announcementAudience(db, row, io, now) {
     const count = await db.sharedGameEntry.count({ where: { id: { in: row.sourceIds }, status: "SETTLED", input: { path: ["currency"], equals: "COINS" } } });
     if (count !== row.sourceIds.length) return null;
   } else if (await db.giftTransaction.count({ where: { id: { in: row.sourceIds }, reversedAt: null } }) !== row.sourceIds.length) return null;
-  const sockets = await io.fetchSockets();
+  const sockets = await getSockets();
   const ids = [...new Set(sockets.map(s => s.data.internalUserId).filter(Boolean))];
   const subjects = [...new Set([row.actorId, room.ownerId])];
   const [users, blocks, bans, roomBans] = await Promise.all([
@@ -127,6 +127,9 @@ async function announcementAudience(db, row, io, now) {
 
 export async function dispatchAnnouncements(db, io, now = new Date()) {
   const failures = [];
+  let sockets;
+  const getSockets = () => sockets ??= io.fetchSockets();
+  let completed = 0;
   for (const [id, until] of emitted) if (until <= now.getTime()) emitted.delete(id);
   const rows = await db.globalAnnouncement.findMany({ where: { deliveredAt: null, expiresAt: { gt: now },
     OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 10 });
@@ -137,7 +140,8 @@ export async function dispatchAnnouncements(db, io, now = new Date()) {
     const claim = await db.globalAnnouncement.updateMany({ where: { id: row.id, deliveredAt: null,
       OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] }, data: { leaseUntil } });
     if (!claim.count) return;
-    const audience = await announcementAudience(db, row, io, now);
+    try {
+    const audience = await announcementAudience(db, row, io, now, getSockets);
     if (audience && row.expiresAt > new Date() && !emitted.has(row.id)) {
       const data = { ...row.payload, announcementId: row.id, actor: audience.actor, roomId: audience.roomId,
         expiresAt: row.expiresAt.toISOString(), serverTime: new Date().toISOString() };
@@ -146,16 +150,27 @@ export async function dispatchAnnouncements(db, io, now = new Date()) {
       emitted.set(row.id, row.expiresAt.getTime());
     }
     await db.globalAnnouncement.updateMany({ where: { id: row.id, leaseUntil }, data: { deliveredAt: new Date() } });
+    completed++;
+    } catch (error) {
+      await db.globalAnnouncement.updateMany({ where: { id: row.id, leaseUntil, deliveredAt: null }, data: { leaseUntil: new Date(Date.now() + 1000) } });
+      throw error;
+    }
     }));
     for (const result of results) if (result.status === 'rejected') failures.push(result.reason);
   }
-  if (failures.length) throw failures[0]; // Finish unrelated candidates before reporting failure.
+  for (const error of failures) console.error("Announcement delivery deferred", error.code ?? error.name);
+  return rows.length === 10 && (completed > 0 || failures.length > 0);
 }
 
 export async function runGlobalAnnouncements(db, io) {
   if (!io) return;
   if (running.has(db)) { rerun.add(db); return; }
   running.add(db);
-  try { do { rerun.delete(db); await collectAnnouncements(db); await dispatchAnnouncements(db, io); } while (rerun.has(db)); }
+  try { do { rerun.delete(db);
+    try { await collectAnnouncements(db); }
+    catch (error) { console.error("Announcement collection deferred", error.code ?? error.name); }
+    for (let pass = 0; pass < 10; pass++) {
+      if (!await dispatchAnnouncements(db, io)) break;
+    } } while (rerun.has(db)); }
   finally { running.delete(db); }
 }

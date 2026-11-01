@@ -4,7 +4,7 @@ import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 import { validateProgressionThresholds } from "./progression-thresholds.js";
 import { versionMediaPayload } from "./media-payload.js";
-import { giftOutboxContext, captureGiftEvent, isGiftEvent, giftEventTiming, rememberGiftProgress } from "./gift-outbox-context.js";
+import { giftOutboxContext, giftTransactionRead, captureGiftEvent, isGiftEvent, giftEventTiming, rememberGiftProgress } from "./gift-outbox-context.js";
 export const TRACKS = ["USER", "CHARM"];
 const MAX = 9223372036854775807n;
 export const jsonSafe = value => JSON.parse(JSON.stringify(value, (_, v) => typeof v === "bigint" ? v.toString() : v));
@@ -82,11 +82,11 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
   if (!["PAID", "BACKPACK", "LUCKY", "BLIND_BOX"].includes(source)) return null;
   const settlement = knownSettlement ?? await tx.giftSettlement.findUnique({ where: { giftTransactionId: gift.id } });
   if (settlement?.recipientType === "HOST") await awardActivityXp(tx, "AGENCY", settlement.agencyId, gift.id, settlement.recipientDiamonds);
-  const active=await currentConfiguration(tx);
+  const active=await giftTransactionRead(tx, "progression:configuration", () => currentConfiguration(tx));
   if (!active?.enabled) return null;
   recipient = await resolveGiftProgressRecipient(tx, gift, recipient);
   let senderSnapshot=null;
-  const asset = gift.giftAssetId ? await tx.uploadAsset.findUnique({where:{id:gift.giftAssetId},select:{senderXp:true,receiverXp:true}}) : null;
+  const asset = gift.giftAssetId ? await giftTransactionRead(tx, `progression:asset:${gift.giftAssetId}`, () => tx.uploadAsset.findUnique({where:{id:gift.giftAssetId},select:{senderXp:true,receiverXp:true}})) : null;
   for(const [track,user] of [["USER",sender],["CHARM",recipient]]) {
     if(!user) continue; // Talent-only recipients require an explicit account mapping; never guess it.
     let row=await tx.userProgress.findUnique({where:{userId_track:{userId:user.id,track}},include:{configuration:{include:{levels:true}}}});
