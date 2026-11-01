@@ -41,9 +41,9 @@ export async function serializeRoomMembers(room, origin, { q = null, skip = 0, t
     LEFT JOIN "VipMembership" v ON v."userId"=u.id AND v."revokedAt" IS NULL AND v."startsAt"<=${now} AND v."expiresAt">${now}
     LEFT JOIN "VipTier" t ON t.id=v."tierId" AND t.active=true
     WHERE m."audioRoomId"=${room.id} AND m."socketCount">0
-      AND (${Boolean(canSeeInvisible)} OR NOT COALESCE('INVISIBLE_ENTRY'=ANY(t.privileges),false))
+      AND (${Boolean(canSeeInvisible)} OR NOT COALESCE('INVISIBLE_ENTRY'=ANY(t.privileges) AND NOT ('INVISIBLE_ENTRY'=ANY(v."disabledPrivileges")),false))
       AND (${q ?? ''}='' OR POSITION(LOWER(${q ?? ''}) IN LOWER(u.name))>0 OR POSITION(LOWER(${q ?? ''}) IN LOWER(u."publicId"))>0)
-    ORDER BY CASE WHEN 'RANKING_PRIORITY'=ANY(t.privileges) THEN t.level ELSE 0 END DESC, m."joinedAt" ASC, u."publicId" ASC
+    ORDER BY CASE WHEN 'RANKING_PRIORITY'=ANY(t.privileges) AND NOT ('RANKING_PRIORITY'=ANY(v."disabledPrivileges")) THEN t.level ELSE 0 END DESC, m."joinedAt" ASC, u."publicId" ASC
     LIMIT ${take} OFFSET ${skip}`)]);
   const fetched = ordered.length ? await prisma.audioRoomMember.findMany({ where: { audioRoomId: room.id, userId: { in: ordered.map(r => r.userId) } }, include: { user: { select: { id: true, publicId: true, name: true, profileImage: true, gender: true, dob: true, isOfficial: true } } } }) : [];
   const byId = new Map(fetched.map(r => [r.userId, r]));

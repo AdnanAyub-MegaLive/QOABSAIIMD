@@ -954,6 +954,7 @@ model VipBenefitAsset {
 }
 
 model VipMembership {
+  disabledPrivileges String[] @default([])
   userId String @id
   tierId String
   startsAt DateTime @default(now())

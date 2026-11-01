@@ -5,7 +5,7 @@ const keys = new Set(VIP_PRIVILEGES.map(p => p.key));
 export const vipMembershipInclude = { tier: true };
 export function vipCapabilities(membership, now = new Date()) {
   if (!vipIsActive(membership, now)) return { vipPrivileges: [], vipLevel: 0, vipNameColor: null, vipXpMultiplierBps: 10000 };
-  const vipPrivileges = [...new Set((membership.tier.privileges ?? []).filter(key => keys.has(key)))];
+  const vipPrivileges = [...new Set((membership.tier.privileges ?? []).filter(key => keys.has(key) && !(membership.disabledPrivileges ?? []).includes(key)))];
   return { vipPrivileges, vipLevel: membership.tier.level,
     vipNameColor: vipPrivileges.includes("HIGHLIGHT_NAME") ? membership.tier.nameColor ?? "#D946EF" : null,
     vipXpMultiplierBps: vipPrivileges.includes("LEVEL_BOOST") ? membership.tier.xpMultiplierBps ?? 10000 : 10000 };
@@ -33,7 +33,7 @@ export async function assertVipModeration(db, room, actorId, targetId, privilege
   if (actorId !== room.ownerId && await hasVipPrivilege(targetId, privilege, db)) throw vipError("VIP_PROTECTED");
 }
 export function activeVipWhere(privilege, now = new Date()) {
-  return { revokedAt: null, startsAt: { lte: now }, expiresAt: { gt: now }, tier: { active: true, privileges: { has: privilege } } };
+  return { NOT: { disabledPrivileges: { has: privilege } }, revokedAt: null, startsAt: { lte: now }, expiresAt: { gt: now }, tier: { active: true, privileges: { has: privilege } } };
 }
 export function vipPriority(a, b) {
   const level = p => p?.vipPrivileges?.includes("RANKING_PRIORITY") ? p.vipLevel : 0;

@@ -18,7 +18,7 @@ export async function profileSocialList(request, params, type) {
       // from the app, a cached numeric user level, or an unselected owned VIP.
       const membership = await prisma.vipMembership.findUnique({ where: { userId: viewer.id }, include: { tier: true } });
       const active = vipIsActive(membership);
-      if (!active || membership.tier.level < 3 || !membership.tier.privileges.includes("VIEW_VISITORS")) {
+      if (!active || membership.tier.level < 3 || (!membership.tier.privileges.includes("VIEW_VISITORS") || (membership.disabledPrivileges ?? []).includes("VIEW_VISITORS"))) {
         return mobileJson({ success: false, error: { code: "VIP_3_REQUIRED", message: active ? "Upgrade your VIP to VIP 3 to view visitor details." : "Buy VIP 3 to view visitor details." } }, 403);
       }
     }
