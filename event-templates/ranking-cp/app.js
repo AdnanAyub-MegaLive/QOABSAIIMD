@@ -78,6 +78,7 @@
   }
   function score(value) { const amount=BigInt(value||'0');let label=amount.toLocaleString();for(const [base,suffix] of [[1000000000n,'B'],[1000000n,'M'],[1000n,'k']])if(amount>=base){label=`${amount/base}.${String((amount%base)*100n/base).padStart(2,'0')}${suffix}`;break;}const n = el('span', 'score', label);n.title=amount.toLocaleString()+' Coins'; const coin = image('/event/ranking-cp/assets/490ae.png', 'coin'); n.append(coin); return n; }
   function render() {
+    if(window.RankingDesign){window.RankingDesign.render(type,entries,{notify,levels});$('more').hidden=nextOffset===null;return;}
     $('entries').replaceChildren(); $('hero').replaceChildren();
     if (type === 'agency') $('hero').append(image('/event/ranking-cp/assets/9b423.png', 'agency-logo'));
     else if (entries[0] && type !== 'cp') { const h = el('div', 'featured'); h.append(image(entries[0].person?.profileImage, 'portrait', true), image('/event/ranking-cp/assets/b2851.png', 'hero-frame'), entryName(entries[0]), levels(entries[0].person)); $('hero').append(h); }
@@ -99,7 +100,18 @@
     catch(error){if(error.name==='AbortError')return;if(request!==current)return;rewardsPanel.replaceChildren(el('p','','Rewards could not be loaded. Please retry.'));$('status').textContent=error.message;$('retry').hidden=!token;}
   }
   function tabs(id, values, selected, change) { $(id).replaceChildren(); if(id==='tracks'&&fixedTrack){$(id).append(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));return;} for(const [value,label] of values){const button=el('button','',label);button.setAttribute('aria-selected',String(value===selected));button.onclick=()=>change(value);$(id).append(button);} }
-  function filters(){renderRules();tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP']],type,v=>{type=v;root.dataset.theme=v;$('search').hidden=v!=='agency';entries=[];render();filters();load();});tabs('periods',[['today','Daily'],['week','Weekly'],['month','Monthly']],period,v=>{period=v;filters();load();});$('heading').textContent={today:'Today',week:'This week',month:'This month'}[period];$('heading').hidden=type==='agency';if(type==='agency')$('heading').parentElement.prepend($('periods'));else $('filters').prepend($('periods'));}
+  function filters(){
+    renderRules();
+    tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP']],type,v=>{type=v;root.dataset.theme=v;entries=[];nextOffset=null;resetAt=0;render();filters();load();});
+    if(window.RankingDesign && fixedTrack){
+      const nav=el('div','flex w-full justify-around gap-2');
+      for(const [key,label] of Object.entries(labels)){const link=el('a',key===type?'text-yellow-300 underline underline-offset-8':'text-white',label);link.href=`/event/ranking-${key}/index.html`;if(key===type)link.setAttribute('aria-current','page');nav.append(link);}
+      $('tracks').replaceChildren(nav);
+    }else if(window.RankingDesign){for(const b of $('tracks').children)b.className=b.getAttribute('aria-selected')==='true'?'text-yellow-300 underline underline-offset-8':'text-white';}
+    tabs('periods',[['today','Daily'],['week','Weekly'],['month','Monthly']],period,v=>{period=v;entries=[];nextOffset=null;resetAt=0;render();filters();load();});
+    $('heading').textContent={today:'Today',week:'This week',month:'Monthly'}[period];$('search').hidden=type!=='agency';
+    if(window.RankingDesign)window.RankingDesign.theme(type);
+  }
   window.MegaRankings=Object.freeze({setSession(value){if(typeof value!=='string'||!value||value.length>8192)return;token=value;load();},clearSession(){token='';request?.abort();request=null;entries=[];render();rewardsPanel.replaceChildren(el('p','','Open this event from Mega Live to view rewards.'));$('status').hidden=false;$('status').textContent='Open this event from Mega Live to view rankings.';}});
   $('search').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(),350);};$('more').onclick=()=>load(true);$('retry').onclick=()=>load();$('back').onclick=()=>notify({type:'ranking:close'});$('rules').onclick=()=>$('rules-dialog').showModal();$('close-rules').onclick=()=>$('rules-dialog').close();$('rewards').onclick=()=>$('rewards-dialog').showModal();$('close-rewards').onclick=()=>$('rewards-dialog').close();
   setInterval(()=>{if(!resetAt)return;const seconds=Math.max(0,Math.floor((resetAt-Date.now()-clockOffset)/1000));$('countdown').textContent=`${Math.floor(seconds/86400)?Math.floor(seconds/86400)+'d ':''}${String(Math.floor(seconds/3600)%24).padStart(2,'0')} : ${String(Math.floor(seconds/60)%60).padStart(2,'0')} : ${String(seconds%60).padStart(2,'0')}`;if(!seconds){resetAt=0;load();}},1000);
