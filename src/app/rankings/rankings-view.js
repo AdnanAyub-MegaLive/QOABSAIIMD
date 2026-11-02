@@ -113,14 +113,14 @@ export default function RankingsView({ type, period, generatedAt, podium, rankin
 
 function Avatar({ entry, small = false }) {
   const usableImage = /^(https?:\/\/|\/)/.test(entry.profileImage ?? "");
-  return <span className={`relative grid shrink-0 place-items-center rounded-full bg-[#e5f4f1] font-black text-[#087f74] ${small ? "h-9 w-9 text-[10px]" : "h-12 w-12 text-xs"}`} style={usableImage ? { backgroundImage: `url(${entry.profileImage})`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}>
-    {!usableImage && initials(entry.fullName)}
-    {entry.frameUrl && <span className="pointer-events-none absolute -inset-1 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url(${entry.frameUrl})` }} />}
+  return <span className={`relative grid shrink-0 place-items-center rounded-full bg-[#e5f4f1] font-black text-[#087f74] ${small ? "h-9 w-9 text-[10px]" : "h-12 w-12 text-xs"}`}>
+    {usableImage ? <img src={entry.profileImage} alt="" className="absolute inset-0 h-full w-full rounded-full object-cover" /> : initials(entry.fullName)}
+    {entry.frameUrl && <img src={entry.frameUrl} alt="" className="pointer-events-none absolute -inset-1 h-[calc(100%+0.5rem)] w-[calc(100%+0.5rem)] max-w-none object-contain" />}
   </span>;
 }
 
 function UserBadges({ entry }) {
-  return <div className="flex items-center gap-1.5">{entry.isOfficial && <span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700">Official</span>}{entry.isVerified && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700">Verified</span>}{entry.badgeUrl && <span className="h-6 w-6 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url(${entry.badgeUrl})` }} />}</div>;
+  return <div className="flex items-center gap-1.5">{entry.isOfficial && <span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700">Official</span>}{entry.isVerified && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700">Verified</span>}{entry.badgeUrl && <img src={entry.badgeUrl} alt="Badge" className="h-6 w-6 object-contain" />}</div>;
 }
 
 function ScoreModal({ entry, type, period, onClose }) {

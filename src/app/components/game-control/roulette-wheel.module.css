@@ -1,9 +1,0 @@
-.wheel{position:relative;width:min(100cqw,100cqh,340px);aspect-ratio:1;margin:auto;filter:drop-shadow(0 10px 16px #0008);flex-shrink:0}
-.rotor{width:100%;height:100%;will-change:transform}.rotor svg{display:block;width:100%;height:100%}
-.pointer{position:absolute;top:-2px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:26px solid #ffe19a;filter:drop-shadow(0 2px 2px #3e250d);z-index:2}
-.hub{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(20px,6vw,34px);font-weight:800;color:#ffe9ab;pointer-events:none;font-variant-numeric:tabular-nums}.hub[data-landed=true]{color:white}
-.spotlight{position:fixed;inset:0;margin:auto;width:min(96vw,510px);max-width:96vw;max-height:94dvh;height:fit-content;padding:18px 8px 14px;background:radial-gradient(ellipse,#0c4c3deb,#052a24f5);border:1px solid #dcb86b80;border-radius:28px;color:#fff2ca;box-shadow:0 22px 80px #000b;overflow:auto;font-family:Arial,sans-serif;box-sizing:border-box}
-.spotlight::backdrop{background:#00120bd9;backdrop-filter:blur(9px)}
-.spotlight .wheel{width:min(86vw,65dvh,440px);max-width:100%}.spotlight .title{text-align:center;font-size:22px!important;font-weight:700;margin:0 0 18px!important;line-height:1.2;color:#ffe9ab}.spotlight .caption{text-align:center;font-size:19px!important;margin:14px 0 0!important;font-weight:700;color:#fff6db;line-height:1.3}
-.spotlight .dismiss{position:absolute;right:10px;top:8px;width:34px;height:34px;min-height:34px;z-index:4;border:1px solid #fff4;background:#082c24;color:#fff2c5;border-radius:50%;font-size:23px;cursor:pointer}
-@media(prefers-reduced-motion:reduce){.rotor{will-change:auto}}

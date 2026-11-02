@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "prisma generate && node scripts/generate-game-icon-versions.mjs",
-    "prebuild": "node scripts/generate-game-icon-versions.mjs",
+    "predev": "prisma generate && node scripts/generate-game-icon-versions.mjs && npm run build:events",
+    "prebuild": "node scripts/generate-game-icon-versions.mjs && npm run build:events",
     "postinstall": "prisma generate",
     "dev": "node server.js --dev --webpack",
     "build": "next build",
@@ -20,7 +20,8 @@
     "events:seed": "node prisma/seed-events.mjs",
     "wallet:setup": "node scripts/setup-wallet-db.mjs",
     "legacy-ids:import": "node scripts/import-legacy-id-mappings.mjs",
-    "test:vip:http": "node scripts/test-vip-capabilities.mjs"
+    "test:vip:http": "node scripts/test-vip-capabilities.mjs",
+    "build:events": "node scripts/build-event-tailwind.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",

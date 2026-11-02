@@ -1,7 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import rouletteImage from "../../../../public/games/roulette/wheel.png";
 import {
   ArrowLeft,
@@ -148,15 +147,7 @@ export default function RoulettePlayer({
         </div>
         <div className="roulette-stage">
           <div className="wheel-pointer" />
-          <Image
-            loading="eager"
-            src={rouletteImage}
-            unoptimized
-            alt="Mega’s 37-pocket roulette wheel"
-            style={{ transform: `rotate(${rotation}deg)` }}
-            width={265}
-            height={265}
-          />
+          <svg viewBox="0 0 265 265" role="img" aria-label="Mega’s 37-pocket roulette wheel" className="mx-auto size-[245px] max-[420px]:size-[215px] drop-shadow-lg"><image href={rouletteImage.src ?? rouletteImage} width="265" height="265" transform={`rotate(${rotation} 132.5 132.5)`} className="transition-transform duration-[1400ms] ease-[cubic-bezier(.1,.75,.1,1)] motion-reduce:transition-none" /></svg>
           <div className="roulette-result" aria-live="polite">
             {busy ? (
               "Spinning…"

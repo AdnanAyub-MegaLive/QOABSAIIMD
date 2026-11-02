@@ -3,6 +3,7 @@ import { perkMediaFields } from "./decoration-media.js";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
+import { unlockOwnerSeats } from "./room-seat-locks.js";
 
 export const defaultAudioRoomSeatLayout = [3, 4, 4];
 // Audience seats only; the owner's header position is separate (26 total).
@@ -60,6 +61,7 @@ export async function reconcileAudioRoomLayoutSeats(tx, room, revokePublish = nu
   if (revokePublish) for (const publicId of removedIds) await revokePublish(room.roomId, publicId, false);
   await tx.audioRoomSeat.deleteMany({ where: { audioRoomId: room.id, seatId: { notIn: seatIds } } });
   await tx.audioRoomSeat.createMany({ data: seatIds.map(seatId => ({ audioRoomId: room.id, seatId })), skipDuplicates: true });
+  await unlockOwnerSeats(tx, room);
   await tx.audioRoom.update({ where: { id: room.id }, data: { seatRevision: { increment: 1 } } });
   return removedIds;
 }

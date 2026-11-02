@@ -30,7 +30,7 @@ describe("audio room seat contract", () => {
   });
 
   it('removes obsolete seats and returns occupants for RTC revocation while retaining valid seats', async () => {
-    const tx = { audioRoomSeat: { findMany: vi.fn().mockResolvedValue([{occupant:{publicId:'USR-TEST'}}]), deleteMany:vi.fn(), createMany:vi.fn() }, audioRoom:{update:vi.fn()} };
+    const tx = { audioRoomSeat: { findMany: vi.fn().mockResolvedValue([{occupant:{publicId:'USR-TEST'}}]), deleteMany:vi.fn(), createMany:vi.fn(), updateMany:vi.fn() }, audioRoom:{update:vi.fn()} };
     expect(await reconcileAudioRoomLayoutSeats(tx,{id:'room',seatLayout:[5,5,5,5]})).toEqual(['USR-TEST']);
     const where=tx.audioRoomSeat.deleteMany.mock.calls[0][0].where;
     expect(where.audioRoomId).toBe('room');

@@ -21,7 +21,7 @@ export default function InstantStage({ engine, busy, result, choice }) {
     </>}
     {engine === 'wheel' && <div className="prize-wheel-wrap">
       <span className="prize-pointer"/>
-      <div key={result?.id || 'ready'} className={`prize-wheel ${settled ? 'land-wheel' : ''}`} style={{'--landing': `${1800 + (360 - sectors.indexOf(Number.parseFloat(value)) * 18 - 9) % 360}deg`}}>
+      <div key={result?.id || 'ready'} className={`prize-wheel ${settled ? 'land-wheel' : ''} ${["[--landing:1809deg]","[--landing:2151deg]","[--landing:2133deg]","[--landing:2115deg]","[--landing:2097deg]","[--landing:2079deg]","[--landing:2061deg]","[--landing:2043deg]","[--landing:2025deg]","[--landing:2007deg]","[--landing:1989deg]","[--landing:1971deg]","[--landing:1953deg]","[--landing:1935deg]","[--landing:1917deg]","[--landing:1899deg]","[--landing:1881deg]","[--landing:1863deg]","[--landing:1845deg]","[--landing:1827deg]","[--landing:1809deg]"][sectors.indexOf(Number.parseFloat(value))+1]}`}>
         <svg viewBox="0 0 200 200" aria-label="20 equal prize sectors">
           {sectors.map((prize,i)=>{ const a=i*Math.PI/10,b=(i+1)*Math.PI/10; const x=t=>100+96*Math.sin(t),y=t=>100-96*Math.cos(t);return <g key={i}><path d={`M100 100 L${x(a)} ${y(a)} A96 96 0 0 1 ${x(b)} ${y(b)} Z`} fill={prize===8?'#f3cf73':prize===3?'#bc83e9':prize===2?'#68d5bc':prize===1?'#7797e6':i%2?'#233e39':'#2d4c43'} stroke="#122a25" strokeWidth="1"/><text x="100" y="30" transform={`rotate(${i*18+9} 100 100)`} textAnchor="middle" fill={prize===8?'#342918':'#fff'} fontSize="10" fontWeight="700">{prize}×</text></g>})}
         </svg>
@@ -44,6 +44,6 @@ export default function InstantStage({ engine, busy, result, choice }) {
       <em>VS</em>
       <div><small>OPPONENT</small><span key={result?.id || state} className="opponent-hand">{value ? hands[value] : '✊'}</span><b>{value || (busy ? 'Choosing…' : 'Ready')}</b></div>
     </div>}
-    {settled && !busy && result.outcome === 'win' && <div className="win-sparks" aria-hidden="true">{Array.from({length:8},(_,i)=><i key={i} style={{'--spark-angle':`${i*45}deg`}}/>)}</div>}
+    {settled && !busy && result.outcome === 'win' && <div className="win-sparks" aria-hidden="true">{Array.from({length:8},(_,i)=><i key={i} className={["[--spark-angle:0deg]","[--spark-angle:45deg]","[--spark-angle:90deg]","[--spark-angle:135deg]","[--spark-angle:180deg]","[--spark-angle:225deg]","[--spark-angle:270deg]","[--spark-angle:315deg]"][i]}/>)}</div>}
   </div>;
 }

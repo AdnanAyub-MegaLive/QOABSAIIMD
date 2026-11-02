@@ -1,6 +1,6 @@
 # Confirmed wallet, room totals and presentation delivery
 
-Implementation validated for release, 29 October 2026. Production deployment and real-device verification are outstanding. No production data, balances, rewards or financial history were changed during implementation.
+Implementation validated for release, 29 October 2026. Production release `53f719c` was subsequently verified with dedicated QA accounts and live socket clients: see [production verification](confirmed-realtime-production-verification-53f719c.md). Physical-phone verification remains outstanding. No existing users' balances or past rewards were changed by these tests.
 
 ## Private wallet update
 
@@ -65,7 +65,7 @@ Required migration: `20261030010000_confirmed_realtime`. It adds walletRevision,
 
 Apply migration before starting this code; generate Prisma, rebuild, restart the custom Node/Socket.IO server. `REALTIME_DATABASE_URL` is optional and defaults to DATABASE_URL. It must point to the **same database** through a direct or session-pooling connection supporting LISTEN; transaction pooling is unsuitable. Do not disable TLS validation. If listening fails, the worker logs a safe warning and polling continues.
 
-Production revision, migration parity, restart and device results still require verification after deployment. Pushing the release to Git does not apply its migration or restart production.
+Production revision, migration parity and restart were verified for `53f719c`; the production report records tested cases and remaining gaps. Pushing later releases to Git does not apply migrations or restart production. Physical-device results still require verification.
 
 ## Verification performed
 

@@ -14,9 +14,7 @@ import MiniGameAnimation from "./mini-game-animation";
 import InstantStage from "./instant-stage";
 import FlipStage from "./flip-stage";
 import {instantGames} from "@/lib/game-control/instant-games.mjs";
-import "./shared-visuals.css";
-import styles from "./play-panel.module.css";
-import "./roulette-design.css";
+import styles from "./play-panel-utilities";
 
 export default function SharedPlayer({gameId,preview=false}){
  const request=useCallback(body=>preview?api("admin",{action:"preview-round",request:{...body,gameId}}):api("player",body),[preview,gameId]);

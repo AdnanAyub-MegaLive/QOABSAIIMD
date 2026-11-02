@@ -1,4 +1,5 @@
 "use client";
+import PercentageBar from "../percentage-bar";
 import CoinButtonFields from "./coin-button-fields";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -440,9 +441,7 @@ export default function Portal() {
                         </p>
                       </div>
                       <div className="probability-track">
-                        <span
-                          style={{ width: `${selectedGame.winProbability}%` }}
-                        />
+                        <PercentageBar value={selectedGame.winProbability} className="h-full w-full text-[#0c796b]" />
                       </div>
                       <div className="split-label">
                         <span>Win {selectedGame.winProbability}%</span>
@@ -800,7 +799,7 @@ export default function Portal() {
                             <span>win chance</span>
                           </div>
                           <div className="probability-track">
-                            <span style={{ width: `${g.winProbability}%` }} />
+                            <PercentageBar value={g.winProbability} className="h-full w-full text-[#0c796b]" />
                           </div>
                         </div>
                         <div className="game-stat">
@@ -1172,18 +1171,8 @@ function ActivityChart({ rounds, period }) {
             title={`${date(b.start)} · Bets ${fmt(b.bets)} · Payouts ${fmt(b.payouts)}`}
           >
             <div className="bar-pair">
-              <span
-                style={{
-                  height: `${(b.bets / max) * 90}%`,
-                  minHeight: b.bets ? 3 : 0,
-                }}
-              />
-              <span
-                style={{
-                  height: `${(b.payouts / max) * 90}%`,
-                  minHeight: b.payouts ? 3 : 0,
-                }}
-              />
+              <PercentageBar vertical value={(b.bets / max) * 90} className="h-full min-w-0 flex-1 text-[#0c796b]" />
+              <PercentageBar vertical value={(b.payouts / max) * 90} className="h-full min-w-0 flex-1 text-[#8270ce]" />
             </div>
             <small>
               {hours <= 24

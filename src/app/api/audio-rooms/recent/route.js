@@ -1,3 +1,4 @@
+import { roomCardActivity, roomCardActivityDto } from "@/lib/room-card-activity";
 import {roomFrameInclude} from "@/lib/room-frame";
 import { roomCoverDto } from "@/lib/room-cover";
 import { prisma } from "@/lib/prisma";
@@ -29,11 +30,13 @@ export async function GET(request) {
       } } },
     });
     const page = rows.slice(0, limit), origin = requestOrigin(request);
+    const activity = await roomCardActivity(prisma, page.map(row => row.audioRoom.roomId));
     const perks = await resolveUserPerks(page.map(row => row.audioRoom.owner), origin, ["FRAMES", "BADGES"]);
     return mobileJson({ success: true, data: {
       rooms: page.map(({ lastVisitedAt, audioRoom: room }) => ({
         roomId: room.roomId, title: room.title,
         ...roomCoverDto(room, origin),
+          ...roomCardActivityDto(activity, room.roomId),
         status: room.status, participantCount: room.participantCount, lastVisitedAt: lastVisitedAt.toISOString(),
         privacyMode: room.privacyMode, isLocked: Boolean(room.passwordHash), paidEntryCoins: room.paidEntryCoins?.toString() ?? null,
         roomBackground: serializeRoomBackground(room, origin), seatStyle: serializeRoomSeatStyle(room, origin),

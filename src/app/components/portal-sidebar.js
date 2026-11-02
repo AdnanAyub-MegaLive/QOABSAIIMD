@@ -66,7 +66,7 @@ export default function PortalSidebar() {
       <Link href="/home" className="px-2" aria-label="Mega Live Portal dashboard">
         <BrandLogo light compact priority />
       </Link>
-      <nav className="portal-navigation mt-7 min-h-0 flex-1 space-y-1 overflow-y-auto pb-4" aria-label="Portal navigation">
+      <nav className="[scrollbar-width:thin] [scrollbar-color:#365c56_transparent] mt-7 min-h-0 flex-1 space-y-1 overflow-y-auto pb-4" aria-label="Portal navigation">
         {navigation.map(([label, href]) => {
           const active = isActiveRoute(pathname, href);
           return (

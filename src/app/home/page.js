@@ -1,3 +1,4 @@
+import PercentageBar from "../components/percentage-bar";
 import { requirePagePermission } from "@/lib/portal-admin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -115,7 +116,7 @@ export default async function DashboardHome({ searchParams }) {
                       <span className="text-[#a8ceca]">{label}</span>
                       <strong>{value.toLocaleString("en-US")}</strong>
                     </div>
-                    <div className="h-1.5 rounded-full bg-white/10"><div className="h-full rounded-full bg-[#4fdac8]" style={{ width: `${data.network.reduce((sum, n) => sum + n.value, 0) ? value / data.network.reduce((sum, n) => sum + n.value, 0) * 100 : 0}%` }} /></div>
+                    <div className="h-1.5 rounded-full bg-white/10"><PercentageBar value={data.network.reduce((sum, n) => sum + n.value, 0) ? value / data.network.reduce((sum, n) => sum + n.value, 0) * 100 : 0} className="h-full w-full rounded-full text-[#4fdac8]" /></div>
                     <p className="mt-2 text-[10px] text-[#a8ceca]">{detail}</p>
                   </div>
                 ))}

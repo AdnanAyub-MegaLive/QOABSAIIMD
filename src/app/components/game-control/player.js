@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from "react";
 import {useStore,api} from "./store";
 import RocketPlayer from "./rocket-player";
 import SharedPlayer from "./shared-player";
-import styles from "./play-panel.module.css";
+import styles from "./play-panel-utilities";
 export default function Player({defaultGame="lucky-flip"}){
  const {isDemo,data}=useStore();
  const [profile,setProfile]=useState(null),[gameId,setGameId]=useState(null),[error,setError]=useState("");

@@ -25,7 +25,7 @@ const contentTypes = {
 function unavailable() {
   if (process.env.EVENTS_UNPUBLISHED_MODE === "maintenance")
     return new Response(
-      "<!doctype html><html><body style='font-family:sans-serif;text-align:center;padding:10vh 2rem'><h1>Event unavailable</h1><p>This event is not currently published.</p></body></html>",
+      "<!doctype html><html><head><link rel='stylesheet' href='/event-unavailable.css?v=tw1'></head><body class='font-sans text-center py-[10vh] px-8'><h1 class='text-2xl font-bold mb-4'>Event unavailable</h1><p>This event is not currently published.</p></body></html>",
       { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } },
     );
   return new Response("Not Found", { status: 404, headers: { "Cache-Control": "no-store" } });

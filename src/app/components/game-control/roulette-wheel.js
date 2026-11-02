@@ -2,12 +2,13 @@
 import {useEffect,useRef,useState} from 'react';
 import {wheelOrder,resultColor} from '@/lib/game-control/roulette/original-rules.mjs';
 import {rouletteLandingAngle,ROULETTE_LANDING_MS,ROULETTE_RESULT_HOLD_MS} from '@/lib/game-control/roulette/motion.mjs';
-import styles from './roulette-wheel.module.css';
+import styles from "./roulette-wheel-utilities";
 function Wheel({rotor,result,landed}) {
  const point=(radius,degrees)=>{const a=(degrees-90)*Math.PI/180;return `${200+radius*Math.cos(a)},${200+radius*Math.sin(a)}`;};
  const step=360/wheelOrder.length;
  return <div className={styles.wheel}>
-  <div className={styles.rotor} ref={rotor}><svg viewBox="0 0 400 400" role="img" aria-label={landed?`Winning number ${result}`:'European roulette wheel'}>
+  <div className={styles.rotor}><svg viewBox="0 0 400 400" role="img" aria-label={landed?`Winning number ${result}`:'European roulette wheel'}>
+   <g ref={rotor} className="origin-center [transform-box:view-box]">
    <circle cx="200" cy="200" r="196" fill="#b68c37" stroke="#ffe6a1" strokeWidth="5"/>
    {wheelOrder.map((n,i)=><g key={n}>
     <path d={`M200,200 L${point(187,i*step-step/2)} A187,187 0 0,1 ${point(187,i*step+step/2)} Z`} fill={resultColor(n)==='Red'?'#b52c3e':n===0?'#13865c':'#122c2b'} stroke="#dfc178" strokeWidth=".7"/>
@@ -18,7 +19,7 @@ function Wheel({rotor,result,landed}) {
    {Array.from({length:8},(_,i)=><path key={i} d="M200 86L200 143" transform={`rotate(${i*45} 200 200)`} stroke="#c8a762" strokeWidth="4"/>)}
    <circle cx="200" cy="200" r="55" fill="#c09b4e" stroke="#ffe4a1" strokeWidth="5"/>
    <circle cx="200" cy="200" r="40" fill="#234738" stroke="#846227" strokeWidth="3"/>
-  </svg></div>
+  </g></svg></div>
   <div className={styles.pointer} aria-hidden="true"/>
   <div className={styles.hub} data-landed={landed}>{landed?result:'♛'}</div>
  </div>;
@@ -35,7 +36,7 @@ export default function RouletteWheel({roundKey,playing,result,onSettled}) {
   if(modal&&!modal.open)modal.showModal();
   const nodes=[small.current,large.current].filter(Boolean),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   let timer,cancelled=false,spinning=false;const animations=[];
-  const paint=a=>{angle.current=a;for(const node of nodes)node.style.transform=`rotate(${a}deg)`;};
+  const paint=a=>{angle.current=a;for(const node of nodes)node.setAttribute("transform", `rotate(${a} 200 200)`);};
   const base=angle.current;
   if(result==null){
    // Compositor animations keep moving when polling or the WebView's main thread is busy.

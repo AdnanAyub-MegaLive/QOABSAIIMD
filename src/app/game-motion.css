@@ -1,0 +1,43 @@
+@theme static {
+  @keyframes mini-game-animation-shake{0%,100%{transform:rotate(-15deg) translateY(0)}50%{transform:rotate(12deg) translateY(-12px)}}
+  @keyframes mini-game-animation-pop{from{transform:scale(.65);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes mini-game-animation-faces{to{transform:translateY(-50%)}}
+  @keyframes mini-game-animation-tumble{0%,100%{transform:rotate(-15deg) scale(.95)}50%{transform:rotate(20deg) scale(1.08)}}
+  @keyframes mini-game-animation-land{from{transform:rotate(-18deg) scale(1.15)}to{transform:rotate(0) scale(1)}}
+  @keyframes mini-game-animation-ballReady{50%{transform:translateY(-5px)}}
+  @keyframes mini-game-animation-shoot{to{transform:translate(var(--shot-x),-90px) scale(.5) rotate(300deg)}}
+  @keyframes mini-game-animation-dive{to{transform:translateX(var(--keeper-x)) rotate(20deg)}}
+  @keyframes mini-game-animation-ripple{from{transform:scale(.8);opacity:.8}to{transform:scale(1.25);opacity:0}}
+  @keyframes mini-game-animation-cardTurn{50%{transform:rotateY(180deg) rotateZ(5deg)}}
+  @keyframes mini-game-animation-shoot-compact{to{transform:translate(var(--shot-x),-35px) scale(.5) rotate(300deg)}}
+  @keyframes pizza-pizzaGlow{to{filter:brightness(1.25)}}
+  @keyframes play-panel-sharedChip{from{transform:translateY(100px) rotate(-160deg) scale(.4);opacity:0}to{transform:translateY(0) rotate(0) scale(1);opacity:1}}
+  @keyframes play-panel-sharedReveal{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
+  @keyframes play-panel-coinToss{0%{transform:translateY(0) rotateY(0deg) rotateZ(-5deg)}50%{transform:translateY(-12px) rotateY(540deg) rotateZ(5deg)}100%{transform:translateY(0) rotateY(1080deg) rotateZ(-5deg)}}
+  @keyframes play-panel-flip{to{transform:rotateY(360deg)}}
+  @keyframes play-panel-rouletteLanding{from{transform:rotate(0deg)}to{transform:rotate(var(--wheel-landing))}}
+  @keyframes portal-spin{to{transform:rotate(360deg)}}
+  @keyframes portal-flip{to{transform:rotateY(360deg)}}
+  @keyframes rocket-player-burn{to{transform:scaleY(.72) scaleX(.88)}}
+  @keyframes shared-visuals-dice-tumble{to{transform:rotate(351deg) scale(.85)}}
+  @keyframes shared-visuals-dice-land{0%{transform:translateY(-25px) rotate(160deg)}65%{transform:translateY(5px) rotate(-15deg)}100%{transform:rotate(-9deg)}}
+  @keyframes shared-visuals-prize-land{from{transform:rotate(0deg)}to{transform:rotate(var(--landing))}}
+  @keyframes shared-visuals-hub-pulse{to{filter:brightness(1.5)}}
+  @keyframes shared-visuals-card-reveal{to{transform:rotateY(180deg)}}
+  @keyframes shared-visuals-card-deal{to{transform:translateY(-7px) rotate(-4deg)}}
+  @keyframes shared-visuals-reel-roll{to{transform:translateY(-288px)}}
+  @keyframes shared-visuals-reel-stop{from{transform:translateY(-72px);filter:blur(3px)}70%{transform:translateY(6px)}to{transform:translateY(0);filter:blur(0)}}
+  @keyframes shared-visuals-hand-shake{to{transform:translateY(-12px) rotate(-15deg)}}
+  @keyframes shared-visuals-hand-reveal{from{transform:scale(.5) rotate(-30deg)}65%{transform:scale(1.15)}to{transform:scale(1)}}
+  @keyframes shared-visuals-spark-burst{from{transform:rotate(var(--spark-angle)) translateY(-25px);opacity:1}to{transform:rotate(var(--spark-angle)) translateY(-105px);opacity:0}}
+  @keyframes shared-visuals-coin-lift{from{transform:translateY(5px) rotate(-12deg)}to{transform:translateY(-22px) rotate(8deg)}}
+  @keyframes shared-visuals-coin-turn{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+  @keyframes shared-visuals-coin-finish{from{transform:rotateY(0deg)}to{transform:rotateY(var(--coin-end))}}
+  @keyframes shared-visuals-coin-touchdown{0%{transform:translateY(-20px)}65%{transform:translateY(7px)}85%{transform:translateY(-4px)}100%{transform:translateY(0)}}
+  @keyframes shared-visuals-coin-shadow-pulse{to{transform:scale(.65);opacity:.4}}
+  @keyframes shared-visuals-pocket-reveal{from{transform:scale(.65);opacity:.3}to{transform:scale(1);opacity:1}}
+  @keyframes teen-patti-table-reveal{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
+  @keyframes teen-patti-table-deal{from{transform:translateY(-35px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes teen-patti-table-chip{from{transform:translateY(70px) scale(.5);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+  @keyframes teen-patti-table-glow{to{filter:brightness(1.3)}}
+}

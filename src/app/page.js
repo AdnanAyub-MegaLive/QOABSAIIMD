@@ -53,13 +53,11 @@ export default async function Home() {
             </div>
             <div className="my-5 flex h-[57px] items-center gap-1.5">
               {[
-                38, 64, 45, 78, 56, 88, 68, 94, 58, 76, 42, 67, 51, 82, 61, 73,
-                47, 69, 39, 54,
+                "h-[38%]", "h-[64%]", "h-[45%]", "h-[78%]", "h-[56%]", "h-[88%]", "h-[68%]", "h-[94%]", "h-[58%]", "h-[76%]", "h-[42%]", "h-[67%]", "h-[51%]", "h-[82%]", "h-[61%]", "h-[73%]", "h-[47%]", "h-[69%]", "h-[39%]", "h-[54%]"
               ].map((height, index) => (
                 <i
                   key={index}
-                  className="max-w-[7px] min-w-[3px] flex-1 rounded-[5px] bg-linear-to-t from-[#158e82] to-[#56e3d0] opacity-80"
-                  style={{ height: `${height}%` }}
+                  className={`max-w-[7px] min-w-[3px] flex-1 rounded-[5px] bg-linear-to-t from-[#158e82] to-[#56e3d0] opacity-80 ${height}`}
                 />
               ))}
             </div>

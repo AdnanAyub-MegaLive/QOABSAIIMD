@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {roundSummary} from '@/lib/game-control/round-summary.mjs';
 import {resultColor} from '@/lib/game-control/roulette/original-rules.mjs';
-import styles from './play-panel.module.css';
+import styles from "./play-panel-utilities";
 const coins=n=>BigInt(n??0).toLocaleString();
 export default function RoundResults({state,ready=true}){
  const ref=useRef(null),timer=useRef(null),[saved,setSaved]=useState(null);

@@ -1,3 +1,4 @@
+import { roomCardActivity, roomCardActivityDto } from "@/lib/room-card-activity";
 import {roomFrameInclude} from "@/lib/room-frame";
 import { roomCoverDto } from "@/lib/room-cover";
 import { versionMediaPayload } from "@/lib/media-payload";
@@ -10,7 +11,6 @@ import {
 } from "../../../../lib/user-perks";
 import { formatDateOnly } from "../../../../lib/date-only";
 import { serializeRoomBackground } from "../../../../lib/room-background";
-import { roomCardStats } from "@/lib/room-card-stats";
 import { serializeRoomSeatStyle } from "../../../../lib/room-seat-style";
 
 const corsHeaders = {
@@ -95,12 +95,12 @@ export async function GET(request) {
       take: 50,
     });
     const origin = requestOrigin(request);
+    const activity = await roomCardActivity(prisma, rooms.map(room => room.roomId));
     const perks = await resolveUserPerks(
       rooms.map((room) => room.owner),
       origin,
       ["FRAMES", "BADGES"],
     );
-    const cardStats = await roomCardStats(rooms);
 
     return json({
       success: true,
@@ -110,8 +110,8 @@ export async function GET(request) {
           title: room.title,
           country: room.country ?? null,
           ...roomCoverDto(room, origin),
+          ...roomCardActivityDto(activity, room.roomId),
           participantCount: room.participantCount,
-          ...cardStats.get(room.roomId),
           isLocked: Boolean(room.passwordHash),
           status: room.status,
           startedAt: room.startedAt,

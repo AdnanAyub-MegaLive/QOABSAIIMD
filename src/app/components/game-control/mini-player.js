@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore, api } from "./store";
 import { miniGames, makeChallenge, publicChallenge } from "@/lib/game-control/mini-games.mjs";
-import styles from "./play-panel.module.css";
+import styles from "./play-panel-utilities";
 import MiniGameAnimation from "./mini-game-animation";
 import PointAmount from "./point-amount";
 import { selectPreviewTrivia, triviaTier } from "@/lib/game-control/trivia-plan.mjs";
