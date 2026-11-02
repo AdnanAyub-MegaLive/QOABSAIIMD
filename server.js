@@ -1,4 +1,3 @@
-import { persistRoomMessage, plainRoomMessage } from "./src/lib/room-message-delivery.js";
 // Set mode before Next imports its environment-dependent server modules.
 process.env.NODE_ENV = process.argv.includes("--dev") ? "development" : (process.env.NODE_ENV || "production");
 // Next 16 route modules use this flag (not NODE_ENV) to choose dev manifests.
@@ -28,6 +27,8 @@ const app=next({dev,hostname,port,webpack});
 const handle=app.getRequestHandler();
 
 app.prepare().then(async()=>{
+  // Keep the entry point CommonJS; load ESM helpers after Next prepares the environment.
+  const {persistRoomMessage,plainRoomMessage}=await import("./src/lib/room-message-delivery.js");
   // Next environment reloads must not switch internal redirects back to HTTPS.
   process.env.__NEXT_PRIVATE_ORIGIN=internalOrigin;
   const {perkMediaFields}=await import("./src/lib/decoration-media.js");
