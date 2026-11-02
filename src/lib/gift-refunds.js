@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "./prisma.js";
 import { jsonSafe, appendOutbox } from "./progression.js";
 import { reverseGiftXp } from "./gift-xp-reversal.js";
+import { reverseRocketGift } from './room-rocket.js';
 import { ledgerData } from "./wallet.js";
 import { getRoomGiftLeaderboard } from "./gift-leaderboard.js";
 
@@ -83,6 +84,7 @@ export async function refundGift({giftId,confirmation,reason,adminId,origin},db=
         await recover(tx,plan,giftId);
         await tx.giftTransaction.update({where:{id:giftId},data:{reversedAt:new Date()}});
         await reverseGiftXp(tx,giftId,origin);
+        await reverseRocketGift(tx,giftId);
       }catch(e){
         await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT gift_refund_recovery");
         if(["P2034","P2002"].includes(e.code))throw e;

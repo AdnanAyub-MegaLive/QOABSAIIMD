@@ -2895,3 +2895,58 @@ model AudioRoomMicSession {
   @@index([userId, startedAt])
   @@index([audioRoomId, endedAt])
 }
+
+// Room Rocket snapshots are independent of game-control's Rocket game.
+model RoomRocketSettings {
+  id String @id @default("GLOBAL")
+  enabled Boolean @default(false)
+  config Json
+  updatedAt DateTime @updatedAt
+}
+model RoomRocketSeason {
+  id String @id
+  startsAt DateTime
+  endsAt DateTime
+  config Json
+  @@index([endsAt])
+}
+model RoomRocketProgress {
+  roomId String @id
+  campaignId String
+  level Int @default(1)
+  coins BigInt @default(0)
+  revision Int @default(0)
+  dirty Boolean @default(true)
+  emittedAt DateTime?
+  @@index([dirty, emittedAt])
+}
+model RoomRocketContribution {
+  campaignId String
+  roomId String
+  level Int
+  userId String
+  coins BigInt @default(0)
+  @@id([campaignId, roomId, level, userId])
+  @@index([campaignId, roomId, level, coins])
+}
+model RoomRocketGift {
+  giftId String @id
+  roomId String
+  campaignId String
+  senderId String
+  allocations Json
+  reversedAt DateTime?
+}
+model RoomRocketLaunch {
+  id String @id
+  campaignId String
+  roomId String
+  level Int
+  paidUserIds Json @default("[]")
+  winners Json
+  topContributor Json?
+  createdAt DateTime @default(now())
+  paidAt DateTime?
+  @@unique([campaignId, roomId, level])
+  @@index([paidAt, createdAt])
+}

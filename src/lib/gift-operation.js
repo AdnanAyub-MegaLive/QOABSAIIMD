@@ -4,6 +4,7 @@ import { setTimeout as retryDelay } from "node:timers/promises";
 import { prisma } from "./prisma.js";
 import { jsonSafe } from "./progression.js";
 import { recordGiftRecovery } from "./gift-refunds.js";
+import { recordRocketGift } from "./room-rocket.js";
 import { giftOutboxContext } from "./gift-outbox-context.js";
 import { deliverCommittedGiftEvents } from "./realtime-outbox.js";
 import { comboPresentation, giftComboTiming } from "./gift-combo-timing.js";
@@ -117,6 +118,7 @@ async function settleOperation(tx, senderId, operation, work, events) {
     const reward=payload.revealedGift?.publicId?await tx.uploadAsset.findUnique({where:{publicId:payload.revealedGift.publicId},select:{id:true}}):null;
     const recipientResult = payload.recipients?.find(row => row.transactionId === id);
     await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk});
+    await recordRocketGift(tx, gift, payload.source === 'BACKPACK' ? 'BACKPACK' : 'COINS');
   }
   // A pending row was never visible outside this transaction. Insert its
   // completed result once instead of INSERT then UPDATE. The unique key

@@ -16,6 +16,7 @@ export const portalNavigation = [
   ["Global Announcements", "/platform-rules/global-announcements"],
   ["Uploads", "/uploads"],
   ["Room Management", "/room-management"],
+  ["Room Rocket", "/room-rocket"],
   ["Live Management", "/live-management"],
   ["Rankings", "/rankings"],
   ["Audit Logs", "/audit-logs"],

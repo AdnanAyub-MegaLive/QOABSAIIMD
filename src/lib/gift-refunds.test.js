@@ -5,6 +5,7 @@ function fixture(overrides={}){
  const plan={version:1,source:"COINS",senderId:"s",recipientId:"r",coins:"100",diamonds:"100",agencyId:"a",agencyCoins:"10",luckyCoins:"20",giftAssetId:"gift",quantity:2,rewardAssetId:"reward",...overrides};
  let state={users:{s:{coinBalance:20n,totalSpent:100n},r:{hostSalaryCoinBalance:100n}},agency:10n,inventory:2,refund:null,gift:{id:"g",senderId:"s",createdAt:new Date(),reversedAt:null},ledger:[]};let saved;
  const tx={
+  roomRocketGift:{findUnique:async()=>null},
   giftTransaction:{findUnique:async()=>state.gift,update:async({data})=>Object.assign(state.gift,data)},
   giftRecoverySnapshot:{findUnique:async()=>({data:plan})},
   giftRefund:{findUnique:async()=>state.refund,create:async({data})=>state.refund=data},

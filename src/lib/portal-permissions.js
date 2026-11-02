@@ -14,6 +14,7 @@ export function assignedPermissions(values=[]) { return expandPermissions(values
 export function expandPermissions(values=[]) { return [...new Set(values.flatMap(p=>[p,...(legacyPermissionActions[p]??[])]))]; }
 // Shared vocabulary: every assignable key must have a server enforcement point.
 export const permissionGroups = [
+  ["rocket", "Room Rocket", [["view", "View Rocket seasons and rewards"], ["edit", "Enable Rocket and configure future seasons and rewards"]]],
   ["vip", "VIP Management", [["view", "View VIP tiers and memberships"], ["manage", "Create tiers and grant or revoke timed VIP memberships"]]],
   ["dashboard", "Dashboard", [["view", "View platform overview and statistics"]]],
   ["users", "Users / Senders", [["view", "View user profiles and records"], ["edit", "Edit user profiles and application roles"], ["create", "Create application accounts"], ["verify", "Verify users / official status"], ["ban", "Ban or unban accounts"], ["devices", "Ban or unban devices"], ["logout", "Force user logout"], ["password", "Reset user passwords"], ["delete", "Delete user accounts"], ["specialIds", "Create, assign and revoke Standard / VIP / SVIP Special IDs"], ["props", "Grant or revoke user props"]]],
@@ -56,6 +57,7 @@ export function validatePermissions(value, actor) {
 }
 
 export const pagePermissions = {
+  "/room-rocket": "rocket.view",
   // Login selects the first accessible page; prefer Home over feature sections.
   "/home": "dashboard.view",
   "/vip-management": "vip.view",

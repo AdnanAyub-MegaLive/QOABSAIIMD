@@ -10,6 +10,7 @@ const sections = [
   ["Message History", "/messages"],
   ["Daily Tasks", "/daily-tasks"],
   ["Red Envelopes", "/red-envelopes"],
+  ["Room Rocket", "/room-rocket"],
   ["Appearance", "/room-appearance"],
   ["Games", "/room-games"],
 
