@@ -16,7 +16,8 @@ export async function POST(request) {
     if(existing&&new URL(request.url).searchParams.get('newVersion')!=='true')throw new EventModuleError('SLUG_EXISTS','This ranking event already exists. Use newVersion=true to generate a new immutable version.',409);
     const root=path.join(process.cwd(),'event-templates',slug);
     const formData=new FormData();
-    for(const filename of ['index.html','style.css','app.js',...(await readdir(path.join(root,'assets'))).map(name=>`assets/${name}`)]){
+    const templateFiles=await readdir(root);
+    for(const filename of ['index.html','style.css','app.js',...(templateFiles.includes('design.js')?['design.js']:[]),...(await readdir(path.join(root,'assets'))).map(name=>`assets/${name}`)]){
       const content=await readFile(path.join(root,filename));
       formData.append('files',new File([content],path.basename(filename)));
       formData.append('paths',filename);
