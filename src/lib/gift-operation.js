@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { CANCELLED_GIFT_FINGERPRINT } from './gift-request-state.js';
 import { setTimeout as retryDelay } from "node:timers/promises";
 import { prisma } from "./prisma.js";
 import { jsonSafe } from "./progression.js";
@@ -32,6 +33,7 @@ export function giftOperation(body, key, mode) {
 }
 export async function priorGiftOperation(senderId, operation, db=prisma) {
   const previous=await db.giftRequest.findUnique({where:{senderId_key:{senderId,key:operation.key}}});
+  if(previous?.fingerprint===CANCELLED_GIFT_FINGERPRINT) throw Object.assign(new Error('This gift request was cancelled. It will not be charged.'),{code:'GIFT_CANCELLED'});
   if(previous&&previous.fingerprint!==operation.fingerprint) throw Object.assign(new Error("This idempotency key was used with a different request."),{code:"IDEMPOTENCY_CONFLICT"});
   return previous?.result??null;
 }

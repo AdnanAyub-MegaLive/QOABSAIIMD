@@ -236,6 +236,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     EXCHANGE_DISABLED: [403, "EXCHANGE_DISABLED", "Diamond exchange is disabled for this account."],
     EXCHANGE_BELOW_MINIMUM: [422, "EXCHANGE_BELOW_MINIMUM", "The amount is below the exchange minimum or cannot purchase one coin."],
     INSUFFICIENT_DIAMONDS: [409, "INSUFFICIENT_DIAMONDS", "Your diamond balance is insufficient."],
+    GIFT_CANCELLED: [409, "GIFT_CANCELLED", "This gift request was cancelled and will not be charged."],
     IDEMPOTENCY_CONFLICT: [409, "IDEMPOTENCY_CONFLICT", "This request ID was already used with different details."],
   };
   const [status, code, message] = known[error?.code ?? error?.message] ?? [
