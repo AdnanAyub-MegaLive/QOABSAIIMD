@@ -135,7 +135,7 @@ export default function ProfileManager({ profile, type }) {
               </>
             ) : (
               <>
-                <Action text="Adjust role" disabled={!can("users.edit", "hosts.manage")} onClick={() => setModal("role")} />
+                <Action text="Adjust role" disabled={!can("users.edit", "hosts.edit")} onClick={() => setModal("role")} />
                 <Action
                   text="Manage VIP membership"
                   disabled={!can("vip.view")}

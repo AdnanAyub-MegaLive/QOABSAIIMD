@@ -1,9 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
+import { usePortalAccess } from "../components/portal-access";
+import { hasPermission } from "@/lib/portal-permissions";
 import BannerTextEditor from "./banner-text-editor";
 const input = "w-full rounded-xl border border-[#d9e5e2] bg-white px-3 py-2 text-sm";
 export default function RoomBannerManager() {
+  const admin=usePortalAccess(), canEdit=hasPermission(admin,"appearance.edit"), canDelete=hasPermission(admin,"appearance.delete");
   const [data, setData] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [reasons, setReasons] = useState({});
   const [status, setStatus] = useState("PENDING"), [pages, setPages] = useState([""]), [loading, setLoading] = useState(true), [revision, refresh] = useState(0);
   const cursor = pages.at(-1);
@@ -31,7 +34,7 @@ export default function RoomBannerManager() {
   return <div className="space-y-6">
     <div><h2 className="text-2xl font-bold">Paid room banners</h2><p className="mt-2 text-sm text-[#71847f]">Owner-only uploads · Two slots per room · Review before publication · JPG, PNG, WebP or GIF up to 5 MB.</p></div>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-700">{error}</p>}
-    <section className="space-y-4 rounded-2xl border border-[#dfe9e7] bg-white p-5">
+    <fieldset disabled={!canEdit || busy} className="space-y-4 rounded-2xl border border-[#dfe9e7] bg-white p-5">
       <label className="flex gap-2 font-semibold"><input type="checkbox" checked={data.settings.enabled} onChange={e => setData({ ...data, settings: { ...data.settings, enabled: e.target.checked } })}/>Accept paid banner uploads</label>
       <p className="text-sm text-[#71847f]">Pending banners reserve a slot. Duration begins on approval. Rejected or cancelled pending banners receive a full refund. Active banner removal does not refund Coins. Disabling uploads does not remove already-paid banners.</p>
       {data.settings.packages.map((p, i) => <div key={p.id} className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto]">
@@ -41,14 +44,14 @@ export default function RoomBannerManager() {
         <button disabled={busy} className="self-end rounded-lg border px-3 py-2 text-sm" onClick={() => setData({ ...data, settings: { ...data.settings, packages: data.settings.packages.filter((_, n) => n !== i) } })}>Remove option</button>
       </div>)}
       <div className="flex gap-3"><button disabled={busy || data.settings.packages.length >= 20} className="rounded-xl border px-4 py-2" onClick={() => setData({ ...data, settings: { ...data.settings, packages: [...data.settings.packages, { id: crypto.randomUUID(), name: "", durationDays: 7, coins: "" }] } })}>Add duration option</button><button disabled={busy} className="rounded-xl bg-[#183f3b] px-5 py-2 text-white disabled:opacity-50" onClick={() => save({ action: "SETTINGS", ...data.settings })}>Save settings</button></div>
-    </section>
+    </fieldset>
     <section className="rounded-2xl border border-[#dfe9e7] bg-white p-5"><h3 className="font-bold">Review & moderation</h3><p className="text-xs text-[#71847f]">Pending submissions are oldest first. Browse every page; private previews remain restricted to authorized users.</p>
       <div className="my-4 flex gap-4"><select aria-label="Banner status" disabled={busy} value={status} onChange={e => { setStatus(e.target.value); navigate([""]); }}>{["PENDING", "ACTIVE", "REJECTED", "DELETED", "EXPIRED", "ALL"].map(value => <option key={value}>{value}</option>)}</select><button disabled={busy || loading} onClick={() => { navigate([""]); refresh(n => n + 1); }}>Refresh</button></div>
       {loading && <p role="status">Loading banners…</p>}<div className="mt-4 space-y-4">{!loading && data.items.map(b => <article key={b.id} className="grid gap-4 rounded-xl border p-4 md:grid-cols-[180px_1fr_240px]">
       <img src={b.previewUrl} alt="Submitted room banner" className="h-28 w-full rounded-lg object-contain bg-slate-50"/>
-      <BannerTextEditor key={`${b.id}:${b.name}:${b.description}`} banner={b} busy={busy} save={save}/>
+      <BannerTextEditor key={`${b.id}:${b.name}:${b.description}`} banner={b} busy={busy || !canEdit} save={save}/>
       <div><p className="font-semibold">{b.room.title} <span className="text-xs">{b.room.roomId}</span></p><p className="text-sm">{b.owner.name} · {b.owner.publicId}</p><p className="text-sm">{b.status} · {b.coins} Coins · {b.durationDays} days</p>{b.expiresAt && <p className="text-xs">Expires {new Date(b.expiresAt).toLocaleString()}</p>}{b.reason && <p className="mt-2 text-sm text-red-700">{b.reason}</p>}{b.refundedAt && <p className="text-xs text-emerald-700">Refund completed</p>}</div>
-      {["PENDING", "ACTIVE"].includes(b.status) && <div className="space-y-2"><input className={input} aria-label="Moderation reason" placeholder="Reason for rejection/removal" maxLength={500} value={reasons[b.id] || ""} onChange={e => setReasons({ ...reasons, [b.id]: e.target.value })}/>{b.status === "PENDING" && <button disabled={busy} className="mr-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm text-white" onClick={() => save({ action: "APPROVE", bannerId: b.id, roomId: b.room.roomId })}>Approve</button>}<button disabled={busy || !reasons[b.id]?.trim()} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 disabled:opacity-50" onClick={() => save({ action: b.status === "PENDING" ? "REJECT" : "DELETE", bannerId: b.id, roomId: b.room.roomId, reason: reasons[b.id] })}>{b.status === "PENDING" ? "Reject & refund" : "Remove (no refund)"}</button></div>}
+      {["PENDING", "ACTIVE"].includes(b.status) && <div className="space-y-2"><input className={input} aria-label="Moderation reason" placeholder="Reason for rejection/removal" maxLength={500} value={reasons[b.id] || ""} onChange={e => setReasons({ ...reasons, [b.id]: e.target.value })}/>{b.status === "PENDING" && canEdit && <button disabled={busy} className="mr-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm text-white" onClick={() => save({ action: "APPROVE", bannerId: b.id, roomId: b.room.roomId })}>Approve</button>}<button disabled={busy || !reasons[b.id]?.trim() || (b.status === "PENDING" ? !canEdit : !canDelete)} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 disabled:opacity-50" onClick={() => save({ action: b.status === "PENDING" ? "REJECT" : "DELETE", bannerId: b.id, roomId: b.room.roomId, reason: reasons[b.id] })}>{b.status === "PENDING" ? "Reject & refund" : "Remove (no refund)"}</button></div>}
     </article>)}{!loading && !data.items.length && <p className="py-8 text-center text-sm text-[#71847f]">No submissions in this view.</p>}</div>
     <div className="mt-4 flex gap-4"><button disabled={busy || loading || pages.length < 2} onClick={() => navigate(pages.slice(0, -1))}>Previous</button><span>Page {pages.length}</span><button disabled={busy || loading || !data.nextCursor} onClick={() => navigate([...pages, data.nextCursor])}>Next</button></div></section>
   </div>;

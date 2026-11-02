@@ -15,7 +15,7 @@ beforeEach(() => {
 it("requires agency management permission before changing commission policy", async () => {
   mocks.permission.mockRejectedValue(Object.assign(new Error("Forbidden"), { status: 403 }));
   expect((await PUT(request(body))).status).toBe(403);
-  expect(mocks.permission).toHaveBeenCalledWith("agencies.manage");
+  expect(mocks.permission).toHaveBeenCalledWith("agencies.edit");
   expect(mocks.transaction).not.toHaveBeenCalled();
 });
 it("requires agency viewing permission for aggregate financial reports", async () => {

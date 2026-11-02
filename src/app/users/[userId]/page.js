@@ -1,3 +1,5 @@
+import { loadUserMessageHistory } from "@/lib/portal-user-history";
+import { PermissionGate } from "@/app/components/portal-access";
 import { requirePagePermission } from "@/lib/portal-admin";
 import { hasPermission } from "@/lib/portal-permissions";
 import Link from "next/link";
@@ -60,65 +62,8 @@ export default async function UserProfilePage({ params }) {
     },
   });
   if (!user) notFound();
-  const [messages, roomMessages, notifications, receivedGiftTotals, assetCatalog, specialIdCatalog] = await Promise.all([
-    prisma.message.findMany({
-      where: {
-        OR: [
-          {
-            conversation: {
-              kind: "DIRECT",
-              participants: { some: { userId: user.id } },
-            },
-          },
-          { conversation: { kind: "WORLD" }, senderId: user.id },
-        ],
-      },
-      select: {
-        publicId: true,
-        senderId: true,
-        body: true,
-        createdAt: true,
-        sender: { select: { publicId: true, name: true } },
-        conversation: {
-          select: {
-            publicId: true,
-            kind: true,
-            name: true,
-            participants: {
-              select: {
-                user: { select: { publicId: true, name: true } },
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    }),
-    prisma.audioRoomMessage.findMany({
-      where: { senderId: user.id },
-      select: {
-        publicId: true,
-        roomPublicId: true,
-        roomTitle: true,
-        body: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    }),
-    prisma.notification.findMany({
-      where: { OR: [{ userId: null }, { userId: user.id }] },
-      select: {
-        publicId: true,
-        title: true,
-        body: true,
-        createdAt: true,
-        userId: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
+  const [{messages, roomMessages, notifications}, receivedGiftTotals, assetCatalog, specialIdCatalog] = await Promise.all([
+    loadUserMessageHistory(prisma, admin, user.id),
     prisma.giftSettlement.aggregate({
       where: { giftTransaction: { recipientUserId: user.id } },
       _count: true,
@@ -163,7 +108,7 @@ export default async function UserProfilePage({ params }) {
   ]);
   const device = user.devices[0];
   const profile = {
-    actionAccess: Object.fromEntries(["users.edit", "users.verify", "hosts.manage", "finance.adjust", "users.props", "users.specialIds", "users.ban", "users.logout", "users.password", "users.delete", "vip.view"].map(key => [key, hasPermission(admin, key)])),
+    actionAccess: Object.fromEntries(["users.edit", "users.verify", "hosts.edit", "finance.adjust", "users.props", "users.specialIds", "users.ban", "users.logout", "users.password", "users.delete", "vip.view"].map(key => [key, hasPermission(admin, key)])),
     id: user.publicId,
     name: user.name,
     email: user.email,
@@ -334,13 +279,13 @@ export default async function UserProfilePage({ params }) {
           </div>
         </div>
         <ProfileManager profile={profile} type="user" />
-        <MessageHistory
+        {hasPermission(admin, "messages.view") && <PermissionGate permission="messages.view"><MessageHistory
           profile={{ id: user.publicId, name: user.name }}
           worldMessages={worldMessages}
           roomMessages={audioRoomMessages}
           directConversations={directConversations}
           notifications={notificationHistory}
-        />
+        /></PermissionGate>}
       </div>
       </section>
     </main>

@@ -18,12 +18,13 @@ export async function GET(request){try{
   return Response.json({success:true,data:{tiers:tiers.map(t=>({...t,coinPrice:t.coinPrice?.toString()??null})),total,page,assets,members,memberPage,memberTotal,privileges:VIP_PRIVILEGES}});
 }catch(error){return response(error)}}
 export async function POST(request){try{
-  const admin=await requirePermission("vip.manage"),body=await request.json();
+  const body=await request.json();
+  const action=body.action==="DELETE"?"delete":body.action==="GRANT"?"grant":body.action==="REVOKE"?"revoke":body.id?"edit":"create";
+  const admin=await requirePermission(`vip.${action}`);
   sameOrigin(request);
   const data=await prisma.$transaction(async tx=>{
     let row;
     if(body.action==="DELETE"){
-      if(admin.role!=="SUPER_ADMIN")throw Object.assign(new Error("Only Platform Admin can delete VIP tiers."),{status:403,code:"FORBIDDEN"});
       row=await tx.vipTier.findUnique({where:{id:String(body.id??"")}});
       if(!row)throw fail("VIP not found.",404);
       row=await tx.vipTier.update({where:{id:row.id},data:{archivedAt:row.archivedAt??new Date()}});

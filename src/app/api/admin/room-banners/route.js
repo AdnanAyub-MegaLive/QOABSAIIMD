@@ -16,9 +16,10 @@ export async function GET(request) {
   } catch (e) { return fail(e); }
 }
 export async function PATCH(request) {
-  const denied = await portalPermissionError("appearance.manage"); if (denied) return denied;
   try {
-    const actor = await requirePortalAdmin(), body = await request.json();
+    const body = await request.json();
+    const denied = await portalPermissionError(body.action === "DELETE" ? "appearance.delete" : "appearance.edit"); if (denied) return denied;
+    const actor = await requirePortalAdmin();
     if (body.action === "SETTINGS") {
       const data = validateBannerSettings(body);
       await prisma.$transaction(async tx => {

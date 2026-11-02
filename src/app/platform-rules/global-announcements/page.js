@@ -13,6 +13,6 @@ export default async function Page() {
     <Link href="/platform-rules" className="text-teal-700">← Rules &amp; Profit Split</Link>
     <h1 className="mt-6 text-3xl font-bold">Global Announcements</h1>
     <p className="my-4 text-slate-600">Public audio-room activity only. These settings control banners, not payouts, Lucky odds or balances. Saving applies to future activity only.</p>
-    <Settings initial={initial} canManage={hasPermission(admin, "rules.manage")} />
+    <Settings initial={initial} canManage={hasPermission(admin, "rules.edit")} />
   </div></main>;
 }

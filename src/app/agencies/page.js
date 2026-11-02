@@ -105,8 +105,8 @@ export default async function AgenciesPage() {
               salary activity.
             </p>
           </div>
-          {hasPermission(admin, "agencies.manage") && <CreateAgency />}
-          <AgencyTabs canManage={hasPermission(admin,"agencies.manage")} applications={applications} joinRequests={joinRequests} overview={overview} modules={agencyModules}/>
+          {hasPermission(admin, "agencies.create") && <CreateAgency />}
+          <AgencyTabs canManage={hasPermission(admin,"agencies.edit")} applications={applications} joinRequests={joinRequests} overview={overview} modules={agencyModules}/>
         </div>
       </section>
     </main>

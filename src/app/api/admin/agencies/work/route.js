@@ -26,7 +26,7 @@ export async function GET(request) {
 }
 export async function PUT(request) {
   try {
-    const admin=await requirePermission("agencies.manage");
+    const admin=await requirePermission("agencies.edit");
     const body=await request.json(),period=salaryMonth(body?.month);
     if(period.month!==new Date().toISOString().slice(0,7))throw Object.assign(new Error("Only the current UTC month's targets can be changed. Historical salary policies are preserved."),{status:422});
     let tiers;try{tiers=validateSalaryTiers(body?.tiers);}catch(error){throw Object.assign(error,{status:422});}

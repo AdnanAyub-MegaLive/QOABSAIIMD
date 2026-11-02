@@ -1,7 +1,7 @@
 import { portalPermissionError } from "@/lib/portal-admin";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { requirePortalAdmin } from "@/lib/portal-admin";
+import { requirePortalAdmin, requirePermission } from "@/lib/portal-admin";
 import { saveGame, serializeGame, GameError } from "@/lib/game-control/service";
 import { sameOrigin, jsonBody } from "@/lib/game-control/http";
 import { catalogGame } from "@/lib/game-control/catalog.mjs";
@@ -28,14 +28,14 @@ export async function GET(request) {
   } catch (error) { return failure(error); }
 }
 export async function POST(request) {
-  const permissionDenied = await portalPermissionError("roomGames.manage");
-  if (permissionDenied) return permissionDenied;
+
 
   try {
     sameOrigin(request);
     const admin = await requirePortalAdmin();
     if (!admin) throw new GameError("Administrator access is required.", 401);
     const body = await jsonBody(request);
+    await requirePermission(body.id ? "roomGames.edit" : "roomGames.create");
     const row = body.id ? await prisma.gameDefinition.findUnique({ where: { id: String(body.id) } }) : null;
     if (body.id && !row) throw new GameError("Game not found.", 404);
     const game = row ? serializeGame(row) : { id: `link-${randomUUID()}`, engine: "external" };

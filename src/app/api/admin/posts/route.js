@@ -22,7 +22,7 @@ export async function GET(request) {
 }
 export async function PATCH(request) {
   try {
-    const admin = await requirePermission("content.manage");
+    const admin = await requirePermission("content.edit");
     return json(await reviewPost(prisma, admin.id, await request.json()));
   } catch (error) { return fail(error); }
 }

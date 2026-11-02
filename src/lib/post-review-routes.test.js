@@ -21,8 +21,8 @@ it("denies unauthenticated admin queue and image access", async () => {
   for (const suffix of ["", "?image=PST-1"]) expect((await queue(new Request(`https://portal.test/api/admin/posts${suffix}`))).status).toBe(401);
   expect(db.post.findMany).not.toHaveBeenCalled(); expect(db.post.findUnique).not.toHaveBeenCalled();
 });
-it("requires content.manage before accepting a review", async () => {
+it("requires content.edit before accepting a review", async () => {
   permission.mockRejectedValue(Object.assign(new Error("Forbidden"), { status: 403, code: "FORBIDDEN" }));
   expect((await review(new Request("https://portal.test/api/admin/posts", { method: "PATCH", body: "{}" }))).status).toBe(403);
-  expect(permission).toHaveBeenCalledWith("content.manage");
+  expect(permission).toHaveBeenCalledWith("content.edit");
 });

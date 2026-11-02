@@ -48,3 +48,19 @@ it('pins database access to the designated email even if configuration changes',
   expect(isDatabaseOwner({...root,email:'other@example.com'},'other@example.com')).toBe(false);
   expect(isDatabaseOwner({...root,email:'admin@megachat.live',role:'STAFF'},'admin@megachat.live')).toBe(false);
 });
+
+it('an account editor cannot change grants without assign-permissions access',async()=>{
+ const editor={id:'editor',role:'MANAGER',active:true,sessionVersion:1,permissions:['accounts.view','accounts.edit','rooms.view','rooms.edit']};
+ const child={...staff,createdById:'editor',role:'STAFF',permissions:['rooms.view']};
+ tx.admin.findUnique.mockImplementation(async({where})=>where.id==='editor'?editor:child);
+ await expect(saveStaff(editor,{...body,permissions:['rooms.view','rooms.edit']})).rejects.toMatchObject({status:403});
+ expect(tx.admin.update).not.toHaveBeenCalled();
+});
+
+it('an account editor can update details while keeping existing grants',async()=>{
+ const editor={id:'editor',role:'MANAGER',active:true,sessionVersion:1,permissions:['accounts.view','accounts.edit','rooms.view']};
+ const child={...staff,createdById:'editor',permissions:['rooms.view']};
+ tx.admin.findUnique.mockImplementation(async({where})=>where.id==='editor'?editor:child);
+ await saveStaff(editor,{...body,permissions:['rooms.view']});
+ expect(tx.admin.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({permissions:['rooms.view'],sessionVersion:{increment:1}})}));
+});

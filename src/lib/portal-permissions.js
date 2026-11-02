@@ -1,3 +1,17 @@
+// Existing broad grants retain their old authority; new accounts can receive
+// individual actions. Export is always explicit and never inferred from View.
+export const granularActions = {
+ vip: ['create','edit','delete','grant','revoke'], hosts: ['edit'], agencies: ['create','edit'],
+ rules: ['edit'], uploads: ['create','edit'], rooms: ['edit'],
+ tasks: ['create','edit','delete'], envelopes: ['create','edit','delete'], appearance: ['edit','delete'],
+ roomGames: ['create','edit','delete'], games: ['edit'], video: ['edit'],
+ notifications: ['create','edit','delete'], content: ['edit','delete'], accounts: ['edit','permissions'],
+};
+export const legacyPermissionActions = Object.fromEntries(Object.entries(granularActions).filter(([group])=>group!=='users').map(([group,actions])=>[
+ `${group}.manage`, actions.filter(a=>a!=='export' && !(a==='delete'&&['vip','roomGames','notifications'].includes(group))).map(a=>`${group}.${a}`)
+]));
+export function assignedPermissions(values=[]) { return expandPermissions(values).filter(p=>!legacyPermissionActions[p]); }
+export function expandPermissions(values=[]) { return [...new Set(values.flatMap(p=>[p,...(legacyPermissionActions[p]??[])]))]; }
 // Shared vocabulary: every assignable key must have a server enforcement point.
 export const permissionGroups = [
   ["vip", "VIP Management", [["view", "View VIP tiers and memberships"], ["manage", "Create tiers and grant or revoke timed VIP memberships"]]],
@@ -8,7 +22,7 @@ export const permissionGroups = [
   ["finance", "Finance & Wallet", [["view", "View balances, ledger and reconciliation"], ["withdrawals", "Review withdrawals and record payouts"], ["adjust", "Adjust user wallet balances"], ["refunds", "Preview and execute recoverable gift refunds"]]],
   ["rules", "Rules & Profit Split", [["view", "View profit rules, levels, hierarchy and currency policies"], ["manage", "Change profit split, host rules and prohibited chat words"], ["levels", "Add, edit or remove Wealth / Charm XP levels"], ["hierarchy", "Manage reporting limits, CS teams, Country Head designations and draft salary targets"], ["currency", "Configure exchange, withdrawal valuation, commissions and currency rules"]]],
   ["uploads", "Uploads", [["view", "View Props, Gifts and supporting media"], ["manage", "Upload/edit props, gifts, XP, categories, User Tags, Profile BG and role rewards"], ["delete", "Delete uploaded assets"]]],
-  ["rooms", "Room Management", [["view", "View rooms, members, chat and moderation records"], ["manage", "Change settings, chat controls and room restrictions"]]],
+  ["rooms", "Room Management", [["view", "View rooms, members and moderation records (excludes message history)"], ["manage", "Change settings, chat controls and room restrictions"]]],
   ["tasks", "Daily Tasks", [["view", "View tasks and categories"], ["manage", "Change tasks, rewards and categories"]]],
   ["envelopes", "Red Envelopes", [["view", "View presets and limits"], ["manage", "Change presets and limits"]]],
   ["appearance", "Room Appearance", [["view", "View pricing, backgrounds and room banner submissions"], ["manage", "Change prices and review backgrounds and room banners"]]],
@@ -21,12 +35,12 @@ export const permissionGroups = [
   ["messages", "Message History", [["view", "View room and private message history (sensitive)"]]],
   ["audit", "Audit Logs", [["view", "View administrator activity"]]],
   ["accounts", "Accounts & Permissions", [["view", "View managed staff accounts"], ["create", "Create staff accounts"], ["manage", "Edit staff access and suspend/reactivate accounts"], ["reset", "Reset staff passwords / revoke sessions"]]],
-].map(([key, label, actions]) => ({ key, label, permissions: actions.map(([action, label]) => ({ key: `${key}.${action}`, label })) }));
+].map(([key, label, actions]) => ({ key, label, permissions: [...actions.map(([action, label]) => ({ key: `${key}.${action}`, label: action === "manage" ? "Full management (includes multiple actions)" : label })), ...(granularActions[key]??[]).filter(action=>!actions.some(([a])=>a===action)).map(action=>({key:`${key}.${action}`,label:({create:"Create new records",edit:"Edit existing records / settings",delete:"Delete / archive / retract",export:"Export CSV records",grant:"Grant VIP membership",revoke:"Revoke VIP membership",permissions:"Assign account permissions"})[action]}))] }));
 
 export const allPermissions = permissionGroups.flatMap(group => group.permissions.map(p => p.key));
 const knownPermissions = new Set(allPermissions);
 export function hasPermission(admin, permission) {
-  return Boolean(admin?.active && (admin.role === "SUPER_ADMIN" || admin.permissions?.includes(permission)));
+  return Boolean(admin?.active && (admin.role === "SUPER_ADMIN" || expandPermissions(admin.permissions).includes(permission)));
 }
 export function validatePermissions(value, actor) {
   if (!Array.isArray(value) || value.length > allPermissions.length || value.some(p => typeof p !== "string" || !knownPermissions.has(p)))

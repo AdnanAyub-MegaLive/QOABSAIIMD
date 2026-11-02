@@ -23,7 +23,7 @@ export async function GET() {
 }
 export async function POST(request) {
   try {
-    const admin = await requirePermission("uploads.manage");
+    const admin = await requirePermission("uploads.create");
     checkOrigin(request);
     // Bound the entire multipart body before parsing it (including chunked requests).
     const reader = request.body?.getReader();
@@ -50,7 +50,7 @@ export async function POST(request) {
 }
 export async function PATCH(request) {
   try {
-    const admin = await requirePermission("uploads.manage"); checkOrigin(request);
+    const admin = await requirePermission("uploads.edit"); checkOrigin(request);
     const { id, active } = await request.json();
     if (typeof id !== "string" || typeof active !== "boolean") throw apkError("Provide the APK ID and availability.");
     await prisma.$transaction(async tx => {

@@ -1,18 +1,18 @@
-import { allPermissions } from "./portal-permissions.js";
+import { allPermissions, expandPermissions } from "./portal-permissions.js";
 
 // Descendants can never retain authority withdrawn from their creating manager.
 export async function effectiveAdmin(db, id) {
   let current = await db.admin.findUnique({ where: { id } });
   if (!current?.active) return null;
   const admin = current;
-  let permissions = current.role === "SUPER_ADMIN" ? allPermissions : current.permissions;
+  let permissions = current.role === "SUPER_ADMIN" ? allPermissions : expandPermissions(current.permissions);
   const seen = new Set([id]);
   while (current.createdById) {
     if (seen.has(current.createdById) || seen.size > 32) return null;
     seen.add(current.createdById);
     current = await db.admin.findUnique({ where: { id: current.createdById } });
     if (!current?.active) return null;
-    if (current.role !== "SUPER_ADMIN") permissions = permissions.filter(p => current.permissions.includes(p));
+    if (current.role !== "SUPER_ADMIN") permissions = permissions.filter(p => expandPermissions(current.permissions).includes(p));
   }
   return { ...admin, permissions };
 }

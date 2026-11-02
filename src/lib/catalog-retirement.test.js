@@ -2,7 +2,7 @@ import {expect,it,vi} from 'vitest';
 import {retireCatalogItem} from './catalog-retirement.js';
 import {visibleGames} from './game-control/catalog.mjs';
 import {dispatchNotifications} from './action-notifications.js';
-const admin={id:'admin',role:'SUPER_ADMIN'};
+const admin={id:'admin',role:'SUPER_ADMIN',active:true};
 function fixture(){
  const row={id:'one',settings:{status:'active'},revision:7};
  const model={findUnique:vi.fn(async()=>row),update:vi.fn(async({data})=>Object.assign(row,data))};

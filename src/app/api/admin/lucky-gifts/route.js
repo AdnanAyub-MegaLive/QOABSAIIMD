@@ -28,7 +28,7 @@ export async function GET() {
 
 export async function PUT(request) {
   try {
-    const admin = await requirePermission("rules.manage");
+    const admin = await requirePermission("rules.edit");
     sameOrigin(request);
     const body = await jsonBody(request);
     const values = validateLuckyPolicy(body);
@@ -49,7 +49,7 @@ export async function PUT(request) {
 
 export async function POST(request) {
   try {
-    const admin = await requirePermission("rules.manage");
+    const admin = await requirePermission("rules.edit");
     sameOrigin(request);
     const body = await jsonBody(request);
     const coins = String(body?.coins ?? "").trim();

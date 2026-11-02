@@ -18,7 +18,7 @@ export async function GET(request){
 }
 export async function POST(request){
  try{
-  const admin=await requirePermission('roomGames.manage');sameOrigin(request);
+  const admin=await requirePermission('roomGames.create');sameOrigin(request);
   if(isRateLimited(`game-icons:${admin.id}`,{limit:10,windowMs:60000}))return Response.json({success:false,error:{message:'Too many uploads. Try again shortly.'}},{status:429});
   const file=await readAvatarFile(request,5*1024*1024);
   const bytes=await decodeGameIcon(file),publicId=`AST-${randomUUID()}`;

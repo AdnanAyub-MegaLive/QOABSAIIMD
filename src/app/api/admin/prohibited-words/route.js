@@ -17,7 +17,7 @@ export async function GET() {
 }
 export async function PUT(request) {
   try {
-    const admin = await requirePermission("rules.manage");
+    const admin = await requirePermission("rules.edit");
     sameOrigin(request);
     const input = await jsonBody(request);
     const words = validateProhibitedWords(input.words);

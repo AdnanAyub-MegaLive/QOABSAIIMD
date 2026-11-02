@@ -29,7 +29,7 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const permissionDenied = await portalPermissionError("video.manage");
+  const permissionDenied = await portalPermissionError("video.edit");
   if (permissionDenied) return permissionDenied;
 
   const admin = await requirePortalAdmin();

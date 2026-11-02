@@ -33,13 +33,13 @@ export default function MemberControls({ room, user, seat, roleOnly = false, onS
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <div className="mt-2 space-y-2">
-    <div className="flex flex-wrap gap-2">{actions.map(value => <PermissionButton key={value} permission="rooms.manage" disabled={busy} onClick={() => { setAction(value); setMessage(""); }} className="rounded-lg border px-2 py-1 text-xs">{labels[value]}</PermissionButton>)}</div>
+    <div className="flex flex-wrap gap-2">{actions.map(value => <PermissionButton key={value} permission="rooms.edit" disabled={busy} onClick={() => { setAction(value); setMessage(""); }} className="rounded-lg border px-2 py-1 text-xs">{labels[value]}</PermissionButton>)}</div>
     {action && <form onSubmit={submit} className="space-y-2 rounded-lg border bg-white p-3 text-xs">
       <p className="font-semibold">{labels[action]}: {user.name} ({user.publicId})?</p>
       {action === "ALLOW_MIC" && <p>The user stays muted until they choose to turn their microphone on.</p>}
       <label className="block">Reason<input required maxLength={300} value={reason} onChange={e => setReason(e.target.value)} className="mt-1 block w-full rounded border p-2" /></label>
       {action === "BAN" && <label className="block">Ban duration<select className="ml-2 rounded border p-1" value={duration} onChange={e => setDuration(e.target.value)}><option value="60">1 hour</option><option value="1440">24 hours</option><option value="10080">7 days</option><option value="0">Permanent</option></select></label>}
-      <PermissionButton permission="rooms.manage" type="submit" disabled={busy || !reason.trim()} className="rounded bg-[#183f3b] px-3 py-2 text-white">{busy ? "Saving…" : "Confirm"}</PermissionButton>
+      <PermissionButton permission="rooms.edit" type="submit" disabled={busy || !reason.trim()} className="rounded bg-[#183f3b] px-3 py-2 text-white">{busy ? "Saving…" : "Confirm"}</PermissionButton>
       <button type="button" disabled={busy} onClick={() => setAction("")} className="ml-2 p-2">Cancel</button>
     </form>}
     {message && <p role="status" className="text-xs text-amber-800">{message}</p>}

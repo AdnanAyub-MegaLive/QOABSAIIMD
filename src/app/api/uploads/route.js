@@ -216,7 +216,7 @@ function parseGrants(
 }
 
 export async function POST(request) {
-  const permissionDenied = await portalPermissionError("uploads.manage");
+  const permissionDenied = await portalPermissionError("uploads.create");
   if (permissionDenied) return permissionDenied;
 
   const session = await auth();
@@ -523,7 +523,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const permissionDenied = await portalPermissionError("uploads.manage");
+  const permissionDenied = await portalPermissionError("uploads.edit");
   if (permissionDenied) return permissionDenied;
 
   const session = await auth();

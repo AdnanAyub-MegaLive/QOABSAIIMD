@@ -6,7 +6,7 @@ import {sameOrigin} from "@/lib/game-control/http";
 import {customBackgroundReasons} from "@/lib/custom-background-reasons";
 
 export async function PATCH(request, { params }) {
-  const permissionDenied = await portalPermissionError("appearance.manage");
+  const permissionDenied = await portalPermissionError("appearance.edit");
   if (permissionDenied) return permissionDenied;
 
   const actor = await requirePortalAdmin();

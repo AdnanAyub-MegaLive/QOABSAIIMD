@@ -16,7 +16,7 @@ export async function GET(request) {
 }
 export async function PATCH(request) {
   try {
-    const admin = await requirePermission("content.manage"), body = await request.json();
+    const admin = await requirePermission("content.edit"), body = await request.json();
     if (typeof body.reportId !== "string" || !["OPEN", "REVIEWING", "RESOLVED", "DISMISSED"].includes(body.status) || typeof body.reviewNote !== "string" || body.reviewNote.length > 1000) return json({ error: { message: "Provide report ID, status and a review note up to 1,000 characters." } }, 422);
     await prisma.$transaction(async tx => {
       const report=await tx.safetyReport.findUnique({where:{publicId:body.reportId}});

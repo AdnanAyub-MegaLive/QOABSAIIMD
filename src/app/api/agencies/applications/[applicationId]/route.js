@@ -5,7 +5,7 @@ import { mobileApiError } from "@/lib/mobile-api";
 
 export async function PATCH(request, { params }) {
   try {
-    const admin = await requirePermission("agencies.manage");
+    const admin = await requirePermission("agencies.edit");
     const { applicationId } = await params;
     const body = await request.json();
     const data = await prisma.$transaction(tx => reviewAgency(tx, applicationId, body, { adminId: admin.id, name: admin.name }), { isolationLevel: "Serializable" });

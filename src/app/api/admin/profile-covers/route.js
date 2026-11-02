@@ -21,8 +21,9 @@ export async function GET(request) {
 }
 export async function PATCH(request) {
   try {
-    const admin = await requirePermission("content.manage"); sameOrigin(request);
+    sameOrigin(request);
     const { userId, revision, action, coverId } = await jsonBody(request);
+    const admin = await requirePermission(action === "DELETE" ? "content.delete" : "content.edit");
     if (typeof userId !== "string" || typeof revision !== "string" || !["APPROVE","REJECT","DELETE"].includes(action)) return Response.json({success:false},{status:422});
     await prisma.$transaction(async tx => {
       const model=coverId?tx.profileCoverItem:tx.profileCover,where={userId,revision,...(coverId?{id:coverId}:{})};

@@ -25,7 +25,7 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const permissionDenied = await portalPermissionError("rooms.manage");
+  const permissionDenied = await portalPermissionError("rooms.edit");
   if (permissionDenied) return permissionDenied;
 
   const admin=await requirePortalAdmin();if(!admin)return unauthorized();const body=await request.json();const room=await prisma.audioRoom.findUnique({where:{roomId:String(body?.roomId??"")}});if(!room)return Response.json({success:false,error:{code:"ROOM_NOT_FOUND",message:"Room not found."}},{status:404});const action=String(body?.action??"").toUpperCase();let data={revision:{increment:1}};
@@ -35,7 +35,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request){
-  const permissionDenied = await portalPermissionError("rooms.manage");
+  const permissionDenied = await portalPermissionError("rooms.edit");
   if (permissionDenied) return permissionDenied;
   const admin=await requirePortalAdmin();if(!admin)return unauthorized();
   const id=new URL(request.url).searchParams.get("banId");

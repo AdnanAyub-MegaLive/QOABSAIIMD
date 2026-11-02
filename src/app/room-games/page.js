@@ -1,3 +1,4 @@
+import { hasPermission } from '@/lib/portal-permissions';
 import { requirePagePermission } from "@/lib/portal-admin";
 import RoomManagementShell from "../components/room-management-shell";
 import { redirect } from "next/navigation";
@@ -7,5 +8,5 @@ import RoomGames from "./room-games";
 export default async function Page() {
   const admin = await requirePagePermission("roomGames.view");
   if (!await requirePortalAdmin()) redirect("/");
-  return <RoomManagementShell title="Room Games"><RoomGames canArchive={admin.role==='SUPER_ADMIN'} /></RoomManagementShell>;
+  return <RoomManagementShell title="Room Games"><RoomGames canCreate={hasPermission(admin,"roomGames.create")} canEdit={hasPermission(admin,"roomGames.edit")} canArchive={hasPermission(admin,"roomGames.delete")} /></RoomManagementShell>;
 }

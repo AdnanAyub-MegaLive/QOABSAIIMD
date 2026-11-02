@@ -27,7 +27,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const permissionDenied = await portalPermissionError("appearance.manage");
+  const permissionDenied = await portalPermissionError("appearance.edit");
   if (permissionDenied) return permissionDenied;
 
   try {
@@ -41,7 +41,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const permissionDenied = await portalPermissionError("appearance.manage");
+  const permissionDenied = await portalPermissionError("appearance.edit");
   if (permissionDenied) return permissionDenied;
 
   try {

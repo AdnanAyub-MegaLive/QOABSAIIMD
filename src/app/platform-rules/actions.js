@@ -7,7 +7,7 @@ import { getProfitSplitRule, validateProfitSplit } from "../../lib/profit-rules"
 
 
 export async function updateProfitSplit(input) {
-  const admin = await requirePermission("rules.manage");
+  const admin = await requirePermission("rules.edit");
   const values = validateProfitSplit(input);
   const previous = await getProfitSplitRule();
   const rule = await prisma.$transaction(async (tx) => {
@@ -49,7 +49,7 @@ export async function updateProfitSplit(input) {
 }
 
 export async function assignHostToAgency({ subject, agencyId, reason }) {
-  const admin = await requirePermission("agencies.manage");
+  const admin = await requirePermission("agencies.edit");
   const [kind, publicId] = String(subject ?? "").split(":");
   const note = String(reason ?? "").trim().slice(0, 500);
   if (!publicId || !["USER", "TALENT"].includes(kind) || !agencyId || !note)

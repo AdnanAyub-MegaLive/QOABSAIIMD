@@ -28,7 +28,7 @@ it("denies unauthorized setting edits", async () => {
 });
 it("requires same origin and manage permission; logs config edits only", async () => {
   expect((await PUT(request({ ...announcementDefaults, revision: 0 }))).status).toBe(200);
-  expect(state.permission).toHaveBeenCalledWith("rules.manage");
+  expect(state.permission).toHaveBeenCalledWith("rules.edit");
   expect(state.origin).toHaveBeenCalledOnce();
   expect(state.db.globalAnnouncementPolicy.create).toHaveBeenCalledOnce();
   expect(state.db.auditLog.create).toHaveBeenCalledOnce();

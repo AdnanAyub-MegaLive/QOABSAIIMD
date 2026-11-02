@@ -68,7 +68,7 @@ export async function updateUserAccount(publicId, changes) {
   const admin = await requirePermission("users.edit");
   if (changes.status !== undefined) await requirePermission("users.ban");
   if (changes.isOfficial !== undefined || changes.isVerified !== undefined) await requirePermission("users.verify");
-  if (changes.role !== undefined || changes.roles !== undefined) await requirePermission("hosts.manage");
+  if (changes.role !== undefined || changes.roles !== undefined) await requirePermission("hosts.edit");
   const currentUser = await prisma.user.findUnique({
     where: { publicId },
     select: {
@@ -223,7 +223,7 @@ export async function updateUserAccount(publicId, changes) {
 }
 
 export async function updateTalentAccount(publicId, changes) {
-  const admin = await requirePermission("hosts.manage");
+  const admin = await requirePermission("hosts.edit");
   if (changes.salary !== undefined) await requirePermission("hosts.salary");
   const talent = await prisma.talent.findUniqueOrThrow({ where: { publicId } });
   const data = {};
@@ -294,7 +294,7 @@ export async function updateTalentAccount(publicId, changes) {
 }
 
 export async function managePortalHost(publicId, changes) {
-  const admin = await requirePermission("hosts.manage");
+  const admin = await requirePermission("hosts.edit");
   const user = await prisma.user.findUniqueOrThrow({
     where: { publicId },
     select: {
@@ -913,7 +913,7 @@ export async function controlAudioRoom(
   reason,
   durationMinutes,
 ) {
-  const admin = await requirePermission("rooms.manage");
+  const admin = await requirePermission("rooms.edit");
   await reconcileExpiredAudioRoomRestrictions(roomId);
   const room = await prisma.audioRoom.findUniqueOrThrow({
     where: { roomId },

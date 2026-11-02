@@ -39,7 +39,7 @@ async function audit(tx, admin, action, entityId, metadata) {
 }
 
 export async function POST(request) {
-  const permissionDenied = await portalPermissionError("envelopes.manage");
+  const permissionDenied = await portalPermissionError("envelopes.create");
   if (permissionDenied) return permissionDenied;
 
   try {
@@ -54,7 +54,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const permissionDenied = await portalPermissionError("envelopes.manage");
+  const permissionDenied = await portalPermissionError("envelopes.edit");
   if (permissionDenied) return permissionDenied;
 
   try {
@@ -86,7 +86,7 @@ async function enforceCurrentLimits(data) {
 }
 
 export async function DELETE(request) {
-  const permissionDenied = await portalPermissionError("envelopes.manage");
+  const permissionDenied = await portalPermissionError("envelopes.delete");
   if (permissionDenied) return permissionDenied;
 
   try {

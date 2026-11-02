@@ -6,7 +6,7 @@ import { sameOrigin, jsonBody, failure, gameJson } from "@/lib/game-control/http
 import {previewRound} from "@/lib/game-control/shared-preview";
 export const runtime = "nodejs";
 export async function POST(request) {
-  const permissionDenied = await portalPermissionError((await request.clone().json().catch(() => ({})))?.action === "saveGame" ? "games.manage" : "games.view");
+  const permissionDenied = await portalPermissionError((await request.clone().json().catch(() => ({})))?.action === "saveGame" ? "games.edit" : "games.view");
   if (permissionDenied) return permissionDenied;
 
   try {

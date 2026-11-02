@@ -5,7 +5,7 @@ import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 import { mobileApiError } from "@/lib/mobile-api";
 export async function PATCH(request, context) {
   try {
-    const admin = await requirePermission("agencies.manage");
+    const admin = await requirePermission("agencies.edit");
     const { agencyId } = await context.params;
     const body = await request.json();
     const bd = await prisma.$transaction(async tx => {

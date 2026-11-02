@@ -13,7 +13,7 @@ export async function GET() {
 }
 export async function PUT(request) {
   try {
-    const admin = await requirePermission("notifications.manage"); sameOrigin(request);
+    const admin = await requirePermission("notifications.edit"); sameOrigin(request);
     const input = await jsonBody(request);
     const title = typeof input.welcomeTitle === "string" ? input.welcomeTitle.trim() : "";
     const body = typeof input.welcomeBody === "string" ? input.welcomeBody.trim() : "";

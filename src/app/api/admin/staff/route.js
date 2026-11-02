@@ -22,7 +22,7 @@ export async function GET() {
     }
     const logs = await prisma.auditLog.findMany({ where: { category: "ACCESS_MANAGEMENT", entityId: { in: accounts.map(a => a.id) } },
       select: { id: true, action: true, description: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 50 });
-    return Response.json({ success: true, data: { actor, accounts, logs, groups: permissionGroups, templates: permissionTemplates } }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ success: true, data: { actor, accounts, logs, groups: permissionGroups.map(g=>({...g,permissions:g.permissions.filter(p=>!p.key.endsWith(".manage"))})), templates: permissionTemplates } }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 export async function POST(request) {

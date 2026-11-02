@@ -14,5 +14,5 @@ export default async function NotificationsManagementPage() {
   const settings = await prisma.notificationSettings.findUnique({ where: { id: "GLOBAL" } }) ?? welcomeDefaults;
   const session = await auth();
   if (!session?.user) redirect("/");
-  return <RoomManagementShell title="Notification Center"><WelcomeSettings initial={{welcomeEnabled:settings.welcomeEnabled,welcomeTitle:settings.welcomeTitle,welcomeBody:settings.welcomeBody,revision:settings.revision}} canManage={hasPermission(admin,"notifications.manage")}/><NotificationManager/><NotificationRecords canRetract={admin.role==='SUPER_ADMIN'}/></RoomManagementShell>;
+  return <RoomManagementShell title="Notification Center"><WelcomeSettings initial={{welcomeEnabled:settings.welcomeEnabled,welcomeTitle:settings.welcomeTitle,welcomeBody:settings.welcomeBody,revision:settings.revision}} canManage={hasPermission(admin,"notifications.edit")}/><NotificationManager canCreate={hasPermission(admin,"notifications.create")}/><NotificationRecords canRetract={hasPermission(admin,"notifications.delete")}/></RoomManagementShell>;
 }

@@ -5,7 +5,7 @@ import { mobileApiError } from "@/lib/mobile-api";
 
 export async function POST(request) {
   try {
-    const admin = await requirePermission("agencies.manage");
+    const admin = await requirePermission("agencies.create");
     const body = await request.json();
     const agency = await prisma.$transaction(tx => grantAgency(tx, body, { adminId: admin.id, name: admin.name }), { isolationLevel: "Serializable" });
     return Response.json({ success: true, data: { agency } }, { status: 201 });

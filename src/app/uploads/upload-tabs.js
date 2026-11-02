@@ -39,7 +39,7 @@ function bannerPlacementLabel(value) {
   return bannerPlacements.find(([placement]) => placement === value)?.[1] ?? value;
 }
 
-export default function UploadTabs({ initialUploads, users, canManageApks = false, canArchive = false, canPermanentlyDelete = false }) {
+export default function UploadTabs({ initialUploads, users, canCreate = false, canEdit = false, canArchive = false, canPermanentlyDelete = false }) {
   const [section, setSection] = useState("Props");
   const [active, setActive] = useState(UPLOAD_SECTIONS.Props[0]);
   const [query, setQuery] = useState("");
@@ -128,7 +128,7 @@ export default function UploadTabs({ initialUploads, users, canManageApks = fals
           ))}
         </div>
       </div>
-      {active === "APK" ? <ApkManager canManage={canManageApks} canArchive={canArchive} /> : <section role="tabpanel">
+      {active === "APK" ? <ApkManager canCreate={canCreate} canManage={canEdit} canArchive={canArchive} /> : <section role="tabpanel">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-bold">{active}</h3>
@@ -138,6 +138,7 @@ export default function UploadTabs({ initialUploads, users, canManageApks = fals
           </div>
           <button
             type="button"
+            disabled={!canCreate}
             onClick={() => {
               setError("");
               setUploadOpen(true);
@@ -161,11 +162,11 @@ export default function UploadTabs({ initialUploads, users, canManageApks = fals
                 item={item}
                 eager={index < 4}
                 onPermanentDelete={canPermanentlyDelete ? () => setUploads(current => current.filter(row => row.id !== item.id)) : null}
-                onManage={() => {
+                onManage={!canEdit?null:() => {
                   setError("");
                   setManagedAsset(item);
                 }}
-                onDelete={() => {
+                onDelete={!canArchive?null:() => {
                   setError("");
                   setDeleteTarget(item);
                 }}
@@ -289,14 +290,14 @@ function PreviewCard({ item, eager, onManage, onDelete, onPermanentDelete }) {
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={onManage}
+            disabled={!onManage} onClick={onManage}
             className="rounded-lg bg-[#e7f5f2] px-3 py-2.5 text-[10px] font-bold text-[#087f74] hover:bg-[#d8eeea]"
           >
             Manage
           </button>
           <button
             type="button"
-            onClick={onDelete}
+            disabled={!onDelete} onClick={onDelete}
             className="rounded-lg border border-rose-200 px-3 py-2.5 text-[10px] font-bold text-rose-700 hover:bg-rose-50"
           >
             Archive

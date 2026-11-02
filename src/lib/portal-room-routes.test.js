@@ -17,9 +17,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 const post = () => POST(new Request("https://portal.test/api/admin/room-management/controls", { method: "POST", body: JSON.stringify({ action: "FORCE_MUTE" }) }));
-it("requires rooms.manage before any control mutation", async () => {
+it("requires rooms.edit before any control mutation", async () => {
   mocks.permission.mockRejectedValue({ status: 403, code: "FORBIDDEN", message: "Denied" });
-  expect((await post()).status).toBe(403); expect(mocks.permission).toHaveBeenCalledWith("rooms.manage"); expect(mocks.apply).not.toHaveBeenCalled();
+  expect((await post()).status).toBe(403); expect(mocks.permission).toHaveBeenCalledWith("rooms.edit"); expect(mocks.apply).not.toHaveBeenCalled();
 });
 it("refuses controls when realtime enforcement is unavailable", async () => {
   vi.stubGlobal("portalIo", null); expect((await post()).status).toBe(503); expect(mocks.apply).not.toHaveBeenCalled();

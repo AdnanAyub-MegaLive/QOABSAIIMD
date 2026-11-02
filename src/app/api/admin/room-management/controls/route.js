@@ -10,7 +10,7 @@ import { requestOrigin } from "@/lib/user-perks";
 export async function POST(request) {
   let result;
   try {
-    const admin = await requirePermission("rooms.manage");
+    const admin = await requirePermission("rooms.edit");
     let body;
     try { body = await request.json(); } catch { return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid JSON request." } }, { status: 422 }); }
     if (!globalThis.portalIo || !globalThis.portalRemoveFromAudioRoom || !globalThis.portalSyncAudioRoomRemoval)

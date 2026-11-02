@@ -28,7 +28,7 @@ export async function DELETE(request) {
 }
 
 export async function POST(request) {
-  const permissionDenied = await portalPermissionError("notifications.manage");
+  const permissionDenied = await portalPermissionError("notifications.create");
   if (permissionDenied) return permissionDenied;
 
   const admin = await requirePortalAdmin();

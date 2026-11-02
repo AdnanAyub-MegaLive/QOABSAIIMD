@@ -17,7 +17,7 @@ export async function GET() {
 }
 export async function PUT(request) {
   try {
-    const admin = await requirePermission("rules.manage");
+    const admin = await requirePermission("rules.edit");
     sameOrigin(request);
     const body = await jsonBody(request), values = validateAnnouncementPolicy(body);
     if (!Number.isSafeInteger(body.revision) || body.revision < 0) throw Object.assign(new Error("Invalid settings revision."), { status: 422, code: "VALIDATION_ERROR" });

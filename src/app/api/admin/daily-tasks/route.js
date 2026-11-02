@@ -73,7 +73,7 @@ async function audit(tx, admin, action, entityType, entityId, metadata) {
 }
 
 export async function POST(request) {
-  const permissionDenied = await portalPermissionError("tasks.manage");
+  const permissionDenied = await portalPermissionError("tasks.create");
   if (permissionDenied) return permissionDenied;
 
   try {
@@ -117,7 +117,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const permissionDenied = await portalPermissionError("tasks.manage");
+  const permissionDenied = await portalPermissionError("tasks.edit");
   if (permissionDenied) return permissionDenied;
 
   try {
@@ -175,7 +175,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-  const permissionDenied = await portalPermissionError("tasks.manage");
+  const permissionDenied = await portalPermissionError("tasks.delete");
   if (permissionDenied) return permissionDenied;
   try {
     const admin = await requireAdmin();

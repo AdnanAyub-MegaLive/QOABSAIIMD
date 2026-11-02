@@ -24,7 +24,7 @@ it("requires authentication before reading the list", async () => {
 it("requires management permission before changing the list", async () => {
   mocks.requirePermission.mockRejectedValue(Object.assign(new Error("Forbidden"), { status: 403, code: "FORBIDDEN" }));
   expect((await PUT(request({ words: [], revision: 0 }))).status).toBe(403);
-  expect(mocks.requirePermission).toHaveBeenCalledWith("rules.manage");
+  expect(mocks.requirePermission).toHaveBeenCalledWith("rules.edit");
   expect(mocks.transaction).not.toHaveBeenCalled();
 });
 it("rejects untrusted origins", async () => {
