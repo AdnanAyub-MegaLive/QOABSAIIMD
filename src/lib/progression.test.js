@@ -23,7 +23,8 @@ it("computes exact boundaries and maximum without floating-point amount conversi
 it("rejects unapproved, duplicate or non-increasing rules",()=>{
   const input={enabled:false,rules:[],levels:[{track:"USER",level:0,thresholdPoints:"0",benefits:[]},{track:"CHARM",level:0,thresholdPoints:"0",benefits:[]}]};
   expect(validateProgressionConfig(input).enabled).toBe(false);
-  expect(()=>validateProgressionConfig({...input,enabled:true})).toThrow();
+  expect(validateProgressionConfig({...input,enabled:true}).rules).toHaveLength(12);
+  expect(validateProgressionConfig(input).rules).toHaveLength(12);
   expect(()=>validateProgressionConfig({...input,levels:[...input.levels,{track:"USER",level:1,thresholdPoints:"0",benefits:[]}]})).toThrow();
 });
 it("fingerprints recipient sets and rejects conflicting retries",async()=>{

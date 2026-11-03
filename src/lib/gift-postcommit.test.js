@@ -14,6 +14,7 @@ it('snapshots each multi-recipient Lucky reward instead of the aggregate',async(
  recordGiftRecovery.mockClear();
  await runGiftOperation('multi-recovery',{key:'multi-recovery',fingerprint:'fp'},async()=>({transactionIds:['a','b'],luckyRewardCoins:'300',recipients:[{transactionId:'a',luckyRewardCoins:'100'},{transactionId:'b',luckyRewardCoins:'200'}]}),db);
  expect(recordGiftRecovery.mock.calls.map(c=>c[2].luckyCoins)).toEqual([100n,200n]);
+ expect(recordGiftRecovery.mock.calls.map(c=>c[2].announcementRecipients)).toEqual([{firstGiftId:"a",count:2},{firstGiftId:"a",count:2}]);
 });
 afterEach(() => { delete globalThis.portalIo; });
 it('coordinates shared recipients and agencies using resolved IDs', () => {

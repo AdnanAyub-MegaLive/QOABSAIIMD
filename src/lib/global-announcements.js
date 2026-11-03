@@ -1,3 +1,5 @@
+import { equippedProfileAssets } from "./profile-display-assets.js";
+import { avatarDisplayUrl } from "./avatar-history.js";
 import { Prisma } from "@prisma/client";
 import { qualifiesForAnnouncement } from "./global-announcement-policy.js";
 
@@ -90,10 +92,25 @@ export function isPublicAnnouncementRoom(room) {
     !room.isBlocked && !room.joiningDisabled && !room.endedAt && !room.paidEntryCoins);
 }
 
+const announcementPerson = { id: true, publicId: true, name: true, profileImage: true, status: true, deletedAt: true };
+
+// Resolve committed source identities in the worker, never in the send hot path.
+async function giftAnnouncementRecipient(db, row) {
+  const snapshot = await db.giftRecoverySnapshot.findUnique({ where: { giftId: row.sourceIds[0] }, select: { data: true } });
+  const group = snapshot?.data?.announcementRecipients;
+  const grouped = group && Number.isSafeInteger(group.count) && group.count > 1 && group.count <= 26 && typeof group.firstGiftId === "string";
+  const gift = await db.giftTransaction.findUnique({ where: { id: grouped ? group.firstGiftId : row.sourceIds[0] },
+    select: { senderId: true, roomId: true, recipientUser: { select: announcementPerson }, talent: { select: { publicId: true } } } });
+  if (!gift || gift.senderId !== row.actorId || gift.roomId !== row.roomId) return null;
+  const person = gift.recipientUser ?? (gift.talent?.publicId
+    ? await db.user.findUnique({ where: { publicId: gift.talent.publicId }, select: announcementPerson }) : null);
+  return person ? { person, count: grouped ? group.count : 1 } : null;
+}
+
 async function announcementAudience(db, row, io, now, getSockets) {
   const [room, actor, policy] = await Promise.all([
     db.audioRoom.findUnique({ where: { roomId: row.roomId }, select:{id:true,roomId:true,ownerId:true,status:true,privacyMode:true,passwordHash:true,isBlocked:true,joiningDisabled:true,endedAt:true,paidEntryCoins:true} }),
-    db.user.findUnique({ where: { id: row.actorId }, select: { id: true, publicId: true, name: true, status: true, deletedAt: true } }),
+    db.user.findUnique({ where: { id: row.actorId }, select: announcementPerson }),
     db.globalAnnouncementPolicy.findUnique({ where: { id: "GLOBAL" } }),
   ]);
   if (!isPublicAnnouncementRoom(room) || !actor || actor.status !== "ACTIVE" || actor.deletedAt ||
@@ -103,9 +120,11 @@ async function announcementAudience(db, row, io, now, getSockets) {
     const count = await db.sharedGameEntry.count({ where: { id: { in: row.sourceIds }, status: "SETTLED", input: { path: ["currency"], equals: "COINS" } } });
     if (count !== row.sourceIds.length) return null;
   } else if (await db.giftTransaction.count({ where: { id: { in: row.sourceIds }, reversedAt: null } }) !== row.sourceIds.length) return null;
+  const recipient = row.type === "GAME_WIN" ? null : await giftAnnouncementRecipient(db, row);
+  if (row.type !== "GAME_WIN" && (!recipient || recipient.person.status !== "ACTIVE" || recipient.person.deletedAt)) return null;
   const sockets = await getSockets();
   const ids = [...new Set(sockets.map(s => s.data.internalUserId).filter(Boolean))];
-  const subjects = [...new Set([row.actorId, room.ownerId])];
+  const subjects = [...new Set([row.actorId, room.ownerId, ...(recipient ? [recipient.person.id] : [])])];
   const [users, blocks, bans, roomBans] = await Promise.all([
     db.user.findMany({ where: { id: { in: [...ids, ...subjects] }, status: "ACTIVE", deletedAt: null }, select: { id: true, sessionVersion: true, companyBdCountry: true } }),
     db.userBlock.findMany({ where: { OR: [{ blockerId: { in: subjects } }, { blockedId: { in: subjects } }] }, select: { blockerId: true, blockedId: true } }),
@@ -120,7 +139,13 @@ async function announcementAudience(db, row, io, now, getSockets) {
     if (subjects.includes(b.blockerId)) hidden.add(b.blockedId);
     if (subjects.includes(b.blockedId)) hidden.add(b.blockerId);
   }
-  return { actor: { publicId: actor.publicId, name: actor.name }, roomId: room.roomId,
+  const origin = process.env.MOBILE_API_BASE_URL || process.env.AUTH_URL;
+  const people = recipient ? [actor, recipient.person] : [actor];
+  const artwork = await equippedProfileAssets(people, origin, db);
+  const identity = person => ({ publicId: person.publicId, name: person.name,
+    profileImage: avatarDisplayUrl(person.profileImage, origin), frameUrl: artwork.get(person.id)?.avatarFrame?.url ?? null });
+  return { actor: identity(actor), recipient: recipient ? identity(recipient.person) : null,
+    recipientCount: recipient?.count, roomId: room.roomId,
     sockets: sockets.filter(s => allowed.get(s.data.internalUserId)?.sessionVersion === s.data.sessionVersion &&
       allowed.has(s.data.internalUserId) && !hidden.has(s.data.internalUserId)) };
 }
@@ -144,6 +169,7 @@ export async function dispatchAnnouncements(db, io, now = new Date()) {
     const audience = await announcementAudience(db, row, io, now, getSockets);
     if (audience && row.expiresAt > new Date() && !emitted.has(row.id)) {
       const data = { ...row.payload, announcementId: row.id, actor: audience.actor, roomId: audience.roomId,
+        ...(audience.recipient ? { recipient: audience.recipient, recipientCount: audience.recipientCount } : {}),
         expiresAt: row.expiresAt.toISOString(), serverTime: new Date().toISOString() };
       // Per authenticated socket, not io.emit: do not leak blocked identities.
       for (const socket of audience.sockets) socket.emit(ANNOUNCEMENT_EVENT, { success: true, data });

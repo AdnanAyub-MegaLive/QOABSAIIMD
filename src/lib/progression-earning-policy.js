@@ -2,6 +2,7 @@
 export function giftXpEarningRules() {
   return ['PAID', 'BACKPACK', 'LUCKY', 'BLIND_BOX'].flatMap(source => [
     { track: 'USER', source, recipientType: 'ANY', basis: 'GIFT_XP', allowSelf: true, numerator: '1', denominator: '1', description: 'Configured Sender XP per gift × quantity. Self-gifts included.' },
+    { track: 'CHARM', source, recipientType: 'NORMAL_USER', basis: 'GIFT_XP', allowSelf: true, numerator: '1', denominator: '1', description: 'Configured Receiver XP per gift × quantity for normal users. Self-gifts included.' },
     { track: 'CHARM', source, recipientType: 'HOST', basis: 'GIFT_XP', allowSelf: true, numerator: '1', denominator: '1', description: 'Configured Receiver XP per gift × quantity for Hosts/Talents with a linked account, plus self-gifts by any user.' },
   ]);
 }

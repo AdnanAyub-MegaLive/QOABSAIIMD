@@ -20,7 +20,9 @@ function fixture() {
     userBlock: { findMany: vi.fn().mockResolvedValue([{ blockerId: "blocked", blockedId: "actor" }]) },
     ban: { findMany: vi.fn().mockResolvedValue([{ userId: "banned" }]) },
     audioRoomBan: { findMany: vi.fn().mockResolvedValue([]) },
-    giftTransaction: { count: vi.fn().mockResolvedValue(1) },
+    userEquippedProp: { findMany: vi.fn().mockResolvedValue([]) },
+    giftRecoverySnapshot: { findUnique: vi.fn().mockResolvedValue(null) },
+    giftTransaction: { count: vi.fn().mockResolvedValue(1), findUnique: vi.fn().mockResolvedValue({ senderId: "actor", roomId: "ROOM-1", recipientUser: { id: "owner", publicId: "USR-2", name: "Receiver", status: "ACTIVE", profileImage: "https://media.example/receiver.png" } }) },
     sharedGameEntry: { count: vi.fn().mockResolvedValue(1) },
     $queryRaw: vi.fn().mockResolvedValueOnce([{ locked: true }]).mockResolvedValue([]),
   };
@@ -63,7 +65,7 @@ describe("source and visibility safeguards", () => {
     expect(f.sockets[2].emit).toHaveBeenCalledOnce();
     for (const i of [3, 4, 5]) expect(f.sockets[i].emit).not.toHaveBeenCalled();
     const payload = f.sockets[2].emit.mock.calls[0][1];
-    expect(payload.data.actor).toEqual({ publicId: "USR-1", name: "QA" });
+    expect(payload.data.actor).toEqual({ publicId: "USR-1", name: "QA", profileImage: null, frameUrl: null });
     expect(payload.data.sourceIds).toBeUndefined();
   });
   it("does not broadcast reversed gifts", async () => {
@@ -148,4 +150,54 @@ it("continues to healthy pending rows after a failed full batch", async () => {
   await runGlobalAnnouncements(f.db,f.io);
   expect(f.db.globalAnnouncement.findMany).toHaveBeenCalledTimes(2);
   expect(f.sockets[2].emit).toHaveBeenCalledOnce();
+});
+
+
+describe("announcement recipient artwork", () => {
+  it.each(["BIG_GIFT", "LUCKY_RETURN"])("includes the first recipient and count for %s without exposing source IDs", async type => {
+    const f = fixture(); f.row.id = `artwork-${type}`; f.row.type = type;
+    f.db.giftRecoverySnapshot.findUnique.mockResolvedValue({ data: { announcementRecipients: { firstGiftId: "first", count: 26 } } });
+    f.db.userEquippedProp.findMany.mockResolvedValue([{userId:"owner",category:"FRAMES",asset:{publicId:"AST-frame",category:"FRAMES",isGlobal:true,mimeType:"image/png",assignments:[]}}]);
+    f.db.uploadAsset = {findMany:vi.fn().mockResolvedValue([{publicId:"AST-frame",category:"FRAMES",mimeType:"image/png",mediaVersion:"v2"}])};
+    vi.stubEnv("MOBILE_API_BASE_URL", "https://portal.megachat.live");
+    vi.stubEnv("AUTH_SECRET", "test-only-announcement-signing-key");
+    try {
+      await dispatchAnnouncements(f.db, f.io, f.now);
+      const data = f.sockets[2].emit.mock.calls[0][1].data;
+      expect(data.recipient).toMatchObject({publicId:"USR-2",name:"Receiver",profileImage:"https://media.example/receiver.png"});
+      expect(data.recipient.frameUrl).toContain("/api/uploads/AST-frame/file?");
+      expect(data.recipient.frameUrl).toContain("displaySig=");
+      expect(data.recipientCount).toBe(26);
+      expect(f.db.giftTransaction.findUnique.mock.calls[0][0].where.id).toBe("first");
+      expect(JSON.stringify(data)).not.toContain("firstGiftId");
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it("hides a recipient from viewers who blocked them", async () => {
+    const f=fixture(); f.row.id="recipient-block";
+    f.db.userBlock.findMany.mockResolvedValue([{blockerId:"viewer",blockedId:"owner"}]);
+    await dispatchAnnouncements(f.db,f.io,f.now);
+    expect(f.sockets[2].emit).not.toHaveBeenCalled();
+  });
+  it("resolves legacy talent recipients to their mapped public user", async () => {
+    const f=fixture(); f.row.id="legacy-recipient";
+    f.db.giftTransaction.findUnique.mockResolvedValue({senderId:"actor",roomId:"ROOM-1",recipientUser:null,talent:{publicId:"TLN-2"}});
+    f.db.user.findUnique.mockResolvedValueOnce({id:"actor",publicId:"USR-1",name:"Sender",status:"ACTIVE"}).mockResolvedValueOnce({id:"owner",publicId:"TLN-2",name:"Talent",status:"ACTIVE"});
+    await dispatchAnnouncements(f.db,f.io,f.now);
+    expect(f.sockets[2].emit.mock.calls[0][1].data.recipient.publicId).toBe("TLN-2");
+  });
+  it("suppresses missing recipients instead of exposing a different identity", async () => {
+    const f=fixture(); f.row.id="missing-recipient"; f.db.giftTransaction.findUnique.mockResolvedValue(null);
+    await dispatchAnnouncements(f.db,f.io,f.now);
+    expect(f.io.fetchSockets).not.toHaveBeenCalled();
+  });
+});
+
+it("adds actor artwork to game wins without a gift recipient", async () => {
+  const f=fixture(); f.row.id="game-artwork"; f.row.type="GAME_WIN";
+  f.db.user.findUnique.mockResolvedValue({id:"actor",publicId:"USR-1",name:"Player",status:"ACTIVE",profileImage:"https://media.example/sender.png"});
+  await dispatchAnnouncements(f.db,f.io,f.now);
+  const data=f.sockets[2].emit.mock.calls[0][1].data;
+  expect(data.actor.profileImage).toBe("https://media.example/sender.png");
+  expect(data.recipient).toBeUndefined(); expect(data.recipientCount).toBeUndefined();
+  expect(f.db.giftRecoverySnapshot.findUnique).not.toHaveBeenCalled();
 });

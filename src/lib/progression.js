@@ -1,5 +1,5 @@
 import { userVip } from "./vip-capabilities.js";
-import { giftProgressionRule } from "./progression-earning-policy.js";
+import { giftProgressionRule, giftXpEarningRules } from "./progression-earning-policy.js";
 import { prisma } from "./prisma.js";
 import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
@@ -21,7 +21,7 @@ export function validateProgressionConfig(input) {
     return { track: l.track, level: l.level, thresholdPoints: unsigned(l.thresholdPoints), badgeAssetId: l.badgeAssetId || null, benefits: l.benefits };
   });
   const keys = new Set();
-  const rules = input.rules.map(r => {
+  const rules = (input.rules.length ? input.rules : giftXpEarningRules()).map(r => {
     const key = `${r.track}:${r.source}:${r.recipientType}`;
     if (!TRACKS.includes(r.track) || !["PAID","BACKPACK","LUCKY","BLIND_BOX"].includes(r.source) || !["ANY","HOST","NORMAL_USER"].includes(r.recipientType) || !["COST","CREDIT","REVEALED","REWARD","GIFT_XP"].includes(r.basis) || typeof r.allowSelf !== "boolean" || keys.has(key)) throw progressionError("Invalid or duplicate earning rule.");
     if (r.track === "USER" && r.recipientType !== "ANY" || r.track === "CHARM" && r.recipientType === "ANY") throw progressionError("User rules use ANY; Charm rules must specify HOST or NORMAL_USER.");
@@ -32,7 +32,6 @@ export function validateProgressionConfig(input) {
     // Normalize stale admin forms so a later publish cannot restore exclusion.
     return { track:r.track, source:r.source, recipientType:r.recipientType, basis:r.basis, allowSelf:true, numerator:numerator.toString(), denominator:denominator.toString(), description:r.description };
   });
-  if (input.enabled && !rules.length) throw progressionError("Approve earning rules before enabling progression.");
   return { enabled: input.enabled, levels, rules };
 }
 

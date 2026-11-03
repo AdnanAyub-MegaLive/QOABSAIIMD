@@ -1,0 +1,11 @@
+import { beforeEach, it, expect, vi } from 'vitest';
+const mocks=vi.hoisted(()=>({permission:vi.fn(),origin:vi.fn(),activate:vi.fn()}));
+vi.mock('./prisma',()=>({prisma:{}}));
+vi.mock('./portal-admin',()=>({requirePermission:mocks.permission}));
+vi.mock('./game-control/http',()=>({sameOrigin:mocks.origin}));
+vi.mock('./room-rewards',()=>({nextRoomRewardDay:vi.fn(),activateRoomRewards:mocks.activate}));
+import { PATCH } from '../app/api/admin/room-rewards/route.js';
+beforeEach(()=>{vi.clearAllMocks();mocks.permission.mockResolvedValue({id:'admin'});mocks.origin.mockImplementation(()=>{});mocks.activate.mockResolvedValue({id:'GLOBAL',startsAt:'2026-11-04T00:00:00Z'});});
+it('requires levels permission and same-origin before activating',async()=>{const req=new Request('https://portal.test/api/admin/room-rewards',{method:'PATCH'});const result=await PATCH(req);expect(result.status).toBe(200);expect(mocks.permission).toHaveBeenCalledWith('rules.levels');expect(mocks.origin).toHaveBeenCalledWith(req);expect(mocks.activate).toHaveBeenCalledWith('admin');});
+it.each([401,403])('rejects unauthorized activation: %s',async status=>{mocks.permission.mockRejectedValue(Object.assign(new Error('Denied'),{status}));expect((await PATCH(new Request('https://portal.test',{method:'PATCH'}))).status).toBe(status);expect(mocks.activate).not.toHaveBeenCalled();});
+it('rejects cross-origin activation',async()=>{mocks.origin.mockImplementation(()=>{throw Object.assign(new Error('Forbidden'),{status:403});});expect((await PATCH(new Request('https://portal.test',{method:'PATCH'}))).status).toBe(403);expect(mocks.activate).not.toHaveBeenCalled();});

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from './prisma.js';
 import { ledgerData } from './wallet.js';
 import { notifyAction } from './action-notifications.js';
@@ -21,7 +22,8 @@ export async function payRoomReward(id,db=prisma){
   if(!credited.count)throw new Error('Diamond balance cannot accept this reward.');
   const day=payout.day.toISOString().slice(0,10);
   await tx.walletTransaction.create({data:ledgerData({userId:payout.ownerId,type:'BONUS',direction:'CREDIT',title:'Daily room owner reward',diamonds:payout.diamonds,referenceId:`room-reward:${payout.id}`,metadata:{roomId:payout.roomId,day,giftCoins:payout.giftCoins.toString(),rateBps:payout.rateBps,policyVersion:payout.policyVersion}})});
-  await notifyAction(tx,{userId:payout.ownerId,key:`room-reward:${payout.id}`,type:'ROOM_REWARD',title:'Daily room reward received',body:`${payout.diamonds} Diamonds earned from gifting in ${payout.roomId} on ${day} (UTC).`,action:{roomId:payout.roomId,payoutId:payout.id}});
+  const room=await tx.audioRoom.findUnique({where:{roomId:payout.roomId},select:{title:true}});
+  await notifyAction(tx,{userId:payout.ownerId,key:`room-reward:${payout.id}`,type:'ROOM_REWARD',title:'Daily room reward received',body:`${payout.diamonds} Diamonds earned from gifting in ${room?.title || payout.roomId} on ${day} (UTC).`,action:{screen:'DIAMONDS',roomId:payout.roomId,payoutId:payout.id}});
   await tx.roomRewardPayout.update({where:{id},data:{status:'PAID',paidAt:new Date(),error:null}});
   await tx.auditLog.create({data:{action:'ROOM_REWARD_PAID',category:'FINANCE',entityType:'RoomRewardPayout',entityId:id,description:`Paid ${payout.diamonds} Diamonds for ${payout.roomId} on ${day}.`}});
  },{isolationLevel:'Serializable',timeout:30000});
@@ -47,14 +49,7 @@ export async function maintainRoomRewards(db=prisma){
     // Unique day receipt and room snapshots commit together; concurrent workers retry safely.
     await tx.roomRewardDay.create({data:{day,policyVersion:policy.version}});
     if(!policy.enabled||!policy.rateBps)return;
-    const rows=await tx.$queryRaw`
-      SELECT r."roomId",r."ownerId",SUM(debit.coins)::bigint AS coins, json_agg(g.id) AS "giftIds"
-      FROM "GiftTransaction" g JOIN "AudioRoom" r ON r."roomId"=g."roomId"
-      JOIN LATERAL (SELECT SUM(w.coins) AS coins FROM "WalletTransaction" w
-        WHERE w."referenceId"=g.id AND w."userId"=g."senderId" AND w.type='GIFT_SENT'
-        AND w.direction='DEBIT' AND w.status='COMPLETED' AND w.coins>0) debit ON debit.coins>0
-      WHERE g."createdAt">=${day} AND g."createdAt"<${end} AND g."reversedAt" IS NULL AND g."liveSessionId" IS NULL
-      GROUP BY r."roomId",r."ownerId"`;
+    const rows=await tx.$queryRaw(roomRewardSnapshotSql(day,end));
     for(const row of rows){const diamonds=roomRewardAmount(row.coins,policy.rateBps);if(!diamonds)continue;
      await tx.roomRewardPayout.create({data:{day,roomId:row.roomId,ownerId:row.ownerId,policyVersion:policy.version,rateBps:policy.rateBps,giftCoins:row.coins,giftIds:row.giftIds,diamonds}});
     }
@@ -65,4 +60,23 @@ export async function maintainRoomRewards(db=prisma){
    try{await payRoomReward(row.id,db);}catch(e){if(['P2034','P2002'].includes(e.code))continue;await db.roomRewardPayout.updateMany({where:{id:row.id,status:'PENDING'},data:{status:'REVIEW',error:String(e.message).slice(0,500)}});}
   }
  }finally{running=false;}
+}
+
+export function roomRewardSnapshotSql(day,end) {
+ return Prisma.sql`SELECT r."roomId",r."ownerId",SUM(g."coinValue")::bigint AS coins,json_agg(g.id) AS "giftIds"
+ FROM "GiftTransaction" g JOIN "AudioRoom" r ON r."roomId"=g."roomId"
+ WHERE g."createdAt">=${day} AND g."createdAt"<${end} AND g."reversedAt" IS NULL AND g."liveSessionId" IS NULL
+ AND EXISTS (SELECT 1 FROM "WalletTransaction" w WHERE w."userId"=g."senderId" AND w.type='GIFT_SENT'
+ AND w.direction='DEBIT' AND w.status='COMPLETED' AND w.coins>0
+ AND w."referenceId" IN (g.id,g."operationKey"))
+ GROUP BY r."roomId",r."ownerId"`;
+}
+
+export async function activateRoomRewards(adminId,db=prisma,now=new Date()) {
+ return db.$transaction(async tx=>{
+  const inserted=await tx.roomRewardActivation.createMany({data:[{id:'GLOBAL',startsAt:nextRoomRewardDay(now)}],skipDuplicates:true});
+  const activation=await tx.roomRewardActivation.findUnique({where:{id:'GLOBAL'}});
+  if(inserted.count)await tx.auditLog.create({data:{adminId,action:'ROOM_REWARD_ACTIVATED',category:'FINANCE',entityType:'RoomRewardActivation',entityId:'GLOBAL',description:'Activated room rewards from next UTC midnight.',metadata:{startsAt:activation.startsAt.toISOString()}}});
+  return activation;
+ });
 }

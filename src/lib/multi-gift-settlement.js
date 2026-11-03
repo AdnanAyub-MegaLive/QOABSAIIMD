@@ -52,7 +52,7 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
       for (const recipient of recipients) {
         const host = recipient.appRoles.includes('HOST');
         const split = calculateGiftSettlement(each, host, policy, currency, 0n, { fixedDiamonds: fixedGiftDiamonds(gift.hostDiamonds, quantity), luckyPoolBps: lucky?.poolContributionBps ?? null });
-        const giftTx = await tx.giftTransaction.create({ data: { giftBatchId, senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: each, roomId } });
+        const giftTx = await tx.giftTransaction.create({ data: { operationKey: operation.key, giftBatchId, senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: each, roomId } });
         const settlement = await tx.giftSettlement.create({ data: {
           giftTransactionId: giftTx.id, recipientDiamonds: split.receivedDiamonds, currencyPolicyVersion: currency.version,
           agencyId: recipient.agencyId, recipientType: host ? 'HOST' : 'NORMAL_USER', grossCoins: each,

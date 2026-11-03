@@ -149,3 +149,38 @@ Before mobile rollout use dedicated QA accounts:
 - Restart worker during delivery, simulate disconnect, and confirm app dedup/expiry.
 - On two phones send gifts concurrently while banners appear: send controls and
   audio stay responsive. Measure latency/load; no sub-second guarantee is claimed.
+
+
+## Spec 182 — banner identities (3 November 2026)
+
+All announcement types include `actor: { publicId, name, profileImage, frameUrl }`.
+BIG_GIFT and LUCKY_RETURN also include `recipient` with the same fields and
+`recipientCount` (1 for a single recipient). Images/frames are null when absent.
+Frames use the current equipped, active, unexpired/global prop and the existing
+signed, versioned public-display URL. Preserve all URL query parameters.
+
+For new multi-recipient sends, the recipient is the first selected user and the
+count is the unique recipients in that send, not the combo's accumulated tap count.
+This ordering is saved with the committed recovery snapshot. Old snapshots without
+this metadata fall back to their own transaction recipient and count 1; no historical
+records are backfilled. Legacy talent recipients resolve through the talent public ID.
+Qualification amounts, per-recipient Lucky outcomes and cooldowns are unchanged;
+`recipientCount` is presentation metadata, not an amount multiplier.
+
+The worker resolves artwork after commitment. Recipient bans, deletion, inactivity
+and viewer blocks suppress delivery using the existing audience policy. No internal
+user IDs are emitted. GAME_WIN does not include recipient or recipientCount.
+
+Example identity fields inside `data`:
+```json
+{
+  "actor": { "publicId": "USR-A", "name": "Sender", "profileImage": "https://media.example/sender.png", "frameUrl": null },
+  "recipient": { "publicId": "USR-B", "name": "Receiver", "profileImage": "https://media.example/receiver.png", "frameUrl": null },
+  "recipientCount": 1
+}
+```
+
+Deployment: rebuild/restart; no schema migration or data backfill for this addition.
+Production/three-phone verification is pending: with a qualifying configured threshold,
+send a 10,000-Coin QA gift A to B in a public QA room and inspect both identities
+on C's banner. Do not treat automated tests as real-device verification.

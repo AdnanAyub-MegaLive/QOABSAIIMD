@@ -1879,6 +1879,7 @@ model GiftRefund {
 model GiftTransaction {
   reversedAt DateTime?
   id              String            @id @default(cuid())
+  operationKey String? @db.VarChar(128)
   giftBatchId     String?           @db.VarChar(64)
   senderId        String
   talentId        String?
@@ -1900,6 +1901,7 @@ model GiftTransaction {
   @@index([senderId, createdAt])
   @@index([createdAt])
   @@index([senderId, giftBatchId])
+  @@index([senderId, operationKey])
   @@index([talentId, createdAt])
   @@index([recipientUserId, createdAt])
   @@index([giftAssetId, createdAt])

@@ -117,7 +117,7 @@ async function settleOperation(tx, senderId, operation, work, events) {
     const gift=known?.gift??await tx.giftTransaction.findUniqueOrThrow({where:{id}});
     const reward=payload.revealedGift?.publicId?await tx.uploadAsset.findUnique({where:{publicId:payload.revealedGift.publicId},select:{id:true}}):null;
     const recipientResult = payload.recipients?.find(row => row.transactionId === id);
-    await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk});
+    await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk,announcementRecipients:giftIds.length>1?{firstGiftId:giftIds[0],count:giftIds.length}:null});
     await recordRocketGift(tx, gift, payload.source === 'BACKPACK' ? 'BACKPACK' : 'COINS');
   }
   // A pending row was never visible outside this transaction. Insert its
