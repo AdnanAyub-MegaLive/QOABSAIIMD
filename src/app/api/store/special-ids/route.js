@@ -1,3 +1,5 @@
+import { claimPrettyId, listPrettyIds } from "@/lib/pretty-id";
+import { emitToUser } from "@/lib/realtime";
 import { prisma } from "@/lib/prisma";
 import { mobileJson, mobileApiError, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { occupiedSpecialId, purchaseSpecialId } from "@/lib/special-id-commerce";
@@ -6,7 +8,7 @@ export const dynamic = "force-dynamic";
 export function OPTIONS() { return mobileOptions(); }
 export async function GET(request) {
   try {
-    await requireMobileUser(request);
+    const user = await requireMobileUser(request);
     const params = new URL(request.url).searchParams;
     const cursor = params.get("cursor");
     const items = await prisma.specialIdDefinition.findMany({
@@ -14,7 +16,7 @@ export async function GET(request) {
       orderBy: { code: "asc" }, take: 51,
       select: { id: true, code: true, coinPrice: true, defaultDurationMinutes: true },
     });
-    return mobileJson({ success: true, data: { items: items.slice(0, 50).map(item => ({ id: item.id, code: item.code, coinPrice: item.coinPrice.toString(), durationMinutes: item.defaultDurationMinutes })), nextCursor: items.length > 50 ? items[49].code : null } });
+    return mobileJson({ success: true, data: { grants: cursor ? [] : await listPrettyIds(prisma,user.id), items: items.slice(0, 50).map(item => ({ id: item.id, code: item.code, coinPrice: item.coinPrice.toString(), durationMinutes: item.defaultDurationMinutes })), nextCursor: items.length > 50 ? items[49].code : null } });
   } catch (error) { return mobileApiError(error, "SPECIAL_ID_CATALOG_FAILED"); }
 }
 export async function POST(request) {
@@ -24,9 +26,11 @@ export async function POST(request) {
       return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Try again in a minute." } }, 429);
     let body;
     try { body = await request.json(); } catch { return mobileJson({ success: false, error: { code: "VALIDATION_ERROR", message: "Provide valid JSON." } }, 422); }
-    const data = await purchaseSpecialId(prisma, user.id, body?.definitionId, request.headers.get("Idempotency-Key"));
+    const claim = typeof body?.grantId === "string";
+    const data = claim ? await claimPrettyId(prisma,user.id,body.grantId,body.code) : await purchaseSpecialId(prisma, user.id, body?.definitionId, request.headers.get("Idempotency-Key"));
     // A post-commit scheduler failure must not turn a successful debit into 500.
-    try { await globalThis.portalScheduleSpecialIdExpiry?.(data.assignmentId, new Date(data.expiresAt)); }
+    try { if (claim && data.active) emitToUser(data.normalId,"special-id:assigned",{success:true,data:{...data,effectiveId:data.specialId,source:"PRETTY_ID"}});
+      if (!claim || data.active) await globalThis.portalScheduleSpecialIdExpiry?.(data.assignmentId, new Date(data.expiresAt)); }
     catch (error) { console.error("Special ID expiry scheduling failed", error); }
     return mobileJson({ success: true, data });
   } catch (error) {

@@ -238,6 +238,7 @@ model AuditLog {
 }
 
 model User {
+  prettyIdGrants PrettyIdGrant[]
   newUserRewardClaims NewUserRewardClaim[]
   companyBdCountry String? @unique
   gamePlayAccount GamePlayAccount?
@@ -2179,6 +2180,7 @@ model UserAlbumItem {
 }
 
 model SpecialIdAssignment {
+  prettyIdGrant PrettyIdGrant?
   id           String               @id @default(cuid())
   userId       String
   definitionId String?
@@ -2964,4 +2966,16 @@ model RoomRocketLaunch {
   paidAt DateTime?
   @@unique([campaignId, roomId, level])
   @@index([paidAt, createdAt])
+}
+
+model PrettyIdGrant {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pattern String
+  durationMinutes Int
+  createdAt DateTime @default(now())
+  assignmentId String? @unique
+  assignment SpecialIdAssignment? @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  @@index([userId, createdAt])
 }
