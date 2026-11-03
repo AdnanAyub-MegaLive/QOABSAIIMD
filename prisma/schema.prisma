@@ -2979,3 +2979,17 @@ model PrettyIdGrant {
   assignment SpecialIdAssignment? @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   @@index([userId, createdAt])
 }
+
+model AudioRoomPkSearch {
+  id String @id @default(cuid())
+  roomId String
+  ownerId String
+  requestKey String
+  status String @default("WAITING")
+  pkId String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  @@unique([ownerId, requestKey])
+  @@index([status, createdAt])
+  @@index([roomId, status])
+}

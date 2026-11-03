@@ -1,5 +1,6 @@
 import { prisma } from "./prisma.js";
 import { emitToAudioRoom, emitToVideoLive } from "./realtime.js";
+import { pkDto } from "./audio-room-pk.js";
 
 export function pkWinner(leftScore, rightScore, leftId, rightId) {
   const left = BigInt(leftScore), right = BigInt(rightScore);
@@ -55,8 +56,8 @@ export async function finalizeExpiredPkSessions(now = new Date()) {
   ]);
   for (const pk of audio) {
     const winnerRoomId = pkWinner(pk.leftScore, pk.rightScore, pk.leftRoom.roomId, pk.rightRoom.roomId);
-    const updated = await prisma.audioRoomPkSession.updateMany({ where: { id: pk.id, status: "LIVE" }, data: { status: "ENDED", endedAt: now, winnerRoomId, revision: { increment: 1 } } });
-    if (updated.count) { const data = { id: pk.id, status: "ENDED", leftRoomId: pk.leftRoom.roomId, rightRoomId: pk.rightRoom.roomId, leftScore: pk.leftScore.toString(), rightScore: pk.rightScore.toString(), winnerRoomId, endedAt: now.toISOString(), revision: pk.revision + 1 }; emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-changed", { success: true, data }); emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-changed", { success: true, data }); }
+    const updated = await prisma.audioRoomPkSession.updateMany({ where: { id: pk.id, status: "LIVE", revision: pk.revision }, data: { status: "ENDED", endedAt: now, winnerRoomId, revision: { increment: 1 } } });
+    if (updated.count) { const data = pkDto({ ...pk, status: 'ENDED', winnerRoomId, endedAt: now, revision: pk.revision + 1 }, process.env.AUTH_URL || 'https://portal.megachat.live'); emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-changed", { success: true, data }); emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-changed", { success: true, data }); }
   }
   for (const pk of video) {
     const winnerLiveId = pkWinner(pk.leftScore, pk.rightScore, pk.leftSession.publicId, pk.rightSession.publicId);
