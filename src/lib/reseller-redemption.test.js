@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { redemptionCoins, redeemableHostDiamonds } from "./reseller-redemption.js";
+import { redemptionCoins, redeemableHostDiamonds, resellerDiamondBalances } from "./reseller-redemption.js";
 it("supports exact 9:5 conversion and rounds fractional Coins down",()=>{
  const rules={redemptionDiamondsPerCoin:"9",redemptionCoinsNumerator:"5",redemptionDeductionBps:"0"};
  expect(redemptionCoins(90000n,rules)).toBe(50000n);
@@ -15,4 +15,15 @@ it("excludes unverified credits and subtracts all spending before restoring veri
  {direction:"CREDIT",type:"GIFT_RECEIVED",diamonds:1000n},
  ];
  expect(await redeemableHostDiamonds({walletTransaction:{findMany:async()=>rows}},"u")).toBe(60n);
+});
+
+it("keeps gift spending separate from transferred Diamonds and restores rejected reservations", async () => {
+  const rows = [
+    {direction:"CREDIT",type:"GIFT_RECEIVED",diamonds:100n},
+    {direction:"CREDIT",type:"TRANSFER_RECEIVED",diamonds:200n,metadata:{verifiedHostTransfer:true}},
+    {direction:"DEBIT",type:"DIAMOND_EXCHANGE_DEBIT",diamonds:75n,metadata:{diamondSource:"GIFT"}},
+    {direction:"DEBIT",type:"DIAMOND_EXCHANGE_DEBIT",diamonds:50n,referenceId:"redemption"},
+    {direction:"CREDIT",type:"REFUND",diamonds:50n,referenceId:"redemption",metadata:{restoredHostDiamonds:"50"}},
+  ];
+  expect(await resellerDiamondBalances({walletTransaction:{findMany:async()=>rows}},"u")).toEqual({gift:25n,transferred:200n});
 });

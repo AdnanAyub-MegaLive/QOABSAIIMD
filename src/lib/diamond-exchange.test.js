@@ -26,16 +26,16 @@ describe("diamond exchange", () => {
     expect(rows[1]).toMatchObject({ direction: "CREDIT", coins: 3n, diamonds: null });
     expect(rows[0].referenceId).toBe(rows[1].referenceId);
   });
-  it("enforces reseller exclusion and the CS override before ledger writes",async()=>{
-    for(const appRoles of [["RESELLER"],["RESELLER","HOST","ADMIN"]]) {
-      const db=database({appRoles});
-      await expect(exchangeDiamonds("u","10","request-1",db)).rejects.toThrow("EXCHANGE_DISABLED");
-      expect(db.tx.user.update).not.toHaveBeenCalled();
-      expect(db.tx.walletTransaction.createMany).not.toHaveBeenCalled();
-    }
-    for(const appRoles of [["CS","RESELLER"],["CS_LEADER","RESELLER","ADMIN"],["BD"],["ADMIN"]]) {
-      await expect(exchangeDiamonds("u","10","request-1",database({appRoles}))).resolves.toMatchObject({coins:"3"});
-    }
+  it("exchanges only gift Diamonds at the user rate for a reseller who is also a host", async () => {
+    const db = database({appRoles:["RESELLER","HOST"], agencyId:"a"});
+    db.tx.walletTransaction.findMany = async () => [
+      {direction:"CREDIT", type:"GIFT_RECEIVED", diamonds:10n},
+      {direction:"CREDIT", type:"TRANSFER_RECEIVED", diamonds:90n, metadata:{verifiedHostTransfer:true}},
+    ];
+    await expect(exchangeDiamonds("u","11","request-1",db)).rejects.toThrow("INSUFFICIENT_DIAMONDS");
+    expect(db.tx.user.update).not.toHaveBeenCalled();
+    await expect(exchangeDiamonds("u","10","request-2",db)).resolves.toMatchObject({coins:"3"});
+    expect(db.tx.walletTransaction.createMany.mock.calls[0][0].data[0].metadata.diamondSource).toBe("GIFT");
   });
   it("replays saved result without debiting and rejects a changed request", async () => {
     const db = database();

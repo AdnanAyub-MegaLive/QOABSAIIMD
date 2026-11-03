@@ -1,6 +1,6 @@
 import { withdrawalAvailability, payoutConfiguration } from "@/lib/withdrawal-contract";
 import { walletEligibility } from "@/lib/wallet-eligibility";
-import { redeemableHostDiamonds } from "@/lib/reseller-redemption";
+import { resellerDiamondBalances } from "@/lib/reseller-redemption";
 import { prisma } from "@/lib/prisma";
 import { currencyPolicy } from "@/lib/currency-policy";
 import { diamondRules } from "@/lib/diamond-service-rules";
@@ -37,8 +37,11 @@ export async function GET(request) {
     });
     const policy=await currencyPolicy(prisma);
     const withdrawal = withdrawalAvailability(user, policy);
-    const reseller = user.appRoles.includes("RESELLER");
-    const eligibleDiamonds = reseller ? await redeemableHostDiamonds(prisma,user.id) : 0n;
+    const reseller = user.role === "RESELLER" || user.appRoles.includes("RESELLER");
+    const sources = reseller ? await resellerDiamondBalances(prisma, user.id) : { gift: 0n, transferred: 0n };
+    const eligibleDiamonds = sources.transferred < user.hostSalaryCoinBalance ? sources.transferred : user.hostSalaryCoinBalance;
+    const remaining = user.hostSalaryCoinBalance - eligibleDiamonds;
+    const giftDiamonds = sources.gift < remaining ? sources.gift : remaining;
     const transferRules=diamondRules(policy,user,"TRANSFER");
     const escrowConfigured=/^[a-fA-F0-9]{64}$/.test(process.env.PAYOUT_BANK_ENCRYPTION_KEY??"")&&payoutConfiguration(policy);
     return mobileJson({
@@ -48,6 +51,7 @@ export async function GET(request) {
         serverTime: new Date().toISOString(),
         balances: { coins: String(user.coinBalance), diamonds: String(user.hostSalaryCoinBalance), businessCoins: String(user.resellerCoinBalance), coupons: String(user.couponBalance) },
         coins: user.coinBalance.toString(),
+        ...(reseller ? { giftDiamonds: String(giftDiamonds), transferredDiamonds: String(eligibleDiamonds) } : {}),
         personalCoins: user.coinBalance.toString(),
         businessCoins: user.resellerCoinBalance.toString(),
         coinRecharge: { sourceWallet:"BUSINESS", destinationWallet:"PERSONAL", selfRechargeAllowed:reseller && walletEligibility(user).transfer, reverseTransferAllowed:false, idempotencyKeyRequired:true },

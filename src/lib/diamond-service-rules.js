@@ -2,7 +2,7 @@ import { walletEligibility } from "./wallet-eligibility.js";
 export const serviceFields = ["MinDiamonds", "MaxDiamonds", "Multiple", "DailyLimit", "MonthlyLimit"];
 export function serviceError(code, message, status = 422) { return Object.assign(new Error(message), { code, status }); }
 export function diamondRules(policy, user, kind) {
-  const r = policy.rules, host = Boolean(user.agencyId && (user.role === "HOST" || user.appRoles?.includes("HOST")));
+  const r = policy.rules, host = Boolean(!user.appRoles?.includes("RESELLER") && user.role !== "RESELLER" && user.agencyId && (user.role === "HOST" || user.appRoles?.includes("HOST")));
   const eligibility = walletEligibility(user);
   const prefix = kind === "TRANSFER" ? "transfer" : "exchange";
   const fields = Object.fromEntries(serviceFields.map(suffix => [suffix, r[prefix + suffix] ?? null]));
@@ -27,6 +27,8 @@ export async function checkDiamondLimits(tx, userId, value, rules, kind, now = n
   const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   // Existing immutable debits are the authoritative usage source, including pre-policy history.
   const where = { userId, direction: "DEBIT", type: kind === "TRANSFER" ? "TRANSFER_SENT" : "DIAMOND_EXCHANGE_DEBIT", diamonds: { not: null } };
+  // Reviewed redemptions also use DIAMOND_EXCHANGE_DEBIT, but have their own rules.
+  if (kind === "EXCHANGE") where.referenceId = { startsWith: "DEX:" };
   for (const [start, limit, code] of [[day, rules.dailyLimit, "DAILY"], [month, rules.monthlyLimit, "MONTHLY"]]) {
     const sum = await tx.walletTransaction.aggregate({ where: { ...where, createdAt: { gte: start } }, _sum: { diamonds: true } });
     if ((sum._sum.diamonds ?? 0n) + value > BigInt(limit)) throw serviceError(`${kind}_${code}_LIMIT`, `${code === "DAILY" ? "Daily" : "Monthly"} Diamond limit exceeded.`, 409);

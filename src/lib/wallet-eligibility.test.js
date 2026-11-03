@@ -16,7 +16,7 @@ const cases = [
   [[],true,false],[["LISTENER","SENDER"],true,false],
   ...["CS","CS_LEADER"].flatMap(role=>[[[role],true,false],[[role,"RESELLER","HOST","ADMIN"],true,false]]),
   ...["HOST","CREATOR","MODERATOR","OFFICIAL","BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD","MANAGER"].map(role=>[[role],true,true]),
-  [["RESELLER"],false,true],[["RESELLER","ADMIN","HOST"],false,true],
+  [["RESELLER"],true,true],[["RESELLER","ADMIN","HOST"],true,true],
 ];
 it.each(cases)("wallet response and shared eligibility agree for roles %j",(appRoles,exchange,cashOut)=>{
   const user={...ordinary,appRoles};

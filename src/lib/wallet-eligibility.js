@@ -10,7 +10,7 @@ export function walletEligibility(user) {
   const salaryEligible = user.ownedAgencies?.some(agency=>agency.status === "ACTIVE") ?? false;
   const cashOut = active && !support && (reseller || salaryEligible || [...roles].some(role => assignedRoles.has(role)));
   return {
-    exchange: active && (support || !reseller),
+    exchange: active,
     transfer: cashOut,
     withdraw: cashOut,
   };
