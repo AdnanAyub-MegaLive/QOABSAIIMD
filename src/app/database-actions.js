@@ -16,6 +16,7 @@ import {
   autoAssignEligibleSpecialId,
   normalizeSpecialId,
   reconcileExpiredSpecialIds,
+  getEffectiveUserId,
 } from "../lib/special-id";
 import { reconcileExpiredAudioRoomRestrictions } from "../lib/audio-room-maintenance";
 import { syncProgressionProps } from "../lib/props-store";
@@ -1213,9 +1214,10 @@ export async function revokeSpecialId(assignmentId, reason) {
     where: { id: assignmentId },
     include: { user: true },
   });
-  await prisma.specialIdAssignment.update({
-    where: { id: assignmentId },
-    data: { status: "REVOKED", revokedAt: new Date() },
+  await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)::text AS locked`;
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${assignment.userId} FOR UPDATE`;
+    await tx.specialIdAssignment.update({ where: { id: assignmentId }, data: { status: "REVOKED", revokedAt: new Date() } });
   });
   await logActivity(admin, {
     action: "REVOKE_SPECIAL_ID",
@@ -1225,12 +1227,12 @@ export async function revokeSpecialId(assignmentId, reason) {
     description: `${admin.name} revoked Special ID ${assignment.specialId} from user ${assignment.user.publicId}`,
     metadata: { reason },
   });
+  const currentIdentity = await getEffectiveUserId(assignment.userId, assignment.user.publicId);
   emitToUser(assignment.user.publicId, "special-id:revoked", {
     success: true,
     data: {
-      normalId: assignment.user.publicId,
-      effectiveId: assignment.user.publicId,
-      specialId: null,
+      ...currentIdentity,
+      revokedSpecialId: assignment.specialId,
       reason,
     },
   });

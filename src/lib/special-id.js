@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { occupiedSpecialId } from "./special-id-commerce.js";
 
 export async function activeSpecialIds(userIds, db = prisma) {
   if (!userIds.length) return new Map();
@@ -20,7 +21,7 @@ export function normalizeSpecialId(value) {
 
 export async function reconcileExpiredSpecialIds() {
   return prisma.specialIdAssignment.updateMany({
-    where:{status:"ACTIVE",expiresAt:{lte:new Date()}},
+    where:{status:{in:["ACTIVE","OWNED"]},expiresAt:{lte:new Date()}},
     data:{status:"EXPIRED"},
   });
 }
@@ -46,7 +47,11 @@ export async function assignDefinitionToUser({publicId,definitionId,durationMinu
   if(!Number.isInteger(minutes)||minutes<1)throw new Error("INVALID_SPECIAL_ID_DURATION");
   const now=new Date();
   const assignment=await prisma.$transaction(async(tx)=>{
-    await tx.specialIdAssignment.updateMany({where:{userId:user.id,status:"ACTIVE"},data:{status:"REPLACED",revokedAt:now}});
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)::text AS locked`;
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${user.id} FOR UPDATE`;
+    if(await tx.specialIdAssignment.findFirst({where:{specialId:{equals:definition.code,mode:'insensitive'},...occupiedSpecialId(new Date())}}))throw new Error('SPECIAL_ID_ALREADY_ASSIGNED');
+    await tx.specialIdAssignment.updateMany({where:{userId:user.id,status:"ACTIVE",source:"PRETTY_ID"},data:{status:"OWNED"}});
+    await tx.specialIdAssignment.updateMany({where:{userId:user.id,status:"ACTIVE",source:{not:"PRETTY_ID"}},data:{status:"REPLACED",revokedAt:now}});
     return tx.specialIdAssignment.create({data:{userId:user.id,definitionId:definition.id,specialId:definition.code,status:"ACTIVE",source,startsAt:now,expiresAt:new Date(now.getTime()+minutes*60000)}});
   });
   globalThis.portalScheduleSpecialIdExpiry?.(assignment.id,assignment.expiresAt);

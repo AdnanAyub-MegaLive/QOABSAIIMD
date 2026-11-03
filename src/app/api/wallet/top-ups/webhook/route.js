@@ -63,6 +63,9 @@ export async function POST(request) {
       },
       { isolationLevel: "Serializable" },
     );
+    if (result.order.status === "COMPLETED") void import("@/lib/pretty-id-weekly")
+      .then(({notifyPrettyMaintenance})=>notifyPrettyMaintenance(prisma,result.order.userId))
+      .catch(error=>console.error("Pretty ID maintenance notification failed",error.code??error.name));
     if (result.newlyCompleted) {
       await syncProgressionProps(result.order.userId);
       const assignment = await autoAssignEligibleSpecialId(result.order.user.publicId, "TOP_UP");

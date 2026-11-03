@@ -2974,12 +2974,44 @@ model PrettyIdGrant {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   pattern String
   durationMinutes Int
+  source String @default("MANUAL")
+  level Int?
+  maintenanceCoins BigInt @default(0)
+  weekStart DateTime?
+  maintenance PrettyIdMaintenance[]
   createdAt DateTime @default(now())
   assignmentId String? @unique
   assignment SpecialIdAssignment? @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   @@index([userId, createdAt])
+  @@unique([userId, weekStart])
 }
 
+model PrettyIdPolicy {
+  id Int @id @default(autoincrement())
+  effectiveFrom DateTime @unique
+  enabled Boolean @default(false)
+  levels Json
+  createdAt DateTime @default(now())
+}
+
+model PrettyIdWeek {
+  start DateTime @id
+  cursor String @default("")
+  completedAt DateTime?
+}
+
+model PrettyIdMaintenance {
+  id String @id @default(cuid())
+  grantId String
+  grant PrettyIdGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  weekStart DateTime
+  accepted Boolean
+  coins BigInt
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@unique([grantId, weekStart])
+  @@index([weekStart])
+}
 model AudioRoomPkSearch {
   id String @id @default(cuid())
   roomId String

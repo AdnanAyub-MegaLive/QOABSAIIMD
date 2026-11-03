@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyPrettyMaintenance } from "@/lib/pretty-id-weekly";
 import { createHash } from "node:crypto";
 import { walletEligibility } from "@/lib/wallet-eligibility";
 import { notifyAction } from "@/lib/action-notifications";
@@ -57,6 +58,9 @@ export async function POST(request) {
     );
     let result;
     for(let attempt=0;;attempt++)try{result=await execute();break;}catch(error){if(attempt>=3||!["P2034","P2002"].includes(error.code))throw error;}
+    void prisma.user.findUnique({where:{publicId:recipientPublicId},select:{id:true}})
+      .then(user=>user && notifyPrettyMaintenance(prisma,user.id))
+      .catch(error=>console.error("Pretty ID maintenance notification failed",error.code??error.name));
     return mobileJson({ success: true, data: result }, 201);
   } catch (error) {
     console.error("Wallet transfer failed", error);

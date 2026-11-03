@@ -14,7 +14,7 @@ export function retryableConflict(error) {
   return false;
 }
 const fail = (code, message, status = 409) => { throw Object.assign(new Error(message), { code, status }); };
-export const occupiedSpecialId = now => ({ status: "ACTIVE", revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
+export const occupiedSpecialId = now => ({ status: { in: ["ACTIVE", "OWNED", "CLAIMED"] }, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
 
 export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
   if (typeof definitionId !== "string" || !definitionId || !/^[A-Za-z0-9._:-]{8,128}$/.test(requestKey || ""))
@@ -44,7 +44,8 @@ export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
         if (!Number.isSafeInteger(definition.defaultDurationMinutes) || definition.defaultDurationMinutes <= 0 || !Number.isFinite(expiresAt.getTime())) fail("VALIDATION_ERROR", "Invalid ownership duration.", 422);
         const debit = await tx.user.updateMany({ where: { id: userId, coinBalance: { gte: definition.coinPrice } }, data: { coinBalance: { decrement: definition.coinPrice } } });
         if (!debit.count) fail("INSUFFICIENT_COINS", "Your Coin balance is too low.");
-        await tx.specialIdAssignment.updateMany({ where: { userId, status: "ACTIVE" }, data: { status: "REPLACED", revokedAt: now } });
+        await tx.specialIdAssignment.updateMany({ where: { userId, status: "ACTIVE", source: "PRETTY_ID" }, data: { status: "OWNED" } });
+        await tx.specialIdAssignment.updateMany({ where: { userId, status: "ACTIVE", source: { not: "PRETTY_ID" } }, data: { status: "REPLACED", revokedAt: now } });
         const assignment = await tx.specialIdAssignment.create({ data: { userId, definitionId, specialId: definition.code, source: "PURCHASE", startsAt: now, expiresAt } });
         await tx.walletTransaction.create({ data: ledgerData({ userId, type: "SPECIAL_ID_PURCHASE", direction: "DEBIT", title: "Special ID purchase", coins: definition.coinPrice, referenceId: assignment.id, metadata: { definitionId, code: definition.code, requestKey } }) });
         const result = { assignmentId: assignment.id, specialId: definition.code, normalId: user.publicId, expiresAt: expiresAt.toISOString(), coinBalance: (user.coinBalance - definition.coinPrice).toString(), price: definition.coinPrice.toString() };

@@ -46,6 +46,9 @@ app.prepare().then(async()=>{
   const {maintainRoomRewards}=await import("./src/lib/room-rewards.js");
   const roomRewardTimer=setInterval(()=>void maintainRoomRewards(prisma).catch(error=>console.error("Room rewards maintenance failed",error.code??error.name)),60000);
   roomRewardTimer.unref();
+  const {maintainPrettyIds}=await import("./src/lib/pretty-id-weekly.js");
+  const prettyIdTimer=setInterval(()=>void maintainPrettyIds(prisma).catch(error=>console.error("Pretty ID weekly maintenance failed",error.code??error.name)),60000);
+  prettyIdTimer.unref();
   const {createMediaCdnMaintenance}=await import("./src/lib/media-cdn-maintenance.js");
   const reconcileMediaCdn=createMediaCdnMaintenance(prisma);
   const mediaCdnTimer=setInterval(()=>void reconcileMediaCdn().catch(error=>console.error("CDN reconciliation failed",error.name)),60000);
