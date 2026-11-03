@@ -5,7 +5,7 @@ import { isRateLimited } from '@/lib/rate-limit';
 import { rankingInput } from '@/lib/events/ranking-contract';
 import { eventRankings } from '@/lib/events/ranking-data';
 import { policyFor } from '@/lib/events/ranking-reward-rules';
-import { rankingWindow } from '@/lib/events/ranking-contract';
+import { configuredRankingWindow } from '@/lib/events/ranking-contract';
 import { decorationMedia } from '@/lib/decoration-media';
 export function OPTIONS() { return mobileOptions(); }
 export async function GET(request) {
@@ -19,7 +19,7 @@ export async function GET(request) {
     const event = await prisma.event.findUnique({ where: { slug }, select: { status: true } });
     if (event?.status !== 'PUBLISHED') return mobileJson({success:false,error:{code:'EVENT_UNAVAILABLE',message:'The ranking event is not currently published.'}},404);
     const policies=slug==='rankings'?[]:await prisma.rankingRewardPolicy.findMany({where:{eventSlug:slug,period:input.period}});
-    const window=rankingWindow(input.period);
+    const window=await configuredRankingWindow(prisma,input.type,input.period);
     const current=policyFor(policies,window.start), upcoming=policyFor(policies,window.end);
     const describe=async policy=>{
       if(!policy)return null;
@@ -32,6 +32,6 @@ export async function GET(request) {
       }
       return {enabled:policy.enabled,effectiveFrom:policy.effectiveFrom,rewards};
     };
-    return mobileJson({success:true,data:{...await eventRankings({...input,viewerId:user.id,origin:requestOrigin(request)}),rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
+    return mobileJson({success:true,data:{...await eventRankings({...input,window,viewerId:user.id,origin:requestOrigin(request)}),rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
   } catch(error) { if(error.code==='VALIDATION_ERROR')return mobileJson({success:false,error:{code:error.code,message:error.message}},422);return mobileApiError(error,'EVENT_RANKINGS_FAILED'); }
 }

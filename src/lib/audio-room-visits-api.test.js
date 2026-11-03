@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ findMany: vi.fn(), auth: vi.fn(), reconcile: vi.fn() }));
-vi.mock("@/lib/prisma", () => ({ prisma: { audioRoomVisit: { findMany: mocks.findMany } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw:async()=>[], audioRoomVisit: { findMany: mocks.findMany } } }));
 vi.mock("@/lib/mobile-api", async importOriginal => ({ ...await importOriginal(), requireMobileUser: mocks.auth }));
 vi.mock("@/lib/audio-room-maintenance", () => ({ reconcileExpiredAudioRoomRestrictions: mocks.reconcile }));
 vi.mock("@/lib/user-perks", () => ({ requestOrigin: () => "https://portal.example", resolveUserPerks: async () => new Map() }));

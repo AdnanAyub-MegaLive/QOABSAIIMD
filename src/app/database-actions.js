@@ -1,5 +1,6 @@
 "use server";
 
+import { changeDeviceBan } from "../lib/device-ban.js";
 import { revalidatePath } from "next/cache";
 import { applyAdminCoinAdjustment } from "../lib/admin-coin-adjustment.js";
 import { safeAuditDetails } from "@/lib/audit-view";
@@ -622,6 +623,23 @@ export async function createBan({
   proofImage,
   macAddress,
 }) {
+  if (target === "DEVICE") {
+    try {
+      const admin = await requirePermission("users.devices");
+      const data = await changeDeviceBan(prisma, admin, { publicId, macAddress, reason, durationMinutes, permanent, proofImage }, true);
+      try { await globalThis.portalDisconnectDevice?.(macAddress, data); }
+      catch (error) { console.error("Device ban disconnect failed", error); }
+      revalidatePath("/users");
+      revalidatePath("/talents");
+      revalidatePath(`/users/${publicId}`);
+      revalidatePath(`/talents/${publicId}`);
+      revalidatePath("/audit-logs");
+      return { success: true };
+    } catch (error) {
+      console.error("Device ban failed", error);
+      return { success: false, error: { message: error.status ? error.message : "Unable to ban this device. Refresh and try again." } };
+    }
+  }
   const admin = await requirePermission(target === "DEVICE" ? "users.devices" : "users.ban");
   const isTalent = publicId.startsWith("T");
   const owner = isTalent
@@ -797,35 +815,8 @@ export async function forceLogoutUser(publicId, reason) {
 
 export async function unbanDevice(publicId, macAddress, reason) {
   const admin = await requirePermission("users.devices");
-  const user = await prisma.user.findUniqueOrThrow({ where: { publicId } });
-  const device = await prisma.device.findFirstOrThrow({
-    where: { userId: user.id, macAddress },
-  });
-  const now = new Date();
-  const revoked = await prisma.$transaction(async (tx) => {
-    const result = await tx.ban.updateMany({
-      where: {
-        deviceId: device.id,
-        target: "DEVICE",
-        revokedAt: null,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      },
-      data: { revokedAt: now },
-    });
-    await tx.device.update({
-      where: { id: device.id },
-      data: { isBanned: false },
-    });
-    return result.count;
-  });
-  await logActivity(admin, {
-    action: "UNBAN_DEVICE",
-    category: "SECURITY",
-    entityType: "User",
-    entityId: publicId,
-    description: `${admin.name} unbanned device ${macAddress} for user ${publicId}`,
-    metadata: { reason, macAddress, revokedBans: revoked },
-  });
+  await changeDeviceBan(prisma, admin, { publicId, macAddress, reason, permanent: true }, false);
+
   emitToUser(publicId, "device:unbanned", {
     success: true,
     data: { macAddress, reason },

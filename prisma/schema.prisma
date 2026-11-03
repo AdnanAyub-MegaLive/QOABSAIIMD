@@ -901,6 +901,18 @@ model UserAvatarHistory {
   @@index([userId, createdAt])
 }
 
+model ReportingCyclePolicy {
+  id String @id @default(cuid())
+  module String
+  days Int
+  revision Int
+  effectiveFrom DateTime
+  createdAt DateTime @default(now())
+  createdById String
+  @@unique([module, revision])
+  @@unique([module, effectiveFrom])
+}
+
 model VipTier {
   xpMultiplierBps Int @default(10000)
   nameColor String?
@@ -2653,6 +2665,7 @@ model RedEnvelopeClaim {
 }
 
 model RedEnvelopeSettings {
+  roomCardMinCoins    BigInt   @default(0)
   id                 String   @id @default("DEFAULT")
   enabled            Boolean  @default(true)
   maxCoins           BigInt   @default(10000000)

@@ -1,0 +1,1 @@
+ALTER TABLE "RedEnvelopeSettings" ADD COLUMN "roomCardMinCoins" BIGINT NOT NULL DEFAULT 0;

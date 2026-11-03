@@ -44,7 +44,7 @@ export function agencyWork(settlements, policy, aliases = new Map()) {
 }
 export async function agencyWorkReports(db, agencies, period, aliases = new Map()) {
   const [policy, settlements] = await Promise.all([
-    db.agencySalaryPolicy.findUnique({ where: { month: period.month } }),
+    period.commissionUnavailable ? null : db.agencySalaryPolicy.findUnique({ where: { month: period.policyKey ?? period.month } }),
     db.giftSettlement.findMany({ where: { agencyId: { in: agencies.map(a => a.id) }, giftTransaction: { reversedAt: null }, createdAt: { gte: period.start, lt: period.end } },
       select: { agencyId: true, recipientDiamonds: true, giftTransaction: { select: { recipientUserId: true, talentId: true, talent: { select: { id: true, publicId: true } } } } } }),
   ]);

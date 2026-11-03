@@ -99,7 +99,7 @@ async function launchRocket(tx, roomId, season, level, now) {
   const id = `LAUNCH-${randomUUID()}`;
   const topContributor = top[0]?.user ?? null;
   await tx.roomRocketLaunch.create({ data: { id, roomId, campaignId: season.id, level, winners, ...(topContributor ? { topContributor } : {}), createdAt: now } });
-  await appendOutbox(tx, `audio-room:${roomId}`, 'audio-room:rocket:launch', { roomId, launchId: id, campaignId: season.id, stageId: stage.id, level, topContributor, animation: stage.animation });
+  await appendOutbox(tx, `audio-room:${roomId}`, 'audio-room:rocket:launch', { roomId, eventId: id, launchId: id, campaignId: season.id, stageId: stage.id, level, topContributor, animation: stage.animation });
 }
 
 export async function recordRocketGift(tx, gift, source, now = new Date()) {

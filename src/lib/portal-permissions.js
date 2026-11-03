@@ -1,8 +1,8 @@
 // Existing broad grants retain their old authority; new accounts can receive
 // individual actions. Export is always explicit and never inferred from View.
 export const granularActions = {
- vip: ['create','edit','delete','grant','revoke'], hosts: ['edit'], agencies: ['create','edit'],
- rules: ['edit'], uploads: ['create','edit'], rooms: ['edit'],
+ vip: ['create','edit','delete','grant','revoke'], hosts: ['edit','export'], agencies: ['create','edit','export'],
+ users: ['export'], rules: ['edit'], uploads: ['create','edit'], rooms: ['edit'],
  tasks: ['create','edit','delete'], envelopes: ['create','edit','delete'], appearance: ['edit','delete'],
  roomGames: ['create','edit','delete'], games: ['edit'], video: ['edit'],
  notifications: ['create','edit','delete'], content: ['edit','delete'], accounts: ['edit','permissions'],

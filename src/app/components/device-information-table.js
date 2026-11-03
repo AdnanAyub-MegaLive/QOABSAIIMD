@@ -10,6 +10,8 @@ export default function DeviceInformationTable({
   records = [],
 }) {
   const [selectedDevice, setSelectedDevice] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [bannedDevices, setBannedDevices] = usePortalData(
     records
       .filter((record) => record.isDeviceBanned)
@@ -22,10 +24,13 @@ export default function DeviceInformationTable({
 
   async function handleBan(event) {
     event.preventDefault();
-    if (!selectedDevice) return;
+    if (!selectedDevice || busy) return;
     const form = new FormData(event.currentTarget);
     const duration = form.get("duration");
-    await createBan({
+    setBusy(true);
+    setError("");
+    try {
+    const result = await createBan({
       publicId: selectedDevice.userId,
       target: "DEVICE",
       macAddress: selectedDevice.mac,
@@ -37,8 +42,11 @@ export default function DeviceInformationTable({
       permanent: duration === "permanent",
       proofImage: form.get("proof")?.name,
     });
+    if (result?.success === false) { setError(result.error.message); return; }
     setBannedDevices((current) => [...current, selectedDevice.mac]);
     setSelectedDevice(null);
+    } catch { setError("Unable to ban this device. Check your connection and permissions, then try again."); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -145,7 +153,7 @@ export default function DeviceInformationTable({
                   </td>
                   <td className="px-5 py-4 text-right">
                     <button
-                      onClick={() => setSelectedDevice(record)}
+                      onClick={() => { setError(""); setSelectedDevice(record); }}
                       disabled={bannedDevices.includes(record.mac)}
                       className="rounded-lg border border-red-200 bg-white px-3 py-2 text-[10px] font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-[#dce6e4] disabled:bg-[#f3f6f5] disabled:text-[#8fa09c]"
                     >
@@ -170,8 +178,10 @@ export default function DeviceInformationTable({
       </div>
       {selectedDevice && (
         <BanDeviceModal
+          busy={busy}
+          error={error}
           device={selectedDevice}
-          onClose={() => setSelectedDevice(null)}
+          onClose={() => { if (!busy) setSelectedDevice(null); }}
           onBan={handleBan}
         />
       )}
@@ -436,7 +446,7 @@ export function SecurityActionModal({
   );
 }
 
-function BanDeviceModal({ device, onClose, onBan }) {
+function BanDeviceModal({ device, onClose, onBan, busy, error }) {
   const [duration, setDuration] = useState("");
   const [customMinutes, setCustomMinutes] = useState("");
   const minutes =
@@ -470,7 +480,7 @@ function BanDeviceModal({ device, onClose, onBan }) {
               id="ban-device-title"
               className="text-lg font-bold text-[#172f2b]"
             >
-              Ban this device?
+              Ban this device and its accounts?
             </h2>
             <p className="mt-1 text-xs text-[#748782]">
               {device.userName} · {device.mac}
@@ -486,6 +496,8 @@ function BanDeviceModal({ device, onClose, onBan }) {
           </button>
         </div>
         <form onSubmit={onBan} className="p-6">
+          {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+          <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">This also bans every account recorded as having used this device, for the selected duration, and signs them out on all devices. Unbanning the device does not remove the account bans.</p>
           <label
             className="mb-2 block text-xs font-bold text-[#29423d]"
             htmlFor="ban-reason"
@@ -616,9 +628,10 @@ function BanDeviceModal({ device, onClose, onBan }) {
             </button>
             <button
               type="submit"
+              disabled={busy}
               className="h-10 rounded-lg bg-red-600 px-5 text-xs font-bold text-white shadow-[0_6px_16px_rgba(220,38,38,.2)] hover:bg-red-700"
             >
-              Ban device
+              {busy ? "Banning…" : "Ban device"}
             </button>
           </div>
         </form>

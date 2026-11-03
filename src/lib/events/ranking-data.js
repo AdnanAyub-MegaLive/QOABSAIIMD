@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma.js';
 import { resolveUserPerks } from '../user-perks.js';
 import { avatarDisplayUrl } from '../avatar-history.js';
-import { rankingWindow } from './ranking-contract.js';
+import { configuredRankingWindow } from './ranking-contract.js';
 import { vipIsActive } from '../vip-contract.js';
 import { activitySnapshot } from '../activity-levels.js';
 import { levelTagBackgrounds, tagBackground } from '../level-tag-backgrounds.js';
@@ -11,7 +11,8 @@ import { decorationMedia } from '../decoration-media.js';
 // Event scores are gift face value in Coins, never wallet balances or XP.
 // Historical agency attribution comes from the committed settlement, not today's membership.
 export async function eventRankings({ type, period, offset = 0, q = '', viewerId = null, origin, window, raw = false }, db = prisma) {
-  const now = new Date(), { start, end } = window ?? rankingWindow(period, now);
+  const now = new Date(), selectedWindow = window ?? await configuredRankingWindow(db, type, period, now);
+  const { start, end } = selectedWindow;
   const base = Prisma.sql`
     WITH people AS (
       SELECT u.* FROM "User" u WHERE u.status = 'ACTIVE' AND u."deletedAt" IS NULL
@@ -85,7 +86,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
         }))),
       badgeUrl: p?.badgeUrl ?? null, badgeMimeType: p?.badgeMimeType ?? null, badgePosterUrl: p?.badgePosterUrl ?? null }];
   }));
-  return { type, period, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: 'Coins',
+  return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: 'Coins',
     rule: type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
     entries: visible.map(row => ({ id: row.publicId, name: row.name, rank: Number(row.rank), score: row.score.toString(), level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
       ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,

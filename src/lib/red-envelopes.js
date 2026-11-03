@@ -29,6 +29,7 @@ export async function getRedEnvelopeConfiguration({ includeInactive = false } = 
     settings: {
       enabled: settings.enabled,
       maxCoins: settings.maxCoins.toString(),
+      roomCardMinCoins: (settings.roomCardMinCoins ?? 0n).toString(),
       maxShareCount: settings.maxShareCount,
       maxDelaySeconds: settings.maxDelaySeconds,
       claimWindowSeconds: settings.claimWindowSeconds,

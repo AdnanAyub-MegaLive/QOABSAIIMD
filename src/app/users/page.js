@@ -1,3 +1,5 @@
+import { hasPermission } from '@/lib/portal-permissions';
+import DirectoryExport from '../components/directory-export';
 import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
@@ -11,7 +13,7 @@ import { reconcileExpiredSpecialIds } from "../../lib/special-id";
 import { reconcileExpiredAudioRoomRestrictions } from "../../lib/audio-room-maintenance";
 
 export default async function UsersPage() {
-  await requirePagePermission("users.view");
+  const admin = await requirePagePermission("users.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   await reconcileExpiredBans();
@@ -219,7 +221,7 @@ export default async function UsersPage() {
               </button>
             </form>
           </div>
-        </header>
+        </header>{hasPermission(admin,"users.export")&&<div className="px-6"><DirectoryExport kind="users"/></div>}
         <div className="mx-auto max-w-7xl p-6 md:p-10">
           <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>

@@ -3,6 +3,8 @@ import { auth } from "../../../../../auth";
 import { prisma } from "@/lib/prisma";
 import { getRedEnvelopeConfiguration } from "@/lib/red-envelopes";
 
+import { parseRoomCardMinCoins, invalidateRoomCardEnvelopeSettings } from "@/lib/room-card-envelope-settings";
+
 const json = (body, status = 200) => Response.json(body, { status });
 
 async function requireAdmin() {
@@ -62,9 +64,11 @@ export async function PATCH(request) {
     const body = await request.json();
     if (body?.entity === "settings") {
       const data = { enabled: Boolean(body.enabled), maxCoins: coins(body.maxCoins, "Maximum pool"), maxShareCount: integer(body.maxShareCount, "Maximum recipients", 1, 1000), maxDelaySeconds: integer(body.maxDelaySeconds, "Maximum delay", 0, 3600), claimWindowSeconds: integer(body.claimWindowSeconds, "Claim window", 10, 86400) };
+      if (body.roomCardMinCoins !== undefined) data.roomCardMinCoins = parseRoomCardMinCoins(body.roomCardMinCoins);
       const incompatible = await prisma.redEnvelopePreset.findFirst({ where: { active: true, OR: [{ totalCoins: { gt: data.maxCoins } }, { shareCount: { gt: data.maxShareCount } }, { delaySeconds: { gt: data.maxDelaySeconds } }] }, select: { name: true } });
       if (incompatible) throw Object.assign(new Error(`Update or disable the "${incompatible.name}" preset before lowering these limits.`), { status: 422 });
-      await prisma.$transaction(async (tx) => { await tx.redEnvelopeSettings.upsert({ where: { id: "DEFAULT" }, create: { id: "DEFAULT", ...data }, update: data }); await audit(tx, admin, "RED_ENVELOPE_SETTINGS_UPDATED", "DEFAULT", { ...data, maxCoins: data.maxCoins.toString() }); });
+      await prisma.$transaction(async (tx) => { await tx.redEnvelopeSettings.upsert({ where: { id: "DEFAULT" }, create: { id: "DEFAULT", ...data }, update: data }); await audit(tx, admin, "RED_ENVELOPE_SETTINGS_UPDATED", "DEFAULT", { ...data, maxCoins: data.maxCoins.toString(), ...(data.roomCardMinCoins !== undefined ? { roomCardMinCoins: data.roomCardMinCoins.toString() } : {}) }); });
+      invalidateRoomCardEnvelopeSettings(prisma);
     } else {
       const id = String(body?.id ?? "").trim();
       if (!id) throw Object.assign(new Error("Preset ID is required."), { status: 422 });

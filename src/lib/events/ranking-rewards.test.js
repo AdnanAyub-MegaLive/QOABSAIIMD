@@ -69,3 +69,15 @@ describe('ranking award transaction',()=>{
     await expect(maintainRankingRewards(db)).resolves.toBeUndefined();
   });
 });
+
+it('resumes monthly awards from the last stored end, advancing in half-months without replaying old rounds',async()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date('2026-12-02T00:00:00Z'));
+ const policy={...input,track:'charm',period:'month',eventSlug:'ranking-charm',id:'p',effectiveFrom:new Date('2026-10-01'),createdAt:new Date('2026-09-01'),enabled:false};
+ const upsert=vi.fn();
+ const db={reportingCyclePolicy:{findMany:async()=>[{days:15,revision:1,effectiveFrom:new Date('2026-11-01')}]},rankingRewardPolicy:{findMany:async()=>[policy]},event:{findUnique:async()=>({status:'PUBLISHED'})},rankingRewardRound:{findFirst:async()=>({endsAt:new Date('2026-11-01')}),upsert,findMany:async()=>[]}};
+ try { await maintainRankingRewards(db);
+ expect(upsert).toHaveBeenCalledTimes(2);
+ expect(upsert.mock.calls.map(([q])=>[q.create.startsAt.toISOString(),q.create.endsAt.toISOString()])).toEqual([['2026-11-01T00:00:00.000Z','2026-11-16T00:00:00.000Z'],['2026-11-16T00:00:00.000Z','2026-12-01T00:00:00.000Z']]);
+ for(const [q] of upsert.mock.calls)expect(q.update).toEqual({});
+ } finally {vi.useRealTimers();}
+});

@@ -1,11 +1,12 @@
+import { reportCycle, publicCycle } from './reporting-cycles.js';
 import { createHash } from "node:crypto";
-import { salaryMonth, sessionAttendance } from "./agency-salary.js";
+import { sessionAttendance } from "./agency-salary.js";
 import { agencyWork } from "./agency-work.js";
 import { hostReportAliases } from "./host-report-identity.js";
 import { audioMicAttendance } from "./audio-mic-attendance.js";
 
 export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
-  const period = salaryMonth(selectedMonth, now);
+  const period = await reportCycle(db, 'HOST_SALARY', selectedMonth, now);
   const user = await db.user.findUnique({ where: { id: userId }, select: {
     id: true, publicId: true, status: true, deletedAt: true, appRoles: true, hostSince: true,
     agency: { select: { publicId: true, name: true, status: true } },
@@ -35,7 +36,9 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   const missingSettlementCount = await db.giftTransaction.count({ where: {
     ...recipient, reversedAt: null, settlement: null, createdAt: { gte: period.start, lt: period.end },
   } });
-  const policy = await db.agencySalaryPolicy.findUnique({ where: { month: period.month } });
+  // Commission tiers belong to agency cycles, not an independently configured host period.
+  const agencyPeriod = await reportCycle(db, 'AGENCY_COMMISSION', period.key, now).catch(error => { if(error.status===422)return null;throw error; });
+  const policy = agencyPeriod && +agencyPeriod.start===+period.start && +agencyPeriod.end===+period.end ? await db.agencySalaryPolicy.findUnique({ where: { month: agencyPeriod.policyKey } }) : null;
   const videos = await db.videoLiveSession.findMany({ where: { hostId: user.id, ...overlap }, select: { startedAt: true, endedAt: true } });
   const legacy = await db.liveSession.findMany({ where: { talentId: { in: talentIds }, ...overlap }, select: { startedAt: true, endedAt: true } });
   const audio = await audioMicAttendance(db, user.id, period, now);
@@ -58,8 +61,8 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   const incomplete = work.unvaluedGiftCount > 0 || missingSettlementCount > 0;
   const data = {
     hostPublicId: user.publicId, hostSince, agency: { publicId: agency.publicId, name: agency.name }, month: period.month, timezone: "UTC",
-    period: { start: period.start.toISOString(), endExclusive: period.end.toISOString() },
-    earnings: { monthlyReceivedGiftDiamonds: incomplete ? null : work.totalDiamonds,
+    period: publicCycle(period),
+    earnings: { periodReceivedGiftDiamonds: incomplete ? null : work.totalDiamonds, monthlyReceivedGiftDiamonds: incomplete || period.days !== 30 ? null : work.totalDiamonds,
       recordedGiftDiamonds: work.totalDiamonds, unit: "DIAMONDS", coverage: incomplete ? "INCOMPLETE" : "RECORDED_SETTLEMENTS",
       unvaluedGiftCount: work.unvaluedGiftCount, missingSettlementCount },
     attendance: { ...sessionAttendance([...videos, ...legacy, ...audio], period.start, period.end, now),

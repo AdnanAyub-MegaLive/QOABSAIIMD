@@ -1,3 +1,4 @@
+import { assertSessionDevice } from "./device-ban.js";
 import { prisma } from "./prisma";
 import { versionMediaPayload } from "./media-payload.js";
 import { synchronizeVip } from "./vip-membership.js";
@@ -57,14 +58,7 @@ export async function requireMobileUser(request, { syncVip = true } = {}) {
   });
   assertMobileSession(user, payload);
 
-  if (payload.deviceId) {
-    const device = await prisma.device.findUnique({
-      where: { userId_macAddress: { userId: user.id, macAddress: payload.deviceId } },
-      select: { isBanned: true },
-    });
-    if (!device) throw new Error("DEVICE_NOT_REGISTERED");
-    if (device.isBanned) throw new Error("DEVICE_BANNED");
-  }
+  await assertSessionDevice(prisma, user.id, payload.deviceId);
   const vipLevel = syncVip ? await synchronizeVip(user.id) : null;
   if (vipLevel !== null) user.vipLevel = vipLevel;
   return user;

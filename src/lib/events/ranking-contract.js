@@ -1,3 +1,4 @@
+import { moduleCycle } from '../reporting-cycles.js';
 export const eventRankingTypes = ['wealth', 'charm', 'agency', 'cp'];
 export function rankingWindow(period, now = new Date()) {
   const start = new Date(now); start.setUTCHours(0, 0, 0, 0);
@@ -16,4 +17,8 @@ export function rankingInput(params) {
     throw Object.assign(new Error('Invalid ranking filter.'), { code: 'VALIDATION_ERROR' });
   rankingWindow(period);
   return { type, period, offset, q };
+}
+
+export async function configuredRankingWindow(db, type, period, now = new Date()) {
+  return period === 'month' ? moduleCycle(db, `${type.toUpperCase()}_RANKING`, now) : rankingWindow(period, now);
 }

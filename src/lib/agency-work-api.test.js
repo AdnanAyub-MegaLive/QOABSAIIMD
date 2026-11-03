@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ permission: vi.fn(), transaction: vi.fn(), policy: { findUnique: vi.fn(), upsert: vi.fn() }, audit: vi.fn() }));
-vi.mock("./prisma", () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock("./prisma", () => ({ prisma: { reportingCyclePolicy:{findMany:async()=>[]}, $transaction: mocks.transaction } }));
 vi.mock("./portal-admin", () => ({ requirePermission: mocks.permission }));
 import { PUT, GET } from "../app/api/admin/agencies/work/route.js";
 const month = new Date().toISOString().slice(0, 7);

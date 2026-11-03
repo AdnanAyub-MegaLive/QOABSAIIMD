@@ -1,10 +1,11 @@
+import { reportCycle, publicCycle } from './reporting-cycles.js';
 import { agencyWorkReports, hierarchyWork, usdValue } from "./agency-work.js";
 import { teamSelect } from "./management-team.js";
 import { managementRole } from "./user-roles.js";
 import { prisma } from "./prisma.js";
 import { requireTeamManager, subtree } from "./management-team.js";
 import { normalizeSignupCountry } from "./geo-country.js";
-import { salaryMonth, getAgencySalary } from "./agency-salary.js";
+import { getAgencySalary } from "./agency-salary.js";
 import { managementFailure } from "./management-web.js";
 import { selectedAgencyBd } from "./company-bd.js";
 import { managementTargets } from "./management-target-report.js";
@@ -36,10 +37,12 @@ export async function assignManagementAgency(userId,publicId,db=prisma,bdCode) {
   },{isolationLevel:"Serializable"});
 }
 export async function managementPerformance(userId,month,agencyPublicId,db=prisma) {
-  const scope=await businessScope(userId,db),period=salaryMonth(month);
+  const scope=await businessScope(userId,db),period=await reportCycle(db,'MANAGEMENT_SALARY',month);
   const agencies=await db.agency.findMany({where:{country:scope.country,bdUserId:{in:scope.ids}},select:{id:true,publicId:true,name:true,bdUserId:true,bd:{select:{publicId:true,name:true}},_count:{select:{userHosts:true,talents:true}}}});
-  if(agencyPublicId){const agency=agencies.find(a=>a.publicId===agencyPublicId);if(!agency)throw managementFailure("Agency is outside your team.");return getAgencySalary(agency.id,period.month,db);}
-  const workReports=await agencyWorkReports(db,agencies,period);
+  if(agencyPublicId){const agency=agencies.find(a=>a.publicId===agencyPublicId);if(!agency)throw managementFailure("Agency is outside your team.");return getAgencySalary(agency.id,month,db);}
+  const commissionCycle=await reportCycle(db,'AGENCY_COMMISSION',period.key).catch(e=>{if(e.status===422)return null;throw e;});
+  const commissionUnavailable=!commissionCycle||+commissionCycle.start!==+period.start||+commissionCycle.end!==+period.end;
+  const workReports=await agencyWorkReports(db,agencies,{...period,commissionUnavailable});
   const targetMap=await managementTargets(db,[scope.me,...scope.members],workReports);
   const hierarchy=hierarchyWork([scope.me,...scope.members],workReports).map(row=>({...row,target:targetMap.get(row.publicId)??null}));
   const totals=await db.giftSettlement.groupBy({by:["agencyId"],where:{agencyId:{in:agencies.map(a=>a.id)},giftTransaction:{reversedAt:null},createdAt:{gte:period.start,lt:period.end}},_sum:{grossCoins:true,hostSalaryCoins:true,agencyCoins:true}});
@@ -50,5 +53,5 @@ export async function managementPerformance(userId,month,agencyPublicId,db=prism
   const agencySalaryDiamonds=rows.reduce((n,r)=>n+BigInt(r.work.salaryDiamonds),0n);
   const rates=new Set(workReports.map(r=>r.work.diamondsPerUsd));
   const diamondsPerUsd=rates.size===1?[...rates][0]:null;
-  return {totalDiamonds:String(totalDiamonds),totalUsd:diamondsPerUsd?usdValue(totalDiamonds,diamondsPerUsd):null,agencySalaryDiamonds:String(agencySalaryDiamonds),agencySalaryUsd:diamondsPerUsd?usdValue(agencySalaryDiamonds,diamondsPerUsd):null,diamondsPerUsd,hierarchy,month:period.month,timezone:"UTC",attribution:"CURRENT_AGENCY_SUPERVISION",agencyCount:rows.length,hostCount:rows.reduce((s,r)=>s+r.hostCount,0),giftCoins:rows.reduce((s,r)=>s+BigInt(r.giftCoins),0n).toString(),salaryCoins:rows.reduce((s,r)=>s+BigInt(r.salaryCoins),0n).toString(),agencies:rows.sort(rank),topAgencies:[...rows].sort(rank).slice(0,3),topSupervisors:[...groups.values()].sort(rank).slice(0,3)};
+  return {commissionCycleMatches:!commissionUnavailable,totalDiamonds:String(totalDiamonds),totalUsd:diamondsPerUsd?usdValue(totalDiamonds,diamondsPerUsd):null,agencySalaryDiamonds:commissionUnavailable?null:String(agencySalaryDiamonds),agencySalaryUsd:diamondsPerUsd?usdValue(agencySalaryDiamonds,diamondsPerUsd):null,diamondsPerUsd,hierarchy,cycle:publicCycle(period),month:period.month,timezone:"UTC",attribution:"CURRENT_AGENCY_SUPERVISION",agencyCount:rows.length,hostCount:rows.reduce((s,r)=>s+r.hostCount,0),giftCoins:rows.reduce((s,r)=>s+BigInt(r.giftCoins),0n).toString(),salaryCoins:rows.reduce((s,r)=>s+BigInt(r.salaryCoins),0n).toString(),agencies:rows.sort(rank),topAgencies:[...rows].sort(rank).slice(0,3),topSupervisors:[...groups.values()].sort(rank).slice(0,3)};
 }

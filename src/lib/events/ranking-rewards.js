@@ -4,7 +4,7 @@ import { notifyAction } from '../action-notifications.js';
 import { equippablePropCategories } from '../props-store.js';
 import { uploadLibraryFilter } from '../upload-library-filter.js';
 import { selectOwnedVip, vipRenewalExpiry } from '../vip-commerce.js';
-import { rankingWindow } from './ranking-contract.js';
+import { configuredRankingWindow } from './ranking-contract.js';
 import { eventRankings } from './ranking-data.js';
 import { rewardInput, policyFor } from './ranking-reward-rules.js';
 
@@ -20,6 +20,7 @@ export async function validateRewardAssets(tx, rewards) {
 
 export async function saveRankingRewards(input, admin, db = prisma) {
   const data = rewardInput(input);
+  data.effectiveFrom = (await configuredRankingWindow(db,input.track,input.period)).end;
   return db.$transaction(async tx => {
     const event = await tx.event.findUnique({where:{slug:data.eventSlug}});
     if (!event) throw new Error('Create this ranking event first.');
@@ -107,7 +108,7 @@ export async function maintainRankingRewards(db = prisma) {
       const last = await db.rankingRewardRound.findFirst({where:{eventSlug:first.eventSlug,period:first.period},orderBy:{startsAt:'desc'}});
       let start = last?.endsAt ?? first.effectiveFrom;
       for (let n=0;n<10;n++) {
-        const window = rankingWindow(first.period,start);
+        const window = await configuredRankingWindow(db,first.track,first.period,start);
         if (window.end > now) break;
         const policy = policyFor(group,start);
         const event = await db.event.findUnique({where:{slug:first.eventSlug},select:{status:true}});

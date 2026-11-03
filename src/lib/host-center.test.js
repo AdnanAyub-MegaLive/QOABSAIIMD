@@ -4,7 +4,7 @@ import { hostCenter } from "./host-center.js";
 const now = new Date("2026-10-21T12:00:00Z");
 let db;
 beforeEach(() => {
-  db = {
+  db = { reportingCyclePolicy: {findMany:vi.fn().mockResolvedValue([])},
     user: { findUnique: vi.fn().mockResolvedValue({ id: "u", publicId: "TLN-1", status: "ACTIVE", appRoles: ["HOST"], agency: { publicId: "AGN-2", name: "Current", status: "ACTIVE" } }) },
     audioRoomMicSession: { findMany: vi.fn().mockResolvedValue([]) },
     talent: { findMany: vi.fn().mockResolvedValue([{ id: "t", publicId: "TLN-1" }]) },

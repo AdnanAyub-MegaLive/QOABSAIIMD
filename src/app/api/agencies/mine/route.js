@@ -1,3 +1,4 @@
+import { reportCycle, publicCycle } from '@/lib/reporting-cycles';
 import { prisma } from "@/lib/prisma";
 import { agencyLogoUrl } from "@/lib/agency-logo";
 import { referenceDto } from "@/lib/agency-reference";
@@ -80,6 +81,10 @@ export async function GET(request) {
         ])
       : [{ _sum: { grossCoins: null } }, { _sum: { hostSalaryCoins: null } }];
 
+    const cycle = agency ? await reportCycle(prisma,'AGENCY_COMMISSION') : null;
+    const cycleSalary = !agency ? null : cycle.days===30 ? monthlySalary : await prisma.giftSettlement.aggregate({
+      where:{agencyId:agency.id,giftTransaction:{reversedAt:null},createdAt:{gte:cycle.start,lt:cycle.end}},_sum:{hostSalaryCoins:true}
+    });
     return mobileJson({
       success: true,
       data: {
@@ -94,6 +99,8 @@ export async function GET(request) {
               status: agency.status,
               createdAt: agency.createdAt.toISOString(),
               commissionCoinBalance: agency.commissionCoinBalance.toString(),
+              cycle:publicCycle(cycle),
+              periodSalaryCoins:String(cycleSalary._sum.hostSalaryCoins??0n),
               monthlyTargetCoins: agency.monthlyTargetCoins.toString(),
               monthlySalaryCoins: String(
                 monthlySalary._sum.hostSalaryCoins ?? 0n,

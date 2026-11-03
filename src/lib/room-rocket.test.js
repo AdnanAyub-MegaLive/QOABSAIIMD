@@ -44,6 +44,9 @@ it('records distinct multi-recipient shares once, excludes backpack and reversed
  const f=fixture();await recordRocketGift(f.tx,f.gift('a',60),'COINS',now);await recordRocketGift(f.tx,f.gift('a',60),'COINS',now);await recordRocketGift(f.tx,f.gift('b',60),'COINS',now);
  await recordRocketGift(f.tx,f.gift('bag',999),'BACKPACK',now);await recordRocketGift(f.tx,{...f.gift('refund',99),reversedAt:now},'COINS',now);
  expect(f.state.progress.coins).toBe(20n);expect(f.state.progress.level).toBe(2);expect(f.state.launches.size).toBe(1);expect(f.tx.events.filter(e=>e.event.endsWith(':launch'))).toHaveLength(1);
+ const launchEvent=f.tx.events.find(e=>e.event==='audio-room:rocket:launch');
+ expect(launchEvent.data.eventId).toBe(launchEvent.data.launchId);
+ expect(f.state.launches.has(launchEvent.data.eventId)).toBe(true);
  await reverseRocketGift(f.tx,'b',now);await reverseRocketGift(f.tx,'b',now);expect(f.state.progress.coins).toBe(0n);expect(f.state.launches.size).toBe(1);
 });
 it('selects unique present in-room winners excluding top3 and invisible users',async()=>{

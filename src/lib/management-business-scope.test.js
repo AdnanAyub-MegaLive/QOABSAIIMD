@@ -7,7 +7,7 @@ const people=[
  {id:'b',publicId:'B',appRoles:['BD'],country:'PK',status:'ACTIVE',supervisorUserId:'a'},
  {id:'other',publicId:'OTHER',appRoles:['BD'],country:'PK',status:'ACTIVE'},
 ];
-function database(){return {user:{findUnique:async({where})=>people.find(p=>p.id===where.id),findMany:async({where})=>people.filter(p=>where.supervisorUserId.in.includes(p.supervisorUserId))},agency:{findMany:vi.fn(async()=>[])}};}
+function database(){return {reportingCyclePolicy:{findMany:async()=>[]},user:{findUnique:async({where})=>people.find(p=>p.id===where.id),findMany:async({where})=>people.filter(p=>where.supervisorUserId.in.includes(p.supervisorUserId))},agency:{findMany:vi.fn(async()=>[])}};}
 it('allows downward visibility but not upward or unrelated teams',async()=>{
  expect((await businessScope('j',database())).ids).toEqual(['j','a','b']);
  expect((await businessScope('a',database())).ids).toEqual(['a','b']);

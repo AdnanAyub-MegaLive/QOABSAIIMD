@@ -8,6 +8,20 @@ import { deliverCommittedGiftEvents, flushRealtimeOutbox } from "./realtime-outb
 const row = id => ({ id, channel: "audio-room:room", event: "gift:received", payload: { success: true, data: { transactionId: id, mediaVersion: "abc" } } });
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 beforeEach(() => vi.clearAllMocks());
+it.each([true, false])("preserves Rocket launch identity on delivery and retries (explicit eventId: %s)", async explicit => {
+  const emit = vi.fn().mockImplementationOnce(() => { throw Error("offline"); });
+  const io = { to: () => ({ emit }) };
+  const data = { launchId: "launch-1", ...(explicit ? { eventId: "launch-1" } : {}) };
+  const item = { ...row("outbox-1"), event: "audio-room:rocket:launch", payload: { success: true, data } };
+  const db = { realtimeOutbox: { findMany: vi.fn().mockResolvedValue([item]), updateMany: vi.fn() } };
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    await flushRealtimeOutbox(io, db);
+    await flushRealtimeOutbox(io, db);
+    expect(emit.mock.calls.map(call => call[1].data.eventId)).toEqual(["launch-1", "launch-1"]);
+    expect(emit.mock.calls[1][1].data.launchId).toBe("launch-1");
+  } finally { log.mockRestore(); }
+});
 it("shares one leaderboard read across a room's burst and emits gifts first", async () => {
   const emit = vi.fn(), io = {to: () => ({emit})};
   const rows = Array.from({length:20}, (_, i) => ({...row(`board-${i}`), event:"audio-room:gift-leaderboard", payload:{success:true,data:{roomId:"room",origin:"https://portal.test",refreshLeaderboard:true}}}));

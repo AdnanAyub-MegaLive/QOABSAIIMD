@@ -1,3 +1,4 @@
+import DirectoryExport from '../components/directory-export';
 import CreateAgency from "./create-agency";
 import { hasPermission } from "@/lib/portal-permissions";
 import { requirePagePermission } from "@/lib/portal-admin";
@@ -96,7 +97,7 @@ export default async function AgenciesPage() {
               </button>
             </form>
           </div>
-        </header>
+        </header>{hasPermission(admin,"agencies.export")&&<div className="px-6"><DirectoryExport kind="agencies"/></div>}
         <div className="mx-auto max-w-7xl p-6 md:p-10">
           <div className="mb-7">
             <h2 className="text-2xl font-bold">Agency management</h2>

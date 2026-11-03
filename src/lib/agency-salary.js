@@ -1,3 +1,4 @@
+import { reportCycle, publicCycle } from './reporting-cycles.js';
 import { agencyWorkReports } from "./agency-work.js";
 import { hostReportAliases } from "./host-report-identity.js";
 import { prisma } from "./prisma.js";
@@ -31,7 +32,8 @@ export function sessionAttendance(sessions, start, end, now = new Date()) {
 
 export async function getAgencySalary(agencyId, selectedMonth, db = prisma, origin = null) {
   const now = new Date();
-  const { month, start, end } = salaryMonth(selectedMonth, now);
+  const period = await reportCycle(db, 'AGENCY_COMMISSION', selectedMonth, now);
+  const { month, start, end } = period;
   const agency = await db.agency.findUniqueOrThrow({ where: { id: agencyId }, select: { id: true, publicId: true, name: true, monthlyTargetCoins: true, userHosts: { select: { id: true, publicId: true, name: true, profileImage: true } }, talents: { select: { id: true, publicId: true, displayName: true, profileImage: true } } } });
   const [settlements, bills, recharge] = await Promise.all([
     db.giftSettlement.findMany({ where: { agencyId, giftTransaction: { reversedAt: null }, createdAt: { gte: start, lt: end } }, select: { grossCoins: true, hostSalaryCoins: true, agencyCoins: true, giftTransaction: { select: { recipientUser: { select: { id: true, publicId: true, name: true, profileImage: true } }, talent: { select: { id: true, publicId: true, displayName: true, profileImage: true } } } } } }),
@@ -71,12 +73,12 @@ export async function getAgencySalary(agencyId, selectedMonth, db = prisma, orig
   if (!months.some(b => b.month === month)) months.push({ month, totalSalaryCoins: "0", commissionCoins: "0", status: month === now.toISOString().slice(0, 7) ? "ACCRUING" : "ACCRUED" });
   months.sort((a, b) => b.month.localeCompare(a.month));
   const bill = months.find(b => b.month === month);
-  const [report] = await agencyWorkReports(db, [{ id: agencyId }], { month, start, end }, aliases);
+  const [report] = await agencyWorkReports(db, [{ id: agencyId }], period, aliases);
   for (const host of rows) {
     const source = [...hosts.values()].find(h => h.publicId === host.publicId && h.kind === host.kind);
     const work = report.work.hosts.find(h => h.key === `${host.kind}:${source.internalId}`);
     Object.assign(host, { giftDiamonds: work?.diamonds ?? "0", agencySalaryDiamonds: work?.salaryDiamonds ?? "0", achievedTargetDiamonds: work?.targetDiamonds ?? null, commissionBps: work?.commissionBps ?? 0, unvaluedGiftCount: work?.unvaluedGiftCount ?? 0 });
   }
   rows.sort((a,b) => BigInt(a.giftDiamonds) === BigInt(b.giftDiamonds) ? a.publicId.localeCompare(b.publicId) : BigInt(a.giftDiamonds) > BigInt(b.giftDiamonds) ? -1 : 1);
-  return { work: report.work, agencyId: agency.publicId, agencyName: agency.name, month, timezone: "UTC", ...bill, giftIncomeCoins: settlements.reduce((sum, s) => sum + s.grossCoins, 0n).toString(), totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n), rechargeBasis: "CURRENT_HOSTS_LIFETIME", ...await activityProgress("AGENCY",agency.id,origin,db).then(p=>({agencyLevel:p.level,nextLevelThreshold:p.nextThreshold,progression:p})), monthlyTargetCoins: agency.monthlyTargetCoins.toString(), hosts: rows, topEarners: rows.slice(0, 3), months, reportingBasis: { earnings: "RECORDED_RECIPIENT_DIAMONDS", coinFields: "LEGACY_SETTLEMENT_ACCOUNTING_NOT_WITHDRAWABLE_BALANCE", salary: "MONTHLY_POLICY_ESTIMATE_NOT_UNPAID_BILL", topEarners: "GIFT_DIAMONDS" }, activityNotice: "Attendance combines recorded video and exactly linked legacy live sessions. Missing historical audio attendance cannot be reconstructed. Accrued salary is earnings, not an unpaid payout bill." };
+  return { cycle: publicCycle(period), work: report.work, agencyId: agency.publicId, agencyName: agency.name, month, timezone: "UTC", ...bill, status:now<end?"ACCRUING":"ACCRUED", totalSalaryCoins: settlements.reduce((n,s)=>n+s.hostSalaryCoins,0n).toString(), commissionCoins: settlements.reduce((n,s)=>n+s.agencyCoins,0n).toString(), giftIncomeCoins: settlements.reduce((sum, s) => sum + s.grossCoins, 0n).toString(), totalRechargeCoins: String(recharge._sum.totalTopUp ?? 0n), rechargeBasis: "CURRENT_HOSTS_LIFETIME", ...await activityProgress("AGENCY",agency.id,origin,db).then(p=>({agencyLevel:p.level,nextLevelThreshold:p.nextThreshold,progression:p})), monthlyTargetCoins: agency.monthlyTargetCoins.toString(), hosts: rows, topEarners: rows.slice(0, 3), months, reportingBasis: { earnings: "RECORDED_RECIPIENT_DIAMONDS", coinFields: "LEGACY_SETTLEMENT_ACCOUNTING_NOT_WITHDRAWABLE_BALANCE", salary: "CYCLE_POLICY_ESTIMATE_NOT_UNPAID_BILL", topEarners: "GIFT_DIAMONDS" }, activityNotice: "Attendance combines recorded video and exactly linked legacy live sessions. Missing historical audio attendance cannot be reconstructed. Accrued salary is earnings, not an unpaid payout bill." };
 }

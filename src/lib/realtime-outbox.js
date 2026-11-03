@@ -35,7 +35,11 @@ async function deliver(rows, io, db) {
         // A stale poll or failed delivery-marker write must not emit again.
         // Still retry the marker write so durable fallback can make progress.
         if (state.emitted.has(row.id)) { delivered.push(row.id); continue; }
-        let payload = { ...row.payload, data: { ...row.payload.data, eventId: row.id } };
+        // Rocket clients deduplicate by launch identity, including legacy rows.
+        const eventId = row.event === "audio-room:rocket:launch"
+          ? row.payload.data?.eventId ?? row.payload.data?.launchId ?? row.id
+          : row.id;
+        let payload = { ...row.payload, data: { ...row.payload.data, eventId } };
         if (isGiftEvent(row.event) && payload.data.comboTiming)
           payload.data.serverTime = new Date().toISOString();
         if (!isGiftEvent(row.event)) {

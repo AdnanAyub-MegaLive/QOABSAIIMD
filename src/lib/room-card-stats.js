@@ -1,8 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { roomCardMinCoins } from "./room-card-envelope-settings.js";
 
 export async function roomCardStats(rooms, db = prisma, now = new Date()) {
   if (!rooms.length) return new Map();
+  const minimumCoins = await roomCardMinCoins(db);
   const [totals, envelopes] = await Promise.all([
     db.$queryRaw(Prisma.sql`SELECT "roomId", SUM(coins)::bigint AS coins FROM (
       SELECT "roomId", coins FROM "RoomGiftTotal" WHERE "roomId" IN (${Prisma.join(rooms.map(room => room.roomId))})
@@ -11,7 +13,7 @@ export async function roomCardStats(rooms, db = prisma, now = new Date()) {
     ) totals GROUP BY "roomId"`),
     db.redEnvelope.groupBy({
       by: ["audioRoomId"],
-      where: { audioRoomId: { in: rooms.map(room => room.id) }, status: "ACTIVE", remainingShares: { gt: 0 }, expiresAt: { gt: now } },
+      where: { audioRoomId: { in: rooms.map(room => room.id) }, status: "ACTIVE", remainingShares: { gt: 0 }, expiresAt: { gt: now }, totalCoins: { gt: minimumCoins } },
       _count: { _all: true },
     }),
   ]);

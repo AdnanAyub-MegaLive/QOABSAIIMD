@@ -305,16 +305,16 @@ app.prepare().then(async()=>{
   globalThis.portalBroadcastAudioRoomSeats=(room,origin)=>broadcastAudioRoomSeatState(room,origin,undefined,true);
   globalThis.portalSyncAudioRoomRemoval=(roomId,publicId,origin)=>syncAudioRoomRemoval(prisma,io,broadcastAudioRoomSeatState,roomId,publicId,origin);
 
+  const {assertSessionDevice,disconnectBannedDevice}=await import("./src/lib/device-ban.js");
+  globalThis.portalDisconnectDevice=(deviceId,data)=>disconnectBannedDevice(io,deviceId,data);
+
   io.use(async(socket,nextSocket)=>{
     try{
       const payload=verifyMobileSessionToken(socket.handshake.auth?.token);
       const user=await prisma.user.findUnique({where:{publicId:payload.userId}});
       if(!user||user.deletedAt||user.sessionVersion!==payload.sessionVersion)return nextSocket(new Error("SESSION_REVOKED"));
-      if(payload.deviceId){
-        const device=await prisma.device.findUnique({where:{userId_macAddress:{userId:user.id,macAddress:payload.deviceId}},select:{isBanned:true}});
-        if(!device)return nextSocket(new Error("DEVICE_NOT_REGISTERED"));
-        if(device.isBanned)return nextSocket(new Error("DEVICE_BANNED"));
-      }
+      await assertSessionDevice(prisma,user.id,payload.deviceId);
+      socket.data.deviceId=payload.deviceId;
       const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});
       if(ban){const error=new Error("ACCOUNT_BANNED");error.data={banReason:ban.reason,banExpiresAt:ban.expiresAt?.toISOString()??null};return nextSocket(error);}
       socket.data.userId=user.publicId;
@@ -342,6 +342,12 @@ app.prepare().then(async()=>{
         const current=await prisma.user.findUnique({where:{publicId:userId},select:{sessionVersion:true,status:true,deletedAt:true}});
         if(!current || current.deletedAt || current.status!=="ACTIVE" || current.sessionVersion!==payload.sessionVersion){
           const response={success:false,error:{code:"SESSION_REVOKED",message:"Your session has been revoked. Please sign in again."}};
+          const ack=packet[packet.length-1];if(typeof ack==="function")ack(response);
+          socket.emit("session:revoked",response);socket.disconnect(true);return;
+        }
+        try { await assertSessionDevice(prisma,user.id,payload.deviceId); }
+        catch(error) {
+          const response={success:false,error:{code:error.message,message:"This device cannot use this session."}};
           const ack=packet[packet.length-1];if(typeof ack==="function")ack(response);
           socket.emit("session:revoked",response);socket.disconnect(true);return;
         }
