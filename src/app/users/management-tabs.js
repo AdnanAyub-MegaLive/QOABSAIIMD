@@ -25,6 +25,7 @@ export default function ManagementTabs({
   modules,
   audioRooms,
   specialIdCatalog,
+  canAdjustCoins = false,
 }) {
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
@@ -86,6 +87,7 @@ export default function ManagementTabs({
               ))}
             </div>
             <UsersTable
+              canAdjustCoins={canAdjustCoins}
               initialData={users}
               specialIdCatalog={specialIdCatalog}
             />

@@ -94,7 +94,7 @@ export default async function UsersPage() {
       vip: user.vipLevel > 0,
       totalSpent: Number(user.totalSpent),
       totalTopUp: Number(user.totalTopUp),
-      balance: Number(user.coinBalance),
+      balance: String(user.coinBalance),
       gifts: user._count.sentGifts,
     };
   });
@@ -233,6 +233,7 @@ export default async function UsersPage() {
             <AddAccountModal type="user" />
           </div>
           <ManagementTabs
+            canAdjustCoins={hasPermission(admin, "finance.adjust")}
             users={userData}
             devices={deviceData}
             modules={userModules}
