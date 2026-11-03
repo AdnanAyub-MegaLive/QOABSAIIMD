@@ -14,3 +14,16 @@ export async function configureSpecialIdStore(id, price, duration, visible) {
   revalidatePath("/vip-management");
   return { success: true };
 }
+
+export async function grantPrettyId(publicId, pattern, durationMinutes) {
+  const admin = await requirePermission("users.specialIds");
+  if (typeof publicId !== "string" || !publicId.trim() || !/^[A-G]{7}$/.test(pattern) || !Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 52560000)
+    return {success:false,message:"Enter the normal user ID, a seven-letter format (A–G), and a positive duration."};
+  const user = await prisma.user.findFirst({where:{publicId:publicId.trim(),status:"ACTIVE",deletedAt:null},select:{id:true}});
+  if (!user) return {success:false,message:"Active user not found. Enter their normal account ID."};
+  await prisma.$transaction(async tx=>{
+    const grant = await tx.prettyIdGrant.create({data:{userId:user.id,pattern,durationMinutes}});
+    await tx.auditLog.create({data:{action:"PRETTY_ID_GRANTED",category:"USER_MANAGEMENT",entityType:"User",entityId:user.id,description:"Pretty ID format granted",metadata:{grantId:grant.id,adminId:admin.id,pattern,durationMinutes}}});
+  });
+  return {success:true,message:"Entitlement granted. The user can choose an ID in the app."};
+}

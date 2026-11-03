@@ -2,6 +2,7 @@
 
 import { unwrapAction } from "@/lib/action-validation";
 
+import { grantPrettyId } from "../vip-management/special-id-store-actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +19,8 @@ import SpecialIdStoreSettings from "../vip-management/special-id-store-settings"
 export default function SpecialIdAssignments({ initialAssignments, canManage = true, onChanged = () => {} }) {
   const [rows, setRows] = usePortalData(initialAssignments);
   const [selected, setSelected] = useState(null);
+  const [grantMessage,setGrantMessage] = useState("");
+  const [grantBusy,setGrantBusy] = useState(false);
   const active = rows.filter((row) => row.status === "ACTIVE").length;
   return (
     <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
@@ -30,6 +33,24 @@ export default function SpecialIdAssignments({ initialAssignments, canManage = t
           </p>
         </div>
       </div>
+      {canManage && <form className="grid gap-2 p-5" onSubmit={async event=>{
+        event.preventDefault();
+        const form=event.currentTarget, data=new FormData(form);
+        setGrantBusy(true);
+        try {
+          const result=await grantPrettyId(data.get("publicId"),data.get("pattern"),Number(data.get("days"))*1440);
+          setGrantMessage(result.message);
+          if(result.success) form.reset();
+        } catch { setGrantMessage("Grant could not be confirmed. Check before retrying."); }
+        finally {setGrantBusy(false);}
+      }}>
+        <h3>Grant a Pretty ID format</h3>
+        <label>Normal user ID <input required name="publicId" placeholder="USR-…" /></label>
+        <label>Digit pattern <input required name="pattern" pattern="[A-G]{7}" defaultValue="AABBBBB" /></label>
+        <small>Each letter stands for a distinct digit. AABBBBB allows 1100000.</small>
+        <label>Days from claim <input required type="number" min="1" max="36500" name="days" defaultValue="10" /></label>
+        <button disabled={grantBusy}>Grant format</button><span role="status">{grantMessage}</span>
+      </form>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1050px] text-left text-xs">
           <thead>
