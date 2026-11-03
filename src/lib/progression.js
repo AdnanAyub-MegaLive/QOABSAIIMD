@@ -1,4 +1,5 @@
 import { userVip } from "./vip-capabilities.js";
+import { giftProgressionRule } from "./progression-earning-policy.js";
 import { prisma } from "./prisma.js";
 import { awardActivityXp } from "./activity-levels.js";
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
@@ -91,7 +92,7 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
     if(!user) continue; // Talent-only recipients require an explicit account mapping; never guess it.
     let row=await tx.userProgress.findUnique({where:{userId_track:{userId:user.id,track}},include:{configuration:{include:{levels:true}}}});
     const config=row?.configuration??active;
-    const rule=config.rules.find(r=>r.track===track&&r.source===source&&r.recipientType===(track==="USER"?"ANY":recipientType));
+    const rule=giftProgressionRule(config.rules,{track,source,recipientType,senderId:sender.id,recipientId:recipient?.id});
     if(!config.enabled || !rule || (recipient?.id===sender.id&&!rule.allowSelf)) continue;
     const amount=rule.basis === "GIFT_XP" ? BigInt((track === "USER" ? asset?.senderXp : asset?.receiverXp) ?? 0) * BigInt(gift.quantity) : {COST:gross,CREDIT:credit,REVEALED:revealed,REWARD:reward}[rule.basis];
     const boost = track === "USER" ? (await userVip(user.id, tx)).vipXpMultiplierBps : 10000;
