@@ -9,6 +9,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { validateSvga } from "../svga-upload.js";
 import unzipper from "unzipper";
 import { createExtractorFromData } from "node-unrar-js";
 import { fileTypeFromBuffer } from "file-type";
@@ -24,6 +25,7 @@ export const ALLOWED_EVENT_EXTENSIONS = new Set([
   ".jpg",
   ".jpeg",
   ".webp",
+  ".svga",
   ".gif",
   ".svg",
   ".mp4",
@@ -114,6 +116,15 @@ function allowedExtension(filePath) {
 
 async function validateContent(filePath, buffer) {
   const extension = allowedExtension(filePath);
+  if (extension === ".svga") {
+    try {
+      await validateSvga(buffer);
+    } catch (error) {
+      if (error.code !== "VALIDATION_ERROR") throw error;
+      throw new EventModuleError("INVALID_SVGA", filePath + ": " + error.message, 422);
+    }
+    return;
+  }
   if (TEXT_EXTENSIONS.has(extension)) {
     if (buffer.includes(0))
       throw new EventModuleError(

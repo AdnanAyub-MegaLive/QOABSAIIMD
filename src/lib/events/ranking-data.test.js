@@ -12,9 +12,9 @@ describe('ranking data',()=>{
   });
   it('preserves large scores and bounds pagination',async()=>{
     const rows=Array.from({length:21},(_,i)=>({publicId:`USR-${i}`,personId:`u${i}`,rank:BigInt(i+1),score:900719925474099300n,level:0,memberCount:0}));
-    const db={$queryRaw:async()=>rows,user:{findMany:async()=>[]}};
+    const db={$queryRaw:vi.fn().mockResolvedValueOnce(rows).mockResolvedValueOnce([{rank:22n,gap:900719925474099300n}]),user:{findMany:async()=>[]}};
     const data=await eventRankings({type:'wealth',period:'week',offset:0,q:'',viewerId:'viewer',origin:'https://portal.example'},db);
-    expect(data.entries).toHaveLength(20);expect(data.entries[0].score).toBe('900719925474099300');expect(data.nextOffset).toBe(20);
+    expect(data.entries).toHaveLength(20);expect(data.entries.every(entry=>!('score' in entry)&&!('id' in entry))).toBe(true);expect(data.viewer).toEqual({rank:22,gap:'900719925474099300'});expect(data.nextOffset).toBe(20);
   });
 });
 it.each(['active','missing','expired','revoked','future','disabled'])('exposes only the current VIP tier for %s membership',async state=>{

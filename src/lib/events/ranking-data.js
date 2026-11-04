@@ -42,14 +42,21 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     SELECT u.id,u."publicId",u.name,0::int AS level,u.country,u.id AS "personId",NULL::text AS "partnerId",0::int AS "memberCount",SUM(g."coinValue") AS score
     FROM gifts g JOIN people u ON u.id=${type === 'wealth' ? Prisma.sql`g."senderId"` : Prisma.sql`g.receiver`} GROUP BY u.id,u."publicId",u.name,u.country`;
   // Rank before filtering search results, so an agency's global rank stays stable.
-  const rows = await db.$queryRaw(Prisma.sql`${base}, scores AS (${scores}), ranked AS (
+  const ranked = Prisma.sql`${base}, scores AS (${scores}), ranked AS (
     SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, ${['wealth','charm'].includes(type) ? Prisma.sql`COALESCE((SELECT t.level FROM "VipMembership" v JOIN "VipTier" t ON t.id=v."tierId" WHERE v."userId"=scores."personId" AND v."revokedAt" IS NULL AND v."startsAt"<=${now} AND v."expiresAt">${now} AND t.active=true AND 'RANKING_PRIORITY'=ANY(t.privileges)),0)` : Prisma.sql`0::int`} DESC,"publicId" ASC) AS rank FROM scores WHERE score>0
-  ) SELECT * FROM ranked WHERE (${q}='' OR POSITION(LOWER(${q}) IN LOWER(name))>0 OR POSITION(LOWER(${q}) IN LOWER("publicId"))>0)
+  )`;
+  const rows = await db.$queryRaw(Prisma.sql`${ranked} SELECT * FROM ranked WHERE (${q}='' OR POSITION(LOWER(${q}) IN LOWER(name))>0 OR POSITION(LOWER(${q}) IN LOWER("publicId"))>0)
     AND NOT EXISTS (SELECT 1 FROM "UserBlock" b WHERE
       (b."blockerId"=${viewerId} AND b."blockedId" IN (ranked."personId", ranked."partnerId")) OR
       (b."blockedId"=${viewerId} AND b."blockerId" IN (ranked."personId", ranked."partnerId")))
     ORDER BY rank LIMIT 21 OFFSET ${offset}`);
   if (raw) return rows.slice(0, 20).map(row => ({ id: row.publicId, rank: Number(row.rank), score: row.score.toString(), recipients: [...new Set([row.personId, row.partnerId].filter(Boolean))] }));
+  const [viewer] = viewerId ? await db.$queryRaw(Prisma.sql`${ranked}
+    SELECT rank, gap FROM (
+      SELECT rank, "personId", "partnerId", id, LAG(score) OVER (ORDER BY rank) - score AS gap FROM ranked
+    ) standings WHERE "personId"=${viewerId} OR "partnerId"=${viewerId}
+      ${type === 'agency' ? Prisma.sql`OR id=(SELECT "agencyId" FROM people WHERE id=${viewerId})` : Prisma.empty}
+    ORDER BY rank LIMIT 1`) : [];
   const hasMore = rows.length > 20, visible = rows.slice(0, 20);
   const ids = [...new Set(visible.flatMap(row => [row.personId, row.partnerId]).filter(Boolean))];
   const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, publicId: true, name: true, profileImage: true, country: true,
@@ -74,7 +81,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     const p = perks.get(u.publicId), levels = p?.progression;
     const membership = vipIsActive(u.vipMembership, now) ? u.vipMembership : null;
     const vipAsset = membership?.tier.assets.find(a => a.privilege === 'VIP_LOGO')?.asset ?? membership?.tier.assets.find(a => a.privilege === 'BADGE')?.asset;
-    return [u.id, { vipPrivileges: p?.vipPrivileges ?? [], vipNameColor: p?.vipNameColor ?? null, publicId: u.publicId, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
+    return [u.id, { vipPrivileges: p?.vipPrivileges ?? [], vipNameColor: p?.vipNameColor ?? null, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
       ...(type === 'cp' ? {} : { vip: membership ? { level: membership.tier.level, artwork: vipAsset ? decorationMedia(vipAsset, origin) : null } : null }),
       ownedBadges: (u.uploadAssignments ?? []).map(({asset}) => ({ ...decorationMedia(asset, origin), name: asset.name })),
       userLevel: levels?.userLevel ?? 0, charmLevel: levels?.charmLevel ?? 0,
@@ -86,9 +93,10 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
         }))),
       badgeUrl: p?.badgeUrl ?? null, badgeMimeType: p?.badgeMimeType ?? null, badgePosterUrl: p?.badgePosterUrl ?? null }];
   }));
-  return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: 'Coins',
+  return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: type === 'charm' ? 'diamonds' : 'coins',
+    viewer: viewer ? { rank: Number(viewer.rank), gap: viewer.gap?.toString() ?? null } : null,
     rule: type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
-    entries: visible.map(row => ({ id: row.publicId, name: row.name, rank: Number(row.rank), score: row.score.toString(), level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
+    entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : {}), name: row.name, rank: Number(row.rank), level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
       ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,
       memberCount: row.memberCount, person: identities.get(row.personId) ?? null, partner: identities.get(row.partnerId) ?? null })),
     nextOffset: hasMore ? offset + 20 : null };

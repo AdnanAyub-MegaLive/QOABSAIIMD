@@ -1,3 +1,5 @@
 @import "tailwindcss/theme";
 @import "tailwindcss/utilities" source(none);
 @source "./utilities.txt";
+
+@source "./app.js";
