@@ -20,7 +20,7 @@ function fixture() {
  const tx={events:[],
   roomRocketSettings:{findUnique:async()=>({enabled:true,config:config()})},
   roomRocketSeason:{findFirst:async()=>state.season,findUnique:async()=>state.season,create:async({data})=>state.season=data},
-  roomRocketProgress:{upsert:async({create})=>state.progress??=({...create,coins:0n,level:1,revision:0,dirty:true}),findUniqueOrThrow:async()=>state.progress,findUnique:async()=>state.progress,update:async({data})=>{const {revision,...rest}=data;Object.assign(state.progress,rest);if(revision)state.progress.revision+=revision.increment;return state.progress;}},
+  roomRocketProgress:{upsert:async({create})=>state.progress=({coins:0n,level:1,revision:0,dirty:true,...create}),findUniqueOrThrow:async()=>state.progress,findUnique:async({where})=>state.progress?.campaignId===where.campaignId_roomId.campaignId?state.progress:null,findFirst:async()=>state.progress,update:async({data})=>{const {revision,...rest}=data;Object.assign(state.progress,rest);if(revision)state.progress.revision+=revision.increment;return state.progress;}},
   roomRocketContribution:{upsert:async({where,create,update})=>{const k=key(where.campaignId_roomId_level_userId),old=state.contributions.get(k);if(old)old.coins+=update.coins.increment;else state.contributions.set(k,{...create});},findUnique:async({where})=>state.contributions.get(key(where.campaignId_roomId_level_userId)),update:async({where,data})=>Object.assign(state.contributions.get(key(where.campaignId_roomId_level_userId)),data)},
   roomRocketGift:{findUnique:async({where})=>state.gifts.get(where.giftId),create:async({data})=>state.gifts.set(data.giftId,data),update:async({where,data})=>Object.assign(state.gifts.get(where.giftId),data)},
   roomRocketLaunch:{create:async({data})=>{if([...state.launches.values()].some(l=>l.roomId===data.roomId&&l.level===data.level&&l.campaignId===data.campaignId))throw Error('duplicate launch');state.launches.set(data.id,{...data,paidUserIds:[]});},findUnique:async({where})=>[...state.launches.values()].find(l=>Object.entries(where.campaignId_roomId_level).every(([k,v])=>l[k]===v)),findUniqueOrThrow:async({where})=>state.launches.get(where.id),update:async({where,data})=>Object.assign(state.launches.get(where.id),data)},
@@ -117,6 +117,10 @@ it('applies the additive schema in isolated PostgreSQL and enforces launch and g
  await pg.exec(await readFile('prisma/migrations/20261104090000_room_rocket_wallet_type/migration.sql','utf8'));
  expect((await pg.query(`SELECT 'ROCKET_REWARD'::"WalletTransactionType" AS type`)).rows[0].type).toBe('ROCKET_REWARD');
  await pg.exec(await readFile('prisma/migrations/20261102200000_room_rocket/migration.sql','utf8'));
+ await pg.exec(`INSERT INTO "RoomRocketProgress" ("roomId","campaignId",coins) VALUES ('room','old',77)`);
+ await pg.exec(await readFile('prisma/migrations/20261104140000_deferred_rocket_gifts/migration.sql','utf8'));
+ await pg.exec(`INSERT INTO "RoomRocketProgress" ("roomId","campaignId") VALUES ('room','new')`);
+ expect((await pg.query(`SELECT coins::int FROM "RoomRocketProgress" WHERE "campaignId"='old'`)).rows[0].coins).toBe(77);
  await pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l','s','r',1,'[]')`);
  await expect(pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l2','s','r',1,'[]')`)).rejects.toThrow();
  await pg.exec(`BEGIN; INSERT INTO "RoomRocketGift" VALUES ('g','r','s','u','[]',null); ROLLBACK;`);
