@@ -33,6 +33,23 @@
       }
     };
     show(data.rewardPolicy,'Current period');if(data.upcomingRewardPolicy)show(data.upcomingRewardPolicy,'Next period settings');
+    const preview=$('cp-reward-preview');
+    if(preview){
+      preview.replaceChildren(el('h2','text-center font-bold','Rewards for this period'));
+      const cards=el('div','mt-3 grid grid-cols-3 gap-2');
+      for(const reward of data.rewardPolicy?.enabled ? data.rewardPolicy.rewards || [] : []){
+        const card=el('div','flex min-h-24 flex-col items-center justify-center rounded-xl border border-amber-300 bg-pink-950/70 p-2 text-center text-xs');
+        card.append(el('strong','',`TOP ${reward.rank}`));
+        if(reward.coins && reward.coins!=='0')card.append(el('p','',`${reward.coins} Coins`));
+        if(reward.diamonds && reward.diamonds!=='0')card.append(el('p','',`${reward.diamonds} Diamonds`));
+        for(const prop of reward.props || [])card.append(el('p','',`${prop.name} · ${prop.days} days`));
+        if(reward.vip)card.append(el('p','',`${reward.vip.name} · ${reward.vip.days} days`));
+        cards.append(card);
+      }
+      if(cards.children.length)preview.append(cards);
+      else preview.append(el('p','py-3 text-center text-xs','No rewards configured for this period.'));
+    }
+
 
   }
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
@@ -116,5 +133,5 @@
   $('search').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(),350);};$('more').onclick=()=>load(true);$('retry').onclick=()=>load();$('back').onclick=()=>notify({type:'ranking:close'});$('rules').onclick=()=>$('rules-dialog').showModal();$('close-rules').onclick=()=>$('rules-dialog').close();$('rewards').onclick=()=>$('rewards-dialog').showModal();$('close-rewards').onclick=()=>$('rewards-dialog').close();
   setInterval(()=>{if(!resetAt)return;const seconds=Math.max(0,Math.floor((resetAt-Date.now()-clockOffset)/1000));$('countdown').textContent=`${Math.floor(seconds/86400)?Math.floor(seconds/86400)+'d ':''}${String(Math.floor(seconds/3600)%24).padStart(2,'0')} : ${String(Math.floor(seconds/60)%60).padStart(2,'0')} : ${String(seconds%60).padStart(2,'0')}`;if(!seconds){resetAt=0;load();}},1000);
   rewardsPanel.replaceChildren(el('p','','Open this event from Mega Live to view rewards.'));
-  filters();if(fixedTrack){$('tracks').replaceChildren(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));$('search').hidden=type!=='agency';}notify({type:'ranking:ready',version:1});
+  render();filters();notify({type:'ranking:ready',version:1});
 })();

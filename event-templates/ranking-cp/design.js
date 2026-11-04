@@ -3,6 +3,59 @@ window.RankingDesign = (() => {
   const $ = id => document.getElementById(id);
   const node = (tag, classes = '', text) => { const n = document.createElement(tag); n.className = classes; if (text !== undefined) n.textContent = text; return n; };
   function art(file, classes) { const n = node('img', classes); n.src = `assets/${file}`; n.alt = ''; n.draggable = false; return n; }
+  const animations = new Set();
+  const animationData = new Map();
+  function animatedArt(file, fallback) {
+    const container = node('div', 'pointer-events-none absolute inset-0 h-full w-full');
+    const poster = art(fallback, 'absolute inset-0 h-full w-full object-contain');
+    const canvas = node('canvas', 'absolute inset-0 h-full w-full object-contain');
+    container.append(poster, canvas);
+    const state = { disposed: false, player: null };
+    animations.add(state);
+    async function play() {
+      try {
+        if (!window.SVGA) return;
+        if (!animationData.has(file)) {
+          const parser = new SVGA.Parser({ disableWorker: true });
+          const data = fetch(`assets/${file}`).then(response => {
+            if (!response.ok) throw new Error('Animation unavailable');
+            return response.arrayBuffer();
+          }).then(bytes => parser.do(bytes)).finally(() => parser.destroy());
+          animationData.set(file, data);
+          data.catch(() => animationData.delete(file));
+        }
+        const data = await animationData.get(file);
+        if (state.disposed) return;
+        const player = new SVGA.Player(canvas);
+        state.player = player;
+        player.set({ loop: true, cacheFrames: false });
+        await player.mount(data);
+        if (state.disposed) return;
+        poster.hidden = true;
+        player.start();
+        if (document.hidden) player.pause();
+      } catch {
+        canvas.remove();
+        poster.hidden = false;
+      }
+    }
+    play();
+    return container;
+  }
+  function clearAnimations() {
+    for (const state of animations) {
+      state.disposed = true;
+      state.player?.destroy();
+    }
+    animations.clear();
+  }
+  document.addEventListener('visibilitychange', () => {
+    for (const { player } of animations) {
+      if (document.hidden) player?.pause();
+      else player?.resume();
+    }
+  });
+  window.addEventListener('pagehide', clearAnimations);
   function portrait(person, notify, classes = '', agency = false) {
     const b = node(agency ? 'button' : 'div', `block overflow-hidden rounded-full bg-[#10051b] ${classes}`); if (agency) b.type = 'button';
     if (person?.profileImage && /^(https?:\/\/|\/)/i.test(person.profileImage)) { const im = node('img','h-full w-full object-cover'); im.src = person.profileImage; im.alt = person.name || ''; im.onerror=()=>im.remove(); b.append(im); }
@@ -24,7 +77,7 @@ window.RankingDesign = (() => {
   }
   const themes={
     agency:{background:'bg-[url(assets/agency-background.png)]',period:'bg-[url(assets/agency-period.png)]',active:'bg-[url(assets/agency-active.png)]',board:'bg-gradient-to-br from-amber-600 to-amber-950'},
-    cp:{background:'bg-[url(assets/cp-background.png)]',period:'bg-[url(assets/cp-period.png)]',active:'bg-[url(assets/cp-active.png)]',board:'bg-rose-950/20'},
+    cp:{background:'bg-[url(assets/sweet-background.png)]',period:'bg-[url(assets/cp-period.png)]',active:'bg-[url(assets/cp-active.png)]',board:'bg-rose-950/20'},
     wealth:{background:'bg-[url(assets/wealth-palace.png)]',period:'bg-[url(assets/wealth-period-bar.png)]',active:'bg-[url(assets/wealth-period-active.png)]',board:'bg-gradient-to-b from-red-800 to-red-950'},
     charm:{background:'bg-[url(assets/charm-palace.png)]',period:'bg-[url(assets/charm-period-bar.png)]',active:'bg-[url(assets/charm-period-active.png)]',board:'bg-slate-900/80'},
   };
@@ -38,30 +91,69 @@ window.RankingDesign = (() => {
     $('timing').className=type==='cp'?'mx-auto my-4 flex w-fit items-center gap-3 rounded-full border border-amber-300 bg-purple-950/80 px-5 py-2 text-sm':'mx-auto my-1 flex w-fit items-center gap-2 rounded-full border border-yellow-400 bg-slate-950 px-3 py-1 text-xs';
     if(type==='cp')$('board').before($('timing'));else $('hero').before($('timing'));
   }
-  function coupleCard(e, first, notify){
-    const c=node('article',first?'relative mx-auto aspect-[986/724] w-[64%]':'relative aspect-[986/724] w-full');
-    c.append(portrait(e?.person,notify,'absolute left-[20%] top-[36%] h-[25%] w-[21%]'),portrait(e?.partner,notify,'absolute left-[56%] top-[36%] h-[25%] w-[21%]'));
-    c.append(art('cp-carriage.png','pointer-events-none absolute inset-0 h-full w-full'));
-    c.append(node('span','absolute left-[25%] top-[13%] w-1/2 text-center text-xs font-bold text-purple-950',e?`TOP ${e.rank}`:'—'));
-    if(e){const label=node('div','absolute bottom-[2%] left-[5%] flex w-[90%] flex-col items-center rounded-lg bg-purple-950/80 px-1 text-[9px]');label.append(node('span','max-w-full truncate',`${e.person?.name||'Unavailable'} & ${e.partner?.name||'Unavailable'}`));c.append(label);}return c;
+
+  function sweetPair(entry, notify, first = false) {
+    const pair = node('div', first ? 'relative z-10 aspect-[500/281] w-full' : 'relative z-10 aspect-[1784/887] w-full');
+    const positions = first
+      ? ['left-[28%] top-[32%] h-[34%] w-[19%]', 'left-[52%] top-[32%] h-[34%] w-[19%]']
+      : ['left-[12%] top-[15%] h-[63%] w-[31%]', 'left-[57%] top-[15%] h-[63%] w-[31%]'];
+    pair.append(portrait(entry?.person, notify, `absolute ${positions[0]}`));
+    pair.append(portrait(entry?.partner, notify, `absolute ${positions[1]}`));
+    pair.append(first ? animatedArt('sweet-first-frame.svga', 'sweet-first-frame.png') : art('sweet-pair-frame.png', 'pointer-events-none absolute inset-0 h-full w-full'));
+    return pair;
   }
-  function wheel(entries,notify){
-    const w=node('div','relative mx-auto mt-5 aspect-[1380/1316] w-[86%] animate-spin [animation-duration:10s]');
-    const slots=['left-[36%] top-[10%]','left-[65%] top-[30%]','left-[61%] top-[62%]','left-[36%] top-[78%]','left-[10%] top-[62%]','left-[7%] top-[30%]'];
-    slots.forEach((pos,i)=>{const pair=node('div',`absolute flex h-[10%] w-[22%] gap-[12%] ${pos}`);pair.append(portrait(entries[i]?.person,notify,'h-full w-[44%]'),portrait(entries[i]?.partner,notify,'h-full w-[44%]'));w.append(pair);});
-    w.append(art('cp-wheel.png','pointer-events-none absolute inset-0 h-full w-full'));return w;
+  function sweetCard(entry, rank, notify) {
+    const first = rank === 1;
+    const card = node('article', first ? 'relative col-span-2 mx-auto w-full' : 'relative w-full');
+    card.append(sweetPair(entry, notify, first));
+    const pennant = node('div', first ? 'relative mx-auto -mt-12 aspect-[1166/1350] w-[36%]' : 'relative mx-auto -mt-4 aspect-[1166/1350] w-[76%]');
+    pennant.append(art(['sweet-first.png','sweet-second.png','sweet-third.png'][rank-1], 'absolute inset-0 h-full w-full'));
+    card.append(pennant);
+    if(entry) card.append(node('p','relative z-10 mx-2 truncate text-center text-xs',`${entry.person?.name || 'Unavailable'} & ${entry.partner?.name || 'Unavailable'}`));
+    return card;
+  }
+  function sweetRender(entries, helpers) {
+    const banner = node('div','relative mx-auto mt-3 aspect-[500/281] w-full');
+    banner.append(animatedArt('sweet-swans.svga', 'sweet-swans.png'));
+    const title = node('div','absolute bottom-0 left-[6%] flex h-[25%] w-[88%] items-center justify-center bg-[url(assets/sweet-title-plate.png)] bg-[length:100%_100%]');
+    title.append(art('sweet-title.png','w-[76%]'));
+    banner.append(title);
+    $('wheel').append(banner);
+    const rules=node('button','ml-auto mr-3 my-2 block rounded-full border border-amber-300 bg-purple-950 px-5 py-1 text-sm font-bold','Rules');
+    rules.type='button'; rules.onclick=()=>$('rules-dialog').showModal(); $('wheel').append(rules);
+    const modes=node('div','mx-3 mt-3 grid grid-cols-2 gap-2');
+    modes.append(node('span','flex h-12 items-center justify-center bg-[url(assets/sweet-button.png)] bg-[length:100%_100%] font-bold','CP Rank'));
+    const personal=node('button','h-12 bg-[url(assets/sweet-button.png)] bg-[length:100%_100%] font-bold opacity-60','Personal Rank');
+    personal.disabled=true; personal.title='Personal ranking data is not available yet';
+    modes.append(personal); $('hero').append(modes);
+    const heading = node('h2','mx-auto my-3 flex h-12 w-[74%] items-center justify-center bg-[url(assets/sweet-label.png)] bg-[length:100%_100%] text-base font-bold','Top 3 couples');
+    $('hero').append(heading);
+    const podium = node('div','grid grid-cols-2 gap-3 px-3');
+    for(const rank of [1,2,3]) podium.append(sweetCard(entries.find(e=>e.rank===rank),rank,helpers.notify));
+    $('hero').append(podium);
+    const rewards = node('button','mx-auto my-5 block h-12 w-[52%] bg-[url(assets/sweet-button.png)] bg-[length:100%_100%] text-base font-bold','View rewards');
+    rewards.type='button'; rewards.onclick=()=>$('rewards-dialog').showModal();
+    const rewardPreview=node('section','mx-3 mt-4 rounded-2xl border border-amber-300/60 bg-rose-950/40 p-3');
+    rewardPreview.id='cp-reward-preview';
+    rewardPreview.append(node('h2','text-center font-bold','Rewards for this period'),node('p','py-3 text-center text-xs','Open this event from Mega Live to view rewards.'));
+    $('hero').append(rewardPreview,rewards);
+    for(const entry of entries){
+      const row=node('article','relative my-4 flex min-h-24 items-center gap-2 bg-[url(assets/sweet-row.png)] bg-[length:100%_100%] px-5 py-4');
+      const rankBadge=node('div','relative w-10 shrink-0 text-center text-xl font-bold');
+      if(entry.rank<=2)rankBadge.append(art(`sweet-badge-${entry.rank}.png`,'absolute inset-0 h-full w-full object-contain'));
+      rankBadge.append(node('span','relative block py-4',entry.rank)); row.append(rankBadge);
+      if(entry.rank===1)row.classList.add('bg-[url(assets/sweet-purple-row.png)]');
+      const pair=node('div','w-24 shrink-0'); pair.append(sweetPair(entry,helpers.notify)); row.append(pair);
+      const names=node('div','min-w-0 flex-1 text-xs');
+      names.append(node('p','truncate font-semibold',entry.person?.name || 'Unavailable'),node('p','truncate',entry.partner?.name || 'Unavailable'));
+      row.append(names);
+      $('entries').append(row);
+    }
   }
   function render(type,entries,helpers){
+    clearAnimations();
     theme(type);$('hero').replaceChildren();$('entries').replaceChildren();$('wheel').replaceChildren();
-    if(type==='cp'){
-      $('wheel').append(wheel(entries.slice(0,6),helpers.notify));
-      if(entries.length){$('hero').append(coupleCard(entries.find(e=>e.rank===1),true,helpers.notify));const pair=node('div','grid grid-cols-2 gap-2 px-2');for(const e of entries.filter(e=>e.rank===2||e.rank===3))pair.append(coupleCard(e,false,helpers.notify));$('hero').append(pair);}
-      for(const e of entries){const row=node('article','relative my-3 aspect-[1744/579] w-full bg-[url(assets/cp-row.png)] bg-[length:100%_100%] text-purple-950');
-        row.append(node('span','absolute left-[5%] top-[45%] text-xs font-bold',e.rank));
-        for(const [i,p]of[e.person,e.partner].entries()){const wrap=node('div',`absolute top-[24%] h-[58%] w-[18%] ${i?'right-[12%]':'left-[15%]'}`);wrap.append(portrait(p,helpers.notify,'mx-auto aspect-square w-[75%]'),art('cp-frame.png','pointer-events-none absolute left-[5%] top-[-10%] h-[88%] w-[90%]'),node('span','relative block truncate text-center text-[9px]',p?.name||'Unavailable'));row.append(wrap);}
-        const mid=node('div','absolute left-[38%] top-[30%] flex w-[24%] flex-col items-center');mid.append(art('cp-heart.png','h-7 w-8 object-contain'));row.append(mid);$('entries').append(row);
-      }return;
-    }
+    if(type==='cp'){ sweetRender(entries,helpers); return; }
     const podium=node('div','relative mx-auto grid grid-cols-2 gap-x-10 px-6 pb-5');$('hero').append(podium);
     for(const e of entries.filter(e=>e.rank<=3)){
       const first=e.rank===1;const c=node('article',first?'relative col-span-2 mx-auto w-[66%]':'relative w-full');
@@ -76,7 +168,11 @@ window.RankingDesign = (() => {
     }
     for(const e of entries.filter(e=>e.rank>3)){
       const bg=type==='charm'?'bg-[url(assets/charm-ranking-row.png)]':type==='agency'?'border-b border-amber-300/70':'rounded-2xl border border-amber-300 bg-red-950/60';
-      const row=node('article',`my-2 flex min-h-24 items-center gap-2 bg-[length:100%_100%] px-4 py-3 ${bg}`);row.append(node('span','text-xs',e.rank),portrait(e.person,helpers.notify,'h-12 w-12 shrink-0'),details(e,type,helpers));$('entries').append(row);
+      const row=node('article',`my-2 flex min-h-24 items-center gap-2 bg-[length:100%_100%] px-4 py-3 ${bg}`);const identity=details(e,type,helpers);
+      identity.className='min-w-0 flex-1 text-xs [&>button]:block [&>button]:max-w-full [&>button]:truncate';
+      const total=node('div','ml-auto flex shrink-0 flex-col items-end gap-1');
+      total.append(identity.lastElementChild);
+      row.append(node('span','text-xs',e.rank),portrait(e.person,helpers.notify,'h-12 w-12 shrink-0'),identity,total);$('entries').append(row);
     }
   }
   return Object.freeze({render,theme});
