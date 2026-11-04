@@ -10,7 +10,7 @@ vi.mock('./decoration-media.js', () => ({ decorationMedia: asset => ({url:`https
 vi.mock('./room-rankings.js', () => ({ requireRankingRoom: async () => ({id:'room',status:'LIVE'}) }));
 import { getRoomRocketResults, requireRocketRoom } from './room-rocket-api.js';
 import { validateRocketConfig, allocateRocketCoins, drawRocketWinners } from './room-rocket-contract.js';
-import { recordRocketGift, reverseRocketGift, currentRocketSeason, payRocketLaunch, rocketSnapshot, displayRocketRewards } from './room-rocket.js';
+import { saveRocketConfiguration, recordRocketGift, reverseRocketGift, currentRocketSeason, payRocketLaunch, rocketSnapshot, displayRocketRewards } from './room-rocket.js';
 
 const now = new Date('2026-11-02T12:00:00Z');
 function config() { return validateRocketConfig({enabled:true,title:'Rocket',rules:'Rules',endsAt:'2026-11-03T00:00:00Z',repeatDays:15,stages:[100,200,300].map(target=>({targetCoins:String(target),rewards:{top1:[{type:'COINS',amount:'5'}]}}))}); }
@@ -20,7 +20,7 @@ function fixture() {
  const tx={events:[],
   roomRocketSettings:{findUnique:async()=>({enabled:true,config:config()})},
   roomRocketSeason:{findFirst:async()=>state.season,findUnique:async()=>state.season,create:async({data})=>state.season=data},
-  roomRocketProgress:{upsert:async({create})=>state.progress??=({...create,coins:0n,level:1,revision:0,dirty:true}),findUniqueOrThrow:async()=>state.progress,findUnique:async()=>state.progress,update:async({data})=>{const {revision,...rest}=data;Object.assign(state.progress,rest);if(revision)state.progress.revision+=revision.increment;return state.progress;}},
+  roomRocketProgress:{upsert:async({create})=>state.progress=({coins:0n,level:1,revision:0,dirty:true,...create}),findUniqueOrThrow:async()=>state.progress,findUnique:async({where})=>state.progress?.campaignId===where.campaignId_roomId.campaignId?state.progress:null,findFirst:async()=>state.progress,update:async({data})=>{const {revision,...rest}=data;Object.assign(state.progress,rest);if(revision)state.progress.revision+=revision.increment;return state.progress;}},
   roomRocketContribution:{upsert:async({where,create,update})=>{const k=key(where.campaignId_roomId_level_userId),old=state.contributions.get(k);if(old)old.coins+=update.coins.increment;else state.contributions.set(k,{...create});},findUnique:async({where})=>state.contributions.get(key(where.campaignId_roomId_level_userId)),update:async({where,data})=>Object.assign(state.contributions.get(key(where.campaignId_roomId_level_userId)),data)},
   roomRocketGift:{findUnique:async({where})=>state.gifts.get(where.giftId),create:async({data})=>state.gifts.set(data.giftId,data),update:async({where,data})=>Object.assign(state.gifts.get(where.giftId),data)},
   roomRocketLaunch:{create:async({data})=>{if([...state.launches.values()].some(l=>l.roomId===data.roomId&&l.level===data.level&&l.campaignId===data.campaignId))throw Error('duplicate launch');state.launches.set(data.id,{...data,paidUserIds:[]});},findUnique:async({where})=>[...state.launches.values()].find(l=>Object.entries(where.campaignId_roomId_level).every(([k,v])=>l[k]===v)),findUniqueOrThrow:async({where})=>state.launches.get(where.id),update:async({where,data})=>Object.assign(state.launches.get(where.id),data)},
@@ -28,7 +28,7 @@ function fixture() {
   user:{findUniqueOrThrow:async({where})=>state.users.get(where.id),update:async({where,data})=>{state.users.get(where.id).coinBalance+=data.coinBalance.increment;}},
   walletTransaction:{create:async({data})=>state.ledger.push(data)},
   notification:{upsert:async({where,create})=>state.notifications.set(where.sourceKey,create)},
-  $queryRaw:async(strings,...values)=>{if(strings.join('').includes('FROM "RoomRocketContribution"')) {const [roomId,campaignId,level]=values;return [...state.contributions.values()].filter(c=>c.roomId===roomId&&c.campaignId===campaignId&&c.level===level&&c.coins>0n).sort((a,b)=>a.coins===b.coins?a.userId.localeCompare(b.userId):a.coins>b.coins?-1:1).slice(0,3).map(c=>({...c,...state.users.get(c.userId)}));}return [];},
+  $queryRaw:async(strings,...values)=>{if(strings.join('').includes('FROM "RoomRocketContribution"')) {const [roomId,campaignId,level]=values;return [...state.contributions.values()].filter(c=>c.roomId===roomId&&c.campaignId===campaignId&&c.level===level&&c.coins>0n).sort((a,b)=>a.coins===b.coins?a.userId.localeCompare(b.userId):a.coins>b.coins?-1:1).slice(0,strings.join('').includes('LIMIT 3') ? 3 : Infinity).map(c=>({...c,...state.users.get(c.userId)}));}return [];},
  };
  return {tx,state,gift:(id,coins,senderId='s')=>({id,coinValue:BigInt(coins),senderId,roomId:'ROOM-1',createdAt:now})};
 }
@@ -36,6 +36,14 @@ afterEach(()=>{delete globalThis.portalIo;});
 it('validates exact stages, integer precision and HTTPS artwork',()=>{
  const c=config();c.stages[0].targetCoins='9007199254740993';expect(validateRocketConfig(c).stages[0].targetCoins).toBe('9007199254740993');
  expect(()=>validateRocketConfig({...c,stages:[]})).toThrow();c.stages[0].thumbnailUrl='http://unsafe';expect(()=>validateRocketConfig(c)).toThrow();
+});
+it('publishes rule edits to the active season while keeping its targets and rewards',async()=>{
+ const f=fixture(), draft=config();
+ draft.enabled=false; draft.rules='Updated flight rules'; draft.stages[0].targetCoins='250';
+ f.tx.roomRocketSettings.upsert=vi.fn();
+ f.tx.roomRocketSeason.update=vi.fn();
+ await saveRocketConfiguration(f.tx,draft,now);
+ expect(f.tx.roomRocketSeason.update).toHaveBeenCalledWith({where:{id:'season'},data:{config:{...f.state.season.config,rules:draft.rules}}});
 });
 it('allocates overflow once and stays complete after the final stage',()=>{
  const r=allocateRocketCoins(config().stages,1,90n,700n);expect(r.allocations.map(a=>a.amount)).toEqual([10n,200n,300n]);expect(r.level).toBe(3);expect(r.currentCoins).toBe(300n);expect(allocateRocketCoins(config().stages,3,300n,10n).allocations).toEqual([]);
@@ -48,6 +56,17 @@ it('records distinct multi-recipient shares once, excludes backpack and reversed
  expect(launchEvent.data.eventId).toBe(launchEvent.data.launchId);
  expect(f.state.launches.has(launchEvent.data.eventId)).toBe(true);
  await reverseRocketGift(f.tx,'b',now);await reverseRocketGift(f.tx,'b',now);expect(f.state.progress.coins).toBe(0n);expect(f.state.launches.size).toBe(1);
+});
+it('boards every contributing sender once and switches the roster when coins carry into the next level',async()=>{
+ const f=fixture();
+ for (const sender of ['s','owner','r','hidden','s']) await recordRocketGift(f.tx,f.gift('gift-'+f.state.gifts.size,1,sender),'COINS',now);
+ const snapshot=await rocketSnapshot(f.tx,'ROOM-1',now);
+ expect(snapshot.topContributors).toHaveLength(3);
+ expect(snapshot.passengers.map(p=>p.publicId)).toEqual(['USR-s','USR-hidden','USR-owner','USR-r']);
+ await recordRocketGift(f.tx,f.gift('overflow',96,'r'),'COINS',now);
+ expect((await rocketSnapshot(f.tx,'ROOM-1',now)).passengers.map(p=>p.publicId)).toEqual(['USR-r']);
+ await reverseRocketGift(f.tx,'overflow',now);
+ expect((await rocketSnapshot(f.tx,'ROOM-1',now)).passengers).toEqual([]);
 });
 it('selects unique present in-room winners excluding top3 and invisible users',async()=>{
  const f=fixture();f.state.season.config.stages[0].inRoomWinners=10;f.state.season.config.stages[0].rewards.inRoom=[{type:'COINS',amount:'1',text:'1 Coin',rewardId:'in'}];
@@ -94,7 +113,14 @@ it('requires live membership and returns stable result pages with independent my
 });
 it('applies the additive schema in isolated PostgreSQL and enforces launch and gift uniqueness',async()=>{
  const pg=new PGlite();try{
+ await pg.exec(`CREATE TYPE "WalletTransactionType" AS ENUM ('BONUS')`);
+ await pg.exec(await readFile('prisma/migrations/20261104090000_room_rocket_wallet_type/migration.sql','utf8'));
+ expect((await pg.query(`SELECT 'ROCKET_REWARD'::"WalletTransactionType" AS type`)).rows[0].type).toBe('ROCKET_REWARD');
  await pg.exec(await readFile('prisma/migrations/20261102200000_room_rocket/migration.sql','utf8'));
+ await pg.exec(`INSERT INTO "RoomRocketProgress" ("roomId","campaignId",coins) VALUES ('room','old',77)`);
+ await pg.exec(await readFile('prisma/migrations/20261104140000_deferred_rocket_gifts/migration.sql','utf8'));
+ await pg.exec(`INSERT INTO "RoomRocketProgress" ("roomId","campaignId") VALUES ('room','new')`);
+ expect((await pg.query(`SELECT coins::int FROM "RoomRocketProgress" WHERE "campaignId"='old'`)).rows[0].coins).toBe(77);
  await pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l','s','r',1,'[]')`);
  await expect(pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l2','s','r',1,'[]')`)).rejects.toThrow();
  await pg.exec(`BEGIN; INSERT INTO "RoomRocketGift" VALUES ('g','r','s','u','[]',null); ROLLBACK;`);

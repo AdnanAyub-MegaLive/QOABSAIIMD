@@ -16,13 +16,14 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
       const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || 'Unable to save.');
-      setConfig(body.data); setMessage('Saved. The on/off switch applies now; level and reward changes apply to the next season.');
+      setConfig(body.data); setMessage('Saved. Rules and the on/off switch apply now. Level and reward changes apply to the next season.');
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
-  return <form onSubmit={save} className="space-y-6">
+  return <form onSubmit={save} className="space-y-6 text-slate-900">
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">Only future paid gifts count. Existing gifts are never backfilled. Completed launches pay once; earned rewards remain due even if Rocket is switched off. {season && <p className="mt-2">Current season: {season.id} · ends {new Date(season.endsAt).toLocaleString()}</p>}</div>
-    <fieldset disabled={!canEdit || busy} className="space-y-6 disabled:opacity-70">
+    <fieldset disabled={!canEdit || busy} className="space-y-6">
       <section className="grid gap-4 rounded-xl border bg-white p-5 md:grid-cols-2">
+        <h2 className="md:col-span-2 rounded-xl bg-slate-900 px-4 py-3 text-lg font-bold text-white">Rocket season</h2>
         <label className="flex items-center gap-3 font-semibold"><input type="checkbox" checked={config.enabled} onChange={e => update('enabled', e.target.checked)} />Enable Room Rocket</label>
         <label className="space-y-1 text-sm">Season title<input className={field} required maxLength={100} value={config.title} onChange={e => update('title', e.target.value)} /></label>
         <label className="space-y-1 text-sm">First season end (UTC)<input className={field} type="datetime-local" required value={config.endsAt.slice(0,16)} onChange={e => update('endsAt', e.target.value ? `${e.target.value}:00.000Z` : '')} disabled={Boolean(season)} /><span className="text-xs text-slate-500">After the first season, repeats use the interval below.</span></label>
@@ -30,7 +31,7 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
         <label className="space-y-1 text-sm md:col-span-2">Rules shown in the app<textarea className={field} rows={4} maxLength={10000} value={config.rules} onChange={e => update('rules', e.target.value)} /></label>
       </section>
       {config.stages.map((s, index) => <section key={index} className="space-y-5 rounded-xl border bg-white p-5">
-        <h2 className="text-lg font-bold">Level {index + 1}</h2>
+        <header className="rounded-xl bg-slate-900 px-4 py-3 text-white"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Level {index + 1}</p><h2 className="text-lg font-bold">{s.title}</h2></header>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm">Title<input className={field} value={s.title} onChange={e => stage(index, 'title', e.target.value)} /></label>
           <label className="text-sm">Target Coins<input className={field} inputMode="numeric" pattern="[0-9]+" required value={s.targetCoins} onChange={e => stage(index, 'targetCoins', e.target.value)} /></label>

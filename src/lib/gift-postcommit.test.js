@@ -17,13 +17,13 @@ it('snapshots each multi-recipient Lucky reward instead of the aggregate',async(
  expect(recordGiftRecovery.mock.calls.map(c=>c[2].announcementRecipients)).toEqual([{firstGiftId:"a",count:2},{firstGiftId:"a",count:2}]);
 });
 afterEach(() => { delete globalThis.portalIo; });
-it('coordinates shared recipients and agencies using resolved IDs', () => {
- expect(giftContentionKeys([{id:'a',agencyId:'agency'}, {id:'b',agencyId:'agency'}, {id:'a'}])).toEqual(['a','agency:agency','b']);
+it('never reserves an agency or a lucky sender’s recipient', () => {
+ expect(giftContentionKeys([{id:'a',agencyId:'agency'}, {id:'b',agencyId:'agency'}, {id:'a'}])).toEqual(['recipient:a','recipient:b']);
 });
 it('waits for the shared Lucky pool before opening a snapshot without blocking unrelated normal gifts', async () => {
  const db=database(()=>{});let release,started;
  const ready=new Promise(r=>{started=r}),gate=new Promise(r=>{release=r});
- const operation=(id,lucky)=>({key:id,fingerprint:id,contentionKeys:giftContentionKeys([{id:`recipient-${id}`}],{lucky})});
+ const operation=(id,lucky)=>({key:id,fingerprint:id,contentionKeys:giftContentionKeys([{id:`shared-host`}],{lucky})});
  const first=runGiftOperation('pool-a',operation('pool-a',true),async()=>{started();await gate;return {};},db);
  await ready;
  const second=runGiftOperation('pool-b',operation('pool-b',true),async()=>({done:true}),db);
@@ -35,7 +35,7 @@ it('waits for the shared Lucky pool before opening a snapshot without blocking u
  await runGiftOperation('pool-b',operation('next',true),async()=>({}),db);
  expect(globalThis[Symbol.for('portal.giftSenderQueues')].size).toBe(0);
 });
-it('starts shared-recipient snapshots after commit while unrelated sends continue', async () => {
+it('serializes normal sends to the same recipient while other recipients continue', async () => {
  const db=database(()=>{}); let release, started;
  const ready=new Promise(r=>{started=r;}); const gate=new Promise(r=>{release=r;});
  const first=runGiftOperation('shared-a',{key:'a',fingerprint:'a',contentionKeys:['shared-r']},async()=>{started();await gate;return {};},db);

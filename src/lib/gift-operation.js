@@ -4,7 +4,7 @@ import { setTimeout as retryDelay } from "node:timers/promises";
 import { prisma } from "./prisma.js";
 import { jsonSafe } from "./progression.js";
 import { recordGiftRecovery } from "./gift-refunds.js";
-import { recordRocketGift } from "./room-rocket.js";
+import { enqueueRocketGift } from "./room-rocket.js";
 import { giftOutboxContext } from "./gift-outbox-context.js";
 import { deliverCommittedGiftEvents } from "./realtime-outbox.js";
 import { comboPresentation, giftComboTiming } from "./gift-combo-timing.js";
@@ -41,30 +41,31 @@ export async function priorGiftOperation(senderId, operation, db=prisma) {
 export async function runGiftOperation(senderId,operation,work,db=prisma) {
   const timing = realtimeTiming('gift', operation.key);
   timing('operation_received');
-  // Reserve all affected accounts before opening a database snapshot. Different
-  // senders crediting the same recipient otherwise repeatedly abort/retry.
-  // These are server-resolved IDs, never request-body scheduling keys. Database
-  // isolation and conditional debits remain authoritative across processes.
+  // A sender waiting for their own earlier request must not reserve the pool.
+  return withGiftGate(`sender:${senderId}`, () => {
+    const execute = () => executeGiftOperation(senderId, operation, work, db, timing);
+    const keys = [...new Set(operation.contentionKeys ?? [])].sort();
+    const enter = index => index === keys.length ? execute() : withGiftGate(keys[index], () => enter(index + 1));
+    return enter(0);
+  });
+}
+async function withGiftGate(key, work) {
   const queues = globalThis[Symbol.for("portal.giftSenderQueues")] ??= new Map();
-  const keys = [...new Set([senderId, ...(operation.contentionKeys ?? [])])];
-  const previous = Promise.all(keys.map(key => queues.get(key) ?? Promise.resolve()));
+  const previous = queues.get(key);
   let release;
   const gate = new Promise(resolve => { release = resolve; });
-  const tail = previous.then(() => gate);
-  // Reserve synchronously, as one operation: crossed A→B / B→A sends cannot
-  // acquire half the keys each and deadlock.
-  for (const key of keys) queues.set(key, tail);
+  queues.set(key, gate);
   await previous;
-  try { return await executeGiftOperation(senderId, operation, work, db, timing); }
-  finally { release(); for (const key of keys) if (queues.get(key) === tail) queues.delete(key); }
+  try { return await work(); }
+  finally {
+    release();
+    if (queues.get(key) === gate) queues.delete(key);
+  }
 }
 export function giftContentionKeys(recipients, { lucky = false } = {}) {
-  // The existing single pool already serializes draws in PostgreSQL. Waiting
-  // before opening a Serializable snapshot avoids stale snapshots and repeated
-  // aborted financial work when different recipients share that same pool.
-  // Normal/backpack sends do not reserve this key; DB locks remain authoritative
-  // for other workers, refunds and administrative pool operations.
-  return [...new Set([...recipients.flatMap(user => [user.id, ...(user.agencyId ? [`agency:${user.agencyId}`] : [])]), ...(lucky ? ['pool:lucky:GLOBAL'] : [])])];
+  // Lucky sends never reserve a recipient. Normal sends sharing a hot row
+  // avoid repeatedly aborting one another's Serializable snapshots.
+  return lucky ? ['pool:lucky:GLOBAL'] : [...new Set(recipients.map(user => `recipient:${user.id}`))];
 }
 async function executeGiftOperation(senderId,operation,work,db,timing) {
   timing('queued_operation_started');
@@ -118,7 +119,7 @@ async function settleOperation(tx, senderId, operation, work, events) {
     const reward=payload.revealedGift?.publicId?await tx.uploadAsset.findUnique({where:{publicId:payload.revealedGift.publicId},select:{id:true}}):null;
     const recipientResult = payload.recipients?.find(row => row.transactionId === id);
     await recordGiftRecovery(tx,gift,{source:payload.source==="BACKPACK"?"BACKPACK":"COINS",luckyCoins:BigInt(recipientResult?.luckyRewardCoins??payload.luckyRewardCoins??0),rewardAssetId:reward?.id??null,live:Boolean(gift.liveSessionId),settlement:known?.settlement,pk:known?.pk,announcementRecipients:giftIds.length>1?{firstGiftId:giftIds[0],count:giftIds.length}:null});
-    await recordRocketGift(tx, gift, payload.source === 'BACKPACK' ? 'BACKPACK' : 'COINS');
+    await enqueueRocketGift(tx, gift, payload.source === 'BACKPACK' ? 'BACKPACK' : 'COINS');
   }
   // A pending row was never visible outside this transaction. Insert its
   // completed result once instead of INSERT then UPDATE. The unique key

@@ -59,6 +59,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  ROCKET_REWARD
   SPECIAL_ID_PURCHASE
   ROOM_BANNER_PURCHASE
   VIP_PURCHASE
@@ -2927,14 +2928,21 @@ model RoomRocketSeason {
   config Json
   @@index([endsAt])
 }
+model RoomRocketPendingGift {
+  seq BigInt @id @default(autoincrement())
+  giftId String @unique
+  campaignId String
+}
+
 model RoomRocketProgress {
-  roomId String @id
+  roomId String
   campaignId String
   level Int @default(1)
   coins BigInt @default(0)
   revision Int @default(0)
   dirty Boolean @default(true)
   emittedAt DateTime?
+  @@id([campaignId, roomId])
   @@index([dirty, emittedAt])
 }
 model RoomRocketContribution {
