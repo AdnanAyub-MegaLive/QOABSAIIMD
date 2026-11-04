@@ -11,6 +11,7 @@ const contentTypes = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
+  ".svga": "application/svga",
   ".gif": "image/gif",
   ".svg": "image/svg+xml",
   ".mp4": "video/mp4",
