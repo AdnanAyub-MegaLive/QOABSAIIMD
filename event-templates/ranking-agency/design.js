@@ -3,26 +3,24 @@ window.RankingDesign = (() => {
   const $ = id => document.getElementById(id);
   const node = (tag, classes = '', text) => { const n = document.createElement(tag); n.className = classes; if (text !== undefined) n.textContent = text; return n; };
   function art(file, classes) { const n = node('img', classes); n.src = `assets/${file}`; n.alt = ''; n.draggable = false; return n; }
-  function portrait(person, notify, classes = '') {
-    const b = node('button', `block overflow-hidden rounded-full bg-[#10051b] ${classes}`); b.type = 'button'; b.disabled = !person?.publicId;
-    b.setAttribute('aria-label', person ? `Open ${person.name}'s profile` : 'No ranked participant');
+  function portrait(person, notify, classes = '', agency = false) {
+    const b = node(agency ? 'button' : 'div', `block overflow-hidden rounded-full bg-[#10051b] ${classes}`); if (agency) b.type = 'button';
     if (person?.profileImage && /^(https?:\/\/|\/)/i.test(person.profileImage)) { const im = node('img','h-full w-full object-cover'); im.src = person.profileImage; im.alt = person.name || ''; im.onerror=()=>im.remove(); b.append(im); }
     else b.append(node('span','text-xl text-slate-300','●'));
-    b.onclick = () => person?.publicId && notify({type:'ranking:open-profile',publicId:person.publicId}); return b;
+    return b;
   }
   function badges(person) {
     const n=node('div','flex h-5 items-center justify-center gap-1');const seen=new Set();
     for(const b of person?.ownedBadges||[]){if(seen.size===5)break;const url=b.mimeType?.startsWith('image/')?b.url:b.posterUrl;if(!url||seen.has(b.assetId||url))continue;seen.add(b.assetId||url);const im=node('img','h-4 w-4 object-contain');im.src=url;im.alt=b.name||'Badge';im.onerror=()=>im.remove();n.append(im);}return n;
   }
-  function value(score) {const n=node('span','whitespace-nowrap text-[11px] font-semibold text-white');const v=BigInt(score||'0');n.textContent=`◆ ${v.toLocaleString()}`;n.title=`${v.toLocaleString()} Coins`;return n;}
   function details(e, type, helpers) {
     const n=node('div','relative z-10 mx-auto flex min-w-0 max-w-full flex-col items-center gap-0.5 px-1 text-[10px]');
-    const name=node('button','max-w-full truncate font-semibold',e.name);name.type='button';
-    name.onclick=()=>type==='agency'?helpers.notify({type:'ranking:open-agency',agencyPublicId:e.id}):e.person?.publicId&&helpers.notify({type:'ranking:open-profile',publicId:e.person.publicId});
+    const name=node(type==='agency'?'button':'span','max-w-full truncate font-semibold',e.name);
+    if(type==='agency'){name.type='button';name.onclick=()=>helpers.notify({type:'ranking:open-agency',agencyPublicId:e.id});}
     n.append(name);
     if(type==='agency')n.append(node('span','text-[9px]',`${e.id} · ${e.memberCount} hosts`));
     const levels=helpers.levels(e.person,e);levels.className='flex max-w-full flex-wrap items-center justify-center gap-1 [&_img]:max-h-4 [&_img]:max-w-10 [&_.level-tag]:relative [&_.level-tag]:inline-flex [&_.level-tag]:items-center [&_.level-tag]:justify-center [&_.level-tag]:min-w-7 [&_.level-background]:absolute [&_.level-background]:inset-0 [&_.level-background]:h-full [&_.level-background]:w-full [&_b]:relative [&_b]:z-10 [&_b]:text-[9px]';
-    n.append(levels,badges(e.person),value(e.score));return n;
+    n.append(levels,badges(e.person));return n;
   }
   const themes={
     agency:{background:'bg-[url(assets/agency-background.png)]',period:'bg-[url(assets/agency-period.png)]',active:'bg-[url(assets/agency-active.png)]',board:'bg-gradient-to-br from-amber-600 to-amber-950'},
@@ -45,7 +43,7 @@ window.RankingDesign = (() => {
     c.append(portrait(e?.person,notify,'absolute left-[20%] top-[36%] h-[25%] w-[21%]'),portrait(e?.partner,notify,'absolute left-[56%] top-[36%] h-[25%] w-[21%]'));
     c.append(art('cp-carriage.png','pointer-events-none absolute inset-0 h-full w-full'));
     c.append(node('span','absolute left-[25%] top-[13%] w-1/2 text-center text-xs font-bold text-purple-950',e?`TOP ${e.rank}`:'—'));
-    if(e){const label=node('div','absolute bottom-[2%] left-[5%] flex w-[90%] flex-col items-center rounded-lg bg-purple-950/80 px-1 text-[9px]');label.append(node('span','max-w-full truncate',`${e.person?.name||'Unavailable'} & ${e.partner?.name||'Unavailable'}`),value(e.score));c.append(label);}return c;
+    if(e){const label=node('div','absolute bottom-[2%] left-[5%] flex w-[90%] flex-col items-center rounded-lg bg-purple-950/80 px-1 text-[9px]');label.append(node('span','max-w-full truncate',`${e.person?.name||'Unavailable'} & ${e.partner?.name||'Unavailable'}`));c.append(label);}return c;
   }
   function wheel(entries,notify){
     const w=node('div','relative mx-auto mt-5 aspect-[1380/1316] w-[86%]');
@@ -61,14 +59,14 @@ window.RankingDesign = (() => {
       for(const e of entries){const row=node('article','relative my-3 aspect-[1744/579] w-full bg-[url(assets/cp-row.png)] bg-[length:100%_100%] text-purple-950');
         row.append(node('span','absolute left-[5%] top-[45%] text-xs font-bold',e.rank));
         for(const [i,p]of[e.person,e.partner].entries()){const wrap=node('div',`absolute top-[24%] h-[58%] w-[18%] ${i?'right-[12%]':'left-[15%]'}`);wrap.append(portrait(p,helpers.notify,'mx-auto aspect-square w-[75%]'),art('cp-frame.png','pointer-events-none absolute left-[5%] top-[-10%] h-[88%] w-[90%]'),node('span','relative block truncate text-center text-[9px]',p?.name||'Unavailable'));row.append(wrap);}
-        const mid=node('div','absolute left-[38%] top-[30%] flex w-[24%] flex-col items-center');mid.append(art('cp-heart.png','h-7 w-8 object-contain'));const s=value(e.score);s.className='text-[9px] font-bold text-purple-950';mid.append(s);row.append(mid);$('entries').append(row);
+        const mid=node('div','absolute left-[38%] top-[30%] flex w-[24%] flex-col items-center');mid.append(art('cp-heart.png','h-7 w-8 object-contain'));row.append(mid);$('entries').append(row);
       }return;
     }
     const podium=node('div','relative mx-auto grid grid-cols-2 gap-x-10 px-6 pb-5');$('hero').append(podium);
     for(const e of entries.filter(e=>e.rank<=3)){
       const first=e.rank===1;const c=node('article',first?'relative col-span-2 mx-auto w-[66%]':'relative w-full');
       const artbox=node('div',first?'relative z-20 aspect-square w-full':'relative z-20 aspect-square w-full');
-      const p=portrait(e.person,helpers.notify,first?'absolute left-[29%] top-[37%] h-[40%] w-[42%]':'absolute left-[23%] top-[22%] h-[52%] w-[54%]');
+      const p=portrait(e.person,helpers.notify,first?'absolute left-[29%] top-[37%] h-[40%] w-[42%]':'absolute left-[23%] top-[22%] h-[52%] w-[54%]',type==='agency');
       if(type==='agency'){p.setAttribute('aria-label',`Open ${e.name} agency details`);p.disabled=!e.id;p.onclick=()=>helpers.notify({type:'ranking:open-agency',agencyPublicId:e.id});}
       artbox.append(p,art(`frame-${e.rank}.gif`,'pointer-events-none absolute inset-0 h-full w-full object-contain'));c.append(artbox);
       let card;

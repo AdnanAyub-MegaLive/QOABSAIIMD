@@ -57,16 +57,12 @@
     if (person?.badgeUrl) n.append(image(person.badgeMimeType === 'application/svga' ? person.badgePosterUrl : person.badgeUrl));
     return n;
   }
-  function identity(person) { const n = el('button'); n.type = 'button'; n.append(image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable')); n.onclick = () => person && notify({ type: 'ranking:open-profile', publicId: person.publicId }); return n; }
-  function entryName(entry) {
-    if (type === 'agency') return el('span', 'name', entry.name);
-    const n = el('button', 'name entry-name', entry.name);
-    n.type = 'button';
-    n.disabled = !entry.person?.publicId;
-    n.setAttribute('aria-label', `Open ${entry.name}'s profile`);
-    n.onclick = () => entry.person?.publicId && notify({ type: 'ranking:open-profile', publicId: entry.person.publicId });
+  function identity(person) {
+    const n = el('div');
+    n.append(image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable'));
     return n;
   }
+  function entryName(entry) { return el('span', 'name entry-name', entry.name); }
   function entryContainer(entry, cls) {
     const n = el(type === 'agency' ? 'button' : 'article', cls);
     if (type === 'agency') {
@@ -77,7 +73,6 @@
     }
     return n;
   }
-  function score(value) { const amount=BigInt(value||'0');let label=amount.toLocaleString();for(const [base,suffix] of [[1000000000n,'B'],[1000000n,'M'],[1000n,'k']])if(amount>=base){label=`${amount/base}.${String((amount%base)*100n/base).padStart(2,'0')}${suffix}`;break;}const n = el('span', 'score', label);n.title=amount.toLocaleString()+' Coins'; const coin = image('/event/ranking-cp/assets/490ae.png', 'coin'); n.append(coin); return n; }
   function render() {
     if(window.RankingDesign){window.RankingDesign.render(type,entries,{notify,levels});$('more').hidden=nextOffset===null;return;}
     $('entries').replaceChildren(); $('hero').replaceChildren();
@@ -87,9 +82,9 @@
     let podium;
     if (type !== 'cp' && entries.some(e => e.rank <= 3)) { podium = el('div', 'podium'); $('entries').append(podium); }
     entries.forEach(e => {
-      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/ranking-cp/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`),score(e.score)); row.append(value); $('entries').append(row); return; }
-      if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/ranking-cp/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person)); if(type==='agency')n.append(el('div','meta',`${e.memberCount} hosts · ${e.id}`),image(`/event/ranking-cp/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); n.append(score(e.score)); podium.append(n); }
-      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person)); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details,score(e.score)); $('entries').append(n); }
+      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/ranking-cp/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`)); row.append(value); $('entries').append(row); return; }
+      if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/ranking-cp/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person)); if(type==='agency')n.append(el('div','meta',`${e.memberCount} hosts · ${e.id}`),image(`/event/ranking-cp/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); podium.append(n); }
+      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person)); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details); $('entries').append(n); }
     }); $('more').hidden = nextOffset === null;
   }
   async function load(append = false) {
@@ -97,7 +92,11 @@
     if(!append)rewardsPanel.replaceChildren(el('p','',token?'Loading rewards…':'Open this event from Mega Live to view rewards.'));
     if (!token) return; request?.abort(); const current = new AbortController(); request = current;
     $('retry').hidden = true; $('more').hidden = true; $('status').hidden = false; $('status').textContent = 'Loading rankings…';
-    try { const params = new URLSearchParams({event:eventSlug,type,period,offset:String(append ? nextOffset || 0 : 0),q:type==='agency'?$('search').value.trim():''}); const response = await fetch(`/api/v1/events/rankings?${params}`,{headers:{Authorization:`Bearer ${token}`},signal:current.signal,cache:'no-store'}); const body = await response.json(); if(!response.ok) { if(response.status===401){token='';notify({type:'ranking:session-required'});} throw Error(body.error?.message || 'Unable to load rankings.'); } if(request!==current)return;const data=body.data; cycleLabel=data.cycle?.days===15?'15-day cycle':data.cycle?.days===30?'Monthly':'Cycle';filters(); entries=append?[...entries,...data.entries]:data.entries; nextOffset=data.nextOffset; resetAt=Date.parse(data.resetsAt);clockOffset=Date.parse(data.generatedAt)-Date.now(); render();renderRewards(data); $('status').hidden=entries.length>0; $('status').textContent='No eligible gifts in this period yet.'; }
+    try { const params = new URLSearchParams({event:eventSlug,type,period,offset:String(append ? nextOffset || 0 : 0),q:type==='agency'?$('search').value.trim():''}); const response = await fetch(`/api/v1/events/rankings?${params}`,{headers:{Authorization:`Bearer ${token}`},signal:current.signal,cache:'no-store'}); const body = await response.json(); if(!response.ok) { if(response.status===401){token='';notify({type:'ranking:session-required'});} throw Error(body.error?.message || 'Unable to load rankings.'); } if(request!==current)return;const data=body.data; cycleLabel=data.cycle?.days===15?'15-day cycle':data.cycle?.days===30?'Monthly':'Cycle';filters(); entries=append?[...entries,...data.entries]:data.entries; nextOffset=data.nextOffset; resetAt=Date.parse(data.resetsAt);clockOffset=Date.parse(data.generatedAt)-Date.now(); render();renderRewards(data); const viewer = data.viewer;
+      $('status').hidden = !viewer && entries.length > 0;
+      $('status').textContent = !viewer ? 'No eligible gifts in this period yet.'
+        : viewer.rank === 1 ? 'You’re #1'
+        : `You’re #${viewer.rank} · ${BigInt(viewer.gap).toLocaleString()} ${data.scoreUnit} behind #${viewer.rank - 1}`; }
     catch(error){if(error.name==='AbortError')return;if(request!==current)return;rewardsPanel.replaceChildren(el('p','','Rewards could not be loaded. Please retry.'));$('status').textContent=error.message;$('retry').hidden=!token;}
   }
   function tabs(id, values, selected, change) { $(id).replaceChildren(); if(id==='tracks'&&fixedTrack){$(id).append(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));return;} for(const [value,label] of values){const button=el('button','',label);button.setAttribute('aria-selected',String(value===selected));button.onclick=()=>change(value);$(id).append(button);} }
