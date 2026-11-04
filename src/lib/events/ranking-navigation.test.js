@@ -67,12 +67,12 @@ describe('ranking native navigation',()=>{
     for(const url of requests){const p=new URL(url,'https://example.test').searchParams;expect(p.get('type')).toBe(track);expect(p.get('event')).toBe(`ranking-${track}`);}
     expect(new URL(requests.at(-1),'https://example.test').searchParams.get('period')).toBe('week');
   });
-  it.each(['Wealth','Charm'])('%s names navigate from hero, podium and list',async tab=>{
+  it.each(['Wealth','Charm'])('%s names are static in hero, podium and list',async tab=>{
     const {get,messages,flush}=await fixture();
     get('tracks').children.find(n=>n.textContent===tab).onclick();await flush();
     const buttons=[...descendants(get('hero')),...descendants(get('entries'))].filter(n=>n.className==='name entry-name');
     expect(buttons).toHaveLength(5);
-    for(const button of buttons){messages.length=0;button.onclick();expect(messages).toEqual([{type:'ranking:open-profile',publicId:`USR-${button.textContent.split(' ').at(-1)}`}]);}
+    for(const name of buttons){expect(name.tag).toBe('span');expect(name.onclick).toBeUndefined();}
   });
   it('agency cards send agency IDs rather than owner IDs',async()=>{
     const {get,messages,flush}=await fixture();get('tracks').children.find(n=>n.textContent==='Agency').onclick();await flush();
@@ -127,9 +127,8 @@ describe('ranking native navigation',()=>{
     expect(tags.map(n=>n.children.find(c=>c.className==='level-value').textContent)).toEqual(Array(4).fill({wealth:'W 42',charm:'C 17',agency:'A 6'}[track]));
     expect(nodes.filter(n=>n.className==='vip-value').map(n=>n.textContent)).toEqual(['VIP 3']);
     if(track!=='agency'){
-      expect(nodes.filter(n=>n.className==='public-id').map(n=>n.textContent)).toEqual(['1','2','3']);
-      nodes.find(n=>n.className==='name entry-name').onclick();
-      expect(messages.at(-1)).toEqual({type:'ranking:open-profile',publicId:'USR-1'});
+      expect(nodes.filter(n=>n.className==='public-id')).toHaveLength(0);
+      expect(nodes.find(n=>n.className==='name entry-name').onclick).toBeUndefined();
     }
   });
   it('preserves the close message',async()=>{const {get,messages}=await fixture();messages.length=0;get('back').onclick();expect(messages).toEqual([{type:'ranking:close'}]);});
