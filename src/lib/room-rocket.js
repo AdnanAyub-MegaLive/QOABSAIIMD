@@ -31,6 +31,9 @@ export async function saveRocketConfiguration(tx, input, now = new Date()) {
     }
   }
   await tx.roomRocketSettings.upsert({ where: { id: 'GLOBAL' }, create: { id: 'GLOBAL', enabled: config.enabled, config }, update: { enabled: config.enabled, config } });
+  if (previous?.endsAt > now && previous.config.rules !== config.rules) {
+    await tx.roomRocketSeason.update({ where: { id: previous.id }, data: { config: { ...previous.config, rules: config.rules } } });
+  }
   if (config.enabled) await currentRocketSeason(tx, now);
   return config;
 }
@@ -142,7 +145,13 @@ export async function rocketSnapshot(tx, roomId, now = new Date()) {
   if (!season) return null;
   const p = await lockProgress(tx, roomId, season), stage = season.config.stages[p.level - 1];
   const top = await topContributors(tx, roomId, season.id, p.level, now);
-  return { roomId, serverTime: now.toISOString(), campaign: { id: season.id, title: season.config.title, rules: season.config.rules, endsAt: season.endsAt.toISOString() }, progress: { stageId: stage.id, level: p.level, currentCoins: String(p.coins), targetCoins: stage.targetCoins, percentage: rocketPercentage(p.coins, stage.targetCoins), revision: p.revision }, stages: season.config.stages.map(s => ({ ...s, completed: s.level < p.level || (s.level === p.level && p.coins >= BigInt(s.targetCoins)) })), topContributors: top.map(({ userId, ...row }) => row) };
+  const passengers = p.coins >= BigInt(stage.targetCoins) ? [] : await tx.$queryRaw`SELECT u."publicId", u.name, u."profileImage"
+    FROM "RoomRocketContribution" c JOIN "User" u ON u.id=c."userId"
+    WHERE c."roomId"=${roomId} AND c."campaignId"=${season.id} AND c.level=${p.level}
+      AND c.coins>0 AND u.status='ACTIVE' AND u."deletedAt" IS NULL
+      AND u."companyBdCountry" IS NULL AND NOT EXISTS(SELECT 1 FROM "Ban" b WHERE b."userId"=u.id AND b.target='USER' AND b."revokedAt" IS NULL AND (b."expiresAt" IS NULL OR b."expiresAt">${now}))
+    ORDER BY c.coins DESC, c."userId"`;
+  return { passengers, roomId, serverTime: now.toISOString(), campaign: { id: season.id, title: season.config.title, rules: season.config.rules, endsAt: season.endsAt.toISOString() }, progress: { stageId: stage.id, level: p.level, currentCoins: String(p.coins), targetCoins: stage.targetCoins, percentage: rocketPercentage(p.coins, stage.targetCoins), revision: p.revision }, stages: season.config.stages.map(s => ({ ...s, completed: s.level < p.level || (s.level === p.level && p.coins >= BigInt(s.targetCoins)) })), topContributors: top.map(({ userId, ...row }) => row) };
 }
 
 export async function rocketJoinSummary(roomId, db = prisma) {
@@ -215,7 +224,7 @@ export async function maintainRoomRockets(db = prisma) {
     if (!snapshot) return;
     const p = await tx.roomRocketProgress.findUnique({ where: { roomId: row.roomId } });
     if (!p.dirty || (p.emittedAt && p.emittedAt.getTime() > Date.now() - 500)) return;
-    await appendOutbox(tx, `audio-room:${row.roomId}`, 'audio-room:rocket:progress', { roomId: row.roomId, campaignId: snapshot.campaign.id, ...snapshot.progress, topContributors: snapshot.topContributors });
+    await appendOutbox(tx, `audio-room:${row.roomId}`, 'audio-room:rocket:progress', { roomId: row.roomId, campaignId: snapshot.campaign.id, ...snapshot.progress, topContributors: snapshot.topContributors, passengers: snapshot.passengers });
     await tx.roomRocketProgress.update({ where: { roomId: row.roomId }, data: { dirty: false, emittedAt: new Date() } });
   });
 }

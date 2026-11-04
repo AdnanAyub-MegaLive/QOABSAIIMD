@@ -10,7 +10,7 @@ vi.mock('./decoration-media.js', () => ({ decorationMedia: asset => ({url:`https
 vi.mock('./room-rankings.js', () => ({ requireRankingRoom: async () => ({id:'room',status:'LIVE'}) }));
 import { getRoomRocketResults, requireRocketRoom } from './room-rocket-api.js';
 import { validateRocketConfig, allocateRocketCoins, drawRocketWinners } from './room-rocket-contract.js';
-import { recordRocketGift, reverseRocketGift, currentRocketSeason, payRocketLaunch, rocketSnapshot, displayRocketRewards } from './room-rocket.js';
+import { saveRocketConfiguration, recordRocketGift, reverseRocketGift, currentRocketSeason, payRocketLaunch, rocketSnapshot, displayRocketRewards } from './room-rocket.js';
 
 const now = new Date('2026-11-02T12:00:00Z');
 function config() { return validateRocketConfig({enabled:true,title:'Rocket',rules:'Rules',endsAt:'2026-11-03T00:00:00Z',repeatDays:15,stages:[100,200,300].map(target=>({targetCoins:String(target),rewards:{top1:[{type:'COINS',amount:'5'}]}}))}); }
@@ -28,7 +28,7 @@ function fixture() {
   user:{findUniqueOrThrow:async({where})=>state.users.get(where.id),update:async({where,data})=>{state.users.get(where.id).coinBalance+=data.coinBalance.increment;}},
   walletTransaction:{create:async({data})=>state.ledger.push(data)},
   notification:{upsert:async({where,create})=>state.notifications.set(where.sourceKey,create)},
-  $queryRaw:async(strings,...values)=>{if(strings.join('').includes('FROM "RoomRocketContribution"')) {const [roomId,campaignId,level]=values;return [...state.contributions.values()].filter(c=>c.roomId===roomId&&c.campaignId===campaignId&&c.level===level&&c.coins>0n).sort((a,b)=>a.coins===b.coins?a.userId.localeCompare(b.userId):a.coins>b.coins?-1:1).slice(0,3).map(c=>({...c,...state.users.get(c.userId)}));}return [];},
+  $queryRaw:async(strings,...values)=>{if(strings.join('').includes('FROM "RoomRocketContribution"')) {const [roomId,campaignId,level]=values;return [...state.contributions.values()].filter(c=>c.roomId===roomId&&c.campaignId===campaignId&&c.level===level&&c.coins>0n).sort((a,b)=>a.coins===b.coins?a.userId.localeCompare(b.userId):a.coins>b.coins?-1:1).slice(0,strings.join('').includes('LIMIT 3') ? 3 : Infinity).map(c=>({...c,...state.users.get(c.userId)}));}return [];},
  };
  return {tx,state,gift:(id,coins,senderId='s')=>({id,coinValue:BigInt(coins),senderId,roomId:'ROOM-1',createdAt:now})};
 }
@@ -36,6 +36,14 @@ afterEach(()=>{delete globalThis.portalIo;});
 it('validates exact stages, integer precision and HTTPS artwork',()=>{
  const c=config();c.stages[0].targetCoins='9007199254740993';expect(validateRocketConfig(c).stages[0].targetCoins).toBe('9007199254740993');
  expect(()=>validateRocketConfig({...c,stages:[]})).toThrow();c.stages[0].thumbnailUrl='http://unsafe';expect(()=>validateRocketConfig(c)).toThrow();
+});
+it('publishes rule edits to the active season while keeping its targets and rewards',async()=>{
+ const f=fixture(), draft=config();
+ draft.enabled=false; draft.rules='Updated flight rules'; draft.stages[0].targetCoins='250';
+ f.tx.roomRocketSettings.upsert=vi.fn();
+ f.tx.roomRocketSeason.update=vi.fn();
+ await saveRocketConfiguration(f.tx,draft,now);
+ expect(f.tx.roomRocketSeason.update).toHaveBeenCalledWith({where:{id:'season'},data:{config:{...f.state.season.config,rules:draft.rules}}});
 });
 it('allocates overflow once and stays complete after the final stage',()=>{
  const r=allocateRocketCoins(config().stages,1,90n,700n);expect(r.allocations.map(a=>a.amount)).toEqual([10n,200n,300n]);expect(r.level).toBe(3);expect(r.currentCoins).toBe(300n);expect(allocateRocketCoins(config().stages,3,300n,10n).allocations).toEqual([]);
@@ -48,6 +56,17 @@ it('records distinct multi-recipient shares once, excludes backpack and reversed
  expect(launchEvent.data.eventId).toBe(launchEvent.data.launchId);
  expect(f.state.launches.has(launchEvent.data.eventId)).toBe(true);
  await reverseRocketGift(f.tx,'b',now);await reverseRocketGift(f.tx,'b',now);expect(f.state.progress.coins).toBe(0n);expect(f.state.launches.size).toBe(1);
+});
+it('boards every contributing sender once and switches the roster when coins carry into the next level',async()=>{
+ const f=fixture();
+ for (const sender of ['s','owner','r','hidden','s']) await recordRocketGift(f.tx,f.gift('gift-'+f.state.gifts.size,1,sender),'COINS',now);
+ const snapshot=await rocketSnapshot(f.tx,'ROOM-1',now);
+ expect(snapshot.topContributors).toHaveLength(3);
+ expect(snapshot.passengers.map(p=>p.publicId)).toEqual(['USR-s','USR-hidden','USR-owner','USR-r']);
+ await recordRocketGift(f.tx,f.gift('overflow',96,'r'),'COINS',now);
+ expect((await rocketSnapshot(f.tx,'ROOM-1',now)).passengers.map(p=>p.publicId)).toEqual(['USR-r']);
+ await reverseRocketGift(f.tx,'overflow',now);
+ expect((await rocketSnapshot(f.tx,'ROOM-1',now)).passengers).toEqual([]);
 });
 it('selects unique present in-room winners excluding top3 and invisible users',async()=>{
  const f=fixture();f.state.season.config.stages[0].inRoomWinners=10;f.state.season.config.stages[0].rewards.inRoom=[{type:'COINS',amount:'1',text:'1 Coin',rewardId:'in'}];

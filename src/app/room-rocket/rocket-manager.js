@@ -16,7 +16,7 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
       const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || 'Unable to save.');
-      setConfig(body.data); setMessage('Saved. The on/off switch applies now; level and reward changes apply to the next season.');
+      setConfig(body.data); setMessage('Saved. Rules and the on/off switch apply now. Level and reward changes apply to the next season.');
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <form onSubmit={save} className="space-y-6 text-slate-900">
