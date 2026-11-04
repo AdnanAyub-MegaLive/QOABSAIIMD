@@ -1,7 +1,7 @@
 import { equippedProfileAssets } from "./profile-display-assets.js";
 import { avatarDisplayUrl } from "./avatar-history.js";
 import { Prisma } from "@prisma/client";
-import { qualifiesForAnnouncement } from "./global-announcement-policy.js";
+import { effectiveAnnouncementPolicy, qualifiesForAnnouncement } from "./global-announcement-policy.js";
 
 export const ANNOUNCEMENT_EVENT = "global:announcement";
 const running = new WeakSet();
@@ -57,7 +57,9 @@ export async function collectAnnouncements(db, now = new Date()) {
     const [lock] = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(2030140, 147) AS locked`;
     if (!lock.locked) return;
     const policy = await tx.globalAnnouncementPolicy.findUnique({ where: { id: "GLOBAL" } });
-    if (!policy || !Object.values(policy.rules).some(rule => rule.enabled)) return;
+    // Disposable presentation receipts only, never transaction/history tables.
+    await tx.globalAnnouncement.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 86400000) } } });
+    if (!["BIG_GIFT", "GAME_WIN", "LUCKY_RETURN"].some(type => policy?.rules[type]?.enabled)) return;
     const since = new Date(Math.max(policy.updatedAt.getTime(), now.getTime() - policy.lifetimeSeconds * 1000));
     const candidates = await tx.$queryRaw(announcementCandidatesSql(since, now));
     const ignored = [];
@@ -82,14 +84,30 @@ export async function collectAnnouncements(db, now = new Date()) {
       else ignored.push(data);
     }
     if (ignored.length) await tx.globalAnnouncement.createMany({data:ignored});
-    // Disposable presentation receipts only, never transaction/history tables.
-    await tx.globalAnnouncement.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 86400000) } } });
+
   }, { timeout: 5000, maxWait: 1000 });
 }
 
 export function isPublicAnnouncementRoom(room) {
   return Boolean(room && room.status === "LIVE" && room.privacyMode === "PUBLIC" && !room.passwordHash &&
     !room.isBlocked && !room.joiningDisabled && !room.endedAt && !room.paidEntryCoins);
+}
+
+export async function queueRocketAnnouncement(tx, launchId, roomId, level, contributorId, now) {
+  const policy = effectiveAnnouncementPolicy(await tx.globalAnnouncementPolicy.findUnique({ where: { id: "GLOBAL" } }));
+  const type = "ROCKET_LAUNCH";
+  if (!qualifiesForAnnouncement({ type, details: { level } }, policy)) return;
+  const room = await tx.audioRoom.findUnique({ where: { roomId }, select: {
+    title: true, ownerId: true, status: true, privacyMode: true, passwordHash: true,
+    isBlocked: true, joiningDisabled: true, endedAt: true, paidEntryCoins: true,
+  } });
+  if (!isPublicAnnouncementRoom(room)) return;
+  await tx.globalAnnouncement.createMany({ skipDuplicates: true, data: [{
+    id: `${type}:${launchId}`, type, actorId: contributorId ?? room.ownerId, roomId, sourceIds: [launchId],
+    payload: { type, amount: "0", unit: "COINS", details: { level, roomTitle: Array.from(room.title).slice(0, 40).join("") },
+      policyRevision: policy.revision, occurredAt: now.toISOString() },
+    expiresAt: new Date(now.getTime() + 30000),
+  }] });
 }
 
 const announcementPerson = { id: true, publicId: true, name: true, profileImage: true, status: true, deletedAt: true };
@@ -108,20 +126,25 @@ async function giftAnnouncementRecipient(db, row) {
 }
 
 async function announcementAudience(db, row, io, now, getSockets) {
-  const [room, actor, policy] = await Promise.all([
+  const [room, actor, storedPolicy] = await Promise.all([
     db.audioRoom.findUnique({ where: { roomId: row.roomId }, select:{id:true,roomId:true,ownerId:true,status:true,privacyMode:true,passwordHash:true,isBlocked:true,joiningDisabled:true,endedAt:true,paidEntryCoins:true} }),
     db.user.findUnique({ where: { id: row.actorId }, select: announcementPerson }),
     db.globalAnnouncementPolicy.findUnique({ where: { id: "GLOBAL" } }),
   ]);
+  const policy = effectiveAnnouncementPolicy(storedPolicy);
   if (!isPublicAnnouncementRoom(room) || !actor || actor.status !== "ACTIVE" || actor.deletedAt ||
       !policy?.rules[row.type]?.enabled || policy.revision !== row.payload.policyRevision) return null;
   // Recheck reversal/cancellation immediately before publication.
   if (row.type === "GAME_WIN") {
     const count = await db.sharedGameEntry.count({ where: { id: { in: row.sourceIds }, status: "SETTLED", input: { path: ["currency"], equals: "COINS" } } });
     if (count !== row.sourceIds.length) return null;
+  } else if (row.type === "ROCKET_LAUNCH") {
+    const launch = await db.roomRocketLaunch.findUnique({ where: { id: row.sourceIds[0] }, select: { roomId: true, level: true } });
+    if (launch?.roomId !== row.roomId || launch.level !== row.payload.details.level) return null;
   } else if (await db.giftTransaction.count({ where: { id: { in: row.sourceIds }, reversedAt: null } }) !== row.sourceIds.length) return null;
-  const recipient = row.type === "GAME_WIN" ? null : await giftAnnouncementRecipient(db, row);
-  if (row.type !== "GAME_WIN" && (!recipient || recipient.person.status !== "ACTIVE" || recipient.person.deletedAt)) return null;
+  const isGift = row.type === "BIG_GIFT" || row.type === "LUCKY_RETURN";
+  const recipient = isGift ? await giftAnnouncementRecipient(db, row) : null;
+  if (isGift && (!recipient || recipient.person.status !== "ACTIVE" || recipient.person.deletedAt)) return null;
   const sockets = await getSockets();
   const ids = [...new Set(sockets.map(s => s.data.internalUserId).filter(Boolean))];
   const subjects = [...new Set([row.actorId, room.ownerId, ...(recipient ? [recipient.person.id] : [])])];
@@ -168,9 +191,11 @@ export async function dispatchAnnouncements(db, io, now = new Date()) {
     try {
     const audience = await announcementAudience(db, row, io, now, getSockets);
     if (audience && row.expiresAt > new Date() && !emitted.has(row.id)) {
+      const serverTime = new Date();
+      const expiresAt = row.type === "ROCKET_LAUNCH" ? new Date(serverTime.getTime() + 20000) : row.expiresAt;
       const data = { ...row.payload, announcementId: row.id, actor: audience.actor, roomId: audience.roomId,
         ...(audience.recipient ? { recipient: audience.recipient, recipientCount: audience.recipientCount } : {}),
-        expiresAt: row.expiresAt.toISOString(), serverTime: new Date().toISOString() };
+        expiresAt: expiresAt.toISOString(), serverTime: serverTime.toISOString() };
       // Per authenticated socket, not io.emit: do not leak blocked identities.
       for (const socket of audience.sockets) socket.emit(ANNOUNCEMENT_EVENT, { success: true, data });
       emitted.set(row.id, row.expiresAt.getTime());

@@ -69,7 +69,7 @@ it("counts ongoing mic time but never counts an unbounded offline/crash gap", as
 it("admits an active agency owner with HOST and no agency membership", async () => {
   db.user.findUnique.mockResolvedValue({id:"u",publicId:"USR-OWNER",status:"ACTIVE",appRoles:["HOST"],agency:null,ownedAgencies:[{publicId:"AGN-OWN",name:"Owned",status:"ACTIVE"}]});
   const report=await hostCenter(db,"u","2026-10",now);
-  expect(report.agency).toEqual({publicId:"AGN-OWN",name:"Owned"});
+  expect(report.agency).toEqual({publicId:"AGN-OWN",name:"Owned",logoUrl:null,owner:null});
   expect(db.user.findUnique.mock.calls[0][0].select.ownedAgencies).toMatchObject({where:{status:"ACTIVE"},take:1,orderBy:[{createdAt:"asc"},{id:"asc"}]});
 });
 it.each([

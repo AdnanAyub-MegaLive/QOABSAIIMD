@@ -17,7 +17,7 @@ function config() { return validateRocketConfig({enabled:true,title:'Rocket',rul
 function fixture() {
  const state={season:{id:'season',startsAt:new Date('2026-11-02'),endsAt:new Date('2026-11-03'),config:config()},progress:null,gifts:new Map(),contributions:new Map(),launches:new Map(),users:new Map(['s','r','owner','hidden'].map(id=>[id,{id,publicId:`USR-${id}`,name:id,coinBalance:0n}])),ledger:[],notifications:new Map()};
  const key=k=>[k.campaignId,k.roomId,k.level,k.userId].join(':');
- const tx={events:[],
+ const tx={events:[], globalAnnouncementPolicy:{findUnique:async()=>null}, audioRoom:{findUnique:async()=>null},
   roomRocketSettings:{findUnique:async()=>({enabled:true,config:config()})},
   roomRocketSeason:{findFirst:async()=>state.season,findUnique:async()=>state.season,create:async({data})=>state.season=data},
   roomRocketProgress:{upsert:async({create})=>state.progress=({coins:0n,level:1,revision:0,dirty:true,...create}),findUniqueOrThrow:async()=>state.progress,findUnique:async({where})=>state.progress?.campaignId===where.campaignId_roomId.campaignId?state.progress:null,findFirst:async()=>state.progress,update:async({data})=>{const {revision,...rest}=data;Object.assign(state.progress,rest);if(revision)state.progress.revision+=revision.increment;return state.progress;}},

@@ -1,3 +1,4 @@
+import { queueRocketAnnouncement } from './global-announcements.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import { prisma } from './prisma.js';
 import { appendOutbox } from './progression.js';
@@ -106,6 +107,7 @@ async function launchRocket(tx, roomId, season, level, now) {
   const topContributor = top[0]?.user ?? null;
   await tx.roomRocketLaunch.create({ data: { id, roomId, campaignId: season.id, level, winners, ...(topContributor ? { topContributor } : {}), createdAt: now } });
   await appendOutbox(tx, `audio-room:${roomId}`, 'audio-room:rocket:launch', { roomId, eventId: id, launchId: id, campaignId: season.id, stageId: stage.id, level, topContributor, animation: stage.animation });
+  await queueRocketAnnouncement(tx, id, roomId, level, top[0]?.userId, now);
 }
 
 export async function enqueueRocketGift(tx, gift, source, now = new Date()) {

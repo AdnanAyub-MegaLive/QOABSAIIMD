@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/portal-admin";
 import { sameOrigin, jsonBody } from "@/lib/game-control/http";
-import { announcementDefaults, validateAnnouncementPolicy } from "@/lib/global-announcement-policy";
+import { effectiveAnnouncementPolicy, validateAnnouncementPolicy } from "@/lib/global-announcement-policy";
 
 const reply = data => Response.json({ success: true, data }, { headers: { "Cache-Control": "private, no-store" } });
 function failure(e) {
@@ -12,7 +12,7 @@ function failure(e) {
 export async function GET() {
   try {
     await requirePermission("rules.view");
-    return reply(await prisma.globalAnnouncementPolicy.findUnique({ where: { id: "GLOBAL" } }) ?? { ...announcementDefaults, revision: 0 });
+    return reply(effectiveAnnouncementPolicy(await prisma.globalAnnouncementPolicy.findUnique({ where: { id: "GLOBAL" } })));
   } catch (e) { return failure(e); }
 }
 export async function PUT(request) {

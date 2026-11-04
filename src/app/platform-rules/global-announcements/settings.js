@@ -2,6 +2,7 @@
 import { useState } from "react";
 
 const labels = {
+  ROCKET_LAUNCH: ["Room Rocket launch", "A Room Rocket reached its target and launched in a public room."],
   BIG_GIFT: ["Big gift sent", "Recorded Coins spent on one recipient's gift transaction. Multi-recipient shares are not counted twice; combo taps are not summed."],
   GAME_WIN: ["Big game win", "Net profit (payout minus wager) across the player's complete settled Coin game round. Free play points and external providers are excluded."],
   LUCKY_RETURN: ["Big Lucky return", "Coins returned for one confirmed Lucky draw—not profit. Uses its actual cost as the multiplier denominator."],
@@ -23,8 +24,11 @@ export default function Settings({ initial, canManage }) {
         <label className="flex items-center gap-3 text-lg font-semibold"><input type="checkbox" checked={value.rules[type].enabled}
           onChange={e => setValue(v => ({ ...v, rules: { ...v.rules, [type]: { ...v.rules[type], enabled: e.target.checked } } }))} />{title}</label>
         <p className="my-3 text-sm text-slate-600">{description}</p>
+        {type === "ROCKET_LAUNCH" ? <label className="block">Minimum level <select value={value.rules[type].minimumLevel} className="ml-3 rounded border p-2"
+          onChange={e => setValue(v => ({ ...v, rules: { ...v.rules, [type]: { ...v.rules[type], minimumLevel: Number(e.target.value) } } }))}>
+          {[1, 2, 3].map(level => <option key={level} value={level}>{level}</option>)}</select></label> :
         <label className="block">Minimum Coins <input required inputMode="numeric" pattern="[1-9][0-9]{0,17}" className="ml-3 rounded border p-2"
-          value={value.rules[type].minimumCoins} onChange={e => setValue(v => ({ ...v, rules: { ...v.rules, [type]: { ...v.rules[type], minimumCoins: e.target.value } } }))} /></label>
+          value={value.rules[type].minimumCoins} onChange={e => setValue(v => ({ ...v, rules: { ...v.rules, [type]: { ...v.rules[type], minimumCoins: e.target.value } } }))} /></label>}
       </section>)}
       <label className="block">Cooldown per sender and announcement type (1–300 seconds)
         <input type="number" min="1" max="300" required className="ml-3 rounded border p-2" value={value.cooldownSeconds} onChange={e => setValue(v => ({ ...v, cooldownSeconds: Number(e.target.value) }))} /></label>

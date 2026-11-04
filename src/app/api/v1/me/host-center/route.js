@@ -1,3 +1,4 @@
+import { requestOrigin } from "@/lib/user-perks";
 import { prisma } from "@/lib/prisma.js";
 import { requireMobileUser, mobileJson, mobileApiError } from "@/lib/mobile-api.js";
 import { hostCenter } from "@/lib/host-center.js";
@@ -11,7 +12,7 @@ export async function GET(request) {
     try {
       const user = await requireMobileUser(request, { syncVip: false });
       const month = new URL(request.url).searchParams.get("month");
-      const data = await prisma.$transaction(tx => hostCenter(tx, user.id, month), { isolationLevel: "RepeatableRead" });
+      const data = await prisma.$transaction(tx => hostCenter(tx, user.id, month, new Date(), requestOrigin(request)), { isolationLevel: "RepeatableRead" });
       return mobileJson({ success: true, data });
     } catch (error) {
       if (error.code === "HOST_MONTH_BEFORE_START") return mobileJson({ success: false, error: { code: error.code, message: error.message, details: error.details } }, 422);

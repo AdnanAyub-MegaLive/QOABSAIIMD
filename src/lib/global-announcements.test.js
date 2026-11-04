@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { announcementDefaults, validateAnnouncementPolicy, qualifiesForAnnouncement } from "./global-announcement-policy.js";
-import { announcementCandidatesSql, collectAnnouncements, dispatchAnnouncements, isPublicAnnouncementRoom, runGlobalAnnouncements } from "./global-announcements.js";
+import { queueRocketAnnouncement, announcementCandidatesSql, collectAnnouncements, dispatchAnnouncements, isPublicAnnouncementRoom, runGlobalAnnouncements } from "./global-announcements.js";
 
 const policy = () => ({ ...structuredClone(announcementDefaults), revision: 1, updatedAt: new Date(0),
-  rules: Object.fromEntries(["BIG_GIFT", "GAME_WIN", "LUCKY_RETURN"].map(t => [t, { enabled: true, minimumCoins: "100" }])) });
+  rules: { ROCKET_LAUNCH: { enabled: true, minimumLevel: 1 }, ...Object.fromEntries(["BIG_GIFT", "GAME_WIN", "LUCKY_RETURN"].map(t => [t, { enabled: true, minimumCoins: "100" }])) } });
 const room = { id: "room-internal", roomId: "ROOM-1", ownerId: "owner", status: "LIVE", privacyMode: "PUBLIC" };
 function fixture() {
   const now = new Date();
@@ -32,7 +32,7 @@ function fixture() {
 
 describe("global announcement policy", () => {
   it("defaults off; validates three independent exact thresholds", () => {
-    expect(Object.values(announcementDefaults.rules).every(r => !r.enabled)).toBe(true);
+    expect(["BIG_GIFT","LUCKY_RETURN","GAME_WIN"].every(type => !announcementDefaults.rules[type].enabled)).toBe(true);
     const p = policy(); p.rules.BIG_GIFT.minimumCoins = "999999999999999999";
     expect(validateAnnouncementPolicy(p).rules.BIG_GIFT.minimumCoins).toBe("999999999999999999");
     expect(qualifiesForAnnouncement({ type: "BIG_GIFT", amount: "999999999999999998" }, p)).toBe(false);
@@ -97,7 +97,7 @@ describe("source and visibility safeguards", () => {
     await collectAnnouncements(f.db, f.now);
     expect(f.db.globalAnnouncement.createMany.mock.calls[0][0].data[0].deliveredAt).toEqual(f.now);
   });
-  it("does nothing with all switches off", async () => {
+  it("skips collecting coin events when only Rocket launches are enabled", async () => {
     const f = fixture(); f.db.globalAnnouncementPolicy.findUnique.mockResolvedValue({ ...announcementDefaults });
     await collectAnnouncements(f.db, f.now);
     expect(f.db.$queryRaw).toHaveBeenCalledTimes(1);
@@ -200,4 +200,21 @@ it("adds actor artwork to game wins without a gift recipient", async () => {
   expect(data.actor.profileImage).toBe("https://media.example/sender.png");
   expect(data.recipient).toBeUndefined(); expect(data.recipientCount).toBeUndefined();
   expect(f.db.giftRecoverySnapshot.findUnique).not.toHaveBeenCalled();
+});
+
+it("queues public Rocket launches by launch ID and dispatches the actor-only banner through audience filters", async()=>{
+  const f=fixture();
+  f.db.audioRoom.findUnique.mockResolvedValue({...room,title:"🌙".repeat(45)});
+  await queueRocketAnnouncement(f.db,"launch",room.roomId,3,null,f.now);
+  const {data:[receipt],skipDuplicates}=f.db.globalAnnouncement.createMany.mock.calls[0][0];
+  expect(skipDuplicates).toBe(true);
+  expect(receipt).toMatchObject({id:"ROCKET_LAUNCH:launch",sourceIds:["launch"],actorId:"owner",payload:{amount:"0",details:{level:3,roomTitle:"🌙".repeat(40)}}});
+  f.db.globalAnnouncement.findMany.mockResolvedValue([{...receipt,actorId:"actor"}]);
+  f.db.roomRocketLaunch={findUnique:vi.fn().mockResolvedValue({roomId:room.roomId,level:3})};
+  await dispatchAnnouncements(f.db,f.io,f.now);
+  const [event,{data}]=f.sockets[2].emit.mock.calls[0];
+  expect(event).toBe("global:announcement"); expect(data.announcementId).toBe(receipt.id);
+  expect(Date.parse(data.expiresAt)-Date.parse(data.serverTime)).toBe(20000);
+  expect(f.sockets[3].emit).not.toHaveBeenCalled();
+  expect(f.db.giftTransaction.count).not.toHaveBeenCalled();
 });

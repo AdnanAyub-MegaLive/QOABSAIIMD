@@ -12,7 +12,7 @@ it("uses only authenticated identity and a repeatable read snapshot", async () =
   const response = await GET(new Request("https://portal.test/api/v1/me/host-center?month=2026-10&userId=victim"));
   expect(response.status).toBe(200);
   expect(m.auth).toHaveBeenCalledWith(expect.any(Request),{syncVip:false});
-  expect(m.report).toHaveBeenCalledWith("db","authenticated","2026-10");
+  expect(m.report).toHaveBeenCalledWith("db","authenticated","2026-10",expect.any(Date),"https://portal.test");
   expect(m.tx).toHaveBeenCalledWith(expect.any(Function),{isolationLevel:"RepeatableRead"});
 });
 it("rejects unauthenticated requests before querying the report", async () => {

@@ -1,3 +1,5 @@
+import { agencyLogoUrl } from "./agency-logo.js";
+import { avatarDisplayUrl } from "./avatar-history.js";
 import { reportCycle, publicCycle } from './reporting-cycles.js';
 import { createHash } from "node:crypto";
 import { sessionAttendance } from "./agency-salary.js";
@@ -5,13 +7,16 @@ import { agencyWork } from "./agency-work.js";
 import { hostReportAliases } from "./host-report-identity.js";
 import { audioMicAttendance } from "./audio-mic-attendance.js";
 
-export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
+const agencyFields = { publicId: true, name: true, status: true, logoAssetPublicId: true,
+  owner: { select: { publicId: true, profileImage: true, deletedAt: true, status: true } } };
+
+export async function hostCenter(db, userId, selectedMonth, now = new Date(), origin) {
   const period = await reportCycle(db, 'HOST_SALARY', selectedMonth, now);
   const user = await db.user.findUnique({ where: { id: userId }, select: {
     id: true, publicId: true, status: true, deletedAt: true, appRoles: true, hostSince: true,
-    agency: { select: { publicId: true, name: true, status: true } },
+    agency: { select: agencyFields },
     ownedAgencies: { where: { status: "ACTIVE" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 1,
-      select: { publicId: true, name: true, status: true } },
+      select: agencyFields },
   } });
   // Personal activity spans agencies; prefer membership, then the earliest active owned agency.
   const agency = user?.agency?.status === "ACTIVE" ? user.agency : user?.ownedAgencies?.find(a => a.status === "ACTIVE");
@@ -60,7 +65,10 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date()) {
   }).sort((a,b) => (a.agency?.publicId ?? "").localeCompare(b.agency?.publicId ?? ""));
   const incomplete = work.unvaluedGiftCount > 0 || missingSettlementCount > 0;
   const data = {
-    hostPublicId: user.publicId, hostSince, agency: { publicId: agency.publicId, name: agency.name }, month: period.month, timezone: "UTC",
+    hostPublicId: user.publicId, hostSince, agency: { publicId: agency.publicId, name: agency.name,
+      logoUrl: await agencyLogoUrl(db, agency.logoAssetPublicId, origin),
+      owner: agency.owner?.status === "ACTIVE" && !agency.owner.deletedAt
+        ? { publicId: agency.owner.publicId, profileImage: avatarDisplayUrl(agency.owner.profileImage, origin) } : null }, month: period.month, timezone: "UTC",
     period: publicCycle(period),
     earnings: { periodReceivedGiftDiamonds: incomplete ? null : work.totalDiamonds, monthlyReceivedGiftDiamonds: incomplete || period.days !== 30 ? null : work.totalDiamonds,
       recordedGiftDiamonds: work.totalDiamonds, unit: "DIAMONDS", coverage: incomplete ? "INCOMPLETE" : "RECORDED_SETTLEMENTS",
