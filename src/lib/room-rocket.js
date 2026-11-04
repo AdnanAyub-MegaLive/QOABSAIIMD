@@ -202,7 +202,7 @@ export async function maintainRoomRocketRewards(db = prisma) {
   const jobs = await db.roomRocketLaunch.findMany({ where: { paidAt: null }, orderBy: { createdAt: 'asc' }, take: 10 });
   for (const job of jobs) {
     try { await db.$transaction(tx => payRocketLaunch(tx, job.id), { isolationLevel: 'Serializable', timeout: 20000 }); }
-    catch (error) { console.error('Room Rocket payout deferred', { launchId: job.id, code: error.code ?? 'FAILED' }); }
+    catch (error) { console.error('Room Rocket payout deferred', { launchId: job.id, code: error.code ?? error.name, message: error.message?.trim().split('\n').at(-1) }); }
   }
 }
 

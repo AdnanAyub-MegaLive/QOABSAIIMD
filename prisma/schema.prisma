@@ -59,6 +59,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  ROCKET_REWARD
   SPECIAL_ID_PURCHASE
   ROOM_BANNER_PURCHASE
   VIP_PURCHASE

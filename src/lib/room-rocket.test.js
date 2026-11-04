@@ -94,6 +94,9 @@ it('requires live membership and returns stable result pages with independent my
 });
 it('applies the additive schema in isolated PostgreSQL and enforces launch and gift uniqueness',async()=>{
  const pg=new PGlite();try{
+ await pg.exec(`CREATE TYPE "WalletTransactionType" AS ENUM ('BONUS')`);
+ await pg.exec(await readFile('prisma/migrations/20261104090000_room_rocket_wallet_type/migration.sql','utf8'));
+ expect((await pg.query(`SELECT 'ROCKET_REWARD'::"WalletTransactionType" AS type`)).rows[0].type).toBe('ROCKET_REWARD');
  await pg.exec(await readFile('prisma/migrations/20261102200000_room_rocket/migration.sql','utf8'));
  await pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l','s','r',1,'[]')`);
  await expect(pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l2','s','r',1,'[]')`)).rejects.toThrow();
