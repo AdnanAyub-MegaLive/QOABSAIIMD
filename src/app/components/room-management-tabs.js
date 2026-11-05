@@ -11,6 +11,7 @@ const sections = [
   ["Daily Tasks", "/daily-tasks"],
   ["Red Envelopes", "/red-envelopes"],
   ["Room Rocket", "/room-rocket"],
+  ["CP Levels", "/cp-levels"],
   ["Appearance", "/room-appearance"],
   ["Games", "/room-games"],
 

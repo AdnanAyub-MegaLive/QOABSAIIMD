@@ -876,6 +876,9 @@ model UserMedal {
 }
 
 model ProfileRelationship {
+  cpGiftExperience CpGiftExperience[]
+  cpLevelClaims CpLevelClaim[]
+  exp BigInt @default(0)
   id String @id @default(cuid())
   publicId String @unique
   leftUserId String
@@ -1187,6 +1190,7 @@ model VoiceObject {
 }
 
 model Message {
+  metadata Json?
   senderCountry String? @db.VarChar(2)
   kind String @default("text")
   mediaId String? @unique
@@ -1879,6 +1883,7 @@ model GiftRefund {
 }
 
 model GiftTransaction {
+  cpExperience CpGiftExperience?
   reversedAt DateTime?
   id              String            @id @default(cuid())
   operationKey String? @db.VarChar(128)
@@ -3032,4 +3037,36 @@ model AudioRoomPkSearch {
   @@unique([ownerId, requestKey])
   @@index([status, createdAt])
   @@index([roomId, status])
+}
+
+model CpLevel {
+ claims CpLevelClaim[]
+ level Int @id
+ name String
+ minExp BigInt
+ badgeUrl String?
+ fullAnimationUrl String?
+ fullAnimationMimeType String?
+ seatEffect String
+ seatColor String?
+ rewards Json @default("[]")
+ enabled Boolean @default(false)
+}
+model CpGiftExperience {
+ gift GiftTransaction @relation(fields: [giftId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+ relationship ProfileRelationship @relation(fields: [relationshipId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+ giftId String @id
+ relationshipId String
+ amount BigInt
+ createdAt DateTime @default(now())
+ @@index([relationshipId])
+}
+model CpLevelClaim {
+ relationship ProfileRelationship @relation(fields: [relationshipId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+ configuration CpLevel @relation(fields: [level], references: [level], onDelete: Restrict, onUpdate: NoAction)
+ relationshipId String
+ level Int
+ rewards Json
+ createdAt DateTime @default(now())
+ @@id([relationshipId, level])
 }

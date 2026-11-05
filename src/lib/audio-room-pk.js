@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { emitToAudioRoom } from './realtime.js';
 import { roomCoverDto } from './room-cover.js';
 const include = { leftRoom: true, rightRoom: true };
 const active = ['PENDING', 'LIVE'];
@@ -42,7 +43,30 @@ async function blocked(tx, a, b) {
 }
 // Shared by direct invitations and queue operations, across all server processes.
 async function locked(db, fn) {
-  return db.$transaction(async tx => { await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030152)::text`; return fn(tx); }, { isolationLevel: 'ReadCommitted', timeout: 10000 });
+  const expired = [];
+  const result = await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030152)::text`;
+    const now = new Date();
+    const pending = await tx.audioRoomPkSession.findMany({
+      where: { status: 'PENDING', createdAt: { lte: new Date(+now - 5000) } }, include,
+    });
+    for (const battle of pending) {
+      const updated = await tx.audioRoomPkSession.updateMany({
+        where: { id: battle.id, status: 'PENDING', revision: battle.revision },
+        data: { status: 'REJECTED', endedAt: now, revision: { increment: 1 } },
+      });
+      if (updated.count) expired.push({ ...battle, status: 'REJECTED', endedAt: now, revision: battle.revision + 1 });
+    }
+    return fn(tx);
+  }, { isolationLevel: 'ReadCommitted', timeout: 10000 });
+  // Notify only after commit, and do not fail a committed operation on delivery errors.
+  for (const battle of expired) {
+    const data = pkDto(battle, process.env.AUTH_URL || 'https://portal.megachat.live');
+    await Promise.allSettled([battle.leftRoom.roomId, battle.rightRoom.roomId].map(
+      id => emitToAudioRoom(id, 'audio-room:pk-changed', { success: true, data }),
+    ));
+  }
+  return result;
 }
 async function createBattle(tx, left, right) {
   await tx.audioRoomPkSearch.updateMany({ where: { roomId: { in: [left.roomId, right.roomId] }, status: 'WAITING' }, data: { status: 'CANCELLED' } });
@@ -114,5 +138,15 @@ export async function matchmaking(db, userId, roomId, method, requestKey, queueI
     const pk = created ?? (search?.pkId ? await tx.audioRoomPkSession.findUnique({ where: { id: search.pkId }, include }) : null);
     if (method === 'GET' && search?.status === 'MATCHED' && (!pk || !active.includes(pk.status))) return { search: null, pk: null, changed: false };
     return { search, pk, changed: !!created };
+  });
+}
+
+export async function readPk(db, userId, roomId) {
+  return locked(db, async tx => {
+    const room = await pkRoom(tx, roomId, userId);
+    return tx.audioRoomPkSession.findFirst({
+      where: { OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] },
+      include, orderBy: { createdAt: 'desc' },
+    });
   });
 }

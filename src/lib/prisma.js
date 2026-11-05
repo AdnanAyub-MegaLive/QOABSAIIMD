@@ -4,7 +4,7 @@ import { mediaVersionExtension } from "./media-version.js";
 import { serializePgTransactions } from "./serialized-pg-adapter.js";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-10-16-serialized-transactions";
+const prismaSchemaVersion = "2026-11-05-cp-levels";
 const requiredUserFields = [
   "walletRevision",
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",

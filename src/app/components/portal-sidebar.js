@@ -17,6 +17,7 @@ export const portalNavigation = [
   ["Uploads", "/uploads"],
   ["Room Management", "/room-management"],
   ["Room Rocket", "/room-rocket"],
+  ["CP Levels", "/cp-levels"],
   ["Live Management", "/live-management"],
   ["Rankings", "/rankings"],
   ["Audit Logs", "/audit-logs"],

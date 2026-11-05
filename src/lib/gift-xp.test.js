@@ -4,11 +4,11 @@ function database() {
   const rows=new Map(),ledger=[];
   const levels=["USER","CHARM"].flatMap(track=>Array.from({length:11},(_,level)=>({track,level,thresholdPoints:BigInt(level*900),benefits:[]})));
   const config={version:1,enabled:true,levels,rules:["USER","CHARM"].flatMap(track=>["PAID","BACKPACK","LUCKY","BLIND_BOX"].map(source=>({track,source,recipientType:track==="USER"?"ANY":"HOST",basis:"GIFT_XP",allowSelf:false,numerator:"1",denominator:"1"})))};
-  return {vipMembership:{findUnique:async()=>null},levelTagBackground:{findMany:async()=>[]},rows,ledger,giftSettlement:{findUnique:async()=>null},progressionConfiguration:{findFirst:async()=>config},uploadAsset:{findUnique:async()=>({senderXp:100000n,receiverXp:50000n})},
+  return {profileRelationship:{findUnique:async()=>null},vipMembership:{findUnique:async()=>null},levelTagBackground:{findMany:async()=>[]},rows,ledger,giftSettlement:{findUnique:async()=>null},progressionConfiguration:{findFirst:async()=>config},uploadAsset:{findUnique:async()=>({senderXp:100000n,receiverXp:50000n})},
     userProgress:{findUnique:async({where})=>rows.get(JSON.stringify(where.userId_track))??null,create:async({data})=>{const row={...data,lifetimePoints:0n,currentLevel:0,revision:0,configuration:config};rows.set(JSON.stringify({userId:data.userId,track:data.track}),row);return row;},update:async({where,data})=>{const row=rows.get(JSON.stringify(where.userId_track));Object.assign(row,{...data,revision:row.revision+1});return row;}},
     progressLedger:{findUnique:async({where})=>ledger.find(r=>Object.entries(where.userId_track_sourceType_sourceId_sourceLineId).every(([k,v])=>r[k]===v)),create:async({data})=>{ledger.push(data);}},realtimeOutbox:{create:async()=>({id:"event"})}};
 }
-const gift={id:"gift-1",giftAssetId:"asset-1",quantity:2};
+const gift={senderId:"sender",coinValue:1n,createdAt:new Date(),id:"gift-1",giftAssetId:"asset-1",quantity:2};
 const input={sender:{id:"sender",publicId:"USR-S"},recipient:{id:"host",publicId:"TLN-H"},gift,source:"PAID",gross:1n,credit:1n,recipientType:"HOST"};
 it.each(["PAID", "BACKPACK", "LUCKY", "BLIND_BOX"])("awards both tracks once for an approved self-gift: %s", async source => {
  const db=database(),config=await db.progressionConfiguration.findFirst();

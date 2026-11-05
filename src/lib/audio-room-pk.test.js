@@ -1,5 +1,8 @@
-import { expect, it } from 'vitest';
-import { matchmaking, invitePk, respondPk, pkDto, pkTransition } from './audio-room-pk.js';
+import { expect, it, vi, afterEach } from 'vitest';
+import { readPk, matchmaking, invitePk, respondPk, pkDto, pkTransition } from './audio-room-pk.js';
+vi.mock('./realtime.js', () => ({ emitToAudioRoom: vi.fn() }));
+import { emitToAudioRoom } from './realtime.js';
+afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 function fixture() {
  const rooms = ['A','B','C'].map(x => ({ id:x,roomId:`ROOM-${x}`,ownerId:`u${x}`,title:`Room ${x}`,status:'LIVE',privacyMode:'PUBLIC',isBlocked:false,coverImageUrl:null }));
  const searches=[], battles=[]; let tail=Promise.resolve();
@@ -17,9 +20,11 @@ function fixture() {
    updateMany:async({where,data})=>{for(const s of searches.filter(s=>matches(s,where)))Object.assign(s,data)},
   },
   audioRoomPkSession:{
-   findFirst:async({where})=>battles.find(b=>where.status.in.includes(b.status)&&where.OR.some(w=>Object.entries(w).some(([k,v])=>v.in.includes(b[k])))),
+   findMany:async({where})=>battles.filter(b=>matches(b,where)).map(b=>({...b})),
+   updateMany:async({where,data})=>{const rows=battles.filter(b=>matches(b,where));for(const b of rows)Object.assign(b,{...data,revision:b.revision+1});return {count:rows.length}},
+   findFirst:async({where,orderBy})=>{const rows=battles.filter(b=>(!where.status||where.status.in.includes(b.status))&&where.OR.some(w=>Object.entries(w).some(([k,v])=>typeof v==='object'?v.in.includes(b[k]):v===b[k])));return orderBy?rows.at(-1):rows[0]},
    findUnique:async({where})=>battles.find(b=>b.id===where.id),
-   create:async({data})=>{const b={status:'PENDING',leftScore:0n,rightScore:0n,revision:0,...data,leftRoom:rooms.find(r=>r.id===data.leftRoomId),rightRoom:rooms.find(r=>r.id===data.rightRoomId)};battles.push(b);return b},
+   create:async({data})=>{const b={createdAt:new Date(),status:'PENDING',leftScore:0n,rightScore:0n,revision:0,...data,leftRoom:rooms.find(r=>r.id===data.leftRoomId),rightRoom:rooms.find(r=>r.id===data.rightRoomId)};battles.push(b);return b},
    update:async({where,data})=>{const b=battles.find(b=>b.id===where.id);Object.assign(b,{...data,revision:b.revision+1});return b},
   }
  };
@@ -82,3 +87,44 @@ it('queue migration is isolated and enforces unique owner request IDs',async()=>
   await expect(db.exec(`INSERT INTO "AudioRoomPkSearch" (id,"roomId","ownerId","requestKey","expiresAt") VALUES ('q2','r','u','key','2026-12-01')`)).rejects.toMatchObject({code:'23505'});
  } finally {await db.close()}
 },30000);
+
+it('GET expires an invitation at five seconds and emits once to both rooms',async()=>{
+ vi.useFakeTimers(); const f=fixture();
+ const {pk}=await invitePk(f.db,'uA','ROOM-A','ROOM-B');
+ vi.advanceTimersByTime(4999);
+ expect((await readPk(f.db,'uA','ROOM-A')).status).toBe('PENDING');
+ expect(emitToAudioRoom).not.toHaveBeenCalled();
+ vi.advanceTimersByTime(1);
+ const expired=await readPk(f.db,'uB','ROOM-B');
+ expect(expired).toMatchObject({status:'REJECTED',revision:1,endedAt:new Date()});
+ await readPk(f.db,'uA','ROOM-A');
+ expect(emitToAudioRoom).toHaveBeenCalledTimes(2);
+ for(const room of ['ROOM-A','ROOM-B'])expect(emitToAudioRoom).toHaveBeenCalledWith(room,'audio-room:pk-changed',expect.objectContaining({data:expect.objectContaining({id:pk.id,status:'REJECTED',revision:1})}));
+});
+it('stale direct invites free both rooms for a new invitation',async()=>{
+ vi.useFakeTimers(); const f=fixture();
+ await invitePk(f.db,'uA','ROOM-A','ROOM-B');vi.advanceTimersByTime(5001);
+ const next=await invitePk(f.db,'uC','ROOM-C','ROOM-A');
+ expect(next.changed).toBe(true);
+ expect(f.battles.map(b=>b.status)).toEqual(['REJECTED','PENDING']);
+});
+it('late acceptance and concurrent reads cannot revive or reject twice',async()=>{
+ vi.useFakeTimers();const f=fixture();const {pk}=await invitePk(f.db,'uA','ROOM-A','ROOM-B');
+ vi.advanceTimersByTime(5001);
+ const [response]=await Promise.all([respondPk(f.db,'uB','ROOM-B',pk.id,'ACCEPT'),readPk(f.db,'uA','ROOM-A')]);
+ expect(response.pk.status).toBe('REJECTED');expect(response.changed).toBe(false);
+ expect(response.pk.revision).toBe(1);expect(emitToAudioRoom).toHaveBeenCalledTimes(2);
+});
+it('matched queue recovery expires pending invitations and allows a fresh search',async()=>{
+ vi.useFakeTimers();const f=fixture();
+ await matchmaking(f.db,'uA','ROOM-A','POST','request-a');
+ await matchmaking(f.db,'uB','ROOM-B','POST','request-b');vi.advanceTimersByTime(5001);
+ expect((await matchmaking(f.db,'uA','ROOM-A','GET')).search).toBeNull();
+ expect((await matchmaking(f.db,'uA','ROOM-A','POST','request-new')).search.status).toBe('WAITING');
+});
+it('accepted battles remain live after the invitation timeout',async()=>{
+ vi.useFakeTimers();const f=fixture();const {pk}=await invitePk(f.db,'uA','ROOM-A','ROOM-B');
+ await respondPk(f.db,'uB','ROOM-B',pk.id,'ACCEPT');vi.advanceTimersByTime(6000);
+ expect((await readPk(f.db,'uA','ROOM-A')).status).toBe('LIVE');
+ expect(emitToAudioRoom).not.toHaveBeenCalled();
+});

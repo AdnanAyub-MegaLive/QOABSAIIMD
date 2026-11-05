@@ -14,6 +14,7 @@ export function assignedPermissions(values=[]) { return expandPermissions(values
 export function expandPermissions(values=[]) { return [...new Set(values.flatMap(p=>[p,...(legacyPermissionActions[p]??[])]))]; }
 // Shared vocabulary: every assignable key must have a server enforcement point.
 export const permissionGroups = [
+  ["cp", "CP Levels", [["view", "View CP levels and rewards"], ["edit", "Configure CP thresholds, effects and rewards"]]],
   ["rocket", "Room Rocket", [["view", "View Rocket seasons and rewards"], ["edit", "Enable Rocket and configure future seasons and rewards"]]],
   ["vip", "VIP Management", [["view", "View VIP tiers and memberships"], ["manage", "Create tiers and grant or revoke timed VIP memberships"]]],
   ["dashboard", "Dashboard", [["view", "View platform overview and statistics"]]],
@@ -57,9 +58,10 @@ export function validatePermissions(value, actor) {
 }
 
 export const pagePermissions = {
-  "/room-rocket": "rocket.view",
   // Login selects the first accessible page; prefer Home over feature sections.
   "/home": "dashboard.view",
+  "/room-rocket": "rocket.view",
+  "/cp-levels": "cp.view",
   "/vip-management": "vip.view",
   "/users": "users.view", "/talents": "hosts.view", "/agencies": "agencies.view",
   "/finance": "finance.view", "/platform-rules": "rules.view", "/uploads": "uploads.view", "/room-management": "rooms.view",

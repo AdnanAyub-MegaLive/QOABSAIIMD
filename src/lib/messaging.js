@@ -174,6 +174,8 @@ export function serializeMessage(message, senderPerks) {
     senderCountry: message.senderCountry ?? null,
     id: message.publicId,
     clientMessageId: message.clientMessageId ?? null,
+    metadata: message.deletedAt ? null : message.metadata ?? null,
+    isSystem: message.kind === "RELATIONSHIP",
     type: message.voiceKey ? "voice" : message.kind ?? "text",
     media: message.deletedAt ? null : message.media ?? null,
     gift: message.deletedAt ? null : message.gift ?? null,
@@ -365,7 +367,7 @@ export async function deleteMessage(conversationPublicId, messagePublicId, userI
     select: { id: true, senderId: true, deletedAt: true, kind: true, voiceKey: true, createdAt: true },
   });
   if (!message) throw new Error("MESSAGE_NOT_FOUND");
-  if (message.kind === "gift" || message.voiceKey) throw chatError("MESSAGE_DELETE_FORBIDDEN", "Gift and voice messages cannot be deleted.");
+  if (message.kind === "RELATIONSHIP" || message.kind === "gift" || message.voiceKey) throw chatError("MESSAGE_DELETE_FORBIDDEN", "System, gift and voice messages cannot be deleted.");
   if (["picture", "video"].includes(message.kind) && Date.now() - message.createdAt.getTime() > 900000) throw chatError("MESSAGE_DELETE_WINDOW_EXPIRED", "Photos and videos can only be deleted within 15 minutes.");
   if (message.senderId !== userId) {
     const error = new Error("MESSAGE_DELETE_FORBIDDEN");

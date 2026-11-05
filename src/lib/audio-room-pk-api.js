@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { mobileJson, mobileApiError, requireMobileUser } from '@/lib/mobile-api';
 import { isRateLimited } from '@/lib/rate-limit';
 import { emitToAudioRoom } from '@/lib/realtime';
-import { pkDto, pkError, pkRoom, invitePk, respondPk, matchmaking } from '@/lib/audio-room-pk';
+import { pkDto, pkError, readPk, invitePk, respondPk, matchmaking } from '@/lib/audio-room-pk';
 import { finalizeExpiredPkSessions } from '@/lib/live-maintenance';
 
 async function reply(body, status = 200) {
@@ -21,8 +21,7 @@ export async function handlePk(request, context, queue = false) {
       const key = body?.requestId ?? new URL(request.url).searchParams.get('requestId') ?? request.headers.get('Idempotency-Key');
       result = await matchmaking(prisma, user.id, roomId, method, key, body?.queueId);
     } else if (method === 'GET') {
-      const room = await pkRoom(prisma, roomId, user.id);
-      const pk = await prisma.audioRoomPkSession.findFirst({ where: { OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: true, rightRoom: true }, orderBy: { createdAt: 'desc' } });
+      const pk = await readPk(prisma, user.id, roomId);
       return reply({ success: true, data: { pk: pk ? pkDto(pk, origin) : null } });
     } else if (method === 'POST') {
       if (typeof body?.opponentRoomId !== 'string' || !body.opponentRoomId.trim()) pkError('VALIDATION_ERROR', 'Provide opponentRoomId.', 422);

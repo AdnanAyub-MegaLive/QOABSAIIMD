@@ -78,6 +78,7 @@ export async function ownedProfileBadges(userId, origin, db = prisma) {
   return rows.map(row => ({ ...decorationMedia(row.asset, origin), name: row.asset.name, expiresAt: row.expiresAt?.toISOString() ?? null }));
 }
 
+import { cpProgress } from "./cp-levels.js";
 import { usersVip } from "./vip-capabilities.js";
 export async function profileExtras(target, viewer, origin, db = prisma) {
   const agency = await profileAgency(db,target.id,target.agency);
@@ -87,10 +88,11 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
     equippedProfileAssets([target], origin, db), publicProgression([target], origin, db, true),
     db.roleBadge.findMany({ where: { code: { in: roles } } }), medalWall(target.id, origin, { limit: 50 }, db), receivedGiftWall(target.id, origin, {}, db),
     db.giftTransaction.groupBy({ by: ["senderId"], where: { recipientUserId: target.id, reversedAt: null, sender: activePerson }, _sum: { coinValue: true }, orderBy: [{ _sum: { coinValue: "desc" } }, { senderId: "asc" }], take: 3 }),
-    db.profileRelationship.findMany({ where: { status: "ACTIVE", leftAcceptedAt: { not: null }, rightAcceptedAt: { not: null }, left: activePerson, right: activePerson, AND: [{ OR: [{ leftUserId: target.id }, { rightUserId: target.id }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] }, include: { left: { select: publicPerson }, right: { select: publicPerson } }, orderBy: { publicId: "asc" } }),
+    db.profileRelationship.findMany({ where: { type: "CP", status: "ACTIVE", leftAcceptedAt: { not: null }, rightAcceptedAt: { not: null }, left: activePerson, right: activePerson, AND: [{ OR: [{ leftUserId: target.id }, { rightUserId: target.id }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] }, include: { left: { select: publicPerson }, right: { select: publicPerson } }, orderBy: { publicId: "asc" } }),
     ownedProfileBadges(target.id, origin, db),
     ownedProfileProps(target.id, origin, db),
   ]);
+  const cpLevels = await db.cpLevel.findMany({ orderBy: { level: "asc" } });
   const people = await db.user.findMany({ where: { id: { in: supporters.map(s => s.senderId) }, ...activePerson }, select: publicPerson });
   const related = relationships.map(r => r.leftUserId === target.id ? r.right : r.left);
   const blocked = await db.userBlock.findMany({ where: { OR: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }, select: { blockerId: true, blockedId: true } });
@@ -115,6 +117,6 @@ export async function profileExtras(target, viewer, origin, db = prisma) {
     ...levels, gameLevel:game.level,gameLevelBadgeUrl:game.badgeUrl,gameLevelBackground:game.background,gameLevelBackgroundUrl:game.backgroundUrl,gameLevelBackgroundMimeType:game.backgroundMimeType,gameLevelBackgroundMediaVersion:game.backgroundMediaVersion, medalWall: medals, giftWall: gifts, cardBackgrounds:cardArt.cardBackgrounds,supporterMedals:cardArt.supporterMedals,
     agency: agency ? { publicId: agency.publicId, name: agency.name, status: agency.status, level: agencyProgress.level, progression:agencyProgress, logoUrl: assets.get(agency.logoAssetPublicId)?.url ?? null, ...cardArt.agency } : null,
     topSupporters: supporters.flatMap(s => { const person = people.find(p => p.id === s.senderId); return person && !hidden.has(person.id) ? [{ ...identity(person), totalCoins: (s._sum.coinValue ?? 0n).toString() }] : []; }).map((s, i) => ({ rank: i + 1, ...s })),
-    relationships: relationships.flatMap(r => { const partner = r.leftUserId === target.id ? r.right : r.left; return !hidden.has(partner.id) ? [{ id: r.publicId, type: r.type, status: r.status, level: r.level, days: Math.max(0, Math.floor((Date.now() - r.startedAt.getTime()) / 86400000)), partner: identity(partner) }] : []; }),
+    relationships: relationships.flatMap(r => { const partner = r.leftUserId === target.id ? r.right : r.left; return !hidden.has(partner.id) ? [{ id: r.publicId, type: r.type, status: r.status, ...cpProgress(r.exp ?? 0n, cpLevels), days: Math.max(0, Math.floor((Date.now() - r.startedAt.getTime()) / 86400000)), partner: identity(partner) }] : []; }),
   };
 }

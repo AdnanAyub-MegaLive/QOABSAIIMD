@@ -6,12 +6,11 @@ export async function joinableAudioPresence(db, viewer, target, io = globalThis.
   if (!io || viewer.id === target.id) return null;
   if (await hasVipPrivilege(target.id, "INVISIBLE_ENTRY", db)) return null;
   const eligible = async () => {
-    const [follows, blocked, active] = await Promise.all([
-      db.userFollow.count({where:{OR:[{followerId:viewer.id,followedId:target.id},{followerId:target.id,followedId:viewer.id}]}}),
+    const [blocked, active] = await Promise.all([
       db.userBlock.findFirst({where:{OR:[{blockerId:viewer.id,blockedId:target.id},{blockerId:target.id,blockedId:viewer.id}]}}),
       db.user.findFirst({where:{id:target.id,status:'ACTIVE',deletedAt:null,bans:{none:{target:'USER',revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:now}}]}}},select:{id:true}}),
     ]);
-    return follows===2 && !blocked && Boolean(active);
+    return !blocked && Boolean(active);
   };
   if (!await eligible()) return null;
   const presence = async () => {

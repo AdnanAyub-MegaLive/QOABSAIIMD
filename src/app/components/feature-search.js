@@ -6,6 +6,7 @@ import { usePortalAccess } from "./portal-access";
 import { canAccessPage } from "@/lib/portal-permissions";
 
 const features = [
+  ["CP Levels", "Couple levels, coin thresholds, animations and rewards", "/cp-levels"],
   ["Room Rocket", "Seasons, levels, animations and launch rewards", "/room-rocket"],
   ["Accounts & Permissions", "Staff accounts and feature access", "/accounts-permissions"],
   ["Room Games", "Game links, mobile visibility and display order", "/room-games"],

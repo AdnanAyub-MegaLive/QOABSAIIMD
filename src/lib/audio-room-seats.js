@@ -1,3 +1,4 @@
+import { cpSeatPresence } from "./cp-profile.js";
 import { hasVipPrivilege } from "./vip-capabilities.js";
 import { perkMediaFields } from "./decoration-media.js";
 import { Prisma } from "@prisma/client";
@@ -66,9 +67,10 @@ export async function reconcileAudioRoomLayoutSeats(tx, room, revokePublish = nu
   return removedIds;
 }
 
-function publicOccupant(user, perks) {
+function publicOccupant(user, perks, cp = null) {
   if (!user) return null;
   return {
+    cp,
     publicId: user.publicId,
     name: user.name,
     profileImage: user.profileImage ?? null,
@@ -111,6 +113,7 @@ export async function readAudioRoomSeatState(room, origin) {
   ]);
   const occupants = seats.map((seat) => seat.occupant).filter(Boolean);
   const perks = await resolveUserPerks(occupants, origin, ["FRAMES", "BADGES", "BUSINESS_CARD", "CHAT_BOXES", "USER_TAGS", "SEAT_STYLES"]);
+  const cpByUser = await cpSeatPresence(prisma, occupants);
   const rows = new Map();
   let updatedAt = room.updatedAt ?? room.createdAt ?? new Date();
   for (const seat of seats) {
@@ -124,6 +127,7 @@ export async function readAudioRoomSeatState(room, origin) {
       occupant: publicOccupant(
         seat.occupant,
         seat.occupant ? perks.get(seat.occupant.publicId) : null,
+        seat.occupant ? cpByUser.get(seat.occupant.id) ?? null : null,
       ),
       note: seat.note ?? null,
       muted: seat.occupant ? seat.isMuted : true,

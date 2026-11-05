@@ -76,15 +76,17 @@ export async function resolveGiftProgressRecipient(tx, gift, recipient) {
   // Exact canonical identity only. Never match names/email/phone or numeric suffixes.
   return talent ? tx.user.findFirst({ where: { publicId: talent.publicId, deletedAt: null }, select: { id: true, publicId: true } }) : null;
 }
+import { awardCpGift } from "./cp-levels.js";
 export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,credit,revealed=0n,reward=0n,recipientType,origin,settlement:knownSettlement}) {
   // USER is Wealth Level: only gift sends qualify. CHARM belongs to the
   // recipient of that gift. Recharge, transfers, purchases and tasks cannot award XP.
   if (!["PAID", "BACKPACK", "LUCKY", "BLIND_BOX"].includes(source)) return null;
   const settlement = knownSettlement ?? await tx.giftSettlement.findUnique({ where: { giftTransactionId: gift.id } });
   if (settlement?.recipientType === "HOST") await awardActivityXp(tx, "AGENCY", settlement.agencyId, gift.id, settlement.recipientDiamonds);
+  recipient = await resolveGiftProgressRecipient(tx, gift, recipient);
+  await awardCpGift(tx, gift, recipient, source);
   const active=await giftTransactionRead(tx, "progression:configuration", () => currentConfiguration(tx));
   if (!active?.enabled) return null;
-  recipient = await resolveGiftProgressRecipient(tx, gift, recipient);
   let senderSnapshot=null;
   const asset = gift.giftAssetId ? await giftTransactionRead(tx, `progression:asset:${gift.giftAssetId}`, () => tx.uploadAsset.findUnique({where:{id:gift.giftAssetId},select:{senderXp:true,receiverXp:true}})) : null;
   for(const [track,user] of [["USER",sender],["CHARM",recipient]]) {

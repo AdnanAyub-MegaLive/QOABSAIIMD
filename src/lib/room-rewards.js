@@ -22,8 +22,7 @@ export async function payRoomReward(id,db=prisma){
   if(!credited.count)throw new Error('Diamond balance cannot accept this reward.');
   const day=payout.day.toISOString().slice(0,10);
   await tx.walletTransaction.create({data:ledgerData({userId:payout.ownerId,type:'BONUS',direction:'CREDIT',title:'Daily room owner reward',diamonds:payout.diamonds,referenceId:`room-reward:${payout.id}`,metadata:{roomId:payout.roomId,day,giftCoins:payout.giftCoins.toString(),rateBps:payout.rateBps,policyVersion:payout.policyVersion}})});
-  const room=await tx.audioRoom.findUnique({where:{roomId:payout.roomId},select:{title:true}});
-  await notifyAction(tx,{userId:payout.ownerId,key:`room-reward:${payout.id}`,type:'ROOM_REWARD',title:'Daily room reward received',body:`${payout.diamonds} Diamonds earned from gifting in ${room?.title || payout.roomId} on ${day} (UTC).`,action:{screen:'DIAMONDS',roomId:payout.roomId,payoutId:payout.id}});
+  await notifyAction(tx,{userId:payout.ownerId,key:`room-reward:${payout.id}`,type:'ROOM_REWARD',title:'Daily room reward received',body:`${payout.diamonds} Diamonds are earned by the Room owner on ${day}`,action:{screen:'DIAMONDS',roomId:payout.roomId,payoutId:payout.id}});
   await tx.roomRewardPayout.update({where:{id},data:{status:'PAID',paidAt:new Date(),error:null}});
   await tx.auditLog.create({data:{action:'ROOM_REWARD_PAID',category:'FINANCE',entityType:'RoomRewardPayout',entityId:id,description:`Paid ${payout.diamonds} Diamonds for ${payout.roomId} on ${day}.`}});
  },{isolationLevel:'Serializable',timeout:30000});
