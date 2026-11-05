@@ -10,6 +10,7 @@ import {
 import { sessionInvalidation, signedAssetSessionInvalidation, mobileSessionError } from "../../../../../lib/mobile-session-state";
 
 const publicDisplayCategories = new Set([
+  "CP_MEDIA",
   "AGENCY_ARTWORK",
   "GAME_ICONS",
   "AVATARS",
