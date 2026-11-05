@@ -82,7 +82,7 @@ window.RankingDesign = (() => {
     charm:{background:'bg-[url(assets/charm-palace.png)]',period:'bg-[url(assets/charm-period-bar.png)]',active:'bg-[url(assets/charm-period-active.png)]',board:'bg-slate-900/80'},
   };
   function theme(type){
-    const t=themes[type];$('ranking').className=`relative mx-auto min-h-screen max-w-[440px] overflow-hidden bg-cover bg-top pb-8 ${t.background}`;
+    const t=themes[type === 'game' ? 'wealth' : type];$('ranking').className=`relative mx-auto min-h-screen max-w-[440px] overflow-hidden bg-cover bg-top pb-8 ${t.background}`;
     $('filters').className=type==='agency'?'relative z-10 mt-[52%] px-3':'relative z-10 mt-3 px-3';
     $('periods').className=`flex h-12 items-center bg-[length:100%_300%] bg-center bg-no-repeat ${t.period}`;
     for(const b of $('periods').children)b.className=`h-full min-w-0 flex-1 bg-[length:100%_100%] bg-no-repeat text-sm ${b.getAttribute('aria-selected')==='true'?t.active:''}`;
@@ -163,7 +163,7 @@ window.RankingDesign = (() => {
       artbox.append(p,art(`frame-${e.rank}.gif`,'pointer-events-none absolute inset-0 h-full w-full object-contain'));c.append(artbox);
       let card;
       if(type==='agency')card=node('div',first?'relative -mt-[23%] flex aspect-[774/554] flex-col justify-center bg-[url(assets/agency-first.png)] bg-[length:100%_100%] px-4 pt-5':'relative -mt-[23%] flex aspect-[638/438] flex-col justify-center bg-[url(assets/agency-pedestal.png)] bg-[length:100%_100%] px-2 pt-2');
-      else {const backgrounds={wealth:['bg-[url(assets/wealth-card-1.png)]','bg-[url(assets/wealth-card-2.png)]','bg-[url(assets/wealth-card-3.png)]'],charm:['bg-[url(assets/charm-card-1.png)]','bg-[url(assets/charm-card-2.png)]','bg-[url(assets/charm-card-3.png)]']};card=node('div',`relative -mt-[28%] flex min-h-28 flex-col justify-end bg-[length:100%_100%] px-2 pb-6 pt-8 ${backgrounds[type][e.rank-1]}`);if(type==='charm'&&e.rank>1)card.append(art(`charm-card-${e.rank}-border.png`,'pointer-events-none absolute inset-0 h-full w-full'));}
+      else {const backgrounds={wealth:['bg-[url(assets/wealth-card-1.png)]','bg-[url(assets/wealth-card-2.png)]','bg-[url(assets/wealth-card-3.png)]'],charm:['bg-[url(assets/charm-card-1.png)]','bg-[url(assets/charm-card-2.png)]','bg-[url(assets/charm-card-3.png)]']};card=node('div',`relative -mt-[28%] flex min-h-28 flex-col justify-end bg-[length:100%_100%] px-2 pb-6 pt-8 ${backgrounds[type === 'game' ? 'wealth' : type][e.rank-1]}`);if(type==='charm'&&e.rank>1)card.append(art(`charm-card-${e.rank}-border.png`,'pointer-events-none absolute inset-0 h-full w-full'));}
       card.append(details(e,type,helpers));c.append(card);podium.append(c);
     }
     for(const e of entries.filter(e=>e.rank>3)){

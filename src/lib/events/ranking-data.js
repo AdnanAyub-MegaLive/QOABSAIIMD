@@ -8,7 +8,7 @@ import { activitySnapshot } from '../activity-levels.js';
 import { levelTagBackgrounds, tagBackground } from '../level-tag-backgrounds.js';
 import { decorationMedia } from '../decoration-media.js';
 
-// Event scores are gift face value in Coins, never wallet balances or XP.
+// Gift rankings use gift face value; Game uses settled Coin wagers, never payouts, wallet balances or XP.
 // Historical agency attribution comes from the committed settlement, not today's membership.
 export async function eventRankings({ type, period, offset = 0, q = '', viewerId = null, origin, window, raw = false }, db = prisma) {
   const now = new Date(), selectedWindow = window ?? await configuredRankingWindow(db, type, period, now);
@@ -38,6 +38,12 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     JOIN gifts g ON ((g."senderId"=l.id AND g.receiver=rr.id) OR (g."senderId"=rr.id AND g.receiver=l.id)) AND g."createdAt">=r."startedAt"
     WHERE r.type='CP' AND r.status='ACTIVE' AND r."leftAcceptedAt" IS NOT NULL AND r."rightAcceptedAt" IS NOT NULL
     AND (r."expiresAt" IS NULL OR r."expiresAt">${now}) GROUP BY r.id,l.name,rr.name`;
+  else if (type === 'game') scores = Prisma.sql`
+    SELECT u.id,u."publicId",u.name,0::int AS level,u.country,u.id AS "personId",NULL::text AS "partnerId",0::int AS "memberCount",SUM(e.amount) AS score
+    FROM "SharedGameEntry" e JOIN people u ON u.id=e."userId"
+    WHERE e.status='SETTLED' AND e.input->>'currency'='COINS' AND e.amount>0
+      AND e."settledAt">=${start} AND e."settledAt"<${end}
+    GROUP BY u.id,u."publicId",u.name,u.country`;
   else scores = Prisma.sql`
     SELECT u.id,u."publicId",u.name,0::int AS level,u.country,u.id AS "personId",NULL::text AS "partnerId",0::int AS "memberCount",SUM(g."coinValue") AS score
     FROM gifts g JOIN people u ON u.id=${type === 'wealth' ? Prisma.sql`g."senderId"` : Prisma.sql`g.receiver`} GROUP BY u.id,u."publicId",u.name,u.country`;
@@ -95,7 +101,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
   }));
   return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: type === 'charm' ? 'diamonds' : 'coins',
     viewer: viewer ? { rank: Number(viewer.rank), gap: viewer.gap?.toString() ?? null } : null,
-    rule: type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
+    rule: type === 'game' ? 'Coins wagered in settled games during this period, across all rooms. Pending, cancelled and play-point entries are excluded; winnings do not affect the score.' : type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
     entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : {}), name: row.name, rank: Number(row.rank), level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
       ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,
       memberCount: row.memberCount, person: identities.get(row.personId) ?? null, partner: identities.get(row.partnerId) ?? null })),

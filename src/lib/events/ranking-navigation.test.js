@@ -29,7 +29,7 @@ async function fixture(track, rewardPolicy=null, pathname='', template='rankings
   return {get,messages,flush,requests};
 }
 describe('ranking native navigation',()=>{
-  it.each(['wealth','charm','agency','cp'])('runs independent %s source and local assets',async track=>{
+  it.each(['wealth','charm','agency','cp','game'])('runs independent %s source and local assets',async track=>{
     const {requests,get}=await fixture(null,null,'',`ranking-${track}`);
     expect(requests[0]).toContain(`event=ranking-${track}`);
     expect(requests[0]).toContain(`type=${track}`);
@@ -37,7 +37,7 @@ describe('ranking native navigation',()=>{
     expect(readFileSync(`event-templates/ranking-${track}/app.js`,'utf8')).not.toContain('/event/rankings/');
     expect(readFileSync(`event-templates/ranking-${track}/index.html`,'utf8')).toContain(`data-track="${track}"`);
   });
-  it.each(['wealth','charm','agency','cp'])('locks a dedicated %s URL even with a shared template',async track=>{
+  it.each(['wealth','charm','agency','cp','game'])('locks a dedicated %s URL even with a shared template',async track=>{
     const {get,requests}=await fixture(null,null,`/event/ranking-${track}/_v/3/index.html`);
     expect(get('tracks').children).toHaveLength(1);
     expect(requests[0]).toContain(`type=${track}`);
@@ -60,7 +60,7 @@ describe('ranking native navigation',()=>{
     expect(nodes.some(n=>n.textContent==='VIP 3')).toBe(true);
     expect(nodes.some(n=>n.className==='reward-art'&&n.src==='https://media.example/frame.gif')).toBe(true);
   });
-  it.each(['wealth','charm','agency','cp'])('keeps the separate %s event fixed when switching periods',async track=>{
+  it.each(['wealth','charm','agency','cp','game'])('keeps the separate %s event fixed when switching periods',async track=>{
     const {get,requests,flush}=await fixture(track);
     get('periods').children[1].onclick();await flush();
     expect(get('tracks').children).toHaveLength(1);
@@ -132,4 +132,15 @@ describe('ranking native navigation',()=>{
     }
   });
   it('preserves the close message',async()=>{const {get,messages}=await fixture();messages.length=0;get('back').onclick();expect(messages).toEqual([{type:'ranking:close'}]);});
+});
+
+it('Game podium and list hide totals, IDs and profile links',async()=>{
+ const {get,messages}=await fixture(null,null,'','ranking-game');
+ const nodes=[...descendants(get('hero')),...descendants(get('entries'))];
+ expect(nodes.filter(n=>n.className==='public-id'||n.className==='score')).toHaveLength(0);
+ expect(nodes.filter(n=>n.className==='name entry-name')).toHaveLength(4);
+ expect(nodes.filter(n=>n.className==='name entry-name').every(n=>n.onclick===undefined)).toBe(true);
+ expect(nodes.filter(n=>n.tag==='button')).toHaveLength(0);
+ expect(messages.filter(m=>m.type==='ranking:open-user')).toHaveLength(0);
+ expect(get('rule-text').textContent).toContain('Coins wagered in settled games');
 });

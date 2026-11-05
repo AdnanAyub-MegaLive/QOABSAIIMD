@@ -1,5 +1,5 @@
 import { moduleCycle } from '../reporting-cycles.js';
-export const eventRankingTypes = ['wealth', 'charm', 'agency', 'cp'];
+export const eventRankingTypes = ['wealth', 'charm', 'agency', 'cp', 'game'];
 export function rankingWindow(period, now = new Date()) {
   const start = new Date(now); start.setUTCHours(0, 0, 0, 0);
   if (period === 'week') start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);

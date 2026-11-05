@@ -4,7 +4,7 @@ vi.mock('../user-perks.js',()=>({resolveUserPerks:async()=>new Map()}));
 vi.mock('../avatar-history.js',()=>({avatarDisplayUrl:value=>value}));
 import { eventRankings } from './ranking-data.js';
 describe('ranking data',()=>{
-  it.each(['wealth','charm','agency','cp'])('builds parameterized %s ranking with refund and privacy filters',async type=>{
+  it.each(['wealth','charm','agency','cp','game'])('builds parameterized %s ranking with refund and privacy filters',async type=>{
     const db={$queryRaw:vi.fn().mockResolvedValue([]),user:{findMany:vi.fn().mockResolvedValue([])}};
     const result=await eventRankings({type,period:'today',offset:0,q:"' OR 1=1",viewerId:'viewer',origin:'https://portal.example'},db);
     const query=db.$queryRaw.mock.calls[0][0];

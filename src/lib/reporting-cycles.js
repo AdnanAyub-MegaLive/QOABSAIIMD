@@ -7,6 +7,7 @@ export const cycleModules = {
   WEALTH_RANKING: 'Wealth ranking and rewards',
   CHARM_RANKING: 'Charm ranking and rewards',
   AGENCY_RANKING: 'Agency ranking and rewards',
+  GAME_RANKING: 'Game ranking and rewards',
   CP_RANKING: 'CP ranking and rewards',
 };
 export function calendarCycle(at, days = 30) {

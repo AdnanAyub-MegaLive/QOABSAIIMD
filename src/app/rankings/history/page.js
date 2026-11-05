@@ -2,7 +2,7 @@ import Link from 'next/link';
 import {prisma} from '@/lib/prisma';
 import {requirePagePermission} from '@/lib/portal-admin';
 import PortalSidebar from '../../components/portal-sidebar';
-const tracks=['wealth','charm','agency','cp'];
+const tracks=['wealth','charm','agency','cp','game'];
 export default async function History({searchParams}){
  await requirePagePermission('rankings.view');
  const input=await searchParams;

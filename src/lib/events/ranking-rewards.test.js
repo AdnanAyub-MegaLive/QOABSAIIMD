@@ -25,9 +25,9 @@ describe('future-only ranking policies',()=>{
   });
 });
 
-function fixture(recipients=['a','b']) {
-  const round={id:'r',eventSlug:'ranking-cp',period:'today',policyId:'p',startsAt:new Date('2026-01-02'),endsAt:new Date('2026-01-03'),status:'PENDING',winners:[{rank:1,recipients}]};
-  const policy={...input,id:'p',eventSlug:round.eventSlug,effectiveFrom:new Date('2026-01-02')};
+function fixture(recipients=['a','b'], track='cp') {
+  const round={id:'r',eventSlug:`ranking-${track}`,period:'today',policyId:'p',startsAt:new Date('2026-01-02'),endsAt:new Date('2026-01-03'),status:'PENDING',winners:[{rank:1,recipients}]};
+  const policy={...input,track,id:'p',eventSlug:round.eventSlug,effectiveFrom:new Date('2026-01-02')};
   const tx={
     $queryRaw:vi.fn(),rankingRewardRound:{findUnique:vi.fn(async()=>round),update:vi.fn(async({data})=>Object.assign(round,data))},
     rankingRewardPolicy:{findUnique:vi.fn(async()=>policy)},event:{findUnique:vi.fn(async()=>({id:'e',status:'PUBLISHED'}))},
@@ -80,4 +80,12 @@ it('resumes monthly awards from the last stored end, advancing in half-months wi
  expect(upsert.mock.calls.map(([q])=>[q.create.startsAt.toISOString(),q.create.endsAt.toISOString()])).toEqual([['2026-11-01T00:00:00.000Z','2026-11-16T00:00:00.000Z'],['2026-11-16T00:00:00.000Z','2026-12-01T00:00:00.000Z']]);
  for(const [q] of upsert.mock.calls)expect(q.update).toEqual({});
  } finally {vi.useRealTimers();}
+});
+
+it('pays a Game winner once using the normal ranking reward transaction', async () => {
+ const {tx,db}=fixture(['winner'],'game');
+ await awardRankingRound('r',db);await awardRankingRound('r',db);
+ expect(tx.user.update).toHaveBeenCalledTimes(1);
+ expect(tx.user.update.mock.calls[0][0]).toMatchObject({where:{id:'winner'},data:{coinBalance:{increment:100n}}});
+ expect(rewardInput({...input,track:'game'}).eventSlug).toBe('ranking-game');
 });
