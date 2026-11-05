@@ -10,17 +10,17 @@ window.RankingDesign = (() => {
     return b;
   }
   function badges(person) {
-    const n=node('div','flex h-5 items-center justify-center gap-1');const seen=new Set();
+    const n=node('div','owned-badges flex h-5 items-center justify-center gap-1');const seen=new Set();
     for(const b of person?.ownedBadges||[]){if(seen.size===5)break;const url=b.mimeType?.startsWith('image/')?b.url:b.posterUrl;if(!url||seen.has(b.assetId||url))continue;seen.add(b.assetId||url);const im=node('img','h-4 w-4 object-contain');im.src=url;im.alt=b.name||'Badge';im.onerror=()=>im.remove();n.append(im);}return n;
   }
   function details(e, type, helpers) {
     const n=node('div','relative z-10 mx-auto flex min-w-0 max-w-full flex-col items-center gap-0.5 px-1 text-[10px]');
-    const name=node(type==='agency'?'button':'span','max-w-full truncate font-semibold',e.name);
+    const name=node(type==='agency'?'button':'span','entry-name max-w-full truncate font-semibold',e.name);
     if(type==='agency'){name.type='button';name.onclick=()=>helpers.notify({type:'ranking:open-agency',agencyPublicId:e.id});}
     n.append(name);
-    if(type==='agency')n.append(node('span','text-[9px]',`${e.id} · ${e.memberCount} hosts`));
+    if(type==='agency')n.append(node('span','text-[9px]',String(e.id ?? '').replace(/^AGN[-_ ]*/i,'')));
     const levels=helpers.levels(e.person,e);levels.className='flex max-w-full flex-wrap items-center justify-center gap-1 [&_img]:max-h-4 [&_img]:max-w-10 [&_.level-tag]:relative [&_.level-tag]:inline-flex [&_.level-tag]:items-center [&_.level-tag]:justify-center [&_.level-tag]:min-w-7 [&_.level-background]:absolute [&_.level-background]:inset-0 [&_.level-background]:h-full [&_.level-background]:w-full [&_b]:relative [&_b]:z-10 [&_b]:text-[9px]';
-    n.append(levels,badges(e.person));return n;
+    n.append(levels);if(type!=='agency')n.append(badges(e.person));return n;
   }
   const themes={
     agency:{background:'bg-[url(assets/agency-background.png)]',period:'bg-[url(assets/agency-period.png)]',active:'bg-[url(assets/agency-active.png)]',board:'bg-gradient-to-br from-amber-600 to-amber-950'},
@@ -72,14 +72,14 @@ window.RankingDesign = (() => {
       let card;
       if(type==='agency')card=node('div',first?'relative -mt-[23%] flex aspect-[774/554] flex-col justify-center bg-[url(assets/agency-first.png)] bg-[length:100%_100%] px-4 pt-5':'relative -mt-[23%] flex aspect-[638/438] flex-col justify-center bg-[url(assets/agency-pedestal.png)] bg-[length:100%_100%] px-2 pt-2');
       else {const backgrounds={wealth:['bg-[url(assets/wealth-card-1.png)]','bg-[url(assets/wealth-card-2.png)]','bg-[url(assets/wealth-card-3.png)]'],charm:['bg-[url(assets/charm-card-1.png)]','bg-[url(assets/charm-card-2.png)]','bg-[url(assets/charm-card-3.png)]']};card=node('div',`relative -mt-[28%] flex min-h-28 flex-col justify-end bg-[length:100%_100%] px-2 pb-6 pt-8 ${backgrounds[type][e.rank-1]}`);if(type==='charm'&&e.rank>1)card.append(art(`charm-card-${e.rank}-border.png`,'pointer-events-none absolute inset-0 h-full w-full'));}
-      card.append(details(e,type,helpers));c.append(card);podium.append(c);
+      const info=details(e,type,helpers);if(type==='agency')info.append(helpers.gap(e));else {const badges=info.lastElementChild;info.append(helpers.gap(e),badges);}card.append(info);c.append(card);podium.append(c);
     }
     for(const e of entries.filter(e=>e.rank>3)){
       const bg=type==='charm'?'bg-[url(assets/charm-ranking-row.png)]':type==='agency'?'border-b border-amber-300/70':'rounded-2xl border border-amber-300 bg-red-950/60';
-      const row=node('article',`my-2 flex min-h-24 items-center gap-2 bg-[length:100%_100%] px-4 py-3 ${bg}`);const identity=details(e,type,helpers);
+      const row=node('article',`row my-2 flex min-h-24 items-center gap-2 bg-[length:100%_100%] px-4 py-3 ${bg}`);const identity=details(e,type,helpers);
       identity.className='min-w-0 flex-1 text-xs [&>button]:block [&>button]:max-w-full [&>button]:truncate';
       const total=node('div','ml-auto flex shrink-0 flex-col items-end gap-1');
-      total.append(identity.lastElementChild);
+      total.append(helpers.gap(e));
       row.append(node('span','text-xs',e.rank),portrait(e.person,helpers.notify,'h-12 w-12 shrink-0'),identity,total);$('entries').append(row);
     }
   }

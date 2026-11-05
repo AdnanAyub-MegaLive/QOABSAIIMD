@@ -33,6 +33,9 @@ it('ranks settled Coin wagers across games and rooms, preserves privacy and free
  const result=await eventRankings({...input,viewerId:'b'},db);
  expect(result.viewer).toEqual({rank:2,gap:'350'});
  expect(result.entries.map(e=>e.name)).toEqual(['Alice','Bob']);
+ expect(result.entries.map(e=>e.gap)).toEqual([null,'350']);
+ expect((await eventRankings({...input,offset:1},db)).entries[0].gap).toBe('350');
+ expect((await eventRankings({...input,q:'Bob'},db)).entries[0].gap).toBe('350');
  expect(result.entries.every(e=>!('id' in e)&&!('score' in e))).toBe(true);
  expect((await eventRankings({...input,viewerId:'a'},db)).viewer).toEqual({rank:1,gap:null});
  await pg.exec(`INSERT INTO "UserBlock" VALUES ('b','a');`);

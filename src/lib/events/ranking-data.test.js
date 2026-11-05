@@ -36,3 +36,11 @@ it('derives agency level and tag from configured XP thresholds, never owner or l
   expect(data.entries[0]).toMatchObject({level:3,agencyLevel:3,agencyLevelBackgroundUrl:null});
   expect(db.levelTagBackground.findMany.mock.calls[0][0].where.OR).toEqual([{track:'AGENCY',level:3}]);
 });
+
+it('does not send agency owner badges, VIP or personal levels in an agency ranking',async()=>{
+ const db={$queryRaw:async()=>[{id:'agency',publicId:'AGN-123',personId:'owner',name:'Agency',rank:2n,score:100n,gap:25n,memberCount:50}],user:{findMany:async()=>[{id:'owner',publicId:'USR-1',name:'Owner',profileImage:'/owner.png',uploadAssignments:[{asset:{publicId:'badge'}}]}]},activityLevelRule:{findUnique:async()=>null},activityLevelAward:{groupBy:async()=>[]},levelTagBackground:{findMany:async()=>[]}};
+ const data=await eventRankings({type:'agency',period:'today',origin:'https://portal.example'},db);
+ expect(data.entries[0]).toMatchObject({id:'AGN-123',gap:'25'});
+ expect(data.entries[0]).not.toHaveProperty('memberCount');
+ for(const key of ['ownedBadges','vip','badgeUrl','userLevel','charmLevel'])expect(data.entries[0].person).not.toHaveProperty(key);
+});

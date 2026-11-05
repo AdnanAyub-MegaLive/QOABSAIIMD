@@ -50,8 +50,8 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
   // Rank before filtering search results, so an agency's global rank stays stable.
   const ranked = Prisma.sql`${base}, scores AS (${scores}), ranked AS (
     SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, ${['wealth','charm'].includes(type) ? Prisma.sql`COALESCE((SELECT t.level FROM "VipMembership" v JOIN "VipTier" t ON t.id=v."tierId" WHERE v."userId"=scores."personId" AND v."revokedAt" IS NULL AND v."startsAt"<=${now} AND v."expiresAt">${now} AND t.active=true AND 'RANKING_PRIORITY'=ANY(t.privileges)),0)` : Prisma.sql`0::int`} DESC,"publicId" ASC) AS rank FROM scores WHERE score>0
-  )`;
-  const rows = await db.$queryRaw(Prisma.sql`${ranked} SELECT * FROM ranked WHERE (${q}='' OR POSITION(LOWER(${q}) IN LOWER(name))>0 OR POSITION(LOWER(${q}) IN LOWER("publicId"))>0)
+  ), chase AS (SELECT *, LAG(score) OVER (ORDER BY rank) - score AS gap FROM ranked)`;
+  const rows = await db.$queryRaw(Prisma.sql`${ranked} SELECT * FROM chase ranked WHERE (${q}='' OR POSITION(LOWER(${q}) IN LOWER(name))>0 OR POSITION(LOWER(${q}) IN LOWER("publicId"))>0)
     AND NOT EXISTS (SELECT 1 FROM "UserBlock" b WHERE
       (b."blockerId"=${viewerId} AND b."blockedId" IN (ranked."personId", ranked."partnerId")) OR
       (b."blockedId"=${viewerId} AND b."blockerId" IN (ranked."personId", ranked."partnerId")))
@@ -84,6 +84,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     for (const [id, progress] of agencyProgress) agencyProgress.set(id, { ...progress, ...tagBackground(backgrounds, 'AGENCY', progress.level) });
   }
   const identities = new Map(users.map(u => {
+    if (type === 'agency') return [u.id, { name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country }];
     const p = perks.get(u.publicId), levels = p?.progression;
     const membership = vipIsActive(u.vipMembership, now) ? u.vipMembership : null;
     const vipAsset = membership?.tier.assets.find(a => a.privilege === 'VIP_LOGO')?.asset ?? membership?.tier.assets.find(a => a.privilege === 'BADGE')?.asset;
@@ -97,13 +98,14 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
           const key = `${track}LevelBackground${suffix}`;
           return [key, levels?.[key] ?? null];
         }))),
+      frameUrl: p?.frameUrl ?? null, frameMimeType: p?.frameMimeType ?? null, framePosterUrl: p?.framePosterUrl ?? null,
       badgeUrl: p?.badgeUrl ?? null, badgeMimeType: p?.badgeMimeType ?? null, badgePosterUrl: p?.badgePosterUrl ?? null }];
   }));
   return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: type === 'charm' ? 'diamonds' : 'coins',
     viewer: viewer ? { rank: Number(viewer.rank), gap: viewer.gap?.toString() ?? null } : null,
     rule: type === 'game' ? 'Coins wagered in settled games during this period, across all rooms. Pending, cancelled and play-point entries are excluded; winnings do not affect the score.' : type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
-    entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : {}), name: row.name, rank: Number(row.rank), level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
+    entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : {}), name: row.name, rank: Number(row.rank), gap: row.gap?.toString() ?? null, level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
       ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,
-      memberCount: row.memberCount, person: identities.get(row.personId) ?? null, partner: identities.get(row.partnerId) ?? null })),
+      ...(type === 'agency' ? {} : { memberCount: row.memberCount }), person: identities.get(row.personId) ?? null, partner: identities.get(row.partnerId) ?? null })),
     nextOffset: hasMore ? offset + 20 : null };
 }

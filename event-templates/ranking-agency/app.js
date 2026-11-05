@@ -38,6 +38,42 @@
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { n.hidden = true; }, { once: true }); return n; };
+
+  function gap(entry) {
+    const n=el('span','ranking-gap');
+    if(entry.rank===1 || entry.gap==null){n.hidden=true;return n;}
+    const amount=BigInt(entry.gap), units=[[1000000000000n,'T'],[1000000000n,'B'],[1000000n,'M'],[1000n,'K']];
+    const unit=units.find(([size])=>amount>=size);
+    const text=unit?`${amount/unit[0]}.${(amount%unit[0])*10n/unit[0]}${unit[1]}`:amount.toLocaleString();
+    n.setAttribute('aria-label',`${amount.toLocaleString()} ${type==='charm'?'diamonds':'coins'} behind rank ${entry.rank-1}`);
+    n.title=`Behind #${entry.rank-1}`;
+    n.append(el('span',type==='charm'?'gap-diamond':'gap-coin',type==='charm'?'◆':'★'),el('b','gap-value',text),el('span','gap-arrows','⌃⌃'));
+    return n;
+  }
+  function rowAvatar(person) {
+    const n=el('div','ranking-avatar');n.append(image(person?.profileImage,'portrait',true));
+    const url=person?.frameMimeType && !person.frameMimeType.startsWith('image/') ? person.framePosterUrl : person?.frameUrl;
+    if(url)n.append(image(url,'ranking-avatar-frame'));
+    return n;
+  }
+  let sheetReady=false;
+  function setupSheet() {
+    const board=$('board');if(!board)return;
+    board.setAttribute('data-ranking-sheet',['wealth','charm','game'].includes(type)?'true':'false');
+    if(sheetReady)return;sheetReady=true;
+    const handle=el('button','ranking-sheet-handle','⌃'),scroll=el('div','ranking-scroll');
+    handle.type='button';handle.setAttribute('aria-label','Expand ranking list');handle.setAttribute('aria-expanded','false');
+    handle.setAttribute('aria-controls','ranking-scroll');scroll.id='ranking-scroll';
+    scroll.append(...Array.from(board.children));board.append(handle,scroll);
+    let expanded=false,startY=null;
+    const set=value=>{expanded=value;board.setAttribute('data-expanded',String(value));handle.textContent=value?'⌄':'⌃';handle.setAttribute('aria-expanded',String(value));handle.setAttribute('aria-label',value?'Collapse ranking list':'Expand ranking list');};
+    let dragged=false;
+    handle.onclick=()=>{if(dragged){dragged=false;return;}set(!expanded);};
+    handle.addEventListener('pointerdown',e=>{startY=e.clientY;handle.setPointerCapture?.(e.pointerId);});
+    handle.addEventListener('pointerup',e=>{if(startY!==null&&Math.abs(e.clientY-startY)>25){dragged=true;set(e.clientY<startY);}startY=null;});
+    handle.addEventListener('pointercancel',()=>{startY=null;});
+  }
+
   function levels(person, entry) {
     const n = el('div', 'levels');
     const subject = type === 'agency' ? entry : person;
@@ -53,18 +89,18 @@
       const url = mime && !mime.startsWith('image/')
         ? subject?.[`${prefix}PosterUrl`] : subject?.[`${prefix}Url`];
       if (url) tag.append(image(url, 'level-background'));
-      tag.append(el('b', 'level-value', `${track === 'user' ? 'W' : track === 'agency' ? 'A' : 'C'} ${level}`));
+      tag.append(el('b', 'level-value', String(level)));
       n.append(tag);
     }
     if (type === 'cp' && person?.badgeUrl) n.append(image(person.badgeMimeType === 'application/svga' ? person.badgePosterUrl : person.badgeUrl));
-    if (type !== 'cp' && person?.vip?.level > 0) {
+    if (type !== 'cp' && type !== 'agency' && person?.vip?.level > 0) {
       const tag = el('span', 'vip-tag');
       tag.setAttribute('aria-label', `VIP ${person.vip.level}`);
       const art = person.vip.artwork;
       const url = art?.mimeType?.startsWith('image/') ? art.url : art?.posterUrl;
       if (url) { const icon = image(url, 'vip-art'); icon.alt = `VIP ${person.vip.level}`; tag.append(icon); }
       tag.append(el('b', 'vip-value', `VIP ${person.vip.level}`));
-      n.append(tag);
+      n.prepend(tag);
     }
     return n;
   }
@@ -85,7 +121,7 @@
     return n;
   }
   function render() {
-    if(window.RankingDesign){window.RankingDesign.render(type,entries,{notify,levels});$('more').hidden=nextOffset===null;return;}
+    if(window.RankingDesign){window.RankingDesign.render(type,entries,{notify,levels,gap});$('more').hidden=nextOffset===null;return;}
     $('entries').replaceChildren(); $('hero').replaceChildren();
     if (type === 'agency') $('hero').append(image('/event/ranking-agency/assets/9b423.png', 'agency-logo'));
     else if (entries[0] && type !== 'cp') { const h = el('div', 'featured'); h.append(image(entries[0].person?.profileImage, 'portrait', true), image('/event/ranking-agency/assets/b2851.png', 'hero-frame'), entryName(entries[0]), levels(entries[0].person)); $('hero').append(h); }
@@ -94,8 +130,8 @@
     if (type !== 'cp' && entries.some(e => e.rank <= 3)) { podium = el('div', 'podium'); $('entries').append(podium); }
     entries.forEach(e => {
       if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/ranking-agency/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`)); row.append(value); $('entries').append(row); return; }
-      if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/ranking-agency/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person,e)); if(type==='agency')n.append(el('div','meta',`${e.memberCount} hosts · ${e.id}`),image(`/event/ranking-agency/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); podium.append(n); }
-      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person,e)); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details); $('entries').append(n); }
+      if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/ranking-agency/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person,e),gap(e)); if(type==='agency')n.append(el('div','meta',String(e.id ?? '').replace(/^AGN[-_ ]*/i,'')),image(`/event/ranking-agency/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); podium.append(n); }
+      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person,e)); if(type==='agency')details.append(el('span','meta',String(e.id??'').replace(/^AGN[-_ ]*/i,''))); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details,gap(e)); $('entries').append(n); }
     }); $('more').hidden = nextOffset === null;
   }
   async function load(append = false) {
@@ -104,14 +140,14 @@
     if (!token) return; request?.abort(); const current = new AbortController(); request = current;
     $('retry').hidden = true; $('more').hidden = true; $('status').hidden = false; $('status').textContent = 'Loading rankings…';
     try { const params = new URLSearchParams({event:eventSlug,type,period,offset:String(append ? nextOffset || 0 : 0),q:type==='agency'?$('search').value.trim():''}); const response = await fetch(`/api/v1/events/rankings?${params}`,{headers:{Authorization:`Bearer ${token}`},signal:current.signal,cache:'no-store'}); const body = await response.json(); if(!response.ok) { if(response.status===401){token='';notify({type:'ranking:session-required'});} throw Error(body.error?.message || 'Unable to load rankings.'); } if(request!==current)return;const data=body.data; cycleLabel=data.cycle?.days===15?'15-day cycle':data.cycle?.days===30?'Monthly':'Cycle';filters(); entries=append?[...entries,...data.entries]:data.entries; nextOffset=data.nextOffset; resetAt=Date.parse(data.resetsAt);clockOffset=Date.parse(data.generatedAt)-Date.now(); render();renderRewards(data); const viewer = data.viewer;
-      $('status').hidden = !viewer && entries.length > 0;
+      $('status').hidden = entries.length > 0 && (!viewer || entries.some(entry=>entry.rank===viewer.rank));
       $('status').textContent = !viewer ? 'No eligible gifts in this period yet.'
         : viewer.rank === 1 ? 'You’re #1'
         : `You’re #${viewer.rank} · ${BigInt(viewer.gap).toLocaleString()} ${data.scoreUnit} behind #${viewer.rank - 1}`; }
     catch(error){if(error.name==='AbortError')return;if(request!==current)return;rewardsPanel.replaceChildren(el('p','','Rewards could not be loaded. Please retry.'));$('status').textContent=error.message;$('retry').hidden=!token;}
   }
   function tabs(id, values, selected, change) { $(id).replaceChildren(); if(id==='tracks'&&fixedTrack){$(id).append(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));return;} for(const [value,label] of values){const button=el('button','',label);button.setAttribute('aria-selected',String(value===selected));button.onclick=()=>change(value);$(id).append(button);} }
-  function filters(){
+  function filters(){setupSheet();
     renderRules();
     tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP']],type,v=>{type=v;root.dataset.theme=v;entries=[];nextOffset=null;resetAt=0;render();filters();load();});
     if(window.RankingDesign && fixedTrack){
