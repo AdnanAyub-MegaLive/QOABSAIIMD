@@ -1,3 +1,4 @@
+import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
 import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from "@/lib/gift-operation";
@@ -141,6 +142,7 @@ export async function POST(request) {
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
       let recoveryPk;
       const ledgerRows = [];
+      await assertCpGiftEligible(tx, giftAsset, sessionUser.id, [recipientUser.id]);
       await assertGiftRecipient(tx, recipientUser);
       const chat = conversationId ? await requireChatGiftTarget(tx, conversationId, sessionUser.id, recipientUser.id) : null;
       if (live && !(await tx.videoLiveSession.findFirst({ where: { id: live.id, status: "LIVE" } }))) throw Object.assign(new Error("Live session has ended."), { code: "LIVE_NOT_FOUND" });

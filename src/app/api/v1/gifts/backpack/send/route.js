@@ -1,3 +1,4 @@
+import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
 import { currencyPolicy } from "@/lib/currency-policy";
 import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from "@/lib/gift-operation";
@@ -37,6 +38,7 @@ export async function POST(request) {
     const senderArtwork = await resolveGiftSender(sender, requestOrigin(request));
     operation.contentionKeys = giftContentionKeys([recipient]);
     const response = await runGiftOperation(sender.id,operation,async (tx) => {
+      await assertCpGiftEligible(tx, gift, sender.id, [recipient.id]);
       await assertGiftRecipient(tx, recipient);
       const emitToAudioRoom=(id,event,payload)=>appendOutbox(tx,`audio-room:${id}`,event,payload.data);
       const used = await tx.userGiftInventory.updateMany({ where: { userId: sender.id, giftAssetId: gift.id, quantity: { gte: quantity } }, data: { quantity: { decrement: quantity } } });

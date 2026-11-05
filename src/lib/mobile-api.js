@@ -78,6 +78,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   const known = {
+    CP_GIFT_RELATIONSHIP_REQUIRED: [403, "CP_GIFT_RELATIONSHIP_REQUIRED", "CP Gifts require you and every recipient to have an active CP relationship."],
       GIFT_RETRY_REQUIRED: [503, "GIFT_RETRY_REQUIRED", "Gift is busy. Retry with the same request ID."],
       COUNTRY_REQUIRED: [403,"COUNTRY_REQUIRED","Set your country in your profile to use Country Chat."],
       LINK_NOT_ALLOWED: [422,"LINK_NOT_ALLOWED","Links are not allowed in Country Chat."],

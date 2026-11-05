@@ -1,3 +1,4 @@
+import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { rememberGiftRecovery } from '@/lib/gift-outbox-context';
 import { currencyPolicy } from '@/lib/currency-policy';
 import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from '@/lib/gift-currency-settlement';
@@ -36,6 +37,7 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
     const contentionKeys = giftContentionKeys(recipients, { lucky: !backpack && gift.giftTier === 'LUCKY' });
     const contexts = new WeakMap();
     return { contentionKeys, finalize: tx => flushLuckyPoolSession(tx, contexts.get(tx)?.pool), settle: async (tx, operation) => {
+      await assertCpGiftEligible(tx, gift, sender.id, recipients.map(recipient => recipient.id));
       if (!contexts.has(tx)) {
         for (const recipient of recipients) await assertGiftRecipient(tx, recipient);
         contexts.set(tx, { pool: batch ? {} : null, currency: await currencyPolicy(tx), lucky: !backpack && gift.giftTier === 'LUCKY' ? await luckyPolicy(tx) : null });
