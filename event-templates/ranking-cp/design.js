@@ -95,8 +95,8 @@ window.RankingDesign = (() => {
   function sweetPair(entry, notify, first = false) {
     const pair = node('div', first ? 'relative z-10 aspect-[500/281] w-full' : 'relative z-10 aspect-[1784/887] w-full');
     const positions = first
-      ? ['left-[28%] top-[32%] h-[34%] w-[19%]', 'left-[52%] top-[32%] h-[34%] w-[19%]']
-      : ['left-[12%] top-[15%] h-[63%] w-[31%]', 'left-[57%] top-[15%] h-[63%] w-[31%]'];
+      ? ['left-[24%] top-[28%] h-[40%] w-[24%]', 'left-[51%] top-[28%] h-[40%] w-[24%]']
+      : ['left-[12%] top-[15%] h-[65%] w-[35%]', 'left-[51%] top-[15%] h-[65%] w-[35%]'];
     pair.append(portrait(entry?.person, notify, `absolute ${positions[0]}`));
     pair.append(portrait(entry?.partner, notify, `absolute ${positions[1]}`));
     pair.append(first ? animatedArt('sweet-first-frame.svga', 'sweet-first-frame.png') : art('sweet-pair-frame.png', 'pointer-events-none absolute inset-0 h-full w-full'));
@@ -113,19 +113,11 @@ window.RankingDesign = (() => {
     return card;
   }
   function sweetRender(entries, helpers) {
-    const banner = node('div','relative mx-auto mt-3 aspect-[500/281] w-full');
-    banner.append(animatedArt('sweet-swans.svga', 'sweet-swans.png'));
-    const title = node('div','absolute bottom-0 left-[6%] flex h-[25%] w-[88%] items-center justify-center bg-[url(assets/sweet-title-plate.png)] bg-[length:100%_100%]');
-    title.append(art('sweet-title.png','w-[76%]'));
-    banner.append(title);
+    const banner = node('div','relative mx-auto aspect-[396/288] w-full');
+    banner.append(art('cp-header.gif','block h-full w-full object-contain'));
     $('wheel').append(banner);
     const rules=node('button','ml-auto mr-3 my-2 block rounded-full border border-amber-300 bg-purple-950 px-5 py-1 text-sm font-bold','Rules');
     rules.type='button'; rules.onclick=()=>$('rules-dialog').showModal(); $('wheel').append(rules);
-    const modes=node('div','mx-3 mt-3 grid grid-cols-2 gap-2');
-    modes.append(node('span','flex h-12 items-center justify-center bg-[url(assets/sweet-button.png)] bg-[length:100%_100%] font-bold','CP Rank'));
-    const personal=node('button','h-12 bg-[url(assets/sweet-button.png)] bg-[length:100%_100%] font-bold opacity-60','Personal Rank');
-    personal.disabled=true; personal.title='Personal ranking data is not available yet';
-    modes.append(personal); $('hero').append(modes);
     const heading = node('h2','mx-auto my-3 flex h-12 w-[74%] items-center justify-center bg-[url(assets/sweet-label.png)] bg-[length:100%_100%] text-base font-bold','Top 3 couples');
     $('hero').append(heading);
     const podium = node('div','grid grid-cols-2 gap-3 px-3');

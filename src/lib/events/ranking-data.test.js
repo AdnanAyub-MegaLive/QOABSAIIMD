@@ -44,3 +44,12 @@ it('does not send agency owner badges, VIP or personal levels in an agency ranki
  expect(data.entries[0]).not.toHaveProperty('memberCount');
  for(const key of ['ownedBadges','vip','badgeUrl','userLevel','charmLevel'])expect(data.entries[0].person).not.toHaveProperty(key);
 });
+
+it.each(['wealth','charm','game','agency','cp'])('only returns a private leader total for wealth/charm: %s', async type=>{
+ for(const rank of [1n,2n]){
+  const db={$queryRaw:vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([{rank,gap:rank===1n?null:50n,score:900719925474099300n}]),user:{findMany:async()=>[]}};
+  const data=await eventRankings({type,period:'today',viewerId:'self',origin:'https://portal.example'},db);
+  if(rank===1n&&['wealth','charm'].includes(type))expect(data.viewer.total).toBe('900719925474099300');
+  else expect(data.viewer).not.toHaveProperty('total');
+ }
+});

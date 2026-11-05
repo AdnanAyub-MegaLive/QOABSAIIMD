@@ -58,8 +58,8 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     ORDER BY rank LIMIT 21 OFFSET ${offset}`);
   if (raw) return rows.slice(0, 20).map(row => ({ id: row.publicId, rank: Number(row.rank), score: row.score.toString(), recipients: [...new Set([row.personId, row.partnerId].filter(Boolean))] }));
   const [viewer] = viewerId ? await db.$queryRaw(Prisma.sql`${ranked}
-    SELECT rank, gap FROM (
-      SELECT rank, "personId", "partnerId", id, LAG(score) OVER (ORDER BY rank) - score AS gap FROM ranked
+    SELECT rank, gap, score FROM (
+      SELECT rank, score, "personId", "partnerId", id, LAG(score) OVER (ORDER BY rank) - score AS gap FROM ranked
     ) standings WHERE "personId"=${viewerId} OR "partnerId"=${viewerId}
       ${type === 'agency' ? Prisma.sql`OR id=(SELECT "agencyId" FROM people WHERE id=${viewerId})` : Prisma.empty}
     ORDER BY rank LIMIT 1`) : [];
@@ -102,7 +102,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
       badgeUrl: p?.badgeUrl ?? null, badgeMimeType: p?.badgeMimeType ?? null, badgePosterUrl: p?.badgePosterUrl ?? null }];
   }));
   return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: type === 'charm' ? 'diamonds' : 'coins',
-    viewer: viewer ? { rank: Number(viewer.rank), gap: viewer.gap?.toString() ?? null } : null,
+    viewer: viewer ? { rank: Number(viewer.rank), gap: viewer.gap?.toString() ?? null, ...(Number(viewer.rank) === 1 && ['wealth','charm'].includes(type) ? { total: viewer.score.toString() } : {}) } : null,
     rule: type === 'game' ? 'Coins wagered in settled games during this period, across all rooms. Pending, cancelled and play-point entries are excluded; winnings do not affect the score.' : type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
     entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : {}), name: row.name, rank: Number(row.rank), gap: row.gap?.toString() ?? null, level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
       ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,

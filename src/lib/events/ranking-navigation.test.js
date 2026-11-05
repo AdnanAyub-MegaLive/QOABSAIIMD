@@ -13,7 +13,7 @@ class Element {
   close() { this.open=false; }
 }
 const descendants=n=>[n,...n.children.flatMap(descendants)];
-async function fixture(track, rewardPolicy=null, pathname='', template='rankings') {
+async function fixture(track, rewardPolicy=null, pathname='', template='rankings', viewer=null) {
   const nodes=new Map(),messages=[],requests=[];
   const get=id=>{if(!nodes.has(id))nodes.set(id,new Element('div'));return nodes.get(id);};
   get('search').value='';get('heading').parentElement=new Element('div');
@@ -22,7 +22,7 @@ async function fixture(track, rewardPolicy=null, pathname='', template='rankings
   vm.runInNewContext(readFileSync(`event-templates/${template}/app.js`,'utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,gap:rank===1?null:'2700',agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{viewer,rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,gap:rank===1?null:'2700',agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
@@ -151,13 +151,19 @@ it.each(['wealth','charm','game'])('places %s chase gaps on podium and rows with
  expect(hero).toHaveLength(3);expect(hero[0].hidden).toBe(true);
  expect(hero.slice(1).map(n=>n.children.find(c=>c.className==='gap-value').textContent)).toEqual(['2.7K','2.7K']);
  expect(descendants(get('entries')).find(n=>n.className==='gap-value').textContent).toBe('2.7K');
- const handle=get('board').children.find(n=>n.className==='ranking-sheet-handle');
- handle.onclick();expect(handle.attributes['aria-expanded']).toBe('true');
- handle.onclick();expect(handle.attributes['aria-expanded']).toBe('false');
+ expect(get('board').children.some(n=>n.className==='ranking-sheet-handle')).toBe(false);
 });
 it('shows numeric agency IDs with no host count or owner VIP',async()=>{
  const {get}=await fixture(null,null,'','ranking-agency');
  const nodes=[...descendants(get('hero')),...descendants(get('entries'))];
  expect(nodes.filter(n=>n.className==='meta').map(n=>n.textContent)).toEqual(['1','2','3','4']);
  expect(nodes.some(n=>n.className==='vip-tag'||n.className==='owned-badges')).toBe(false);
+});
+
+it.each(['wealth','charm'])('renders a leader own total without chase arrows for %s',async track=>{
+ const {get}=await fixture(track,null,'',`ranking-${track}`,{rank:1,total:'123456',gap:null});
+ const leader=descendants(get('hero')).find(n=>n.className==='ranking-gap'&&!n.hidden);
+ expect(leader.title).toContain('total: 123,456');
+ expect(leader.children.some(n=>n.className==='gap-arrows')).toBe(false);
+ expect(leader.children.find(n=>n.className==='gap-value').textContent).toBe('123.4K');
 });
