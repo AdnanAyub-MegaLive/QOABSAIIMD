@@ -26,6 +26,10 @@ export async function userCp(db, target, viewer, origin) {
   return { id: relationship.publicId, self: identity(target), partner: identity(partner),
     ...cpProgress(relationship.exp, levels), startedAt: relationship.startedAt?.toISOString() ?? null,
     daysTogether: relationship.startedAt ? Math.max(0, Math.floor((Date.now() - relationship.startedAt.getTime()) / 86400000)) : 0,
+    ...([relationship.leftUserId, relationship.rightUserId].includes(viewer.id) ? {
+      maintenanceDueAt: relationship.maintenanceDueAt?.toISOString() ?? null,
+      maintenanceCoins: (relationship.maintenanceCoins ?? 0n).toString(),
+    } : {}),
     claimedRewards: claims.map(row => row.level) };
 }
 export async function cpSeatPresence(db, users) {

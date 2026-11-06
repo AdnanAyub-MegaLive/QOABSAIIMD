@@ -876,6 +876,8 @@ model UserMedal {
 }
 
 model ProfileRelationship {
+  maintenanceDueAt DateTime?
+  maintenanceCoins BigInt @default(0)
   cpGiftExperience CpGiftExperience[]
   cpLevelClaims CpLevelClaim[]
   exp BigInt @default(0)
@@ -892,6 +894,7 @@ model ProfileRelationship {
   level Int @default(0)
   left User @relation("ProfileRelationshipLeft", fields: [leftUserId], references: [id], onDelete: Cascade)
   right User @relation("ProfileRelationshipRight", fields: [rightUserId], references: [id], onDelete: Cascade)
+  @@index([status, maintenanceDueAt])
   @@unique([leftUserId, rightUserId, type])
   @@index([leftUserId, status])
   @@index([rightUserId, status])
@@ -3040,6 +3043,7 @@ model AudioRoomPkSearch {
 }
 
 model CpLevel {
+ maintenanceMinCoins BigInt @default(0)
  claims CpLevelClaim[]
  level Int @id
  name String

@@ -40,6 +40,17 @@ app.prepare().then(async()=>{
   const recoveryKey=(user,roomId)=>`${user.id}:${user.sessionVersion}:${roomId}`;
   const recoveryCleanup=setInterval(()=>{for(const[key,until]of recoveringRooms)if(until<Date.now())recoveringRooms.delete(key)},60000);recoveryCleanup.unref();
   const {prisma}=await import("./src/lib/prisma.js");
+  const {maintainCpRelationships}=await import("./src/lib/cp-maintenance.js");
+  let reviewingCp=false;
+  async function reviewCp() {
+    if(reviewingCp)return;
+    reviewingCp=true;
+    try { await maintainCpRelationships(prisma); }
+    catch(error) { console.error("CP maintenance failed", error.code ?? error.name); }
+    finally { reviewingCp=false; }
+  }
+  setInterval(reviewCp,60000).unref();
+  setImmediate(reviewCp);
   const {maintainRankingRewards}=await import("./src/lib/events/ranking-rewards.js");
   const rankingRewardTimer=setInterval(()=>void maintainRankingRewards(prisma).catch(error=>console.error("Ranking rewards maintenance failed",error.code??error.name)),60000);
   rankingRewardTimer.unref();

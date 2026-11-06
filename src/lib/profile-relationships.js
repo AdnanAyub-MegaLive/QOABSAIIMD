@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { relationshipChatMessage } from "./relationship-chat.js";
+import { nextCpReview } from "./cp-maintenance.js";
 import { syncCpLevel } from "./cp-levels.js";
 const fail = (code, message, status = 422) => Object.assign(new Error(message), { code, status });
 export async function changeProfileRelationship(db, actorId, body) {
@@ -28,7 +29,7 @@ export async function changeProfileRelationship(db, actorId, body) {
       const key = { leftUserId, rightUserId, type: body.type };
       row = await tx.profileRelationship.findUnique({ where: { leftUserId_rightUserId_type: key } });
       if (row && ["ACTIVE", "PENDING"].includes(row.status) && (!row.expiresAt || row.expiresAt > now)) throw fail("RELATIONSHIP_EXISTS", "This relationship already exists or is awaiting a response.", 409);
-      const data = { ...key, status: "PENDING", leftAcceptedAt: actorId === leftUserId ? now : null, rightAcceptedAt: actorId === rightUserId ? now : null, startedAt: null, expiresAt: new Date(now.getTime() + 7 * 86400000), level: 0, exp: 0n };
+      const data = { ...key, status: "PENDING", leftAcceptedAt: actorId === leftUserId ? now : null, rightAcceptedAt: actorId === rightUserId ? now : null, startedAt: null, expiresAt: new Date(now.getTime() + 7 * 86400000), level: 0, exp: 0n, maintenanceDueAt: null, maintenanceCoins: 0n };
       row = await tx.profileRelationship.upsert({ where: { leftUserId_rightUserId_type: key }, create: { ...data, publicId: `REL-${randomUUID()}` }, update: data });
     } else {
       row = await tx.profileRelationship.findUnique({ where: { id: row.id } });
@@ -37,7 +38,7 @@ export async function changeProfileRelationship(db, actorId, body) {
         if (actorId === leftUserId ? row.leftAcceptedAt : row.rightAcceptedAt) throw fail("RELATIONSHIP_RECIPIENT_REQUIRED", "Only the invited user may accept.", 403);
         const conflict = await tx.profileRelationship.findFirst({ where: { type: row.type, status: "ACTIVE", AND: [{ OR: [{ leftUserId: { in: [leftUserId, rightUserId] } }, { rightUserId: { in: [leftUserId, rightUserId] } }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }] } });
         if (conflict) throw fail("RELATIONSHIP_LIMIT_REACHED", "A user already has an active partner of this type.", 409);
-        row = await tx.profileRelationship.update({ where: { id: row.id }, data: { status: "ACTIVE", leftAcceptedAt: row.leftAcceptedAt ?? now, rightAcceptedAt: row.rightAcceptedAt ?? now, startedAt: now, expiresAt: null } });
+        row = await tx.profileRelationship.update({ where: { id: row.id }, data: { status: "ACTIVE", leftAcceptedAt: row.leftAcceptedAt ?? now, rightAcceptedAt: row.rightAcceptedAt ?? now, startedAt: now, expiresAt: null, maintenanceDueAt: nextCpReview(now), maintenanceCoins: 0n } });
       } else if (action === "REJECT" && row.status === "PENDING" || action === "REMOVE" && row.status === "ACTIVE") {
         row = await tx.profileRelationship.update({ where: { id: row.id }, data: { status: action === "REMOVE" ? "REMOVED" : "REJECTED" } });
       } else throw fail("VALIDATION_ERROR", "Unsupported relationship action or state.");

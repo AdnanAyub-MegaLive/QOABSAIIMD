@@ -1,4 +1,5 @@
 import { notifyAction } from './action-notifications.js';
+import { settleCpMaintenance } from './cp-maintenance.js';
 import { ledgerData } from './wallet.js';
 
 const MAX = 9223372036854775807n;
@@ -19,7 +20,7 @@ export function cpProgress(exp, levels) {
     seatEffect: current?.seatEffect ?? null, seatColor: current?.seatColor ?? null,
   };
 }
-export function cpLevelDto(row) { return { ...row, minExp: row.minExp.toString() }; }
+export function cpLevelDto(row) { return { ...row, maintenanceMinCoins: row.maintenanceMinCoins.toString(), minExp: row.minExp.toString() }; }
 function integer(value, name, minimum = 0n, maximum = MAX) {
   if (!/^\d+$/.test(String(value))) throw cpError(name + ' must be a whole number.');
   const parsed = BigInt(value);
@@ -55,7 +56,7 @@ export function cpLevelInput(body) {
     if (reward.kind === 'ITEM' && reward.days) throw cpError('Backpack items use quantities and do not support a duration.');
     return result;
   });
-  return { level, name, minExp: integer(body.minExp, 'Minimum experience'), badgeUrl: mediaUrl(body.badgeUrl),
+  return { level, name, maintenanceMinCoins: integer(body.maintenanceMinCoins ?? 0, 'Maintenance coins'), minExp: integer(body.minExp, 'Minimum experience'), badgeUrl: mediaUrl(body.badgeUrl),
     fullAnimationUrl, fullAnimationMimeType: fullAnimationUrl ? body.fullAnimationMimeType : null,
     seatEffect: body.seatEffect, seatColor: body.seatColor || null, rewards, enabled: body.enabled };
 }
@@ -112,13 +113,15 @@ export async function awardCpGift(tx, gift, recipient, source) {
   const relationship = await tx.profileRelationship.findUnique({ where: { leftUserId_rightUserId_type: { leftUserId, rightUserId, type: 'CP' } } });
   if (!relationship) return;
   await tx.$queryRaw`SELECT id FROM "ProfileRelationship" WHERE id=${relationship.id} FOR UPDATE`;
-  const current = await tx.profileRelationship.findFirst({ where: { id: relationship.id, ...activeCpWhere(), startedAt: { lte: gift.createdAt } } });
+  let current = await tx.profileRelationship.findFirst({ where: { id: relationship.id, ...activeCpWhere(), startedAt: { lte: gift.createdAt } } });
   if (!current) return;
+  const levels = await tx.cpLevel.findMany({ orderBy: { level: 'asc' } });
+  current = await settleCpMaintenance(tx, current, levels);
+  if (current.status !== 'ACTIVE') return;
   const inserted = await tx.cpGiftExperience.createMany({ data: [{ giftId: gift.id, relationshipId: current.id, amount: gift.coinValue }], skipDuplicates: true });
   if (!inserted.count) return;
   if (current.exp + gift.coinValue > MAX) throw cpError('CP experience exceeds the supported range.');
-  const updated = await tx.profileRelationship.update({ where: { id: current.id }, data: { exp: { increment: gift.coinValue } } });
-  const levels = await tx.cpLevel.findMany({ orderBy: { level: 'asc' } });
+  const updated = await tx.profileRelationship.update({ where: { id: current.id }, data: { exp: { increment: gift.coinValue }, maintenanceCoins: { increment: gift.coinValue } } });
   await syncCpLevel(tx, updated, levels);
 }
 export async function saveCpLevel(tx, body, adminId) {

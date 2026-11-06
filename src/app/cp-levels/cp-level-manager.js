@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import CpMediaUpload from './cp-media-upload';
 
-const blankLevel = level => ({ level, name: '', minExp: '0', enabled: false, badgeUrl: '', fullAnimationUrl: '', fullAnimationMimeType: 'application/svga', seatEffect: 'WAVE_1', seatColor: '', rewards: [] });
+const blankLevel = level => ({ level, name: '', minExp: '0', maintenanceMinCoins: '0', enabled: false, badgeUrl: '', fullAnimationUrl: '', fullAnimationMimeType: 'application/svga', seatEffect: 'WAVE_1', seatColor: '', rewards: [] });
 export default function CpLevelManager({ initial, assets, canEdit }) {
   const [levels, setLevels] = useState(initial);
   const [form, setForm] = useState(initial[0] ?? blankLevel(1));
@@ -24,12 +24,13 @@ export default function CpLevelManager({ initial, assets, canEdit }) {
   }
   return <section className="rounded-2xl border border-slate-200 bg-white p-6">
     <h2 className="text-xl font-bold">CP levels, effects and rewards</h2>
-    <p className="my-3 text-sm text-slate-600">Enabled levels apply immediately. Each couple earns each level’s rewards once for both partners. Lowering a threshold can grant rewards to existing couples.</p>
+    <p className="my-3 text-sm text-slate-600">Enabled levels apply immediately. Each couple earns each level’s rewards once for both partners. Lowering a threshold can grant rewards to existing couples. Gifts between partners count together. Missing a maintenance target drops one level. At Level 1 or below, missing the target ends the CP. Every level requires at least one qualifying gift per period.</p>
     <div className="my-4 flex flex-wrap gap-2">{levels.map(row => <button disabled={busy} key={row.level} className="rounded-lg border px-3 py-2" onClick={() => setForm(row)}>Level {row.level} · {row.name}{row.enabled ? '' : ' (disabled)'}</button>)}{canEdit && <button disabled={busy} className="rounded-lg border px-3 py-2" onClick={() => setForm(blankLevel(Math.max(0,...levels.map(row=>row.level))+1))}>Add level</button>}</div>
     <form onSubmit={save}><fieldset disabled={!canEdit || busy}>
       <div className="grid gap-4 sm:grid-cols-2">
         <label>Level<input className={field} type="number" min="1" value={form.level} disabled /></label>
         <label>Name<input className={field} maxLength={100} required value={form.name} onChange={e=>update('name',e.target.value)} /></label>
+        <label>Minimum gift coins per 30 days<input className={field} inputMode="numeric" pattern="[0-9]+" required value={form.maintenanceMinCoins} onChange={e=>update('maintenanceMinCoins',e.target.value)} /></label>
         <label>Coins needed<input className={field} inputMode="numeric" pattern="[0-9]+" required value={form.minExp} onChange={e=>update('minExp',e.target.value)} /></label>
         <CpMediaUpload label="Badge image" value={form.badgeUrl} onBusy={setBusy} onMessage={setMessage} onUploaded={({url})=>update('badgeUrl',url)} onRemove={()=>update('badgeUrl',null)} />
         <CpMediaUpload label="Full-screen animation" animation value={form.fullAnimationUrl} onBusy={setBusy} onMessage={setMessage} onUploaded={({url,mimeType})=>setForm(previous=>({...previous,fullAnimationUrl:url,fullAnimationMimeType:mimeType}))} onRemove={()=>setForm(previous=>({...previous,fullAnimationUrl:null,fullAnimationMimeType:null}))} />

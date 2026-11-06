@@ -20,7 +20,7 @@ describe('CP gift eligibility', () => {
   it('excludes pending, expired, one-sided, deleted and inactive partnerships in the database query',async()=>{
     const tx=db([]),now=new Date('2026-11-05T00:00:00Z');
     await assertCpGiftEligible(tx,gift,'a',['b'],now).catch(()=>{});
-    expect(tx.profileRelationship.findMany).toHaveBeenCalledWith({where:{type:'CP',status:'ACTIVE',leftAcceptedAt:{not:null},rightAcceptedAt:{not:null},OR:[{expiresAt:null},{expiresAt:{gt:now}}],AND:[{OR:[{leftUserId:{in:['a','b']}},{rightUserId:{in:['a','b']}}]}],left:{status:'ACTIVE',deletedAt:null},right:{status:'ACTIVE',deletedAt:null}},select:{leftUserId:true,rightUserId:true}});
+    expect(tx.profileRelationship.findMany).toHaveBeenCalledWith({where:{type:'CP',status:'ACTIVE',leftAcceptedAt:{not:null},rightAcceptedAt:{not:null},OR:[{expiresAt:null},{expiresAt:{gt:now}}],AND:[{OR:[{leftUserId:{in:['a','b']}},{rightUserId:{in:['a','b']}}]}],left:{status:'ACTIVE',deletedAt:null},right:{status:'ACTIVE',deletedAt:null}},orderBy:{id:'asc'},select:{id:true,maintenanceDueAt:true,leftUserId:true,rightUserId:true}});
   });
   it('does not restrict other gift categories or query relationships for them',async()=>{
     const tx=db([]);
