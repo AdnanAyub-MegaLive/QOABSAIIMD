@@ -5,7 +5,7 @@ import { issueWithdrawalQuote } from "./withdrawal-contract.js";
 function database() {
   const sender = { id: "u", publicId: "TLN-1", status: "ACTIVE", country: "PK", agencyId: "a", appRoles: ["HOST"] };
   const recipient = { id: "r", publicId: "USR-2", country: "PK" };
-  const tx = {
+  const tx = {reportingCyclePolicy:{findMany:async()=>[]},hostSalarySchedule:{findFirst:async()=>({tiers:[{target:450000}]})},giftSettlement:{findMany:async()=>[{recipientDiamonds:450000n}]},
     notification: { upsert: vi.fn(async () => ({})) },
     currencyRequest: { findUnique: vi.fn(async () => null), create: vi.fn(async ({ data }) => ({ id: "request", ...data })) },
     currencyPolicy: { findUnique: vi.fn(async () => ({ version: 1, rules: { hostTransferEnabled: true, transferMinDiamonds: "10", transferMaxDiamonds: "100", transferMultiple: "5", transferDailyLimit: "200", transferMonthlyLimit: "500" } })) },
@@ -38,7 +38,7 @@ it.each(["ADMIN","RESELLER","HOST"])("accepts a quoted %s withdrawal and replays
     const destination="T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
     const request={kind:"USDT",diamonds:"90",destination,policyVersion:1,...issueWithdrawalQuote({userId:"u",diamonds:"90",destination,policyVersion:1})};
     const first=await createCurrencyRequest(db,"u",request,"withdraw-1");
-    expect(first).toMatchObject({status:"PENDING",diamonds:"90",netUsdtMicros:"1000000"});
+    expect(first).toMatchObject({status:"PENDING",diamonds:"90",netUsdtMicros:role==="HOST"?"1000":"1000000"});
     expect(db.tx.user.updateMany).toHaveBeenCalledWith({where:{id:"u",hostSalaryCoinBalance:{gte:90n}},data:{hostSalaryCoinBalance:{decrement:90n}}});
     db.tx.currencyRequest.findUnique.mockResolvedValue(first);
     expect(await createCurrencyRequest(db,"u",request,"withdraw-1")).toEqual(first);

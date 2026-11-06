@@ -1148,7 +1148,7 @@ function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderX
           />
         </Field>
       </div>
-      <div className="mt-4"><Field label="Host receives (Diamonds per gift, optional)"><input type="number" min="0" max="1000000000000" step="1" value={hostDiamonds ?? ""} placeholder="Blank = use the profit split" onChange={e=>onHostDiamonds(e.target.value)} className={inputClass}/></Field><p className="mt-1.5 text-[10px] text-[#7b8e89]">Diamonds credited to the recipient for each unit sent. Leave blank to use Platform Rules → profit split.</p></div>
+      <p className="mt-4 text-xs">Hosts receive one diamond per gift coin. Other recipients receive one diamond per two gift coins.</p>
       {giftTier === "LUCKY" && <p className="mt-3 rounded-lg bg-[#fff6e5] px-3 py-2 text-[11px] leading-4 text-[#7a5a12]">Sender returns for Lucky Gifts come from the Lucky pool and multiplier table in Platform Rules → Lucky Gifts.</p>}
       <p className="mt-3 text-[10px] leading-4 text-[#748681]">
         Gifts are consumable. Users spend this price each time they send one;

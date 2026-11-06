@@ -12,6 +12,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:games:db": "node scripts/test-games-db.mjs",
+    "test:host-salary:db": "node scripts/test-host-salary-db.mjs",
     "test:rocket:db": "node scripts/test-rocket-db.mjs",
     "test:games:http": "node scripts/test-games-http.mjs",
     "test:features:http": "node scripts/test-profile-chat-features.mjs",

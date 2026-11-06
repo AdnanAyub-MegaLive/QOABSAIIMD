@@ -1,3 +1,4 @@
+import { hostWithdrawalPolicy } from "./host-salary.js";
 import { verifyWithdrawalQuote } from "./withdrawal-contract.js";
 import { redemptionCoins, redeemableHostDiamonds } from "./reseller-redemption.js";
 import { walletEligibility, walletAgencyInclude } from "./wallet-eligibility.js";
@@ -34,7 +35,8 @@ export async function createCurrencyRequest(db,userId,input,key) {
     if(previous){if(previous.fingerprint!==fingerprint)throw currencyError("Idempotency key already used with different details.","IDEMPOTENCY_CONFLICT");return serializeCurrencyRequest(previous);}
     const user=await tx.user.findUniqueOrThrow({where:{id:userId},include:walletAgencyInclude});
     if(user.status!=="ACTIVE"||user.deletedAt)throw currencyError("Account is not active.","SESSION_REVOKED");
-    const policy=await currencyPolicy(tx),r=policy.rules;
+    const basePolicy=await currencyPolicy(tx);
+    const policy=kind==="REDEMPTION"?basePolicy:await hostWithdrawalPolicy(tx,user,basePolicy),r=policy.rules;
     if(input.policyVersion!==undefined&&input.policyVersion!==policy.version)throw currencyError("Rates changed. Request a new quote before submitting.","CURRENCY_QUOTE_EXPIRED");
     let quotedCoins=0n,netUsdtMicros=0n,quote=null,recipient=null;
     if(kind==="REDEMPTION"){

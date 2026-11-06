@@ -40,6 +40,16 @@ app.prepare().then(async()=>{
   const recoveryKey=(user,roomId)=>`${user.id}:${user.sessionVersion}:${roomId}`;
   const recoveryCleanup=setInterval(()=>{for(const[key,until]of recoveringRooms)if(until<Date.now())recoveringRooms.delete(key)},60000);recoveryCleanup.unref();
   const {prisma}=await import("./src/lib/prisma.js");
+  const {closeHostSalaryCycle}=await import("./src/lib/host-salary-close.js");
+  let salaryClosing=false;
+  const salaryTimer=setInterval(async()=>{
+    if(salaryClosing)return;
+    salaryClosing=true;
+    try { await closeHostSalaryCycle(prisma); }
+    catch(error){ console.error("Host salary close deferred", error.message); }
+    finally { salaryClosing=false; }
+  },60000);
+  salaryTimer.unref();
   const {maintainCpRelationships}=await import("./src/lib/cp-maintenance.js");
   let reviewingCp=false;
   async function reviewCp() {

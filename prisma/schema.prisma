@@ -59,6 +59,7 @@ enum CoinOperation {
 }
 
 enum WalletTransactionType {
+  HOST_SALARY_REWARD
   ROCKET_REWARD
   SPECIAL_ID_PURCHASE
   ROOM_BANNER_PURCHASE
@@ -3091,4 +3092,26 @@ model GoogleRechargeReceipt {
  coins BigInt
  quantity Int
  createdAt DateTime @default(now())
+}
+
+model HostSalarySchedule {
+  effectiveFrom DateTime @id
+  tiers Json
+}
+
+model HostSalaryControl {
+  id String @id
+  noticeEnabled Boolean @default(true)
+  nextCloseStart DateTime
+}
+
+model HostSalaryAward {
+  cycleStart DateTime
+  userId String
+  level Int
+  earned BigInt
+  rewardDiamonds BigInt
+  agencyShares Json
+  createdAt DateTime @default(now())
+  @@id([cycleStart,userId])
 }

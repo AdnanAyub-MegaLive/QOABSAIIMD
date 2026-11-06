@@ -1,3 +1,5 @@
+import { isHostUser } from "./user-roles.js";
+import { salaryProgress, salaryUsd, scheduleFor, agencyShares } from './host-salary.js';
 import { agencyLogoUrl } from "./agency-logo.js";
 import { avatarDisplayUrl } from "./avatar-history.js";
 import { reportCycle, publicCycle } from './reporting-cycles.js';
@@ -13,14 +15,14 @@ const agencyFields = { publicId: true, name: true, status: true, logoAssetPublic
 export async function hostCenter(db, userId, selectedMonth, now = new Date(), origin) {
   const period = await reportCycle(db, 'HOST_SALARY', selectedMonth, now);
   const user = await db.user.findUnique({ where: { id: userId }, select: {
-    id: true, publicId: true, status: true, deletedAt: true, appRoles: true, hostSince: true,
+    id: true, publicId: true, status: true, deletedAt: true, appRoles: true, role:true, hostSince: true, hostSalaryCoinBalance:true,
     agency: { select: agencyFields },
     ownedAgencies: { where: { status: "ACTIVE" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 1,
       select: agencyFields },
   } });
   // Personal activity spans agencies; prefer membership, then the earliest active owned agency.
   const agency = user?.agency?.status === "ACTIVE" ? user.agency : user?.ownedAgencies?.find(a => a.status === "ACTIVE");
-  if (!user || user.deletedAt || user.status !== "ACTIVE" || !user.appRoles?.includes("HOST") || !agency) {
+  if (!user || user.deletedAt || user.status !== "ACTIVE" || !isHostUser(user) || !agency) {
     throw Object.assign(new Error("An active host with an agency is required."), { code: "HOST_CENTER_FORBIDDEN", status: 403 });
   }
   const hostSince = user.hostSince?.toISOString() ?? null;
@@ -36,7 +38,7 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date(), or
   const overlap = { startedAt: { lt: period.end }, OR: [{ endedAt: null }, { endedAt: { gt: period.start } }] };
   const settlements = await db.giftSettlement.findMany({ where: {
     createdAt: { gte: period.start, lt: period.end }, giftTransaction: { reversedAt: null, ...recipient },
-  }, select: { recipientDiamonds: true, agencyId: true, agency: { select: { publicId: true, name: true } },
+  }, select: { recipientType:true, recipientDiamonds: true, agencyId: true, agency: { select: { publicId: true, name: true } },
     giftTransaction: { select: { recipientUserId: true, talentId: true } } } });
   const missingSettlementCount = await db.giftTransaction.count({ where: {
     ...recipient, reversedAt: null, settlement: null, createdAt: { gte: period.start, lt: period.end },
@@ -84,5 +86,38 @@ export async function hostCenter(db, userId, selectedMonth, now = new Date(), or
       agencyChanges: "HOST_MONTH_ACROSS_AGENCIES_COMMISSION_GROUPED_BY_SETTLEMENT_AGENCY",
       hostRemoval: "SELF_SERVICE_ACCESS_REVOKED_HISTORICAL_RECORDS_PRESERVED" },
   };
+  const schedule=await scheduleFor(db,period.start);
+  if(schedule) {
+    const hostRows=settlements.filter(row=>row.recipientType==='HOST');
+    const total=hostRows.reduce((sum,row)=>sum+(row.recipientDiamonds ?? 0n),0n);
+    const progress=salaryProgress(total,schedule.tiers);
+    const balance=user.hostSalaryCoinBalance;
+    const control=await db.hostSalaryControl.findUnique({where:{id:'global'}});
+    data.journey={...progress,available:String(balance),availableUsd:salaryUsd(balance),
+      noticeEnabled:control?.noticeEnabled===true,complete:!missingSettlementCount && hostRows.every(r=>r.recipientDiamonds!=null),
+      nextUsd:progress.next?salaryUsd(progress.next.target):null,
+      currentUsd:progress.current?salaryUsd(progress.current.target):null};
+    const byAgency=new Map();
+    for(const row of hostRows) {
+      const id=row.agencyId ?? 'unassigned';
+      byAgency.set(id,(byAgency.get(id) ?? 0n)+(row.recipientDiamonds ?? 0n));
+    }
+    const commissions=agencyShares(byAgency,progress.current);
+    data.targets={type:'HOST_SALARY',policyConfigured:true,policyVersion:Number(schedule.effectiveFrom.toISOString().slice(0,10).replaceAll("-","")),
+      tiers:schedule.tiers.map(t=>({minDiamonds:String(t.target),commissionBps:t.percent*100})),
+      bySettlementAgency:[...byAgency].map(([agencyId,value])=>({
+        agency:groups.get(agencyId==='unassigned'?null:agencyId)?.agency ?? null,recordedGiftDiamonds:String(value),
+        achievedTier:progress.current?{minDiamonds:String(progress.current.target),commissionBps:progress.current.percent*100}:null,
+        estimatedAgencyCommission:agencyId!=='unassigned' && data.journey.complete?{amount:commissions[agencyId] ?? '0',unit:'DIAMONDS'}:null})),
+      personalTarget:progress.next?String(progress.next.target):null,remainingPersonalTarget:progress.remaining,
+      requiredDays:null,requiredHours:null,hostSalaryLevel:String(progress.level)};
+    const unvalued=hostRows.filter(row=>row.recipientDiamonds==null).length;
+    data.earnings={...data.earnings,recordedGiftDiamonds:String(total),unvaluedGiftCount:unvalued,
+      coverage:data.journey.complete?'RECORDED_SETTLEMENTS':'INCOMPLETE',
+      periodReceivedGiftDiamonds:data.journey.complete?String(total):null,
+      monthlyReceivedGiftDiamonds:data.journey.complete && period.days===30?String(total):null};
+    data.salary={policyStatus:'HOST_SALARY_SCHEDULE',estimated:{unit:'USD',amount:progress.earnedUsd},finalized:null,
+      payable:null};
+  }
   return { ...data, revision: createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 16), generatedAt: now.toISOString() };
 }

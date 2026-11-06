@@ -1,3 +1,4 @@
+import { hostWithdrawalPolicy } from "./host-salary.js";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { amount, currencyPolicy, payoutQuote } from "./currency-policy.js";
 import { diamondRules, validateServiceAmount, checkDiamondLimits, eligibleResellerWhere } from "./diamond-service-rules.js";
@@ -57,7 +58,7 @@ function verifyQuote(token,expected) {
 }
 async function eligible(tx,userId,diamonds,resellerPublicId) {
  const user=await tx.user.findUniqueOrThrow({where:{id:userId},include:walletAgencyInclude});
- const policy=await currencyPolicy(tx),rules=diamondRules(policy,user,"TRANSFER");
+ const policy=await hostWithdrawalPolicy(tx,user,await currencyPolicy(tx)),rules=diamondRules(policy,user,"TRANSFER");
  validateServiceAmount(diamonds,rules,"TRANSFER");
  const reseller=await tx.user.findFirst({where:{...eligibleResellerWhere(user),publicId:resellerPublicId}});
  if(!reseller||!walletEligibility(reseller).transfer)payoutFail("RESELLER_INELIGIBLE","Choose an active eligible reseller in your country.",422);

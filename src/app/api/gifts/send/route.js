@@ -1,6 +1,7 @@
+import { isHostUser } from "@/lib/user-roles";
 import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
-import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from "@/lib/gift-currency-settlement";
+import { calculateGiftSettlement, assertGiftRecipient } from "@/lib/gift-currency-settlement";
 import { giftOperation, priorGiftOperation, runGiftOperation, giftContentionKeys, flushRealtimeOutbox } from "@/lib/gift-operation";
 import { currencyPolicy } from "@/lib/currency-policy";
 import { awardGiftProgress, appendOutbox } from "@/lib/progression";
@@ -85,7 +86,7 @@ export async function POST(request) {
       }),
       prisma.user.findFirst({
         where: { publicId: recipientId, deletedAt: null, status: "ACTIVE" },
-        select: { id: true, publicId: true, name: true, appRoles: true, agencyId: true },
+        select: { id: true, publicId: true, name: true, appRoles: true, role:true, agencyId: true },
       }),
       prisma.talent.findUnique({
         where: { publicId: recipientId },
@@ -129,7 +130,7 @@ export async function POST(request) {
           skip: randomInt(0, Math.max(1, await prisma.uploadAsset.count({ where: { category: "GIFTS", active: true, giftTier: { in: ["CLASSIC", "PREMIUM", "VIP"] } } }))),
         })
       : null;
-    const isHost = recipientUser.appRoles.includes("HOST");
+    const isHost = isHostUser(recipientUser);
     const agencyId = recipientUser.agencyId ?? null;
     if (isHost && !agencyId) {
       const error = new Error("Hosts must belong to an agency before receiving gifts.");
@@ -162,7 +163,7 @@ export async function POST(request) {
       const currency = await currencyPolicy(tx);
       const lucky = giftAsset.giftTier === "LUCKY" ? await luckyPolicy(tx) : null;
       const { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins, luckyPoolCoins, receivedDiamonds } =
-        calculateGiftSettlement(grossCoins, isHost, policy, currency, 0n, { fixedDiamonds: fixedGiftDiamonds(giftAsset.hostDiamonds, quantity), luckyPoolBps: lucky?.poolContributionBps ?? null });
+        calculateGiftSettlement(grossCoins, isHost, policy, currency, 0n, { luckyPoolBps: lucky?.poolContributionBps ?? null });
       const gift = await tx.giftTransaction.create({
         data: {
           senderId: sessionUser.id,

@@ -1,7 +1,8 @@
+import { isHostUser } from "./user-roles.js";
 import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { rememberGiftRecovery } from '@/lib/gift-outbox-context';
 import { currencyPolicy } from '@/lib/currency-policy';
-import { calculateGiftSettlement, assertGiftRecipient, fixedGiftDiamonds } from '@/lib/gift-currency-settlement';
+import { calculateGiftSettlement, assertGiftRecipient } from '@/lib/gift-currency-settlement';
 import { giftContentionKeys } from '@/lib/gift-operation';
 import { awardGiftProgress, appendOutbox } from '@/lib/progression';
 import { parseGiftBatchId } from '@/lib/gift-batch';
@@ -24,7 +25,7 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
     const [room, gift, rows, policy, participants] = await Promise.all([
       prisma.audioRoom.findFirst({ where: { roomId, status: 'LIVE' } }),
       prisma.uploadAsset.findFirst({ omit: { fileData: true, posterFileData: true }, where: { publicId: giftId, category: 'GIFTS', active: true, giftTier: { in: ['CLASSIC', 'PREMIUM', 'VIP', 'LUCKY'] }, coinPrice: { gt: 0n } } }),
-      prisma.user.findMany({ where: { publicId: { in: ids }, deletedAt: null, status: 'ACTIVE' }, select: { id: true, publicId: true, name: true, appRoles: true, agencyId: true } }),
+      prisma.user.findMany({ where: { publicId: { in: ids }, deletedAt: null, status: 'ACTIVE' }, select: { id: true, publicId: true, name: true, appRoles: true, role:true, agencyId: true } }),
       getProfitSplitRule(), audioRoomParticipantIds(roomId),
     ]);
     if (!room) throw Object.assign(new Error('Room unavailable.'), { code: 'ROOM_NOT_LIVE' });
@@ -52,8 +53,8 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
       const { currency, lucky, pool } = contexts.get(tx);
       const results = [], prepared = []; let progression = null, totalLucky = 0n;
       for (const recipient of recipients) {
-        const host = recipient.appRoles.includes('HOST');
-        const split = calculateGiftSettlement(each, host, policy, currency, 0n, { fixedDiamonds: fixedGiftDiamonds(gift.hostDiamonds, quantity), luckyPoolBps: lucky?.poolContributionBps ?? null });
+        const host = isHostUser(recipient);
+        const split = calculateGiftSettlement(each, host, policy, currency, 0n, { luckyPoolBps: lucky?.poolContributionBps ?? null });
         const giftTx = await tx.giftTransaction.create({ data: { operationKey: operation.key, giftBatchId, senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: each, roomId } });
         const settlement = await tx.giftSettlement.create({ data: {
           giftTransactionId: giftTx.id, recipientDiamonds: split.receivedDiamonds, currencyPolicyVersion: currency.version,

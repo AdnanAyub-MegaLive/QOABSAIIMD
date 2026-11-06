@@ -1,3 +1,5 @@
+import { cycleHostTotals, scheduleFor, salaryProgress, agencyShares, salaryRate } from './host-salary.js';
+import { moduleCycle } from './reporting-cycles.js';
 import { managementRole } from "./user-roles.js";
 import { hostReportAliases } from "./host-report-identity.js";
 export const DIAMONDS_PER_USD = 90000n;
@@ -43,6 +45,44 @@ export function agencyWork(settlements, policy, aliases = new Map()) {
     policyConfigured: Boolean(policy), policyVersion: policy?.version ?? null, tiers: policy?.tiers ?? [], hosts: rows };
 }
 export async function agencyWorkReports(db, agencies, period, aliases = new Map()) {
+  const schedule=await scheduleFor(db,period.start);
+  if(schedule && !period.commissionUnavailable) {
+    const reports=new Map(agencies.map(a=>[a.id,new Map()]));
+    let tiers=schedule.tiers;
+    for(let at=period.start;at<period.end;) {
+      const cycle=await moduleCycle(db,'HOST_SALARY',at);
+      if(+cycle.start!==+at || cycle.end>period.end)return agencyWorkReports(db,agencies,{...period,commissionUnavailable:true},aliases);
+      tiers=(await scheduleFor(db,cycle.start)).tiers;
+      const totals=await cycleHostTotals(db,cycle);
+      const closed=await db.hostSalaryAward.findMany({where:{cycleStart:cycle.start}});
+      const receipts=new Map(closed.map(r=>[r.userId,r]));
+      for(const [id,host] of totals) {
+        const award=receipts.get(id);
+        const tier=award?tiers.find(t=>t.level===award.level):salaryProgress(host.total,tiers).current;
+        const shares=award?.agencyShares ?? agencyShares(host.agencies,tier);
+        for(const [agencyId,diamonds] of host.agencies) {
+          const report=reports.get(agencyId);
+          if(!report)continue;
+          const row=report.get(id) ?? {key:'USER:'+id,diamonds:0n,salaryDiamonds:0n,unvaluedGiftCount:0};
+          row.diamonds+=diamonds;
+          row.salaryDiamonds+=BigInt(shares[agencyId] ?? 0);
+          row.unvaluedGiftCount+=Number(host.incomplete);
+          row.targetDiamonds=tier?String(tier.target):null;
+          row.commissionBps=tier?tier.percent*100:0;
+          report.set(id,row);
+        }
+      }
+      at=cycle.end;
+    }
+    return agencies.map(agency=>{
+      const rows=[...reports.get(agency.id).values()];
+      const total=rows.reduce((s,r)=>s+r.diamonds,0n),salary=rows.reduce((s,r)=>s+r.salaryDiamonds,0n);
+      return {...agency,work:{totalDiamonds:String(total),salaryDiamonds:String(salary),totalUsd:usdValue(total),salaryUsd:usdValue(salary),
+        diamondsPerUsd:String(salaryRate),qualifiedTalents:rows.filter(r=>r.targetDiamonds).length,unvaluedGiftCount:rows.reduce((s,r)=>s+r.unvaluedGiftCount,0),
+        policyConfigured:true,policyVersion:Number(schedule.effectiveFrom.toISOString().slice(0,10).replaceAll("-","")),tiers:tiers.map(t=>({minDiamonds:String(t.target),commissionBps:t.percent*100})),
+        hosts:rows.map(r=>({...r,diamonds:String(r.diamonds),salaryDiamonds:String(r.salaryDiamonds)}))}};
+    });
+  }
   const [policy, settlements] = await Promise.all([
     period.commissionUnavailable ? null : db.agencySalaryPolicy.findUnique({ where: { month: period.policyKey ?? period.month } }),
     db.giftSettlement.findMany({ where: { agencyId: { in: agencies.map(a => a.id) }, giftTransaction: { reversedAt: null }, createdAt: { gte: period.start, lt: period.end } },

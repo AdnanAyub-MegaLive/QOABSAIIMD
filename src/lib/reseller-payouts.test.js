@@ -82,7 +82,7 @@ function creationDb(){
  const reseller={id:"r",publicId:"USR-R",status:"ACTIVE",country:"PK",appRoles:["RESELLER"]};
  const rules={hostTransferEnabled:true,transferMinDiamonds:"1",transferMaxDiamonds:"90000000",transferMultiple:"1",transferDailyLimit:"90000000",transferMonthlyLimit:"900000000",usdtEnabled:true,withdrawalDiamondsPerUsd:"90000",usdtMicrosPerUsd:"1000000",withdrawalMinDiamonds:"1800000",withdrawalMaxDiamonds:"90000000",feeBearer:"COMPANY",commissionChart:[{minUsdMicros:"0",bps:"350",fixedUsdtMicros:"10000000",networkUsdtMicros:"0"}]};
  let record=null;
- const tx={user:{findUniqueOrThrow:async()=>user,findFirst:vi.fn(async()=>reseller),updateMany:vi.fn(async()=>({count:1}))},currencyPolicy:{findUnique:async()=>({version:9,rules})},walletTransaction:{aggregate:async()=>({_sum:{diamonds:0n}}),create:vi.fn()},resellerPayout:{findUnique:async()=>record,create:vi.fn(async({data})=>record={id:"p",...data})},auditLog:{create:vi.fn()},notification:{upsert:vi.fn()}};
+ const tx={reportingCyclePolicy:{findMany:async()=>[]},hostSalarySchedule:{findFirst:async()=>({tiers:[{target:450000}]})},giftSettlement:{findMany:async()=>[{recipientDiamonds:450000n}]},user:{findUniqueOrThrow:async()=>user,findFirst:vi.fn(async()=>reseller),updateMany:vi.fn(async()=>({count:1}))},currencyPolicy:{findUnique:async()=>({version:9,rules})},walletTransaction:{aggregate:async()=>({_sum:{diamonds:0n}}),create:vi.fn()},resellerPayout:{findUnique:async()=>record,create:vi.fn(async({data})=>record={id:"p",...data})},auditLog:{create:vi.fn()},notification:{upsert:vi.fn()}};
  return {...tx,$transaction:fn=>fn(tx),record:()=>record};
 }
 it("creates escrow with one debit and replays without a second charge",async()=>{

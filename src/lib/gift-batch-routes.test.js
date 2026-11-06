@@ -81,7 +81,7 @@ it('writes paid gift debit, recipient Diamonds and Lucky return in one journal i
  expect(mocks.db.walletTransaction.createMany).toHaveBeenCalledOnce();
  expect(mocks.ledger.map(x=>x.type)).toEqual(['GIFT_SENT','GIFT_RECEIVED','LUCKY_GIFT_REWARD']);
  expect(mocks.ledger.map(x=>x.referenceId)).toEqual(['tx-0','tx-0','tx-0']);
- expect(mocks.ledger[0].coins).toBe(100n);expect(mocks.ledger[1].diamonds).toBe(100n);expect(mocks.ledger[2].coins).toBe(100n);
+ expect(mocks.ledger[0].coins).toBe(100n);expect(mocks.ledger[1].diamonds).toBe(50n);expect(mocks.ledger[2].coins).toBe(100n);
 });
 it('sends 26 Lucky gifts in input order, with one debit and one draw/event per recipient', async () => {
  const ids=Array.from({length:26},(_,i)=>`USR-QA${i}`);
@@ -141,9 +141,9 @@ it("multi-send credits ordinary recipients in Diamonds, never reusable Coins",as
  const response=await multi(request({requestId:"multi-unique",recipientIds:["USR-A","USR-B"]}));
  expect(response.status).toBe(201);
  expect(settlements).toHaveLength(2);
- expect(settlements.every(s=>s.recipientDiamonds===100n&&s.currencyPolicyVersion===1)).toBe(true);
- expect(updates.every(u=>u.data.hostSalaryCoinBalance.increment===100n&&!u.data.coinBalance)).toBe(true);
- expect(mocks.ledger.filter(r=>r.type==="GIFT_RECEIVED").every(r=>r.diamonds===100n&&!r.coins)).toBe(true);
+ expect(settlements.every(s=>s.recipientDiamonds===50n&&s.currencyPolicyVersion===1)).toBe(true);
+ expect(updates.every(u=>u.data.hostSalaryCoinBalance.increment===50n&&!u.data.coinBalance)).toBe(true);
+ expect(mocks.ledger.filter(r=>r.type==="GIFT_RECEIVED").every(r=>r.diamonds===50n&&!r.coins)).toBe(true);
  expect(mocks.ledger.find(r=>r.direction==="DEBIT")).toMatchObject({type:"GIFT_SENT",metadata:{source:"MULTI"}});
  expect(mocks.ledger.every(r=>Object.values(WalletTransactionType).includes(r.type))).toBe(true);
 });
@@ -153,7 +153,7 @@ describe.each([["standard", standard], ["backpack", backpack], ["lucky", lucky]]
     const response = await send(request({recipientId:"USR-S"}));
     expect(response.status).toBe(201);
     expect(mocks.rows[0]).toMatchObject({senderId:"sender",recipientUserId:"sender",coinValue:100n});
-    expect(mocks.ledger.some(row=>row.userId==="sender"&&row.type==="GIFT_RECEIVED"&&row.diamonds===100n)).toBe(true);
+    expect(mocks.ledger.some(row=>row.userId==="sender"&&row.type==="GIFT_RECEIVED"&&row.diamonds===50n)).toBe(true);
     if (_name === "backpack") expect(mocks.db.userGiftInventory.updateMany).toHaveBeenCalled();
     else expect(mocks.db.user.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({where:{id:"sender",coinBalance:{gte:100n}}}));
   });

@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks=vi.hoisted(()=>({user:vi.fn(),policy:vi.fn(),auth:vi.fn()}));
-vi.mock("@/lib/prisma",()=>({prisma:{user:{findUniqueOrThrow:mocks.user},currencyPolicy:{findUnique:mocks.policy}}}));
+vi.mock("@/lib/prisma",()=>({prisma:{reportingCyclePolicy:{findMany:async()=>[]},hostSalarySchedule:{findFirst:async()=>({tiers:[{target:450000}]})},giftSettlement:{findMany:async()=>[{recipientDiamonds:450000n}]},user:{findUniqueOrThrow:mocks.user},currencyPolicy:{findUnique:mocks.policy}}}));
 vi.mock("@/lib/diamond-exchange",()=>({exchangeSettings:async()=>({enabled:true,diamondsPerCoin:2n,minDiamonds:10000n})}));
 vi.mock("@/lib/currency-policy",async()=>await import("./currency-policy.js"));
 vi.mock("@/lib/withdrawal-contract",async()=>await import("./withdrawal-contract.js"));

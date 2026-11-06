@@ -19,6 +19,9 @@ export const APPLICATION_ROLES = [
 
 const LEGACY_ROLES = ["HOST", "MODERATOR", "CREATOR", "SENDER", "LISTENER"];
 export const MANAGEMENT_ROLE_ORDER = ["MANAGER", "COUNTRY_HEAD", "SUPER_ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "ADMIN", "BD", "CS_LEADER", "CS"];
+export function isHostUser(user) {
+  return user?.role === "HOST" || user?.appRoles?.includes("HOST") === true;
+}
 export function managementRole(user) { return MANAGEMENT_ROLE_ORDER.find(role => user?.appRoles?.includes(role)) ?? null; }
 export function managementIdentity(user) {
   const role = managementRole(user);

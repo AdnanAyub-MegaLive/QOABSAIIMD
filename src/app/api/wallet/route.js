@@ -1,3 +1,4 @@
+import {hostWithdrawalPolicy} from "@/lib/host-salary";
 import { withdrawalAvailability, payoutConfiguration } from "@/lib/withdrawal-contract";
 import { walletEligibility } from "@/lib/wallet-eligibility";
 import { resellerDiamondBalances } from "@/lib/reseller-redemption";
@@ -18,6 +19,7 @@ export async function GET(request) {
       where: { id: sessionUser.id },
       select: {
         id: true,
+        publicId:true,
         status: true,
         country: true,
         deletedAt: true,
@@ -35,14 +37,20 @@ export async function GET(request) {
         updatedAt: true,
       },
     });
-    const policy=await currencyPolicy(prisma);
+    let policy=await currencyPolicy(prisma);
+    let hostReason=null;
+    try { policy=await hostWithdrawalPolicy(prisma,user,policy); }
+    catch(error){ if(error.code!=="HOST_SALARY_LEVEL_REQUIRED")throw error;hostReason={code:error.code,message:error.message}; }
+
     const withdrawal = withdrawalAvailability(user, policy);
+    if(hostReason)Object.assign(withdrawal,{canWithdraw:false,reason:hostReason});
     const reseller = user.role === "RESELLER" || user.appRoles.includes("RESELLER");
     const sources = reseller ? await resellerDiamondBalances(prisma, user.id) : { gift: 0n, transferred: 0n };
     const eligibleDiamonds = sources.transferred < user.hostSalaryCoinBalance ? sources.transferred : user.hostSalaryCoinBalance;
     const remaining = user.hostSalaryCoinBalance - eligibleDiamonds;
     const giftDiamonds = sources.gift < remaining ? sources.gift : remaining;
     const transferRules=diamondRules(policy,user,"TRANSFER");
+    if(hostReason)Object.assign(transferRules,{enabled:false,reason:hostReason.message});
     const escrowConfigured=/^[a-fA-F0-9]{64}$/.test(process.env.PAYOUT_BANK_ENCRYPTION_KEY??"")&&payoutConfiguration(policy);
     return mobileJson({
       success: true,

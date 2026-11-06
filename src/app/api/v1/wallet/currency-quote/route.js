@@ -1,3 +1,4 @@
+import { hostWithdrawalPolicy } from "@/lib/host-salary";
 import { prisma } from "@/lib/prisma";
 import { walletAgencyInclude } from "@/lib/wallet-eligibility";
 import { currencyPolicy, payoutQuote, amount } from "@/lib/currency-policy";
@@ -9,7 +10,7 @@ const path="/api/v1/wallet/currency-quote",methods="POST, OPTIONS";
 export function OPTIONS(request){return v1Options(request,methods);}
 export function POST(request){return withV1Request(request,{path,methods},async()=>{try{
   const session=await requireMobileUser(request),user=await prisma.user.findUniqueOrThrow({where:{id:session.id},include:walletAgencyInclude}),body=await request.json();
-  const policy=await currencyPolicy(prisma);
+  const policy=await hostWithdrawalPolicy(prisma,user,await currencyPolicy(prisma));
   const availability = withdrawalAvailability(user,policy);
   if (!availability.canWithdraw) throw Object.assign(new Error(availability.reason.message), {code:availability.reason.code});
   const diamonds=amount(body.diamonds),destination=String(body.destination??"").trim();
