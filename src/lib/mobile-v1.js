@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { isServerProblem, mobileRequestContext, mobileRequestId, serverProblemBody } from "./mobile-server-problem.js";
 import { prisma } from "./prisma";
 import { isRateLimited } from "./rate-limit";
 import mobileSession from "./mobile-session.cjs";
@@ -28,10 +28,7 @@ export function clientIp(request) {
 }
 
 export function requestId(request) {
-  const supplied = request.headers.get("x-request-id")?.trim();
-  return /^[A-Za-z0-9._-]{8,128}$/.test(supplied || "")
-    ? supplied
-    : randomUUID();
+  return mobileRequestId(request.headers.get("x-request-id"));
 }
 
 export function v1Headers(request, requestIdValue, methods = "GET, POST, PATCH, OPTIONS") {
@@ -48,7 +45,8 @@ export function v1Headers(request, requestIdValue, methods = "GET, POST, PATCH, 
 }
 
 export function v1Json(request, requestIdValue, body, status = 200, methods) {
-  return Response.json(body, {
+  const payload = isServerProblem(body?.error, status) ? serverProblemBody(body?.error, requestIdValue, status) : body;
+  return Response.json(payload, {
     status,
     headers: v1Headers(request, requestIdValue, methods),
   });
@@ -90,6 +88,25 @@ async function writeRequestLog({ request, path, requestIdValue, startedAt, respo
   }
 }
 
+async function sanitizeDelegatedError(response, requestIdValue) {
+  if (response.status < 400) return response;
+  let body;
+  if (response.headers.get("Content-Type")?.includes("json")) {
+    try { body = await response.clone().json(); } catch { /* A 5xx still needs a safe response. */ }
+  }
+  const detail = {
+    code: body?.error?.code ?? body?.code ?? "HTTP_" + response.status,
+    message: body?.error?.message ?? (typeof body?.error === "string" ? body.error : body?.message),
+  };
+  if (!isServerProblem(detail, response.status)) return response;
+  if (detail.code === "SERVER_PROBLEM" && detail.message === "Server problem. Please try again later.") return response;
+  const safe = serverProblemBody(detail, requestIdValue, response.status);
+  const headers = new Headers(response.headers);
+  headers.delete("Content-Length");
+  headers.set("Content-Type", "application/json");
+  return Response.json(safe, { status: response.status, headers });
+}
+
 function attachV1Headers(request, requestIdValue, response, methods) {
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(v1Headers(request, requestIdValue, methods))) {
@@ -122,17 +139,17 @@ export async function withV1Request(request, { path, methods, rateLimit }, handl
     );
   } else {
     try {
-      response = await handler({ requestId: requestIdValue });
+      response = await mobileRequestContext.run(requestIdValue, () => handler({ requestId: requestIdValue }));
     } catch (error) {
-      console.error("Mobile API request failed", { path, requestId: requestIdValue, error });
+
       response = v1Json(
         request,
         requestIdValue,
         {
           success: false,
           error: {
-            code: "INTERNAL_ERROR",
-            message: "Unable to complete this request right now.",
+            code: error?.code ?? "INTERNAL_ERROR",
+            message: error?.message ?? String(error),
           },
         },
         500,
@@ -141,7 +158,7 @@ export async function withV1Request(request, { path, methods, rateLimit }, handl
     }
   }
 
-  const versionedResponse = attachV1Headers(request, requestIdValue, response, methods);
+  const versionedResponse = attachV1Headers(request, requestIdValue, await sanitizeDelegatedError(response, requestIdValue), methods);
   await writeRequestLog({
     request,
     path,

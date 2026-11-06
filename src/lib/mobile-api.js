@@ -1,3 +1,4 @@
+import { currentMobileRequestId, isServerProblem, serverProblemBody } from "./mobile-server-problem.js";
 import { assertSessionDevice } from "./device-ban.js";
 import { prisma } from "./prisma";
 import { versionMediaPayload } from "./media-payload.js";
@@ -8,17 +9,30 @@ import { assertMobileSession, mobileSessionError } from "./mobile-session-state"
 export const mobileCorsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key, X-Request-Id",
+  "Access-Control-Expose-Headers": "X-Request-Id",
   "Cache-Control": "no-store, max-age=0",
 };
 
-export async function mobileJson(body, status = 200) {
+export async function mobileJson(body, status = 200, cause) {
+  if (isServerProblem(body?.error, status) || (cause && isServerProblem(cause, cause.status))) {
+    const requestId = await currentMobileRequestId();
+    const thrownCode = /^[A-Z][A-Z0-9_]+$/.test(cause?.message ?? "") ? cause.message : null;
+    const error = {
+      code: cause?.code ?? thrownCode ?? body?.error?.code ?? `HTTP_${status}`,
+      message: cause?.message ?? body?.error?.message,
+    };
+    return Response.json(serverProblemBody(error, requestId, status), {
+      status, headers: { ...mobileCorsHeaders, "X-Request-Id": requestId },
+    });
+  }
   return Response.json(await versionMediaPayload(body), { status, headers: mobileCorsHeaders });
 }
 
 // Gift results already contain versioned artwork from their builders. Never
 // introduce another database dependency after a committed wallet operation.
 export function giftJson(body, status = 200) {
+  if (isServerProblem(body?.error, status)) return mobileJson(body, status);
   const response = body?.data?.comboTiming
     ? { ...body, data: { ...body.data, serverTime: new Date().toISOString() } } : body;
   return Response.json(response, { status, headers: mobileCorsHeaders });
@@ -74,6 +88,7 @@ export async function requireMobileRole(request, allowedRoles) {
 }
 
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
+  if (error?.status && isServerProblem(error, error.status)) return mobileJson({ success: false, error }, error.status, error);
   if (["AGENCY_SELECTION_REQUIRED","AGENCY_NOT_FOUND"].includes(error?.code) && error.status) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
@@ -241,5 +256,5 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   ];
   if (status === 401 && ["INVALID_SESSION", "SESSION_REVOKED"].includes(code))
     return mobileJson(mobileSessionError(code), status);
-  return mobileJson({ success: false, error: { code, message } }, status);
+  return mobileJson({ success: false, error: { code, message } }, status, { code: error?.code ?? (known[error?.message] ? error.message : fallbackCode), message: error?.message, status: error?.status });
 }
