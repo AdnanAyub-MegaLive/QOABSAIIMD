@@ -1,4 +1,3 @@
-import { resellerDiamondBalances } from "./reseller-redemption.js";
 import { prisma } from "./prisma.js";
 import { notifyAction } from "./action-notifications.js";
 import { currencyPolicy } from "./currency-policy.js";
@@ -39,16 +38,10 @@ export async function exchangeDiamonds(userId, value, key, db = prisma) {
         validateServiceAmount(quote.requested, settings.rules, "EXCHANGE");
         await checkDiamondLimits(tx, userId, quote.used, settings.rules, "EXCHANGE");
         if (quote.requested > user.hostSalaryCoinBalance) throw new Error("INSUFFICIENT_DIAMONDS");
-        const reseller = user.role === "RESELLER" || user.appRoles?.includes("RESELLER");
-        if (reseller) {
-          const { gift, transferred } = await resellerDiamondBalances(tx, userId);
-          if (quote.requested > gift || quote.requested + transferred > user.hostSalaryCoinBalance)
-            throw new Error("INSUFFICIENT_DIAMONDS");
-        }
         if (user.coinBalance + quote.coins > 9223372036854775807n) throw validationError("Coin balance would exceed the supported amount.");
         const updated = await tx.user.update({ where: { id: userId }, data: { hostSalaryCoinBalance: { decrement: quote.used }, coinBalance: { increment: quote.coins } } });
         const result = { diamonds: updated.hostSalaryCoinBalance.toString(), coins: updated.coinBalance.toString(), exchangedDiamonds: quote.used.toString(), receivedCoins: quote.coins.toString() };
-        const metadata = { ...(reseller ? { diamondSource: "GIFT" } : {}), requested: requested.toString(), diamondsPerCoin: settings.diamondsPerCoin.toString(), policyVersion:settings.version, result };
+        const metadata = { requested: requested.toString(), diamondsPerCoin: settings.diamondsPerCoin.toString(), policyVersion:settings.version, result };
         await tx.walletTransaction.createMany({ data: [
           ledgerData({ userId, type: "DIAMOND_EXCHANGE_DEBIT", direction: "DEBIT", title: "Diamonds exchanged", diamonds: quote.used, referenceId, metadata }),
           ledgerData({ userId, type: "DIAMOND_EXCHANGE_CREDIT", direction: "CREDIT", title: "Coins from diamonds", coins: quote.coins, referenceId, metadata }),

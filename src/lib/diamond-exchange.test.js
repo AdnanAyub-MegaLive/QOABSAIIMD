@@ -26,16 +26,16 @@ describe("diamond exchange", () => {
     expect(rows[1]).toMatchObject({ direction: "CREDIT", coins: 3n, diamonds: null });
     expect(rows[0].referenceId).toBe(rows[1].referenceId);
   });
-  it("exchanges only gift Diamonds at the user rate for a reseller who is also a host", async () => {
+  it("exchanges the reseller's full balance at the user rate, including verified host transfers", async () => {
     const db = database({appRoles:["RESELLER","HOST"], agencyId:"a"});
-    db.tx.walletTransaction.findMany = async () => [
-      {direction:"CREDIT", type:"GIFT_RECEIVED", diamonds:10n},
-      {direction:"CREDIT", type:"TRANSFER_RECEIVED", diamonds:90n, metadata:{verifiedHostTransfer:true}},
-    ];
-    await expect(exchangeDiamonds("u","11","request-1",db)).rejects.toThrow("INSUFFICIENT_DIAMONDS");
-    expect(db.tx.user.update).not.toHaveBeenCalled();
-    await expect(exchangeDiamonds("u","10","request-2",db)).resolves.toMatchObject({coins:"3"});
-    expect(db.tx.walletTransaction.createMany.mock.calls[0][0].data[0].metadata.diamondSource).toBe("GIFT");
+    db.tx.walletTransaction.findMany = vi.fn(async () => [
+      {direction:"CREDIT", type:"TRANSFER_RECEIVED", diamonds:100n, metadata:{verifiedHostTransfer:true}},
+    ]);
+    await expect(exchangeDiamonds("u","100","request-1",db)).resolves.toEqual({
+      diamonds:"1", coins:"33", exchangedDiamonds:"99", receivedCoins:"33",
+    });
+    expect(db.tx.walletTransaction.findMany).not.toHaveBeenCalled();
+    expect(db.tx.walletTransaction.createMany.mock.calls[0][0].data[0].metadata).not.toHaveProperty("diamondSource");
   });
   it("replays saved result without debiting and rejects a changed request", async () => {
     const db = database();
