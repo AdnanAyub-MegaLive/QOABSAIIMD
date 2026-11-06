@@ -239,6 +239,7 @@ model AuditLog {
 }
 
 model User {
+  googleRechargeReceipts GoogleRechargeReceipt[]
   prettyIdGrants PrettyIdGrant[]
   newUserRewardClaims NewUserRewardClaim[]
   companyBdCountry String? @unique
@@ -3073,4 +3074,21 @@ model CpLevelClaim {
  rewards Json
  createdAt DateTime @default(now())
  @@id([relationshipId, level])
+}
+
+model GoogleRechargeProduct {
+ productId String @id
+ coins BigInt
+ active Boolean @default(true)
+ receipts GoogleRechargeReceipt[]
+}
+model GoogleRechargeReceipt {
+ tokenHash String @id
+ productId String
+ product GoogleRechargeProduct @relation(fields:[productId],references:[productId],onDelete:Restrict,onUpdate:NoAction)
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+ coins BigInt
+ quantity Int
+ createdAt DateTime @default(now())
 }

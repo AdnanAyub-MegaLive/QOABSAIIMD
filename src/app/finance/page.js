@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import FeatureSearch from "../components/feature-search";
 import PortalSidebar from "../components/portal-sidebar";
+import GoogleRechargeProducts from "./google-recharge-products";
 import FinanceConsole from "./finance-console";
 import { prisma } from "../../lib/prisma";
 import { readWalletReconciliation } from "../../lib/wallet-reconciliation";
@@ -77,6 +78,7 @@ export default async function FinancePage() {
             <h2 className="text-2xl font-bold">Wallet control center</h2>
             <p className="mt-1.5 text-sm text-[#71847f]">Review payouts, trace immutable ledger activity, validate balances, and monitor mobile payment integration.</p>
           </div>
+          <GoogleRechargeProducts canEdit={hasPermission(admin,"rules.currency")} />
           <FinanceConsole {...props} canRefund={hasPermission(admin,"finance.refunds")} canReview={hasPermission(admin,"finance.withdrawals")} />
         </div>
       </section>
