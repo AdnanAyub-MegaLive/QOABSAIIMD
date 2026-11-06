@@ -1,6 +1,6 @@
 import {it,expect,vi,beforeEach} from 'vitest';
 const mocks=vi.hoisted(()=>({user:{userId:'public-player',publicId:'public-player',id:'internal-player',name:'Player',coinBalance:12345n},shared:vi.fn(),assert:vi.fn(),games:vi.fn()}));
-vi.mock('@/lib/prisma',()=>({prisma:{gameDefinition:{findMany:mocks.games}}}));
+vi.mock('@/lib/prisma',()=>({prisma:{userProgress:{findUnique:async()=>null},gameDefinition:{findMany:mocks.games}}}));
 vi.mock('@/lib/game-control/service',()=>({assertPlayer:mocks.assert,serializeGame:r=>r.settings,GameError:class extends Error{constructor(message,status=400){super(message);this.status=status;}}}));
 vi.mock('@/lib/game-control/shared-games',()=>({sharedSnapshot:mocks.shared,enterSharedRound:vi.fn(),answerSharedRound:vi.fn()}));
 vi.mock('@/lib/game-control/http',()=>({sameOrigin:vi.fn(),jsonBody:r=>r.json(),launchPlayer:async()=>({userId:'internal-player'}),playerSession:async()=>({userId:'internal-player'}),limit:vi.fn(),gameJson:data=>Response.json(data),failure:e=>Response.json({error:e.message},{status:e.status||500})}));

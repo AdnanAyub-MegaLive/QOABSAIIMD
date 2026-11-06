@@ -1,3 +1,4 @@
+import { gameAccess, gameUserLevel } from "./access.mjs";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { prisma } from "../prisma.js";
 import { assertMobileSession } from "../mobile-session-state.js";
@@ -58,6 +59,16 @@ export async function assertPlayer(tx, identity) {
   return user;
 }
 
+export async function assertGameAccess(db,user,gameId,mode) {
+  if(typeof gameId!=="string")throw new GameError("Invalid game.");
+  const row=await db.gameDefinition.findUnique({where:{id:gameId}});
+  if(!row || row.archivedAt)throw new GameError("Game unavailable.",404);
+  const level=(row.settings.minPlayLevel || row.settings.minViewLevel)?await gameUserLevel(db,user.id):0;
+  const access=gameAccess(row.settings,user,level);
+  if(access==="hidden" || (mode==="play" && access!=="play"))throw new GameError("This account cannot "+(mode==="play"?"play":"view")+" this game.",403);
+  return access;
+}
+
 export function acceptedRequest(input, roomId) {
   if (!input || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.id || "")) throw new GameError("A UUID operation ID is required.");
   if (typeof input.gameId !== "string" || !Number.isSafeInteger(input.revision) || input.revision < 1 || !Number.isSafeInteger(input.bet) || input.bet < 1) throw new GameError("Invalid wager or game revision.");
@@ -75,6 +86,7 @@ export async function placeRound(identity, input) {
     await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id = ${request.gameId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${identity.userId} FOR UPDATE`;
     const user = await assertPlayer(tx, identity);
+    await assertGameAccess(tx,user,request.gameId,"play");
     const existing = await tx.gamePlayRound.findUnique({ where: { id: input.id } });
     if (existing) {
       if (existing.userId !== user.id || existing.requestHash !== requestHash) throw new GameError("This operation ID was already used for a different wager.", 409);
@@ -118,7 +130,8 @@ export async function startChallenge(identity, input) {
   return prisma.$transaction(async tx=>{
   await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id = ${input.gameId} FOR UPDATE`;
   await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${identity.userId} FOR UPDATE`;
-  await assertPlayer(tx, identity);
+  const user=await assertPlayer(tx, identity);
+  await assertGameAccess(tx,user,input.gameId,"play");
   const row = await tx.gameDefinition.findUnique({ where: { id: input.gameId } });
   if (!row) throw new GameError("Game not found.", 404);
   const game = serializeGame(row);

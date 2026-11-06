@@ -6,7 +6,7 @@ import { ledgerData } from "../wallet.js";
 import { instantGames, resolveInstant } from "./instant-games.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../prisma.js";
-import { assertPlayer, GameError, serializeGame } from "./service.js";
+import { assertGameAccess, assertPlayer, GameError, serializeGame } from "./service.js";
 import { sharedClock, sharedDuration, sharedOutcome, sharedTrivia } from "./shared-engine.mjs";
 import { strictBets } from "./roulette/engine.mjs";
 import { betByLabel,isBetWinner } from "./roulette/original-rules.mjs";
@@ -64,7 +64,8 @@ export async function enterSharedRound(identity,input,db=prisma){
  return db.$transaction(async tx=>{
    await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id=${input.gameId} FOR UPDATE`;
    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${identity.userId} FOR UPDATE`;
-   await requireGameRoom(tx,identity);
+   const user=await requireGameRoom(tx,identity);
+   await assertGameAccess(tx,user,input.gameId,"play");
    const suppliedDay=await tx.sharedGameDay.findUnique({where:{id:input.dayId}});
    if(!suppliedDay||suppliedDay.gameId!==input.gameId)throw new GameError("Unknown round.",409);
    const parsed=accepted(suppliedDay.settings,input),fingerprint=createHash("sha256").update(JSON.stringify({dayId:input.dayId,slot:input.slot,roomId:identity.roomId,...parsed})).digest("hex");
@@ -84,9 +85,10 @@ export async function answerSharedRound(identity,input,db=prisma){
  if(typeof input.id!=="string")throw new GameError("Invalid entry.");
  return db.$transaction(async tx=>{
    await tx.$queryRaw`SELECT id FROM "SharedGameEntry" WHERE id=${input.id} FOR UPDATE`;
-   await requireGameRoom(tx,identity);
+   const user=await requireGameRoom(tx,identity);
    const entry=await tx.sharedGameEntry.findUnique({where:{id:input.id},include:{day:true}});
    if(!entry||entry.userId!==identity.userId||entry.roomId!==identity.roomId)throw new GameError("Entry not found.",404);
+   await assertGameAccess(tx,user,entry.day.gameId,"play");
    const engine=entry.day.settings.engine;
    if(!["reaction","trivia"].includes(engine))throw new GameError("This game has no answer action.");
    const value=engine==="reaction"?"tap":input.answers;
@@ -109,7 +111,8 @@ export async function cashOutRocket(identity,input,db=prisma){
    if(!entry||entry.userId!==identity.userId||entry.roomId!==identity.roomId||entry.day.gameId!==input.gameId)throw new GameError("Entry not found.",404);
    if(entry.day.settings.engine!=="rocket")throw new GameError("This game has no cash-out action.");
    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${identity.userId} FOR UPDATE`;
-   await requireGameRoom(tx,identity);
+   const user=await requireGameRoom(tx,identity);
+   await assertGameAccess(tx,user,entry.day.gameId,"play");
    if(entry.status==="SETTLED"){
      if(entry.result?.cashedOut)return receipt(entry);
      throw new GameError("The rocket has crashed. Cash-out is closed.",409);
@@ -176,7 +179,8 @@ export async function settleSharedGames(db=prisma,now=new Date(),where={}){
  });
 }
 export async function sharedSnapshot(identity,input,db=prisma){
- await requireGameRoom(db,identity);
+ const user=await requireGameRoom(db,identity);
+ await assertGameAccess(db,user,input.gameId,"view");
  await settleSharedGames(db,new Date(),{userId:identity.userId});
  let now=Date.now(),day=await getDay(db,input.gameId,now,true,true);
  if(!day){

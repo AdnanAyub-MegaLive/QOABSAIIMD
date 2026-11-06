@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import GameLevelFields from "../components/game-control/game-level-fields";
 import CatalogRetireButton from '../components/catalog-retire-button';
 
 const empty = { name: "", launchUrl: "", status: "paused", sortOrder: 0, engine: "external", iconAssetId: null };
@@ -56,6 +57,7 @@ export default function RoomGames({canArchive=false,canCreate=false,canEdit=fals
         <label className="text-sm font-medium">Game name<input className={input} required minLength={2} maxLength={60} value={draft.name} disabled={saving || !(draft.id?canEdit:canCreate)} onChange={e => setDraft({ ...draft, name: e.target.value })} /></label>
         <label className="text-sm font-medium">Game link<input className={input} type="url" required maxLength={2048} placeholder="https://games.example.com/play" value={draft.launchUrl} disabled={saving || !(draft.id?canEdit:canCreate) || draft.engine !== "external"} onChange={e => setDraft({ ...draft, launchUrl: e.target.value })} /></label>
         <label className="text-sm font-medium">Display order<input className={input} type="number" min={0} max={100000} step={1} required value={draft.sortOrder ?? 0} disabled={saving || !(draft.id?canEdit:canCreate)} onChange={e => setDraft({ ...draft, sortOrder: Number(e.target.value) })} /></label>
+        <GameLevelFields game={draft} disabled={saving || !(draft.id?canEdit:canCreate)} onChange={patch=>setDraft(previous=>({...previous,...patch}))}/>
         <label className="text-sm font-medium">Mobile visibility<select className={input} value={draft.status} disabled={saving || !(draft.id?canEdit:canCreate)} onChange={e => setDraft({ ...draft, status: e.target.value })}><option value="paused">Hidden</option><option value="active">Visible</option></select></label>
         <label className="text-sm font-medium">Game icon<select className={input} value={draft.iconAssetId??""} disabled={saving || !(draft.id?canEdit:canCreate)} onChange={e=>{const icon=icons.find(i=>i.iconAssetId===e.target.value);setDraft({...draft,iconAssetId:icon?.iconAssetId??null,iconUrl:icon?.iconUrl??null});}}><option value="">Default icon / no custom icon</option>{draft.iconAssetId&&!icons.some(i=>i.iconAssetId===draft.iconAssetId)&&<option value={draft.iconAssetId}>Current icon</option>}{icons.map(icon=><option key={icon.iconAssetId} value={icon.iconAssetId}>{icon.name}</option>)}</select></label>
         <label className="text-sm font-medium">Upload icon<input className={input} type="file" accept="image/png,image/jpeg,image/webp" disabled={saving || !canCreate} onChange={uploadIcon}/><span className="mt-1 block text-xs text-[#71847f]">PNG, JPEG or WebP, up to 5 MB. Optimized to 256 × 256. Public artwork only.</span></label>

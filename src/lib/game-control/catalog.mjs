@@ -1,3 +1,4 @@
+import { gameAccess } from "./access.mjs";
 import { gameIconArtwork } from "./icon-artwork.js";
 import { gameIconVersions } from "./icon-versions.js";
 
@@ -30,4 +31,14 @@ export function visibleGames(games, origin) {
   return games.filter(game => game.status === "active" && !game.archivedAt).flatMap(game => {
     try { return [catalogGame(game, origin)]; } catch { return []; }
   }).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+}
+
+export function playerCatalog(games, origin, user, level) {
+  return visibleGames(games,origin).flatMap(game=>{
+    const access=gameAccess(game,user,level);
+    if(access==="hidden")return [];
+    if(access==="preview")return [{...game,previewOnly:true,requiresPortalSession:true,
+      launchUrl:new URL("/games/play?game="+encodeURIComponent(game.id),origin).href}];
+    return [{...game,previewOnly:false}];
+  });
 }

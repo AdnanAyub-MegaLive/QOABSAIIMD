@@ -1,3 +1,6 @@
+import { playerCatalog } from "@/lib/game-control/catalog.mjs";
+import { gameUserLevel } from "@/lib/game-control/access.mjs";
+import { assertGameAccess } from "@/lib/game-control/service";
 import { prisma } from "@/lib/prisma";
 import { assertPlayer, serializeGame, GameError } from "@/lib/game-control/service";
 import { sharedSnapshot, enterSharedRound, answerSharedRound, cashOutRocket } from "@/lib/game-control/shared-games";
@@ -14,7 +17,7 @@ export async function POST(request) {
     if (["launch", "profile"].includes(body.action)) {
       const user = await assertPlayer(prisma, identity);
       const games = await prisma.gameDefinition.findMany({ orderBy: { createdAt: "asc" } });
-      return gameJson({ user: { userId: user.publicId, nickname: user.name, availableCoins: user.coinBalance.toString() }, currency: "COINS", roomId: identity.roomId, games: games.map(serializeGame).filter((game) => game.status === "active" && game.engine !== "external"), live: true });
+      return gameJson({ user: { userId: user.publicId, nickname: user.name, availableCoins: user.coinBalance.toString() }, currency: "COINS", roomId: identity.roomId, games: playerCatalog(games.map(serializeGame), process.env.MOBILE_API_BASE_URL || new URL(request.url).origin, user,await gameUserLevel(prisma,user.id)).filter(game=>game.engine!=="external" || game.previewOnly), live: true });
     }
     if (body.action === "shared-state") return gameJson(await sharedSnapshot(identity,body));
     if (body.action === "shared-enter") return gameJson({entry:await enterSharedRound(identity,body)});
@@ -23,9 +26,10 @@ export async function POST(request) {
     if (["bet","challenge"].includes(body.action)) throw new GameError("Update the game page to join shared room rounds.",409);
     if (body.action === "round") {
       if (typeof body.id !== "string") throw new GameError("Invalid round ID.");
-      await assertPlayer(prisma, identity);
+      const user=await assertPlayer(prisma, identity);
       const row = await prisma.gamePlayRound.findFirst({ where: { id: body.id, userId: identity.userId } });
       if (!row) throw new GameError("Round not found.", 404);
+      await assertGameAccess(prisma,user,row.payload.gameId,"view");
       return gameJson({ round: row.payload });
     }
     throw new GameError("Unknown action.");

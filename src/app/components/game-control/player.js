@@ -17,7 +17,13 @@ export default function Player({defaultGame="lucky-flip"}){
   api("player",token?{action:"launch",token,roomId:params.get("roomId")}:{action:"profile"}).then(setProfile).catch(e=>setError(e.message));
  },[defaultGame,isDemo]);
  const game=(isDemo?data.games:profile?.games||[]).find(g=>g.id===gameId);
- if(game?.engine==="rocket")return <RocketPlayer key={game.id} gameId={game.id} preview={isDemo}/>;
- if(game)return <SharedPlayer key={game.id} gameId={game.id} preview={isDemo}/>;
+ if(game) {
+   const restricted=!isDemo && game.previewOnly;
+   const board=game.engine==="external"?<section className={styles.panel}><h1>{game.name}</h1></section>
+     :game.engine==="rocket"?<RocketPlayer key={game.id} gameId={game.id} preview={isDemo}/>
+     :<SharedPlayer key={game.id} gameId={game.id} preview={isDemo}/>;
+   if(restricted)return <><fieldset disabled style={{display:"contents"}}>{board}</fieldset><div role="status" style={{position:"fixed",top:0,left:0,right:0,zIndex:100,textAlign:"center",padding:8,background:"#271a37",color:"white"}}>Preview only · Betting disabled</div></>;
+   return board;
+ }
  return <section className={styles.panel}><h1>Room games</h1><p role="status">{error||(gameId&&(profile||isDemo)?"This game is unavailable.":"Connecting to the room game…")}</p></section>;
 }

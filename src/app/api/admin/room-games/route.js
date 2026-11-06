@@ -41,7 +41,7 @@ export async function POST(request) {
     const game = row ? serializeGame(row) : { id: `link-${randomUUID()}`, engine: "external" };
     const iconAssetId = body.iconAssetId === undefined ? game.iconAssetId : body.iconAssetId;
     if (iconAssetId && (typeof iconAssetId !== "string" || !await prisma.uploadAsset.findFirst({where:{...gameIconWhere,publicId:iconAssetId},select:{id:true}}))) throw new GameError("Select an active public game icon.",422);
-    const result = await saveGame({ ...game, name: body.name, status: body.status, sortOrder: body.sortOrder,
+    const result = await saveGame({ ...game, minViewLevel:body.minViewLevel ?? game.minViewLevel, minPlayLevel:body.minPlayLevel ?? game.minPlayLevel, name: body.name, status: body.status, sortOrder: body.sortOrder,
       ...(game.engine === "external" ? { launchUrl: body.launchUrl } : {}), iconAssetId, revision: body.revision }, admin.email);
     return Response.json({ success: true, data: result });
   } catch (error) { return failure(error); }

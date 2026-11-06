@@ -1,3 +1,4 @@
+import { gameAccessLevels } from "./access.mjs";
 import { validateCoinButtons } from "./coin-buttons.mjs";
 import { validateRocketSettings } from "./rocket.mjs";
 import { validateOutcomeWeights } from "./outcome-weights.mjs";
@@ -34,11 +35,12 @@ export function validateGame(input) {
     throw new Error("Unknown game engine.");
   if (!["active", "paused"].includes(status))
     throw new Error("Invalid game status.");
+  const levels = gameAccessLevels(input);
   const sortOrder = input.sortOrder ?? 0;
   const iconAssetId = iconAssetSetting(input.iconAssetId);
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 100000)
     throw new Error("Display order must be a whole number from 0 to 100000.");
-  if (engine === "external") return { id, name: name.trim(), engine, status, sortOrder, iconAssetId,
+  if (engine === "external") return { ...levels, id, name: name.trim(), engine, status, sortOrder, iconAssetId,
     launchUrl: validateLaunchUrl(input.launchUrl), category: "Room game", color: "purple" };
   const controls={pointReturnMultiplier:input.pointReturnMultiplier??(engine==="dice"?6:2),reactionWindowMs:input.reactionWindowMs??1000,triviaSeconds:input.triviaSeconds??20};
   if(miniGames[engine]){
@@ -76,6 +78,7 @@ export function validateGame(input) {
       "Bet limits must be whole coins from 1 to 100,000,000; maximum must be at least minimum.",
     );
   return {
+    ...levels,
     id,
     sortOrder,
     iconAssetId,
