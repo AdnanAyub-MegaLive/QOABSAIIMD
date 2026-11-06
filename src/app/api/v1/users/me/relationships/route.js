@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireMobileUser, mobileApiError, mobileJson, mobileOptions } from "@/lib/mobile-api";
-import { changeProfileRelationship } from "@/lib/profile-relationships";
+import { availableCpParticipant, changeProfileRelationship } from "@/lib/profile-relationships";
 import { isRateLimited } from "@/lib/rate-limit";
 export const OPTIONS = mobileOptions;
 export async function POST(request) {
@@ -18,7 +18,9 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
-    const rows = await prisma.profileRelationship.findMany({ where: { type: "CP", status: "PENDING", expiresAt: { gt: new Date() }, left: { status: "ACTIVE", deletedAt: null }, right: { status: "ACTIVE", deletedAt: null }, OR: [{ leftUserId: user.id }, { rightUserId: user.id }] }, orderBy: { publicId: "asc" }, take: 50, include: { left: { select: { publicId: true, name: true } }, right: { select: { publicId: true, name: true } } } });
+    const now = new Date();
+    const participant = availableCpParticipant(now);
+    const rows = await prisma.profileRelationship.findMany({ where: { type: "CP", status: "PENDING", expiresAt: { gt: now }, left: participant, right: participant, OR: [{ leftUserId: user.id }, { rightUserId: user.id }] }, orderBy: { publicId: "asc" }, take: 50, include: { left: { select: { publicId: true, name: true } }, right: { select: { publicId: true, name: true } } } });
     return mobileJson({ success: true, data: { items: rows.map(row => ({ id: row.publicId, type: row.type, status: row.status, direction: (row.leftUserId === user.id ? row.leftAcceptedAt : row.rightAcceptedAt) ? "SENT" : "RECEIVED", partner: row.leftUserId === user.id ? row.right : row.left, expiresAt: row.expiresAt })) } });
   } catch (error) { return mobileApiError(error, "RELATIONSHIP_READ_FAILED"); }
 }
