@@ -86,15 +86,12 @@ describe("banner upload contract", () => {
     ).toThrow("only supported for banner");
   });
 
-  it("allows only rights-approved banner image MIME types", () => {
-    expect([...bannerMimeTypes]).toEqual(["image/png", "image/jpeg", "image/webp"]);
-    expect(() =>
-      validateUploadAssetContract({
-        category: "BANNERS",
-        placement: "PARTY",
-        mimeType: "image/gif",
-      }),
-    ).toThrow("PNG, JPEG, or WebP");
+  it.each(["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "application/svga"])("accepts %s banner artwork", mimeType => {
+    expect(bannerMimeTypes.has(mimeType)).toBe(true);
+    expect(validateUploadAssetContract({category:"BANNERS",placement:"PARTY",mimeType})).toEqual({placement:"PARTY"});
+  });
+  it.each(["video/webm", "image/svg+xml", "audio/mpeg"])("rejects unsupported %s banners", mimeType => {
+    expect(()=>validateUploadAssetContract({category:"BANNERS",placement:"PARTY",mimeType})).toThrow("Banners must be");
   });
 
   it("normalizes HTTPS action URLs and allows an empty destination", () => {

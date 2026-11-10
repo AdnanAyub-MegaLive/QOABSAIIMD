@@ -29,6 +29,9 @@ export const bannerMimeTypes = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
+  "image/gif",
+  "video/mp4",
+  SVGA_MIME,
 ]);
 export const roomBackgroundMimeTypes = new Set([
   "image/gif",
@@ -102,11 +105,11 @@ export function safeBannerActionUrl(value) {
 
 export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (mimeType === SVGA_MIME && !SVGA_CATEGORIES.has(category)) {
-    throw validationError("SVGA is only supported for gifts, frames, entrances, rides, badges, chat boxes, profile dresses, user tags, profile backgrounds, VIP stickers and campaign widgets.");
+    throw validationError("SVGA is only supported for gifts, frames, entrances, rides, badges, chat boxes, profile dresses, user tags, profile backgrounds, VIP stickers, campaign widgets and banners.");
   }
   if (category === "BANNERS") {
     if (mimeType && !bannerMimeTypes.has(mimeType)) {
-      throw validationError("Banners must be PNG, JPEG, or WebP images.");
+      throw validationError("Banners must be PNG, JPEG, WebP, GIF, MP4, or SVGA.");
     }
     return {
       placement: cleanBannerPlacement(placement, { required: true }),
