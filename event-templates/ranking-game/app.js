@@ -94,18 +94,6 @@
     }
     return n;
   }
-  function badges(person) {
-    const strip=el('div','owned-badges');strip.setAttribute('aria-label','Owned badges');
-    const seen=new Set();
-    for(const badge of person?.ownedBadges ?? []){
-      if(strip.children.length>=5)break;
-      const key=badge.assetId||badge.url;if(!key||seen.has(key))continue;seen.add(key);
-      const url=badge.mimeType?.startsWith('image/')?badge.url:badge.posterUrl;
-      if(!url)continue;
-      const art=image(url,'owned-badge');art.alt=badge.name||'Badge';art.title=art.alt;strip.append(art);
-    }
-    return strip;
-  }
   function identity(person) {
     const n = el('div');
     n.append(image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable'));
@@ -130,9 +118,9 @@
         const card=el('article',`podium-card place-${e.rank}`),art=el('div','art');
         art.append(image(e.person?.profileImage,'portrait',true));
         const frame=el('img','frame');frame.src=`assets/game-${e.rank===1?'03b7d':'65200'}.png`;frame.alt=`Rank ${e.rank}`;art.append(frame);const medal=el('img','game-medal');medal.src=`assets/game-${e.rank===1?'cc84f':e.rank===2?'9bd86':'6efe3'}.png`;medal.alt=`Rank ${e.rank}`;art.append(medal);if(e.rank===1){const crown=el('img','game-crown');crown.src='assets/game-4dbf2.png';crown.alt='';art.append(crown);}
-        card.append(art,entryName(e),levels(e.person,e),gap(e),badges(e.person));podium.append(card);
+        card.append(art,entryName(e),gap(e));podium.append(card);
       }else{
-        const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e),levels(e.person,e),badges(e.person));
+        const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e));
         const totals=el('div','ml-auto flex shrink-0 flex-col items-end gap-1');
         totals.append(gap(e));
         row.append(el('span','rank',e.rank),rowAvatar(e.person),details,totals);$('entries').append(row);

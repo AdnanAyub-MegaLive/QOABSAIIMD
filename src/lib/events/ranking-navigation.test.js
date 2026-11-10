@@ -134,9 +134,10 @@ describe('ranking native navigation',()=>{
   it('preserves the close message',async()=>{const {get,messages}=await fixture();messages.length=0;get('back').onclick();expect(messages).toEqual([{type:'ranking:close'}]);});
 });
 
-it('Game podium and list hide totals, IDs and profile links',async()=>{
+it('Game podium and list hide badges, totals, IDs and profile links',async()=>{
  const {get,messages}=await fixture(null,null,'','ranking-game');
  const nodes=[...descendants(get('hero')),...descendants(get('entries'))];
+ expect(nodes.filter(n=>n.className==='owned-badge'||n.className==='owned-badges'||n.className==='vip-tag')).toHaveLength(0);
  expect(nodes.filter(n=>n.className==='public-id'||n.className==='score')).toHaveLength(0);
  expect(nodes.filter(n=>n.className==='name entry-name')).toHaveLength(4);
  expect(nodes.filter(n=>n.className==='name entry-name').every(n=>n.onclick===undefined)).toBe(true);

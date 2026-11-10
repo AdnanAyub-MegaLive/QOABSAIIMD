@@ -80,6 +80,7 @@
   }
   function levels(person, entry) {
     const n = el('div', 'levels');
+    if(type==='game')return n;
     const subject = type === 'agency' ? entry : person;
     for (const track of type === 'game' ? [] : type === 'cp' ? ['user', 'charm'] : [type === 'wealth' ? 'user' : type]) {
       const level = subject?.[`${track}Level`] ?? (type === 'agency' ? entry?.level : 0);

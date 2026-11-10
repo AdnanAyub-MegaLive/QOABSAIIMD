@@ -79,7 +79,7 @@ window.RankingDesign = (() => {
     n.append(name);
     if(type==='agency')n.append(node('span','text-[9px]',String(e.id ?? '').replace(/^AGN[-_ ]*/i,'')));
     const levels=helpers.levels(e.person,e);levels.className='flex max-w-full flex-wrap items-center justify-center gap-1 [&_img]:max-h-4 [&_img]:max-w-10 [&_.level-tag]:relative [&_.level-tag]:inline-flex [&_.level-tag]:items-center [&_.level-tag]:justify-center [&_.level-tag]:min-w-7 [&_.level-background]:absolute [&_.level-background]:inset-0 [&_.level-background]:h-full [&_.level-background]:w-full [&_b]:relative [&_b]:z-10 [&_b]:text-[9px]';
-    n.append(levels);if(type!=='agency')n.append(badges(e.person));return n;
+    n.append(levels);if(!['agency','game'].includes(type))n.append(badges(e.person));return n;
   }
   const themes={
     agency:{background:'bg-[url(assets/agency-background.png)]',period:'bg-[url(assets/agency-period.png)]',active:'bg-[url(assets/agency-active.png)]',board:'bg-gradient-to-br from-amber-600 to-amber-950'},
@@ -162,7 +162,7 @@ window.RankingDesign = (() => {
       let card;
       if(type==='agency')card=node('div',first?'relative -mt-[23%] flex aspect-[774/554] flex-col justify-center bg-[url(assets/agency-first.png)] bg-[length:100%_100%] px-4 pt-5':'relative -mt-[23%] flex aspect-[638/438] flex-col justify-center bg-[url(assets/agency-pedestal.png)] bg-[length:100%_100%] px-2 pt-2');
       else {const backgrounds={wealth:['bg-[url(assets/wealth-card-1.png)]','bg-[url(assets/wealth-card-2.png)]','bg-[url(assets/wealth-card-3.png)]'],charm:['bg-[url(assets/charm-card-1.png)]','bg-[url(assets/charm-card-2.png)]','bg-[url(assets/charm-card-3.png)]']};card=node('div',`relative -mt-[28%] flex min-h-28 flex-col justify-end bg-[length:100%_100%] px-2 pb-6 pt-8 ${backgrounds[type === 'game' ? 'wealth' : type][e.rank-1]}`);if(type==='charm'&&e.rank>1)card.append(art(`charm-card-${e.rank}-border.png`,'pointer-events-none absolute inset-0 h-full w-full'));}
-      const info=details(e,type,helpers);if(type==='agency')info.append(helpers.gap(e));else {const badges=info.lastElementChild;info.append(helpers.gap(e),badges);}card.append(info);c.append(card);podium.append(c);
+      const info=details(e,type,helpers);if(['agency','game'].includes(type))info.append(helpers.gap(e));else {const badges=info.lastElementChild;info.append(helpers.gap(e),badges);}card.append(info);c.append(card);podium.append(c);
     }
     for(const e of entries.filter(e=>e.rank>3)){
       const bg=type==='charm'?'bg-[url(assets/charm-ranking-row.png)]':type==='agency'?'border-b border-amber-300/70':'rounded-2xl border border-amber-300 bg-red-950/60';
