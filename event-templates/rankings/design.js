@@ -62,6 +62,12 @@ window.RankingDesign = (() => {
     else b.append(node('span','text-xl text-slate-300','●'));
     return b;
   }
+  function equippedPortrait(person) {
+    const wrap=node('div','ranking-avatar');wrap.append(portrait(person,null,'portrait'));
+    if(window.RankingFrame){window.RankingFrame(wrap,person);return wrap;}
+    const url=person?.frameMimeType && !person.frameMimeType.startsWith('image/') ? person.framePosterUrl : person?.frameUrl;
+    if(url && /^(https?:\/\/|\/)/i.test(url)){const frame=node('img','ranking-avatar-frame');frame.src=url;frame.alt='';frame.onerror=()=>frame.remove();wrap.append(frame);}return wrap;
+  }
   function badges(person) {
     const n=node('div','owned-badges flex h-5 items-center justify-center gap-1');const seen=new Set();
     for(const b of person?.ownedBadges||[]){if(seen.size===5)break;const url=b.mimeType?.startsWith('image/')?b.url:b.posterUrl;if(!url||seen.has(b.assetId||url))continue;seen.add(b.assetId||url);const im=node('img','h-4 w-4 object-contain');im.src=url;im.alt=b.name||'Badge';im.onerror=()=>im.remove();n.append(im);}return n;
@@ -135,7 +141,7 @@ window.RankingDesign = (() => {
       if(entry.rank<=2)rankBadge.append(art(`sweet-badge-${entry.rank}.png`,'absolute inset-0 h-full w-full object-contain'));
       rankBadge.append(node('span','relative block py-4',entry.rank)); row.append(rankBadge);
       if(entry.rank===1)row.classList.add('bg-[url(assets/sweet-purple-row.png)]');
-      const pair=node('div','w-24 shrink-0'); pair.append(sweetPair(entry,helpers.notify)); row.append(pair);
+      const pair=node('div','w-24 shrink-0'); if(entry.rank>3){pair.style.display='flex';pair.append(equippedPortrait(entry.person),equippedPortrait(entry.partner));}else pair.append(sweetPair(entry,helpers.notify)); row.append(pair);
       const names=node('div','min-w-0 flex-1 text-xs');
       names.append(node('p','truncate font-semibold',entry.person?.name || 'Unavailable'),node('p','truncate',entry.partner?.name || 'Unavailable'));
       row.append(names);
@@ -164,7 +170,7 @@ window.RankingDesign = (() => {
       identity.className='min-w-0 flex-1 text-xs [&>button]:block [&>button]:max-w-full [&>button]:truncate';
       const total=node('div','ml-auto flex shrink-0 flex-col items-end gap-1');
       total.append(helpers.gap(e));
-      row.append(node('span','text-xs',e.rank),portrait(e.person,helpers.notify,'h-12 w-12 shrink-0'),identity,total);$('entries').append(row);
+      row.append(node('span','text-xs',e.rank),type==='agency'?portrait(e.person,helpers.notify,'h-12 w-12 shrink-0'):equippedPortrait(e.person),identity,total);$('entries').append(row);
     }
   }
   return Object.freeze({render,theme});

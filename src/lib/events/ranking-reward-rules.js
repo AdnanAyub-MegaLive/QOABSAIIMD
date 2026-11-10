@@ -3,6 +3,7 @@ import { eventRankingTypes, rankingWindow } from './ranking-contract.js';
 export function rewardInput(input, now = new Date()) {
   if (!eventRankingTypes.includes(input.track) || !['today', 'week', 'month'].includes(input.period) || typeof input.enabled !== 'boolean') throw new Error('Choose a ranking, period and enabled state.');
   if (!Array.isArray(input.rewards) || input.rewards.length > 20 || (input.enabled && !input.rewards.length)) throw new Error('Configure rewards for up to 20 ranks.');
+  if(input.track==='weekly-star' && input.period!=='week') throw new Error('Weekly Star rewards use weekly periods.');
   const ranks = new Set();
   const rewards = input.rewards.map(row => {
     if (!Number.isInteger(row.rank) || row.rank < 1 || row.rank > 20 || ranks.has(row.rank)) throw new Error('Ranks must be unique, between 1 and 20.');

@@ -27,3 +27,7 @@ html #ranking #board .owned-badge { width:20px; height:20px; }
 html #ranking #board .ranking-gap { margin-left:auto; flex-shrink:0; }
 html #ranking #board #status { padding:6px 12px; margin:0; font-size:12px; }
 html #ranking #board { position:relative; height:auto; max-height:none; overflow:visible; }
+
+html #ranking .ranking-avatar{position:relative;display:grid;place-items:center;width:48px;height:48px;flex-shrink:0}
+html #ranking .ranking-avatar .portrait{width:36px;height:36px;border-radius:50%;object-fit:cover}
+html #ranking .ranking-avatar-frame{position:absolute;inset:-5%;width:110%;height:110%;object-fit:contain;pointer-events:none}

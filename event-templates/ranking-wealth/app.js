@@ -55,6 +55,7 @@
   }
   function rowAvatar(person) {
     const n=el('div','ranking-avatar');n.append(image(person?.profileImage,'portrait',true));
+    if(window.RankingFrame){window.RankingFrame(n,person);return n;}
     const url=person?.frameMimeType && !person.frameMimeType.startsWith('image/') ? person.framePosterUrl : person?.frameUrl;
     if(url)n.append(image(url,'ranking-avatar-frame'));
     return n;

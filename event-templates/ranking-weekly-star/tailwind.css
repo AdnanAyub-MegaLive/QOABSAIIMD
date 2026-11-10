@@ -1,0 +1,99 @@
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities" source(none);
+@source "./utilities.txt";
+
+@source "./app.js";
+
+/* Ranking reference layout: private totals, per-rank chase gaps, normal scrolling list. */
+html .ranking-gap { display:inline-flex; align-items:center; justify-content:center; gap:4px; color:#fff; font:600 14px/1.2 Arial,sans-serif; white-space:nowrap; }
+html .ranking-gap[hidden] { display:none!important; }
+html .gap-coin { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:2px solid #ffea4b; border-radius:50%; color:#fff68c; background:radial-gradient(circle at 35% 30%,#ffe748,#ffad00 65%,#e97b00); font-size:13px; box-shadow:0 0 4px #ffc40080; }
+html .gap-diamond { color:#72e9ff; font-size:21px; text-shadow:0 0 4px #68ccff; }
+html .gap-arrows { display:inline-flex; flex-direction:column; width:10px; color:#edff00; font-size:18px; font-weight:900; line-height:8px; overflow-wrap:anywhere; white-space:normal; text-align:center; }
+html #ranking #hero .ranking-gap { margin:5px 0; font-size:13px; }
+html #ranking #countdown { color:#72ff29; font-weight:700; }
+html #ranking .heading { background:#200015cc; border-radius:20px; width:fit-content; margin:8px auto 0; padding:5px 12px; }
+html #ranking .ranking-avatar { position:relative; width:58px; height:58px; flex-shrink:0; display:grid; place-items:center; }
+html #ranking .ranking-avatar .portrait { width:44px; height:44px; border-radius:50%; object-fit:cover; }
+html #ranking .ranking-avatar-frame { position:absolute; inset:-5%; width:110%; height:110%; object-fit:contain; pointer-events:none; }
+html #ranking #board #heading { display:none; }
+html #ranking #board #entries { padding:0; }
+html #ranking #board .row { display:flex; align-items:center; gap:8px; min-height:86px; margin:0; padding:10px 12px; background:#ffffff05; border:0; border-radius:0; }
+html #ranking #board .row:nth-child(even) { background:#ffffff0c; }
+html #ranking #board .entry-name { font-size:14px; font-weight:700; line-height:20px; }
+html #ranking #board .rank { width:22px; font-size:12px; color:#fff; }
+html #ranking #board .levels { justify-content:flex-start; margin:3px 0; }
+html #ranking #board .owned-badges { justify-content:flex-start; margin:3px 0 0; gap:4px; }
+html #ranking #board .owned-badge { width:20px; height:20px; }
+html #ranking #board .ranking-gap { margin-left:auto; flex-shrink:0; }
+html #ranking #board #status { padding:6px 12px; margin:0; font-size:12px; }
+
+html #ranking #hero { height:500px; }
+html #ranking .podium-card.place-2, html #ranking .podium-card.place-3 { top:245px; height:235px; width:40%; padding-top:100px; padding-bottom:8px; }
+html #ranking .podium-card.place-2 { left:3%; }
+html #ranking .podium-card.place-3 { right:3%; }
+html #ranking .podium-card.place-1 { top:16px; height:350px; padding-top:180px; }
+html #ranking .podium-card .entry-name { font-size:13px; }
+
+html #ranking .podium-card.place-2 .art, html #ranking .podium-card.place-3 .art { top:-50px; }
+html #ranking .podium-card.place-2 .ranking-gap, html #ranking .podium-card.place-3 .ranking-gap { margin:1px 0; }
+html #ranking .podium-card.place-2 .owned-badges, html #ranking .podium-card.place-3 .owned-badges { margin:0; }
+html #ranking #board { position:relative; height:auto; max-height:none; overflow:visible; }
+/* Weekly Star Figma artwork and responsive placement. */
+html body{margin:0;background:#080118;color:white;font-family:Arial,sans-serif}
+html #ranking{max-width:440px;margin:auto;background:#080118 url(assets/8f5bd.png) center top/297% auto repeat-y;min-height:100dvh;padding-bottom:24px}
+html #ranking header{padding-top:10px;position:relative}
+html #ranking #tracks{margin:0;height:auto;aspect-ratio:440/145;padding:0;background:url(assets/40d91.png) center/74% auto no-repeat,url(assets/1e2ea.png) center/97% auto no-repeat}
+html #ranking #tracks h1{font-size:0;margin:0}
+html #ranking #back{font-size:25px;top:3px;left:5px;z-index:3}
+html #ranking #rules{top:4px;right:5px;z-index:3}
+html #ranking #weekly-gifts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:10px 5%;min-height:75px;font-size:12px;text-align:center}
+html #ranking .weekly-gift{position:relative;width:21%;aspect-ratio:74/67;background:url(assets/26843.png) center/100% 100% no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center}
+html #ranking .weekly-gift img{width:50%;height:45%;object-fit:contain}
+html #ranking .weekly-gift span{font-size:9px;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html #ranking #weekly-banner{display:block;border:0;width:100%;aspect-ratio:440/90;background:url(assets/1f984.png) 55% center/67% auto no-repeat,url(assets/84ac5.png) 92% center/5% auto no-repeat,url(assets/37d69.png) 94% center/9% auto no-repeat,url(assets/bf30e.png) center/100% 178% no-repeat}
+html #ranking #filters{padding:0;margin-top:74px}
+html #ranking #periods{height:76px;background:url(assets/8d247.png) center/12% 100% no-repeat;gap:10%;padding:0 2%}
+html #ranking #periods button{width:45%;height:64px;font-size:0;background:url(assets/7a77b.png) center/80% auto no-repeat,url(assets/04323.png) center/100% 100% no-repeat;opacity:.55}
+html #ranking #periods button+button{background-image:url(assets/d3fe2.png),url(assets/04323.png)}
+html #ranking #periods button[aria-selected=true]{opacity:1;filter:drop-shadow(0 0 4px #f7bcff)}
+html #ranking #rewards{top:310px;right:0;background:#b500ef;border-radius:8px;padding:5px}
+html #ranking #rewards img{width:55px;height:45px}
+html #ranking #rewards:after{content:'Rewards';display:block;font-size:11px}
+html #ranking .heading{margin:6px auto;font-size:10px}
+html #ranking #hero{height:auto}
+.weekly-hall{position:relative;width:100%;aspect-ratio:440/420}
+.weekly-hall img{position:absolute;object-fit:contain}
+.hall-ring{left:2%;top:7%;width:96%;height:92%}
+.hall-banner{left:17%;top:0;width:66%;height:32%}
+.hall-title{left:31%;top:12%;width:38%;height:14%}
+.weekly-hall .hall-portrait{left:28%;top:34%;width:44%;height:48%;border-radius:50%;object-fit:cover}
+.hall-empty{position:absolute;top:55%;width:100%;text-align:center;font-size:13px;color:#ffe7a5}
+.weekly-podium{display:grid;grid-template-columns:1fr 1fr;gap:35px 8%;padding:35px 4%}
+.weekly-card{position:relative;aspect-ratio:186/240;display:flex;align-items:center;justify-content:flex-end;flex-direction:column;padding-bottom:24%;min-width:0}
+.weekly-place-1{grid-column:span 2;width:65%;justify-self:center;aspect-ratio:312/305;padding-bottom:18%}
+.weekly-card>img{position:absolute;object-fit:contain;pointer-events:none}
+.weekly-base{bottom:0;width:89%;height:26%}.weekly-plinth{inset:0;width:100%;height:96%}
+.weekly-place-1 .weekly-plinth{top:22%;left:20%;width:60%;height:72%}
+.weekly-place-1 .weekly-base{width:53%;height:20%}
+.weekly-top-frame{top:0;left:0;width:100%;height:62%;z-index:2}
+.weekly-card .weekly-portrait{top:10%;left:25%;width:50%;height:40%;object-fit:cover;border-radius:50%}
+.weekly-place-1 .weekly-portrait{top:15%;left:36%;width:28%;height:29%}
+.weekly-name{z-index:2;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.weekly-place{position:absolute;top:52%;font-weight:bold;color:#ffe07a}
+.weekly-card .ranking-gap{position:relative;z-index:2;margin-top:8px}
+html #ranking #board{border:0;border-radius:0;background:url(assets/4d06b.png) center top/110% 100% no-repeat;padding:30px 3%}
+html #ranking #board .row{background:url(assets/2d232.png) center/100% 285% no-repeat;min-height:66px;padding:9px 6%;margin:0;border:0;gap:7px}
+html #ranking #board .entry-name{flex:1;font-size:12px;min-width:0}
+html #ranking #board .ranking-gap{font-size:12px}
+html #ranking #board .ranking-avatar{width:38px;height:38px}
+html #ranking #board .ranking-avatar .portrait{width:30px;height:30px}
+html #ranking .gap-coin{background:url(assets/cc87d.png) center/contain no-repeat;border:0;box-shadow:none;font-size:0}
+
+*{box-sizing:border-box}[hidden]{display:none!important}button{cursor:pointer;color:inherit;font:inherit}button:focus-visible{outline:2px solid #ffe57f;outline-offset:3px}
+#back,#rules,#rewards{position:absolute;border:0;background:#22052d99;border-radius:8px}#search{display:none}#periods{display:flex;align-items:center}#periods button{border:0}#tracks{text-align:center}#board .row{display:flex;align-items:center}#board .rank{width:18px;flex-shrink:0}#status{text-align:center;font-size:13px}#more,#retry{display:block;margin:15px auto;background:#430962;border:1px solid #e8b152;border-radius:18px;padding:9px 20px}
+dialog{color:white;background:#20082f;border:1px solid #dab343;border-radius:18px;max-width:min(92vw,440px);max-height:85dvh;padding:24px;overflow:auto}dialog::backdrop{background:#000b}dialog button{background:#4d125f;border:1px solid #c89c46;border-radius:14px;padding:8px 18px}.reward-card{border:1px solid #967638;border-radius:12px;margin:12px 0;padding:12px}.reward-items{display:flex;flex-wrap:wrap;gap:12px}.reward-item{display:flex;flex-direction:column;align-items:center;font-size:13px}.reward-art{width:64px;height:64px;object-fit:contain}
+html #ranking #board .row:nth-child(even){background:url(assets/2d232.png) center/100% 285% no-repeat}
+html #ranking{overflow:hidden;background-color:#0b011d;background-image:url(assets/ac01e.png);background-size:136% auto}
+
+html #ranking{background:#0a0119;background-image:radial-gradient(ellipse at 0 15%,#34085c88,transparent 35%),radial-gradient(ellipse at 100% 70%,#35046088,transparent 40%),url(assets/8f5bd.png);background-size:100% 100%,100% 100%,100% 100%;background-repeat:no-repeat}

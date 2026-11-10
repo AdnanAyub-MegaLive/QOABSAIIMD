@@ -19,7 +19,11 @@ export async function GET(request) {
     const event = await prisma.event.findUnique({ where: { slug }, select: { status: true } });
     if (event?.status !== 'PUBLISHED') return mobileJson({success:false,error:{code:'EVENT_UNAVAILABLE',message:'The ranking event is not currently published.'}},404);
     const policies=slug==='rankings'?[]:await prisma.rankingRewardPolicy.findMany({where:{eventSlug:slug,period:input.period}});
-    const window=await configuredRankingWindow(prisma,input.type,input.period);
+    const when=new Date();
+    if(input.type==='weekly-star' && params.get('week')==='last')when.setUTCDate(when.getUTCDate()-7);
+    const window=await configuredRankingWindow(prisma,input.type,input.period,when);
+    const weekly=input.type==='weekly-star'?await prisma.weeklyStarWeek.findUnique({where:{startsAt:window.start}}):null;
+    const weeklyGifts=weekly?.giftIds.length ? await prisma.uploadAsset.findMany({where:{id:{in:weekly.giftIds}},select:{publicId:true,name:true,mimeType:true,mediaVersion:true,posterMimeType:true,posterMediaVersion:true}}):[];
     const current=policyFor(policies,window.start), upcoming=policyFor(policies,window.end);
     const describe=async policy=>{
       if(!policy)return null;
@@ -32,6 +36,6 @@ export async function GET(request) {
       }
       return {enabled:policy.enabled,effectiveFrom:policy.effectiveFrom,rewards};
     };
-    return mobileJson({success:true,data:{...await eventRankings({...input,window,viewerId:user.id,origin:requestOrigin(request)}),rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
+    return mobileJson({success:true,data:{weeklyGifts:weeklyGifts.map(a=>({name:a.name,...decorationMedia(a,requestOrigin(request))})),...await eventRankings({...input,window,viewerId:user.id,origin:requestOrigin(request)}),rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
   } catch(error) { if(error.code==='VALIDATION_ERROR')return mobileJson({success:false,error:{code:error.code,message:error.message}},422);return mobileApiError(error,'EVENT_RANKINGS_FAILED'); }
 }

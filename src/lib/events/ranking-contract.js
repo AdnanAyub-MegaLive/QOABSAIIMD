@@ -1,5 +1,5 @@
 import { moduleCycle } from '../reporting-cycles.js';
-export const eventRankingTypes = ['wealth', 'charm', 'agency', 'cp', 'game'];
+export const eventRankingTypes = ['wealth', 'charm', 'agency', 'cp', 'game', 'weekly-star'];
 export function rankingWindow(period, now = new Date()) {
   const start = new Date(now); start.setUTCHours(0, 0, 0, 0);
   if (period === 'week') start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
@@ -15,6 +15,7 @@ export function rankingInput(params) {
   const offset = Number(params.get('offset') || 0), q = (params.get('q') || '').trim();
   if (!eventRankingTypes.includes(type) || !Number.isSafeInteger(offset) || offset < 0 || offset > 10000 || q.length > 80)
     throw Object.assign(new Error('Invalid ranking filter.'), { code: 'VALIDATION_ERROR' });
+  if(type==='weekly-star' && period!=='week') throw Object.assign(new Error('Weekly Star uses weekly periods.'),{code:'VALIDATION_ERROR'});
   rankingWindow(period);
   return { type, period, offset, q };
 }

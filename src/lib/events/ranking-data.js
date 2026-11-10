@@ -13,6 +13,7 @@ import { decorationMedia } from '../decoration-media.js';
 export async function eventRankings({ type, period, offset = 0, q = '', viewerId = null, origin, window, raw = false }, db = prisma) {
   const now = new Date(), selectedWindow = window ?? await configuredRankingWindow(db, type, period, now);
   const { start, end } = selectedWindow;
+  const weekly = type==='weekly-star' ? await db.weeklyStarWeek.findUnique({where:{startsAt:start}}) : null;
   const base = Prisma.sql`
     WITH people AS (
       SELECT u.* FROM "User" u WHERE u.status = 'ACTIVE' AND u."deletedAt" IS NULL
@@ -21,7 +22,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
       SELECT g.*, COALESCE(g."recipientUserId", mapped.id) AS receiver
       FROM "GiftTransaction" g LEFT JOIN "Talent" t ON t.id=g."talentId"
       LEFT JOIN "User" mapped ON mapped."publicId"=t."publicId"
-      WHERE g."reversedAt" IS NULL AND g."createdAt">=${start} AND g."createdAt"<${end}
+      WHERE ${type==='weekly-star' ? Prisma.sql`g."giftAssetId" IN (${weekly?.giftIds.length ? Prisma.join(weekly.giftIds) : Prisma.sql`NULL`})` : Prisma.sql`TRUE`} AND g."reversedAt" IS NULL AND g."createdAt">=${start} AND g."createdAt"<${end}
     )`;
   let scores;
   if (type === 'agency') scores = Prisma.sql`
@@ -46,7 +47,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     GROUP BY u.id,u."publicId",u.name,u.country`;
   else scores = Prisma.sql`
     SELECT u.id,u."publicId",u.name,0::int AS level,u.country,u.id AS "personId",NULL::text AS "partnerId",0::int AS "memberCount",SUM(g."coinValue") AS score
-    FROM gifts g JOIN people u ON u.id=${type === 'wealth' ? Prisma.sql`g."senderId"` : Prisma.sql`g.receiver`} GROUP BY u.id,u."publicId",u.name,u.country`;
+    FROM gifts g JOIN people u ON u.id=${['wealth','weekly-star'].includes(type) ? Prisma.sql`g."senderId"` : Prisma.sql`g.receiver`} GROUP BY u.id,u."publicId",u.name,u.country`;
   // Rank before filtering search results, so an agency's global rank stays stable.
   const ranked = Prisma.sql`${base}, scores AS (${scores}), ranked AS (
     SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, ${['wealth','charm'].includes(type) ? Prisma.sql`COALESCE((SELECT t.level FROM "VipMembership" v JOIN "VipTier" t ON t.id=v."tierId" WHERE v."userId"=scores."personId" AND v."revokedAt" IS NULL AND v."startsAt"<=${now} AND v."expiresAt">${now} AND t.active=true AND 'RANKING_PRIORITY'=ANY(t.privileges)),0)` : Prisma.sql`0::int`} DESC,"publicId" ASC) AS rank FROM scores WHERE score>0
@@ -103,7 +104,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
   }));
   return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: 'UTC', scoreUnit: type === 'charm' ? 'diamonds' : 'coins',
     viewer: viewer ? { rank: Number(viewer.rank), gap: viewer.gap?.toString() ?? null, ...(Number(viewer.rank) === 1 && ['wealth','charm'].includes(type) ? { total: viewer.score.toString() } : {}) } : null,
-    rule: type === 'game' ? 'Coins wagered in settled games during this period, across all rooms. Pending, cancelled and play-point entries are excluded; winnings do not affect the score.' : type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
+    rule: type === 'weekly-star' ? 'Coin value of selected Weekly Star gifts sent during this UTC week. Only participating senders qualify; refunded gifts are excluded.' : type === 'game' ? 'Coins wagered in settled games during this period, across all rooms. Pending, cancelled and play-point entries are excluded; winnings do not affect the score.' : type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
     entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : {}), name: row.name, rank: Number(row.rank), gap: row.gap?.toString() ?? null, level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
       ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,
       ...(type === 'agency' ? {} : { memberCount: row.memberCount }), person: identities.get(row.personId) ?? null, partner: identities.get(row.partnerId) ?? null })),

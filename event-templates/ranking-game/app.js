@@ -2,11 +2,11 @@
   'use strict';
   const $ = id => document.getElementById(id), root = $('ranking');
   const fixedTrack='game', eventSlug='ranking-game';
-  let token = '', type = fixedTrack || 'wealth', period = 'today', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
+  let token = '', type = fixedTrack || 'wealth', period = 'week', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
   const rewardsPanel=$('reward-details');
   const labels={wealth:'Wealth',charm:'Charm',agency:'Agency',cp:'CP',game:'Game'};
   const scoring={game:'Ranked by Coins wagered in settled games across all rooms during the selected period. Pending, cancelled and play-point entries are excluded; winnings do not change the score.',wealth:'Ranked by the Coin value of gifts sent during the selected period.',charm:'Ranked by the Coin value of gifts received during the selected period.',agency:'Ranked by gifts received by hosts, attributed to their agency at the time of gift settlement.',cp:'Ranked by gifts exchanged between active CP partners since their relationship began, within the selected period.'};
-  let cycleLabel = 'Cycle';
+  let cycleLabel = 'Monthly';
   function renderRules(){
     $('rules-title').textContent=`${labels[type]} event rules`;
     $('rule-text').textContent=`${scoring[type]} ${type==='game'?'':'Refunded gifts are excluded.'} Daily periods reset at midnight UTC; weekly periods start on Monday; cycle periods follow the server-configured calendar month or 1st–15th / 16th–month-end in UTC. Equal Wealth and Charm scores prioritize active VIP Ranking priority, then higher VIP tier, then public ID. Agency, CP and Game ties use public ID.`;
@@ -55,6 +55,7 @@
   }
   function rowAvatar(person) {
     const n=el('div','ranking-avatar');n.append(image(person?.profileImage,'portrait',true));
+    if(window.RankingFrame){window.RankingFrame(n,person);return n;}
     const url=person?.frameMimeType && !person.frameMimeType.startsWith('image/') ? person.framePosterUrl : person?.frameUrl;
     if(url)n.append(image(url,'ranking-avatar-frame'));
     return n;
@@ -128,7 +129,7 @@
       if(e.rank<=3){
         const card=el('article',`podium-card place-${e.rank}`),art=el('div','art');
         art.append(image(e.person?.profileImage,'portrait',true));
-        const frame=el('img','frame');frame.src=`assets/frame-${e.rank}.gif`;frame.alt=`Rank ${e.rank}`;art.append(frame);
+        const frame=el('img','frame');frame.src=`assets/game-${e.rank===1?'03b7d':'65200'}.png`;frame.alt=`Rank ${e.rank}`;art.append(frame);const medal=el('img','game-medal');medal.src=`assets/game-${e.rank===1?'cc84f':e.rank===2?'9bd86':'6efe3'}.png`;medal.alt=`Rank ${e.rank}`;art.append(medal);if(e.rank===1){const crown=el('img','game-crown');crown.src='assets/game-4dbf2.png';crown.alt='';art.append(crown);}
         card.append(art,entryName(e),levels(e.person,e),gap(e),badges(e.person));podium.append(card);
       }else{
         const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e),levels(e.person,e),badges(e.person));

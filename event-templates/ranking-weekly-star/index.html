@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+        <meta name="referrer" content="no-referrer">
+        <base href="/event/ranking-weekly-star/">
+        <title>Mega Live Weekly Star</title>
+        <link rel="stylesheet" href="style.css">
+        <script src="design.js" defer></script><script src="assets/equipped-frame.js" defer></script><script src="app.js" defer></script>
+    </head>
+    <body>
+        <main id="ranking" data-theme="wealth" data-track="weekly-star" data-event="ranking-weekly-star">
+            <header>
+                <button id="back" aria-label="Back">‹</button>
+                <nav id="tracks" aria-label="Ranking category"></nav>
+                <div id="weekly-gifts"></div><button id="weekly-banner" aria-label="Weekly Star rules"></button><div id="filters">
+                    <nav id="periods" aria-label="Ranking period"></nav>
+                    <input id="search" type="search" maxlength="80" placeholder="Enter Agency ID or Name" aria-label="Search agencies" hidden>
+                </div>
+                <button id="rules" aria-label="Ranking rules">Rules</button>
+                <button id="rewards" aria-label="Ranking rewards">
+                    <img src="assets/d529f.png" alt="">
+                </button>
+                <div class="heading"><span>Count Down: </span><time id="countdown">—</time></div><div id="hero"></div>
+            </header>
+            <section id="board">
+                <h2 id="heading" class="list-title">Today</h2>
+                <p id="status" role="status">Open this event from Mega Live to view rankings.</p>
+                <div id="entries"></div>
+                <button id="more" hidden>Show more</button>
+                <button id="retry" hidden>Try again</button>
+            </section>
+            <dialog id="rewards-dialog" aria-labelledby="rewards-title">
+                <h2 id="rewards-title">Event rewards</h2>
+                <section id="reward-details" class="reward-details" aria-live="polite"></section>
+                <button id="close-rewards">Close</button>
+            </dialog>
+            <dialog id="rules-dialog" aria-labelledby="rules-title">
+                <h2 id="rules-title">Ranking rules</h2>
+                <p id="rule-text">Rankings use coins wagered in settled games. Pending, cancelled and play-point entries are excluded. Periods reset at midnight UTC; weeks begin on Monday.</p>
+                <p id="award-rules"></p>
+                <button id="close-rules">Got it</button>
+            </dialog>
+        </main>
+    </body>
+</html>

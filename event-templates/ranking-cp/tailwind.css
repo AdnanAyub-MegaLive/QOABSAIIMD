@@ -2,3 +2,7 @@
 @source "./index.html";
 @source "./app.js";
 @source "./design.js";
+
+html #ranking .ranking-avatar{position:relative;display:grid;place-items:center;width:48px;height:48px;flex-shrink:0}
+html #ranking .ranking-avatar .portrait{width:36px;height:36px;border-radius:50%;object-fit:cover}
+html #ranking .ranking-avatar-frame{position:absolute;inset:-5%;width:110%;height:110%;object-fit:contain;pointer-events:none}

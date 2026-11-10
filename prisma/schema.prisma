@@ -3115,3 +3115,11 @@ model HostSalaryAward {
   createdAt DateTime @default(now())
   @@id([cycleStart,userId])
 }
+
+model WeeklyStarWeek {
+  startsAt DateTime @id
+  giftIds String[]
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

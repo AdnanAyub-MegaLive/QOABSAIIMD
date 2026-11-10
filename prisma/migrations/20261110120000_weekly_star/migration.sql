@@ -1,0 +1,7 @@
+CREATE TABLE "WeeklyStarWeek" (
+ "startsAt" TIMESTAMP(3) NOT NULL PRIMARY KEY,
+ "giftIds" TEXT[] NOT NULL,
+ "createdById" TEXT NOT NULL,
+ "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ "updatedAt" TIMESTAMP(3) NOT NULL
+);
