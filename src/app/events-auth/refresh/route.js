@@ -20,7 +20,7 @@ export async function POST(request) {
     const refresh = getRefreshCookie(request);
     if (!refresh)
       throw new EventModuleError("INVALID_REFRESH_TOKEN", "Refresh token is required.", 401);
-    const session = await rotateEventSession(refresh);
+    const session = await rotateEventSession(refresh, request);
     await setEventSessionCookies(session);
     return eventJson({ success: true, data: { refreshed: true } });
   } catch (error) {

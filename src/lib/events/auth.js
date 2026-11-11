@@ -5,6 +5,12 @@ import { cookies } from "next/headers";
 import { prisma } from "../prisma.js";
 import { getEventConfig } from "./config.js";
 import { EventModuleError } from "./errors.js";
+import { canAccessFromDevice } from "../super-admin-device-request.js";
+
+async function requireDevice(user, request) {
+  if (!await canAccessFromDevice(user.role, request))
+    throw new EventModuleError("DEVICE_NOT_ALLOWED", "Use an approved device to access this account.", 403);
+}
 
 export const eventCookies = {
   access: "streamline_events_access",
@@ -52,7 +58,8 @@ export function verifyEventAccessToken(token) {
   });
 }
 
-export async function createEventSession(user) {
+export async function createEventSession(user, request) {
+  await requireDevice(user, request);
   const config = getEventConfig();
   const refreshToken = randomBytes(48).toString("base64url");
   const expiresAt = new Date(Date.now() + config.refreshDays * 86400000);
@@ -71,7 +78,7 @@ export async function createEventSession(user) {
   };
 }
 
-export async function rotateEventSession(refreshToken) {
+export async function rotateEventSession(refreshToken, request) {
   let record;
   await prisma.$transaction(async (tx) => {
     record = await tx.eventRefreshToken.findUnique({
@@ -89,12 +96,13 @@ export async function rotateEventSession(refreshToken) {
         "The refresh token is invalid or expired.",
         401,
       );
+    await requireDevice(record.user, request);
     await tx.eventRefreshToken.update({
       where: { id: record.id },
       data: { revokedAt: new Date() },
     });
   });
-  return createEventSession(record.user);
+  return createEventSession(record.user, request);
 }
 
 export async function revokeEventSession(refreshToken) {
@@ -174,6 +182,7 @@ export async function requireEventUser(request, options = {}) {
       "The Events session has been revoked.",
       401,
     );
+  await requireDevice(user, request);
   if (options.roles && !options.roles.includes(user.role))
     throw new EventModuleError(
       "EVENTS_FORBIDDEN",

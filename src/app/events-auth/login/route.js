@@ -27,7 +27,7 @@ export async function POST(request) {
       });
       throw new EventModuleError("INVALID_CREDENTIALS", "Email or password is incorrect.", 401);
     }
-    const session = await createEventSession(user);
+    const session = await createEventSession(user, request);
     await setEventSessionCookies(session);
     await writeEventLog({ userId: user.id, action: "LOGIN", ip });
     return eventJson({

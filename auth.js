@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { canAccessFromDevice } from "./src/lib/super-admin-device-request.js";
 import bcrypt from "bcrypt";
 import { timingSafeEqual } from "node:crypto";
 import { prisma } from "./src/lib/prisma.js";
@@ -23,6 +24,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (!token.sub || !Number.isInteger(token.staffVersion)) return null;
       const admin = await effectiveAdmin(prisma, token.sub);
       if (!admin || admin.sessionVersion !== token.staffVersion) return null;
+      if (!await canAccessFromDevice(admin.role)) return null;
       token.staff = staffDto(admin);
       return token;
     },
@@ -37,7 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { type: "email" },
         password: { type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = String(credentials?.email ?? "").trim().toLowerCase();
         const password = String(credentials?.password ?? "");
 
@@ -47,6 +49,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const legacy = row.passwordHash === "ENV_AUTH_PENDING_HASH_MIGRATION" && row.role === "SUPER_ADMIN" && email === process.env.ADMIN_EMAIL?.trim().toLowerCase();
         const valid = legacy ? equalsSecret(password, process.env.ADMIN_PASSWORD) : await bcrypt.compare(password, row.passwordHash).catch(() => false);
         if (!valid || !await effectiveAdmin(prisma, row.id)) return null;
+        if (!await canAccessFromDevice(row.role, request)) return null;
         await prisma.admin.update({ where: { id: row.id }, data: { lastLoginAt: new Date(), ...(legacy ? { passwordHash: await bcrypt.hash(password, 12) } : {}) } });
         return { id: row.id, name: row.name, email, sessionVersion: row.sessionVersion };
       },
