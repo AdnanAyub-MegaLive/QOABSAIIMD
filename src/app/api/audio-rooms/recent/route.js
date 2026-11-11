@@ -26,7 +26,7 @@ export async function GET(request) {
         roomId: true, title: true, coverImageUrl: true, coverRevision: true, ownerId: true, status: true, participantCount: true,
         privacyMode: true, passwordHash: true, paidEntryCoins: true,
         roomBackgroundVersion: true, roomBackgroundAsset: artwork, seatStyleVersion: true, seatStyleAsset: artwork,
-        owner: { select: { id: true, publicId: true, name: true, profileImage: true } },
+        owner: { select: { agency: { select: { publicId: true } }, id: true, publicId: true, name: true, profileImage: true } },
       } } },
     });
     const page = rows.slice(0, limit), origin = requestOrigin(request);
@@ -40,7 +40,7 @@ export async function GET(request) {
         status: room.status, participantCount: room.participantCount, lastVisitedAt: lastVisitedAt.toISOString(),
         privacyMode: room.privacyMode, isLocked: Boolean(room.passwordHash), paidEntryCoins: room.paidEntryCoins?.toString() ?? null,
         roomBackground: serializeRoomBackground(room, origin), seatStyle: serializeRoomSeatStyle(room, origin),
-        owner: { publicId: room.owner.publicId, name: room.owner.name, profileImage: avatarDisplayUrl(room.owner.profileImage, origin), frameUrl: perks.get(room.owner.publicId)?.frameUrl ?? null, badgeUrl: perks.get(room.owner.publicId)?.badgeUrl ?? null },
+        owner: { agencyPublicId: room.owner.agency?.publicId ?? null, publicId: room.owner.publicId, name: room.owner.name, profileImage: avatarDisplayUrl(room.owner.profileImage, origin), frameUrl: perks.get(room.owner.publicId)?.frameUrl ?? null, badgeUrl: perks.get(room.owner.publicId)?.badgeUrl ?? null },
       })),
       nextCursor: rows.length > limit ? visitCursor(page[page.length - 1]) : null,
     } });

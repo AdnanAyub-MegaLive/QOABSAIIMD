@@ -86,6 +86,7 @@ export async function GET(request) {
           select: {
             id: true,
             publicId: true,
+            agency: { select: { publicId: true } },
             name: true,
             profileImage: true,
             gender: true,
@@ -129,6 +130,7 @@ export async function GET(request) {
           seatStyle: serializeRoomSeatStyle(room, origin),
           owner: {
             id: room.owner.publicId,
+            agencyPublicId: room.owner.agency?.publicId ?? null,
             name: room.owner.name,
             profileImage: room.owner.profileImage,
             gender: room.owner.gender ?? null,

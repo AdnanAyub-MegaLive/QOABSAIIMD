@@ -22,7 +22,7 @@ async function fixture(track, rewardPolicy=null, pathname='', template='rankings
   vm.runInNewContext(readFileSync(`event-templates/${template}/app.js`,'utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{viewer,rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,gap:rank===1?null:'2700',agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{viewer,rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,gap:rank===1?null:'2700',agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,frameUrl:'https://cdn.example/frame.svga',frameMimeType:'application/svga',framePosterUrl:'https://cdn.example/frame.png',vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
@@ -167,4 +167,10 @@ it.each(['wealth','charm'])('renders a leader own total without chase arrows for
  expect(leader.title).toContain('total: 123,456');
  expect(leader.children.some(n=>n.className==='gap-arrows')).toBe(false);
  expect(leader.children.find(n=>n.className==='gap-value').textContent).toBe('123.4K');
+});
+
+it.each(['rankings','ranking-wealth','ranking-charm','ranking-game','ranking-cp'])('%s shows equipped frames below the podium',async template=>{
+  const {get}=await fixture(null,null,'',template);
+  const rows=descendants(get('entries'));
+  expect(rows.some(n=>n.className==='ranking-avatar-frame' && n.src==='https://cdn.example/frame.png')).toBe(true);
 });

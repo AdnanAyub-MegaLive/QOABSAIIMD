@@ -16,7 +16,7 @@ it("returns empty history separately from a server error", async () => {
   mocks.findMany.mockRejectedValueOnce(new Error("database failure"));
   const failed = await GET(request);
   expect(failed.status).toBe(500);
-  expect((await failed.json()).error.code).toBe("ROOM_HISTORY_FAILED");
+  expect((await failed.json()).error.code).toBe("SERVER_PROBLEM");
   log.mockRestore();
 });
 it("serializes idle zero-participant rooms with current artwork and excludes private fields", async () => {

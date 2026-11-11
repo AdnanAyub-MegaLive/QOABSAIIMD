@@ -18,6 +18,7 @@ import { serializeRoomBackground } from "../../../lib/room-background";
 import { serializeRoomSeatStyle } from "../../../lib/room-seat-style";
 
 const roomBackgroundInclude = {
+  owner: { select: { publicId: true, agency: { select: { publicId: true } } } },
   ...roomFrameInclude,
   banners: { where: { status: "ACTIVE" }, orderBy: [{ position: "asc" }, { id: "asc" }] },
   roomBackgroundAsset: {
@@ -362,6 +363,7 @@ function validUrl(value) {
 }
 function serializeRoom(room, perks, origin) {
   return {
+    owner: { publicId: room.owner?.publicId ?? null, agencyPublicId: room.owner?.agency?.publicId ?? null },
     roomBanners: { roomId: room.roomId, revision: room.bannerRevision ?? 0, banners: (room.banners ?? []).filter(b => b.expiresAt > new Date()).map(publicBanner) },
     roomId: room.roomId,
     title: room.title,

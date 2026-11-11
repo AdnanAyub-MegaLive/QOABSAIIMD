@@ -109,9 +109,9 @@
     }
     return n;
   }
-  function identity(person) {
+  function identity(person, equipped = false) {
     const n = el('div');
-    n.append(image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable'));
+    n.append(equipped ? rowAvatar(person) : image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable'));
     return n;
   }
   function entryName(entry) { return el('span', 'name entry-name', entry.name); }
@@ -134,9 +134,9 @@
     let podium;
     if (type !== 'cp' && entries.some(e => e.rank <= 3)) { podium = el('div', 'podium'); $('entries').append(podium); }
     entries.forEach(e => {
-      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/rankings/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`)); row.append(value); $('entries').append(row); return; }
+      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/rankings/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p,e.rank>3),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`)); row.append(value); $('entries').append(row); return; }
       if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/rankings/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person,e),gap(e)); if(type==='agency')n.append(el('div','meta',String(e.id ?? '').replace(/^AGN[-_ ]*/i,'')),image(`/event/rankings/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); podium.append(n); }
-      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person,e)); if(type==='agency')details.append(el('span','meta',String(e.id??'').replace(/^AGN[-_ ]*/i,''))); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details,gap(e)); $('entries').append(n); }
+      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person,e)); if(type==='agency')details.append(el('span','meta',String(e.id??'').replace(/^AGN[-_ ]*/i,''))); n.append(el('span','rank',e.rank),(type==='agency'?image(e.person?.profileImage,'portrait',true):rowAvatar(e.person)),details,gap(e)); $('entries').append(n); }
     }); $('more').hidden = nextOffset === null;
   }
   async function load(append = false) {

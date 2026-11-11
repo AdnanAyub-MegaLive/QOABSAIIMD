@@ -23,7 +23,7 @@ import { GET as recent } from '../app/api/audio-rooms/recent/route';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  const rooms = ['one', 'two'].map(roomId => ({ roomId, title: roomId, owner: { publicId: 'owner' } }));
+  const rooms = ['one', 'two'].map(roomId => ({ roomId, title: roomId, owner: { publicId: 'owner', agency: roomId === 'one' ? { publicId: 'AGN-123' } : null } }));
   prisma.audioRoom.findMany.mockResolvedValue(rooms);
   prisma.audioRoomVisit.findMany.mockResolvedValue(rooms.map(audioRoom => ({ audioRoom, lastVisitedAt: new Date() })));
   prisma.$queryRaw.mockResolvedValue([
@@ -41,6 +41,9 @@ it.each([['discover', discover], ['search', search], ['recent', recent]])('%s re
     expect.objectContaining({ roomId: 'one', giftTotalCoins: '1500000', activeRedEnvelopeCount: 2 }),
     expect.objectContaining({ roomId: 'two', giftTotalCoins: '0', activeRedEnvelopeCount: 0 }),
   ]);
+  expect(body.data.rooms.map(room => room.owner.agencyPublicId)).toEqual(['AGN-123', null]);
+  const query = name === 'recent' ? prisma.audioRoomVisit.findMany.mock.calls[0][0].select.audioRoom.select : prisma.audioRoom.findMany.mock.calls[0][0].select;
+  expect(query.owner.select.agency).toEqual({ select: { publicId: true } });
   expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
   expect(prisma.$queryRaw.mock.calls[0][0].values).toEqual(['one', 'two']);
 });

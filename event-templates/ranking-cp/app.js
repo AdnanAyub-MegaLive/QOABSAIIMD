@@ -55,6 +55,13 @@
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { n.hidden = true; }, { once: true }); return n; };
+  function rowAvatar(person) {
+    const n=el('div','ranking-avatar');n.append(image(person?.profileImage,'portrait',true));
+    if(window.RankingFrame){window.RankingFrame(n,person);return n;}
+    const url=person?.frameMimeType && !person.frameMimeType.startsWith('image/') ? person.framePosterUrl : person?.frameUrl;
+    if(url)n.append(image(url,'ranking-avatar-frame'));
+    return n;
+  }
   function levels(person) {
     const n = el('div', 'levels');
     for (const track of ['user', 'charm']) {
@@ -74,9 +81,9 @@
     if (person?.badgeUrl) n.append(image(person.badgeMimeType === 'application/svga' ? person.badgePosterUrl : person.badgeUrl));
     return n;
   }
-  function identity(person) {
+  function identity(person, equipped = false) {
     const n = el('div');
-    n.append(image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable'));
+    n.append(equipped ? rowAvatar(person) : image(person?.profileImage, 'portrait', true), el('span', 'name', person?.name || 'Unavailable'));
     return n;
   }
   function entryName(entry) { return el('span', 'name entry-name', entry.name); }
@@ -99,9 +106,9 @@
     let podium;
     if (type !== 'cp' && entries.some(e => e.rank <= 3)) { podium = el('div', 'podium'); $('entries').append(podium); }
     entries.forEach(e => {
-      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/ranking-cp/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`)); row.append(value); $('entries').append(row); return; }
+      if (type === 'cp') { const row = el('article', 'row cp-row'), pair = el('div', 'pair'); row.append(el('span', 'rank', e.rank)); for (const [i,p] of [e.person,e.partner].entries()) { if (i) pair.append(image('/event/ranking-cp/assets/4d0b8.png','heart')); const n = el('div','identity'); n.append(identity(p,e.rank>3),levels(p)); pair.append(n); } row.append(pair); const value = el('div'); value.append(el('p','meta',`LV ${e.level}`)); row.append(value); $('entries').append(row); return; }
       if (e.rank <= 3 && podium) { const n = entryContainer(e,'person'), art = el('div','art'); art.append(image(e.person?.profileImage,'portrait',true),image(`/event/ranking-cp/assets/${['e0e12','526f3','ad116'][e.rank-1]}.png`,'frame')); n.append(art,entryName(e),levels(e.person)); if(type==='agency')n.append(el('div','meta',`${e.memberCount} hosts · ${e.id}`),image(`/event/ranking-cp/assets/${['4fa18','86ac8','52dd6'][e.rank-1]}.png`,'trophy')); podium.append(n); }
-      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person)); n.append(el('span','rank',e.rank),image(e.person?.profileImage,'portrait',true),details); $('entries').append(n); }
+      else { const n = entryContainer(e,'row'), details=el('div','identity'); details.append(entryName(e),levels(e.person)); n.append(el('span','rank',e.rank),(type==='agency'?image(e.person?.profileImage,'portrait',true):rowAvatar(e.person)),details); $('entries').append(n); }
     }); $('more').hidden = nextOffset === null;
   }
   async function load(append = false) {
