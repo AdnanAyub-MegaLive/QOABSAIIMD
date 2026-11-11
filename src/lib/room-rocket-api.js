@@ -25,13 +25,16 @@ export async function getRoomRocketResults(roomId, user, query, origin, db = pri
   const limit = Number(query.get('limit') ?? 20);
   if (!campaignId || campaignId.length > 100 || !/^LV-[123]$/.test(stageId ?? '') || !Number.isInteger(limit) || limit < 1 || limit > 50) throw rocketError('VALIDATION_ERROR', 'Provide campaignId, stageId (LV-1 to LV-3), and limit 1–50.');
   await requireRocketRoom(db, roomId, user);
-  const launch = await db.roomRocketLaunch.findUnique({ where: { campaignId_roomId_level: { campaignId, roomId, level: Number(stageId.slice(3)) } } });
-  if (!launch) return { title: `Rocket ${stageId} rewards`, myRewards: [], recipients: [], nextCursor: null, payoutStatus: 'NOT_LAUNCHED' };
-  let offset = 0;
-  if (query.get('cursor')) {
-    try { const cursor = JSON.parse(Buffer.from(query.get('cursor'), 'base64url').toString()); if (cursor.launchId !== launch.id || !Number.isInteger(cursor.offset) || cursor.offset < 0 || cursor.offset > launch.winners.length) throw new Error(); offset = cursor.offset; }
-    catch { throw rocketError('VALIDATION_ERROR', 'This results cursor is invalid.'); }
+  let offset=0,cursor=null;
+  if(query.get('cursor')){
+    try{cursor=JSON.parse(Buffer.from(query.get('cursor'),'base64url').toString());if(typeof cursor.launchId!=='string'||!Number.isInteger(cursor.offset)||cursor.offset<0)throw Error();offset=cursor.offset;}
+    catch{throw rocketError('VALIDATION_ERROR','This results cursor is invalid.');}
   }
+  const cycle=query.has('cycle')?Number(query.get('cycle')):null;
+  if(cycle!==null && (!Number.isSafeInteger(cycle)||cycle<0))throw rocketError('VALIDATION_ERROR','Provide a valid Rocket cycle.');
+  const launch=await db.roomRocketLaunch.findFirst({where:{campaignId,roomId,level:Number(stageId.slice(3)),...(cycle!==null?{cycle}:{}),...((cursor?.launchId||query.get('launchId'))?{id:cursor?.launchId||query.get('launchId')}:{})},orderBy:{cycle:'desc'}});
+  if(cursor && (!launch || offset>launch.winners.length))throw rocketError('VALIDATION_ERROR','This results cursor is invalid.');
+  if (!launch) return { title: `Rocket ${stageId} rewards`, myRewards: [], recipients: [], nextCursor: null, payoutStatus: 'NOT_LAUNCHED' };
   const page = launch.winners.slice(offset, offset + limit);
   const users = await db.user.findMany({ where: { id: { in: page.map(w => w.userId) }, deletedAt: null, status: 'ACTIVE' }, select: { id: true, publicId: true, name: true, profileImage: true } });
   const recipients = [];
@@ -41,5 +44,5 @@ export async function getRoomRocketResults(roomId, user, query, origin, db = pri
     recipients.push({ rank: winner.rank, group: winner.group, user: identity, rewards: await displayRocketRewards(db, winner.rewards, origin) });
   }
   const mine = launch.winners.find(w => w.userId === user.id);
-  return { title: `Rocket ${stageId} rewards`, launchId: launch.id, payoutStatus: launch.paidAt ? 'PAID' : 'PENDING', myRewards: await displayRocketRewards(db, mine?.rewards ?? [], origin), recipients, nextCursor: offset + limit < launch.winners.length ? Buffer.from(JSON.stringify({ launchId: launch.id, offset: offset + limit })).toString('base64url') : null };
+  return { title: `Rocket ${stageId} rewards`, launchId: launch.id, cycle:launch.cycle, payoutStatus: launch.paidAt ? 'PAID' : 'PENDING', myRewards: await displayRocketRewards(db, mine?.rewards ?? [], origin), recipients, nextCursor: offset + limit < launch.winners.length ? Buffer.from(JSON.stringify({ launchId: launch.id, offset: offset + limit })).toString('base64url') : null };
 }

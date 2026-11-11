@@ -7,9 +7,9 @@ import { notifyAction } from './action-notifications.js';
 import { hasVipPrivilege } from './vip-capabilities.js';
 import { equippablePropCategories } from './props-store.js';
 import { decorationMedia } from './decoration-media.js';
-import { allocateRocketCoins, drawRocketWinners, rocketError, rocketJson, rocketPercentage, validateRocketConfig } from './room-rocket-contract.js';
+import { drawRocketWinners, rocketError, rocketPercentage, validateRocketConfig } from './room-rocket-contract.js';
 
-const stageKey = (campaignId, roomId, level, userId) => ({ campaignId_roomId_level_userId: { campaignId, roomId, level, userId } });
+const stageKey = (campaignId, roomId, cycle, level, userId) => ({ campaignId_roomId_cycle_level_userId: { campaignId, roomId, cycle, level, userId } });
 const publicUser = user => ({ publicId: user.publicId, name: user.name, profileImage: user.profileImage });
 const eligibleUser = now => ({ status: 'ACTIVE', deletedAt: null, companyBdCountry: null, bans: { none: { target: 'USER', revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } } });
 
@@ -32,8 +32,8 @@ export async function saveRocketConfiguration(tx, input, now = new Date()) {
     }
   }
   await tx.roomRocketSettings.upsert({ where: { id: 'GLOBAL' }, create: { id: 'GLOBAL', enabled: config.enabled, config }, update: { enabled: config.enabled, config } });
-  if (previous?.endsAt > now && previous.config.rules !== config.rules) {
-    await tx.roomRocketSeason.update({ where: { id: previous.id }, data: { config: { ...previous.config, rules: config.rules } } });
+  if (previous?.endsAt > now && (previous.config.rules !== config.rules || previous.config.resetDelayMinutes !== config.resetDelayMinutes)) {
+    await tx.roomRocketSeason.update({ where: { id: previous.id }, data: { config: { ...previous.config, rules: config.rules, resetDelayMinutes: config.resetDelayMinutes } } });
   }
   if (config.enabled) await currentRocketSeason(tx, now);
   return config;
@@ -73,7 +73,7 @@ async function lockProgress(tx, roomId, season) {
   return tx.roomRocketProgress.findUniqueOrThrow({ where });
 }
 
-async function topContributors(tx, roomId, campaignId, level, now = new Date()) {
+async function topContributors(tx, roomId, campaignId, level, cycle, now = new Date()) {
   // Rank only real, active accounts. Score ties use stable internal identity order.
   const rows = await tx.$queryRaw`SELECT c."userId", c.coins, u."publicId", u.name, u."profileImage",
     (SELECT p."currentLevel" FROM "UserProgress" p WHERE p."userId"=u.id AND p.track='USER') AS level,
@@ -82,16 +82,16 @@ async function topContributors(tx, roomId, campaignId, level, now = new Date()) 
       WHERE e."userId"=u.id AND e.category='FRAMES' AND a.active=true AND
       (a."isGlobal"=true OR EXISTS(SELECT 1 FROM "UploadAssetAssignment" x WHERE x."assetId"=a.id AND x."userId"=u.id AND (x."expiresAt" IS NULL OR x."expiresAt">CURRENT_TIMESTAMP))) LIMIT 1) AS frame
     FROM "RoomRocketContribution" c JOIN "User" u ON u.id=c."userId"
-    WHERE c."roomId"=${roomId} AND c."campaignId"=${campaignId} AND c.level=${level} AND c.coins>0
+    WHERE c."roomId"=${roomId} AND c."campaignId"=${campaignId} AND c.level=${level} AND c.cycle=${cycle} AND c.coins>0
     AND u.status='ACTIVE' AND u."deletedAt" IS NULL AND u."companyBdCountry" IS NULL
     AND NOT EXISTS(SELECT 1 FROM "Ban" b WHERE b."userId"=u.id AND b.target='USER' AND b."revokedAt" IS NULL AND (b."expiresAt" IS NULL OR b."expiresAt">${now}))
     ORDER BY c.coins DESC, c."userId" ASC LIMIT 3`;
   return rows.map((r, i) => ({ userId: r.userId, rank: i + 1, totalCoins: String(r.coins), user: { ...publicUser(r), level: r.level ?? 0, frameUrl: r.frame ? decorationMedia(r.frame, process.env.MOBILE_API_BASE_URL || process.env.AUTH_URL || 'http://localhost:3000').url : null } }));
 }
 
-async function launchRocket(tx, roomId, season, level, now) {
+async function launchRocket(tx, roomId, season, level, cycle, now) {
   const stage = season.config.stages[level - 1];
-  const top = await topContributors(tx, roomId, season.id, level, now);
+  const top = await topContributors(tx, roomId, season.id, level, cycle, now);
   const winners = top.map(r => ({ userId: r.userId, rank: r.rank, group: `top${r.rank}`, rewards: stage.rewards[`top${r.rank}`] }));
   if (stage.inRoomWinners && stage.rewards.inRoom.length) {
     const io = globalThis.portalIo;
@@ -105,8 +105,9 @@ async function launchRocket(tx, roomId, season, level, now) {
   }
   const id = `LAUNCH-${randomUUID()}`;
   const topContributor = top[0]?.user ?? null;
-  await tx.roomRocketLaunch.create({ data: { id, roomId, campaignId: season.id, level, winners, ...(topContributor ? { topContributor } : {}), createdAt: now } });
-  await appendOutbox(tx, `audio-room:${roomId}`, 'audio-room:rocket:launch', { roomId, eventId: id, launchId: id, campaignId: season.id, stageId: stage.id, level, topContributor, animation: stage.animation });
+  const resetAt = level===season.config.stages.length ? new Date(now.getTime()+(season.config.resetDelayMinutes ?? 180)*60000) : null;
+  await tx.roomRocketLaunch.create({ data: { id, roomId, campaignId: season.id, level, cycle, resetAt, winners, ...(topContributor ? { topContributor } : {}), createdAt: now } });
+  await appendOutbox(tx, `audio-room:${roomId}`, 'audio-room:rocket:launch', { roomId, eventId: id, launchId: id, campaignId: season.id, stageId: stage.id, level, cycle, cooldownUntil: resetAt ? null : new Date(now.getTime()+180000).toISOString(), resetAt: resetAt?.toISOString() ?? null, topContributor, animation: stage.animation });
   await queueRocketAnnouncement(tx, id, roomId, level, top[0]?.userId, now);
 }
 
@@ -134,59 +135,102 @@ async function drainRocketGifts(db) {
   }
 }
 
+// The progress row lock serializes gifts, timers, refunds and repeated worker runs.
+// Credits retain sender attribution and FIFO order while a launch is paused.
+async function advanceRocket(tx, roomId, season, p, now) {
+  const where={campaignId_roomId:{campaignId:season.id,roomId}};
+  if(p.resetAt){
+    if(p.resetAt>now)return p;
+    p=await tx.roomRocketProgress.update({where,data:{cycle:p.cycle+1,cycleStartedAt:p.resetAt,level:1,coins:0n,cooldownUntil:null,resetAt:null,revision:{increment:1},dirty:true}});
+  }
+  for(let pass=0;pass<2;pass++){
+    const target=BigInt(season.config.stages[p.level-1].targetCoins);
+    const credits=await tx.roomRocketCredit.findMany({where:{campaignId:season.id,roomId},orderBy:{seq:'asc'},take:100});
+    for(const credit of credits){
+      if(p.coins>=target)break;
+      const amount=credit.coins < target-p.coins ? credit.coins : target-p.coins;
+      const key=stageKey(season.id,roomId,p.cycle,p.level,credit.senderId);
+      await tx.roomRocketContribution.upsert({where:key,create:{campaignId:season.id,roomId,cycle:p.cycle,level:p.level,userId:credit.senderId,coins:amount},update:{coins:{increment:amount}}});
+      const receipt=await tx.roomRocketGift.findUniqueOrThrow({where:{giftId:credit.giftId}});
+      const allocations=[...receipt.allocations];
+      const prior=allocations.find(a=>(a.cycle??0)===p.cycle && a.level===p.level);
+      if(prior)prior.amount=String(BigInt(prior.amount)+amount);else allocations.push({cycle:p.cycle,level:p.level,amount:String(amount)});
+      await tx.roomRocketGift.update({where:{giftId:credit.giftId},data:{allocations}});
+      if(amount===credit.coins)await tx.roomRocketCredit.delete({where:{giftId:credit.giftId}});
+      else await tx.roomRocketCredit.update({where:{giftId:credit.giftId},data:{coins:credit.coins-amount}});
+      p=await tx.roomRocketProgress.update({where,data:{coins:p.coins+amount,revision:{increment:1},dirty:true}});
+    }
+    if(p.cooldownUntil && p.cooldownUntil<=now)p=await tx.roomRocketProgress.update({where,data:{cooldownUntil:null,revision:{increment:1},dirty:true}});
+    if(p.coins<target || p.cooldownUntil || pass===1)break;
+    await launchRocket(tx,roomId,season,p.level,p.cycle,now);
+    if(p.level===season.config.stages.length){
+      // No carryover across a final launch: only gifts after the reset qualify.
+      await tx.roomRocketCredit.deleteMany({where:{campaignId:season.id,roomId}});
+      p=await tx.roomRocketProgress.update({where,data:{resetAt:new Date(now.getTime()+(season.config.resetDelayMinutes??180)*60000),cooldownUntil:null,revision:{increment:1},dirty:true}});
+      break;
+    }
+    p=await tx.roomRocketProgress.update({where,data:{level:p.level+1,coins:0n,cooldownUntil:new Date(now.getTime()+180000),revision:{increment:1},dirty:true}});
+  }
+  return p;
+}
+
 export async function recordRocketGift(tx, gift, source, now = new Date(), assignedSeason) {
   if (!gift.roomId || gift.liveSessionId || source === 'BACKPACK' || gift.reversedAt || BigInt(gift.coinValue) <= 0n) return;
   const season = assignedSeason ?? await currentRocketSeason(tx, now);
   if (!season || gift.createdAt < season.startsAt || gift.createdAt >= season.endsAt) return;
-
-  const p = await lockProgress(tx, gift.roomId, season);
+  let p = await lockProgress(tx, gift.roomId, season);
   if (await tx.roomRocketGift.findUnique({ where: { giftId: gift.id } })) return;
-  const next = allocateRocketCoins(season.config.stages, p.level, p.coins, gift.coinValue);
-  for (const allocation of next.allocations) {
-    const key = stageKey(season.id, gift.roomId, allocation.level, gift.senderId);
-    await tx.roomRocketContribution.upsert({ where: key, create: { campaignId: season.id, roomId: gift.roomId, level: allocation.level, userId: gift.senderId, coins: allocation.amount }, update: { coins: { increment: allocation.amount } } });
-    if (allocation.launch) await launchRocket(tx, gift.roomId, season, allocation.level, now);
-  }
-  await tx.roomRocketGift.create({ data: { giftId: gift.id, roomId: gift.roomId, campaignId: season.id, senderId: gift.senderId, allocations: rocketJson(next.allocations) } });
-  if (next.allocations.length) await tx.roomRocketProgress.update({ where: { campaignId_roomId: { campaignId: season.id, roomId: gift.roomId } }, data: { level: next.level, coins: next.currentCoins, revision: { increment: 1 }, dirty: true } });
+  // Preserve the original gift time when processing a delayed job after reset.
+  const excluded=(p.resetAt && gift.createdAt<p.resetAt) || (p.cycleStartedAt && gift.createdAt<p.cycleStartedAt);
+  p=await advanceRocket(tx,gift.roomId,season,p,now);
+  if(excluded || p.resetAt || (p.cycleStartedAt && gift.createdAt<p.cycleStartedAt))return;
+  await tx.roomRocketGift.create({data:{giftId:gift.id,roomId:gift.roomId,campaignId:season.id,senderId:gift.senderId,allocations:[]}});
+  await tx.roomRocketCredit.create({data:{giftId:gift.id,roomId:gift.roomId,campaignId:season.id,senderId:gift.senderId,coins:BigInt(gift.coinValue)}});
+  p=await tx.roomRocketProgress.update({where:{campaignId_roomId:{campaignId:season.id,roomId:gift.roomId}},data:{revision:{increment:1},dirty:true}});
+  await advanceRocket(tx,gift.roomId,season,p,now);
 }
 
 export async function reverseRocketGift(tx, giftId, now = new Date()) {
-  const gift = await tx.roomRocketGift.findUnique({ where: { giftId } });
+  let gift = await tx.roomRocketGift.findUnique({ where: { giftId } });
   if (!gift || gift.reversedAt) return;
   await tx.$queryRaw`SELECT "roomId" FROM "RoomRocketProgress" WHERE "roomId"=${gift.roomId} AND "campaignId"=${gift.campaignId} FOR UPDATE`;
+  gift = await tx.roomRocketGift.findUnique({where:{giftId}});
+  if(gift.reversedAt)return;
+  await tx.roomRocketCredit.deleteMany({where:{giftId}});
   const p = await tx.roomRocketProgress.findUnique({ where: { campaignId_roomId: { campaignId: gift.campaignId, roomId: gift.roomId } } });
   const season = await tx.roomRocketSeason.findUnique({ where: { id: gift.campaignId } });
   if (p?.campaignId === gift.campaignId && season.endsAt > now) {
-    const allocation = gift.allocations.find(a => a.level === p.level);
-    const launched = await tx.roomRocketLaunch.findUnique({ where: { campaignId_roomId_level: { campaignId: p.campaignId, roomId: gift.roomId, level: p.level } } });
+    const allocation = gift.allocations.find(a => a.level === p.level && (a.cycle??0)===p.cycle);
+    const launched = await tx.roomRocketLaunch.findUnique({ where: { campaignId_roomId_cycle_level: { campaignId: p.campaignId, roomId: gift.roomId, cycle:p.cycle, level: p.level } } });
     if (allocation && !launched) {
       const amount = BigInt(allocation.amount);
-      const c = await tx.roomRocketContribution.findUnique({ where: stageKey(p.campaignId, gift.roomId, p.level, gift.senderId) });
-      await tx.roomRocketContribution.update({ where: stageKey(p.campaignId, gift.roomId, p.level, gift.senderId), data: { coins: c.coins > amount ? c.coins - amount : 0n } });
+      const c = await tx.roomRocketContribution.findUnique({ where: stageKey(p.campaignId, gift.roomId, p.cycle, p.level, gift.senderId) });
+      await tx.roomRocketContribution.update({ where: stageKey(p.campaignId, gift.roomId, p.cycle, p.level, gift.senderId), data: { coins: c.coins > amount ? c.coins - amount : 0n } });
       await tx.roomRocketProgress.update({ where: { campaignId_roomId: { campaignId: gift.campaignId, roomId: gift.roomId } }, data: { coins: p.coins > amount ? p.coins - amount : 0n, revision: { increment: 1 }, dirty: true } });
     }
   }
+  if(p)await tx.roomRocketProgress.update({where:{campaignId_roomId:{campaignId:gift.campaignId,roomId:gift.roomId}},data:{revision:{increment:1},dirty:true}});
   await tx.roomRocketGift.update({ where: { giftId }, data: { reversedAt: now } });
 }
 
 export async function rocketSnapshot(tx, roomId, now = new Date()) {
   const season = await currentRocketSeason(tx, now);
   if (!season) return null;
-  const p = await lockProgress(tx, roomId, season), stage = season.config.stages[p.level - 1];
-  const top = await topContributors(tx, roomId, season.id, p.level, now);
-  const passengers = p.coins >= BigInt(stage.targetCoins) ? [] : await tx.$queryRaw`SELECT u."publicId", u.name, u."profileImage"
+  const p = await advanceRocket(tx,roomId,season,await lockProgress(tx,roomId,season),now), stage = season.config.stages[p.level - 1];
+  const queued = await tx.roomRocketCredit.aggregate({where:{campaignId:season.id,roomId},_sum:{coins:true}});
+  const top = await topContributors(tx, roomId, season.id, p.level, p.cycle, now);
+  const passengers = p.resetAt ? [] : await tx.$queryRaw`SELECT u."publicId", u.name, u."profileImage"
     FROM "RoomRocketContribution" c JOIN "User" u ON u.id=c."userId"
-    WHERE c."roomId"=${roomId} AND c."campaignId"=${season.id} AND c.level=${p.level}
+    WHERE c."roomId"=${roomId} AND c."campaignId"=${season.id} AND c.level=${p.level} AND c.cycle=${p.cycle}
       AND c.coins>0 AND u.status='ACTIVE' AND u."deletedAt" IS NULL
       AND u."companyBdCountry" IS NULL AND NOT EXISTS(SELECT 1 FROM "Ban" b WHERE b."userId"=u.id AND b.target='USER' AND b."revokedAt" IS NULL AND (b."expiresAt" IS NULL OR b."expiresAt">${now}))
     ORDER BY c.coins DESC, c."userId"`;
-  return { passengers, roomId, serverTime: now.toISOString(), campaign: { id: season.id, title: season.config.title, rules: season.config.rules, endsAt: season.endsAt.toISOString() }, progress: { stageId: stage.id, level: p.level, currentCoins: String(p.coins), targetCoins: stage.targetCoins, percentage: rocketPercentage(p.coins, stage.targetCoins), revision: p.revision }, stages: season.config.stages.map(s => ({ ...s, completed: s.level < p.level || (s.level === p.level && p.coins >= BigInt(s.targetCoins)) })), topContributors: top.map(({ userId, ...row }) => row) };
+  return { passengers, roomId, serverTime: now.toISOString(), campaign: { id: season.id, title: season.config.title, rules: season.config.rules, endsAt: season.endsAt.toISOString() }, progress: { cycle:p.cycle, cooldownUntil:p.cooldownUntil?.toISOString()??null, resetAt:p.resetAt?.toISOString()??null, queuedCoins:String(queued._sum.coins??0n), stageId: stage.id, level: p.level, currentCoins: String(p.coins), targetCoins: stage.targetCoins, percentage: rocketPercentage(p.coins, stage.targetCoins), revision: p.revision }, stages: season.config.stages.map(s => ({ ...s, completed: s.level < p.level || (s.level === p.level && Boolean(p.resetAt)) })), topContributors: top.map(({ userId, ...row }) => row) };
 }
 
 export async function rocketJoinSummary(roomId, db = prisma) {
   const snapshot = await db.$transaction(tx => rocketSnapshot(tx, roomId));
-  return snapshot ? { enabled: true, campaignId: snapshot.campaign.id, stageId: snapshot.progress.stageId } : { enabled: false };
+  return snapshot ? { enabled: true, campaignId: snapshot.campaign.id, stageId: snapshot.progress.stageId, cycle:snapshot.progress.cycle } : { enabled: false };
 }
 
 export async function displayRocketRewards(tx, rewards, requestOrigin) {
@@ -229,7 +273,7 @@ export async function payRocketLaunch(tx, id, now = new Date()) {
         await appendOutbox(tx, `user:${user.publicId}`, 'backpack:updated', { giftId: reward.assetId, launchId: id });
       }
     }
-    if (winner.rewards.length) await notifyAction(tx, { userId: user.id, key: `rocket:${id}`, type: 'ROOM_ROCKET', title: 'Room Rocket reward', body: `You won ${winner.rewards.map(r => r.text).join(', ')} from Room Rocket`, action: { screen: 'ROOM_ROCKET_RESULTS', roomId: launch.roomId, campaignId: launch.campaignId, stageId: `LV-${launch.level}` } });
+    if (winner.rewards.length) await notifyAction(tx, { userId: user.id, key: `rocket:${id}`, type: 'ROOM_ROCKET', title: 'Room Rocket reward', body: `You won ${winner.rewards.map(r => r.text).join(', ')} from Room Rocket`, action: { screen: 'ROOM_ROCKET_RESULTS', roomId: launch.roomId, campaignId: launch.campaignId, stageId: `LV-${launch.level}`, cycle:launch.cycle, launchId:launch.id } });
   }
   const paidUserIds = winner ? [...paid, winner.userId] : paid;
   await tx.roomRocketLaunch.update({ where: { id }, data: { paidUserIds, ...(paidUserIds.length >= launch.winners.length ? { paidAt: now } : {}) } });
@@ -254,13 +298,13 @@ export async function maintainRoomRockets(db = prisma) {
       SELECT 1 FROM "RoomRocketProgress" n WHERE n."roomId"=p."roomId" AND n."campaignId"=${season.id}
     ) LIMIT 50`;
   for (const row of rollover) await db.$transaction(tx => lockProgress(tx, row.roomId, season));
-  const rooms = await db.roomRocketProgress.findMany({ where: { campaignId: season.id, dirty: true, OR: [{ emittedAt: null }, { emittedAt: { lte: new Date(Date.now() - 500) } }] }, take: 50, orderBy: [{ emittedAt: { sort: 'asc', nulls: 'first' } }, { roomId: 'asc' }] });
+  const rooms = await db.roomRocketProgress.findMany({ where: { campaignId: season.id, AND: [{OR:[{dirty:true},{cooldownUntil:{lte:new Date()}},{resetAt:{lte:new Date()}}]},{OR:[{emittedAt:null},{emittedAt:{lte:new Date(Date.now()-500)}}]}] }, take: 50, orderBy: [{ emittedAt: { sort: 'asc', nulls: 'first' } }, { roomId: 'asc' }] });
   for (const row of rooms) await db.$transaction(async tx => {
     const snapshot = await rocketSnapshot(tx, row.roomId);
     if (!snapshot) return;
     const p = await tx.roomRocketProgress.findUnique({ where: { campaignId_roomId: { campaignId: season.id, roomId: row.roomId } } });
     if (!p.dirty || (p.emittedAt && p.emittedAt.getTime() > Date.now() - 500)) return;
     await appendOutbox(tx, `audio-room:${row.roomId}`, 'audio-room:rocket:progress', { roomId: row.roomId, campaignId: snapshot.campaign.id, ...snapshot.progress, topContributors: snapshot.topContributors, passengers: snapshot.passengers });
-    await tx.roomRocketProgress.update({ where: { campaignId_roomId: { campaignId: season.id, roomId: row.roomId } }, data: { dirty: false, emittedAt: new Date() } });
+    await tx.roomRocketProgress.update({ where: { campaignId_roomId: { campaignId: season.id, roomId: row.roomId } }, data: { dirty: BigInt(snapshot.progress.queuedCoins)>0n && !snapshot.progress.cooldownUntil && !snapshot.progress.resetAt, emittedAt: new Date() } });
   });
 }

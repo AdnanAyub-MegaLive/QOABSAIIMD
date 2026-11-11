@@ -2945,6 +2945,10 @@ model RoomRocketPendingGift {
 }
 
 model RoomRocketProgress {
+  cycle Int @default(0)
+  cycleStartedAt DateTime?
+  cooldownUntil DateTime?
+  resetAt DateTime?
   roomId String
   campaignId String
   level Int @default(1)
@@ -2956,13 +2960,14 @@ model RoomRocketProgress {
   @@index([dirty, emittedAt])
 }
 model RoomRocketContribution {
+  cycle Int @default(0)
   campaignId String
   roomId String
   level Int
   userId String
   coins BigInt @default(0)
-  @@id([campaignId, roomId, level, userId])
-  @@index([campaignId, roomId, level, coins])
+  @@id([campaignId, roomId, cycle, level, userId])
+  @@index([campaignId, roomId, cycle, level, coins])
 }
 model RoomRocketGift {
   giftId String @id
@@ -2973,6 +2978,8 @@ model RoomRocketGift {
   reversedAt DateTime?
 }
 model RoomRocketLaunch {
+  cycle Int @default(0)
+  resetAt DateTime?
   id String @id
   campaignId String
   roomId String
@@ -2982,7 +2989,7 @@ model RoomRocketLaunch {
   topContributor Json?
   createdAt DateTime @default(now())
   paidAt DateTime?
-  @@unique([campaignId, roomId, level])
+  @@unique([campaignId, roomId, cycle, level])
   @@index([paidAt, createdAt])
 }
 
@@ -3122,4 +3129,14 @@ model WeeklyStarWeek {
   createdById String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model RoomRocketCredit {
+  giftId String @id
+  seq BigInt @unique @default(autoincrement())
+  roomId String
+  campaignId String
+  senderId String
+  coins BigInt
+  @@index([campaignId, roomId, seq])
 }
