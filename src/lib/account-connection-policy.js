@@ -18,7 +18,7 @@ export function validateConnectionPassword(password) {
 }
 export function connectionStatus(user) {
   const phone = user.phone;
-  return { googleConnected: Boolean(user.googleSubject), phoneConnected: Boolean(phone && user.passwordHash), googleEmail: user.googleSubject ? (user.googleEmail ?? user.email) : null, maskedPhone: phone ? `${phone.slice(0, Math.min(4, phone.length - 4))}${"•".repeat(Math.max(4, phone.length - 8))}${phone.slice(-4)}` : null };
+  return { hasPassword: Boolean(user.passwordHash), googleConnected: Boolean(user.googleSubject), phoneConnected: Boolean(phone && user.passwordHash), googleEmail: user.googleSubject ? (user.googleEmail ?? user.email) : null, maskedPhone: phone ? `${phone.slice(0, Math.min(4, phone.length - 4))}${"•".repeat(Math.max(4, phone.length - 8))}${phone.slice(-4)}` : null };
 }
 export function connectionCountries() {
   const names = new Intl.DisplayNames(["en"], { type: "region" });

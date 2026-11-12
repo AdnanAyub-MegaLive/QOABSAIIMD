@@ -235,6 +235,7 @@ export async function POST(request) {
               name: account.name,
               email: account.email,
               phone: account.phone,
+              hasPassword: Boolean(account.passwordHash),
               country: account.country,
               bio: account.bio,
               profileImage: account.profileImage,

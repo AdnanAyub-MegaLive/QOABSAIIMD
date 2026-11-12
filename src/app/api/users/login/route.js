@@ -1,3 +1,4 @@
+import { loginIdentifier, identifierBucket, resolvePasswordLoginUser, consumeAuthAttempts, credentialError } from "@/lib/password-login-policy";
 import { userVip } from "@/lib/vip-capabilities";
 import { observedDeviceIp, observedDeviceLocation } from "@/lib/device-observation";
 import { profileEditPermissions } from "@/lib/profile-edit-policy";
@@ -33,7 +34,11 @@ export function OPTIONS() {
 
 export async function POST(request) {
   try { return await login(request); } catch (error) {
-    if (error.status) return json({ success: false, error: { code: error.code, message: error.message } }, error.status);
+    if (error.status) {
+      const response = await json({ success: false, error: { code: error.code, message: error.message } }, error.status);
+      if (error.retryAfter) response.headers.set("Retry-After", String(error.retryAfter));
+      return response;
+    }
     console.error("Mobile login failed", error);
     return json({ success: false, error: { code: "LOGIN_FAILED", message: "Unable to sign in right now." } }, 500);
   }
@@ -55,9 +60,7 @@ async function login(request) {
       400,
     );
   }
-  const phone = String(body?.phone ?? "")
-    .trim()
-    .replace(/[\s().-]/g, "");
+  const identifier = loginIdentifier(body);
   const password = String(body?.password ?? "");
   const device = body?.device;
   const deviceId = clean(device?.deviceId ?? device?.macAddress, 255);
@@ -93,28 +96,19 @@ async function login(request) {
       },
       422,
     );
-  let user = await prisma.user.findUnique({ where: { phone } });
-  if (
-    !user ||
-    user.deletedAt ||
-    !(await verifyPassword(password, user.passwordHash))
-  )
-    return json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_CREDENTIALS",
-          message: "Phone number or password is incorrect.",
-        },
-      },
-      401,
-    );
-  await reconcileExpiredBans();
   const forwardedFor = request.headers.get("x-forwarded-for");
-  const loginIp =
-    forwardedFor?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    null;
+  const loginIp = forwardedFor?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || null;
+  await consumeAuthAttempts(prisma, [
+    `login:identifier:${identifierBucket(identifier.slice(0, 255))}`,
+    `login:device:${deviceId}`, ...(observedDeviceIp(loginIp) ? [`login:ip:${observedDeviceIp(loginIp)}`] : []),
+  ], 10, 900);
+  let user = await resolvePasswordLoginUser(prisma, identifier);
+  if (user) await consumeAuthAttempts(prisma, [`login:account:${user.id}`], 10, 900);
+  // Unknown and passwordless accounts still perform the password derivation.
+  const dummyHash = `scrypt$00000000000000000000000000000000$${"00".repeat(64)}`;
+  const valid = password.length <= 1024 && await verifyPassword(password, user?.passwordHash || dummyHash);
+  if (!user || user.deletedAt || !user.passwordHash || !valid) throw credentialError();
+  await reconcileExpiredBans();
   const loginAt = new Date();
   const ban = await prisma.ban.findFirst({
     where: {
@@ -238,6 +232,7 @@ async function login(request) {
         specialIdExpiresAt: identity.specialIdExpiresAt?.toISOString() ?? null,
         name: user.name,
         phone: user.phone,
+        hasPassword: Boolean(user.passwordHash),
         email: user.email,
         country: user.country,
         bio: user.bio,
