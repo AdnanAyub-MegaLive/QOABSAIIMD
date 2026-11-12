@@ -13,6 +13,7 @@ export const portalNavigation = [
   ["Agency Management", "/agencies"],
   ["Finance & Wallet", "/finance"],
   ["Rules & Profit Split", "/platform-rules"],
+  ["Help Center", "/help-center"],
   ["Global Announcements", "/platform-rules/global-announcements"],
   ["Uploads", "/uploads"],
   ["Room Management", "/room-management"],

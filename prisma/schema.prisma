@@ -13,6 +13,44 @@ model AuthAttemptBucket {
   @@index([expiresAt])
 }
 
+model HelpEntry {
+  id String @id @default(cuid())
+  type String
+  slug String
+  icon String?
+  iconUrl String?
+  title String
+  summary String?
+  body String?
+  sections Json?
+  sortOrder Int @default(0)
+  published Boolean @default(true)
+  language String @default("en")
+  updatedAt DateTime @updatedAt
+  updatedById String?
+  @@unique([slug, language])
+  @@index([type, published, sortOrder])
+}
+
+model HelpSettings {
+  id String @id @default("GLOBAL")
+  supportEmail String @default("support@megalive.live")
+  termsUrl String @default("https://megachat.live/terms")
+  privacyUrl String @default("https://megachat.live/privacy-policy")
+  liveChatEnabled Boolean @default(true)
+  liveChatHours String?
+  seededAt DateTime?
+  updatedAt DateTime @updatedAt
+  updatedById String?
+}
+
+model HelpIcon {
+  id String @id @default(cuid())
+  data Bytes
+  mimeType String @default("image/webp")
+  createdAt DateTime @default(now())
+}
+
 enum AccountStatus {
   ACTIVE
   PENDING

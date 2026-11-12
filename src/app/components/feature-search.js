@@ -13,6 +13,7 @@ const features = [
   ["Daily Tasks", "Task categories, rewards and progress targets", "/daily-tasks"],
   ["Live Management", "Live sessions, KYC, gifts, rewards and PK", "/live-management"],
   ["Notification Center", "Manage application announcements and notifications", "/notifications-management"],
+  ["Help Center", "Edit FAQs, guides, safety and policies", "/help-center"],
   ["Content Safety", "Review posts and social activity", "/content-moderation"],
   ["Events Management", "Host and publish web events for the mobile application", "/events-login"],
   ["Games Management", "Game catalog, odds, bet limits and wallet round logs", "/games-management"],

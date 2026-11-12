@@ -14,6 +14,7 @@ export function assignedPermissions(values=[]) { return expandPermissions(values
 export function expandPermissions(values=[]) { return [...new Set(values.flatMap(p=>[p,...(legacyPermissionActions[p]??[])]))]; }
 // Shared vocabulary: every assignable key must have a server enforcement point.
 export const permissionGroups = [
+  ["help_center", "Help Center", [["manage", "Edit and publish Help Center content and settings"]]],
   ["cp", "CP Levels", [["view", "View CP levels and rewards"], ["edit", "Configure CP thresholds, effects and rewards"]]],
   ["rocket", "Room Rocket", [["view", "View Rocket seasons and rewards"], ["edit", "Enable Rocket and configure future seasons and rewards"]]],
   ["vip", "VIP Management", [["view", "View VIP tiers and memberships"], ["manage", "Create tiers and grant or revoke timed VIP memberships"]]],
@@ -52,7 +53,7 @@ export function validatePermissions(value, actor) {
     throw Object.assign(new Error("You cannot grant permissions you do not have."), { status: 403 });
   for (const p of permissions) {
     const view = `${p.split(".")[0]}.view`;
-    if (!permissions.includes(view)) throw Object.assign(new Error(`Enable ${view} before granting its actions.`), { status: 422 });
+    if (knownPermissions.has(view) && !permissions.includes(view)) throw Object.assign(new Error(`Enable ${view} before granting its actions.`), { status: 422 });
   }
   return permissions.sort();
 }
@@ -60,6 +61,7 @@ export function validatePermissions(value, actor) {
 export const pagePermissions = {
   // Login selects the first accessible page; prefer Home over feature sections.
   "/home": "dashboard.view",
+  "/help-center": "help_center.manage",
   "/room-rocket": "rocket.view",
   "/cp-levels": "cp.view",
   "/vip-management": "vip.view",
