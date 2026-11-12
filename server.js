@@ -584,6 +584,7 @@ app.prepare().then(async()=>{
               vipTagMimeType:joiningPerks?.vipTagMimeType??null,
               entranceUrl:joiningPerks?.entranceUrl??null,
               rideUrl:joiningPerks?.rideUrl??null,
+              rideName:joiningPerks?.rideName??null,
             },
           }));
           if(!isOwner){

@@ -27,6 +27,19 @@ beforeEach(() => {
 });
 afterEach(()=>vi.unstubAllEnvs());
 
+it.each(["RIDES", "TAIL_LIGHTS"])("returns the equipped %s display name only while the assignment is valid", async category => {
+  assets.push({ id: "ride", publicId: "AST-ride", name: "Golden Lion", category, isGlobal: false, mimeType: "video/mp4", assignments: [{ userId: "u1" }] });
+  equipped.push({ userId: "u1", category, assetId: "ride" });
+  let perks = await resolveUserPerks(users, "https://portal.test", [category]);
+  expect(perks.get("USR-1").rideUrl).toContain("AST-ride");
+  expect(perks.get("USR-1").rideName).toBe("Golden Lion");
+  expect(perks.get("USR-2").rideName).toBeNull();
+  expect(db.uploadAsset.findMany.mock.calls[0][0].select.name).toBe(true);
+  assets.find(a => a.id === "ride").assignments = []; // Query excludes expired assignments.
+  perks = await resolveUserPerks(users, "https://portal.test", [category]);
+  expect(perks.get("USR-1")).toMatchObject({ rideUrl: null, rideName: null });
+});
+
 it("group list and details include the same equipped-only artwork for mixed members",async()=>{
   equipped.push({userId:"u1",category:"FRAMES",assetId:"global-FRAMES"});
   const group={id:"group",publicId:"CONV-group",kind:"GROUP",createdAt:new Date(),messages:[],participants:users.map(user=>({userId:user.id,user,role:"MEMBER",joinedAt:new Date()}))};

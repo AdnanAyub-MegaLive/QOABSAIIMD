@@ -86,6 +86,7 @@ export async function resolveUserPerks(
         chatBoxUrl: null,
         entranceUrl: null,
         rideUrl: null,
+        rideName: null,
         roomBackgroundUrl: null,
         businessCardUrl: null,
         businessCardPosterUrl: null,
@@ -130,6 +131,7 @@ export async function resolveUserPerks(
     select: {
       id: true,
       publicId: true,
+      name: true,
       category: true,
       mimeType: true,
       posterMimeType: true,
@@ -174,6 +176,7 @@ export async function resolveUserPerks(
       // Match equippedProfileAssets: no valid selection means no decoration.
       const asset = selectedAsset;
       if (asset && perkFields[category]) Object.assign(perks, namedDecoration(perkFields[category].replace(/Url$/, ""), decorationMedia(asset, origin)));
+      if (asset && perkFields[category] === "rideUrl") perks.rideName = asset.name ?? null;
     }
   }
   return result;
