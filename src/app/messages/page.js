@@ -23,12 +23,15 @@ export default async function MessagesPage({ searchParams }) {
   const query = String(params?.q ?? "").trim().slice(0, 200);
   const requestedType = String(params?.type ?? "ALL").toUpperCase();
   const type = allowedTypes.has(requestedType) ? requestedType : "ALL";
+  const requestedKind = String(params?.kind ?? "ALL").toLowerCase();
+  const kind = ["text", "voice", "picture", "video", "gift"].includes(requestedKind) ? requestedKind : "ALL";
   const requestedPage = Number.parseInt(String(params?.page ?? "1"), 10);
   const currentPage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   if (type === "SYSTEM") await requirePagePermission("notifications.view");
   const filters = [Prisma.sql`1 = 1`];
   if (!canViewNotifications) filters.push(Prisma.sql`"messageType" <> 'SYSTEM'`);
   if (type !== "ALL") filters.push(Prisma.sql`"messageType" = ${type}`);
+  if (kind !== "ALL") filters.push(Prisma.sql`COALESCE("kind", 'text') = ${kind}`);
   if (query) {
     const pattern = `%${query}%`;
     filters.push(Prisma.sql`(
@@ -46,6 +49,8 @@ export default async function MessagesPage({ searchParams }) {
       c."kind"::text AS "messageType",
       m."publicId",
       m."body",
+      m."kind", m."voiceKey", m."voiceDurationMs", m."voiceMimeType", m."mediaId", m."media", m."gift", m."deletedAt",
+      CASE WHEN m."deletedById" = m."senderId" THEN 'sender' ELSE 'admin' END AS "deletedBy",
       m."createdAt",
       u."publicId" AS "senderPublicId",
       u."name" AS "senderName",
@@ -60,6 +65,7 @@ export default async function MessagesPage({ searchParams }) {
       'ROOM' AS "messageType",
       arm."publicId",
       arm."body",
+      NULL::text, NULL::text, NULL::integer, NULL::text, NULL::text, NULL::jsonb, NULL::jsonb, NULL::timestamp, NULL::text,
       arm."createdAt",
       arm."senderPublicId",
       arm."senderName",
@@ -68,7 +74,8 @@ export default async function MessagesPage({ searchParams }) {
       arm."roomTitle" AS "destinationName"
     FROM "AudioRoomMessage" arm
     UNION ALL
-    SELECT 'SYSTEM', n."publicId", n.title || E'\\n' || n.body, n."createdAt",
+    SELECT 'SYSTEM', n."publicId", n.title || E'\\n' || n.body,
+      NULL::text, NULL::text, NULL::integer, NULL::text, NULL::text, NULL::jsonb, NULL::jsonb, NULL::timestamp, NULL::text, n."createdAt",
       u."publicId", COALESCE(u.name, 'All users'), NULL, n."publicId", 'System notification'
     FROM "Notification" n LEFT JOIN "User" u ON u.id = n."userId"
   `;
@@ -109,6 +116,10 @@ export default async function MessagesPage({ searchParams }) {
     id: row.publicId,
     type: row.messageType,
     body: row.body,
+    kind: row.kind ?? "text",
+    hasVoice: Boolean(row.voiceKey), voiceDurationMs: row.voiceDurationMs, voiceMimeType: row.voiceMimeType,
+    hasMedia: Boolean(row.mediaId), media: row.media, gift: row.gift,
+    deletedAt: row.deletedAt?.toLocaleString("en-US") ?? null, deletedBy: row.deletedBy,
     createdAt: row.createdAt.toLocaleString("en-US"),
     senderId: row.senderPublicId,
     senderName: row.senderName ?? "Deleted user",
@@ -132,7 +143,7 @@ export default async function MessagesPage({ searchParams }) {
               </div>
             ))}
           </div>
-          <MessageHistoryTable records={records} query={query} type={type} canViewNotifications={canViewNotifications} page={page} pageSize={pageSize} total={filteredTotal} totalPages={totalPages} />
+          <MessageHistoryTable records={records} query={query} type={type} kind={kind} canViewNotifications={canViewNotifications} page={page} pageSize={pageSize} total={filteredTotal} totalPages={totalPages} />
         </div>
     </RoomManagementShell>
   );

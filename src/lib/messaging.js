@@ -5,7 +5,6 @@ import { assertChatWordsAllowed } from "./chat-word-policy.js";
 import { formatDateOnly } from "./date-only.js";
 import { assertConversationMessagingAllowed } from "./user-blocks.js";
 import { claimChatMedia, chatError } from "./chat-media.js";
-import { chatMessageNotifications } from "./chat-gifts.js";
 import { groupDetails, removeGroupMemberSafely, addGroupMemberSafely } from "./group-details.js";
 import { groupMemberArtwork, memberArtwork } from "./group-member-artwork.js";
 import { userChatCountry, countryMessageFilter, assertNoCountryLinks, refreshCountryChatRooms } from "./country-chat.js";
@@ -287,7 +286,6 @@ export async function createMessage(
         })),
       });
     }
-    if (media) await chatMessageNotifications(tx, conversation, sender, record, recipients, media.kind === "picture" ? "Photo" : "Video");
     return record;
   }); } catch(error) { if(!["P2002","CHAT_MEDIA_UNAVAILABLE"].includes(error.code)||!clientMessageId)throw error; message=await replay();if(!message)throw error; }
   return serializeMessage(message, senderPerks);

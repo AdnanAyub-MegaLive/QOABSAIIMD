@@ -33,7 +33,8 @@ it("sends attachment once and returns the original on retry", async () => {
   expect(first).toMatchObject({type:"picture",body:"Sent a photo",media:{width:80,height:60}});
   expect(await createMessage(conversation,{id:"s"},null,null,options)).toEqual(first);
   expect(db.message.create).toHaveBeenCalledTimes(1);
-  expect(db.notification.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({body:"Photo"})}));
+  expect(db.notification.create).not.toHaveBeenCalled();
+  expect(db.messageReceipt.createMany).toHaveBeenCalled();
   await expect(createMessage(conversation,{id:"s"},null,null,{...options,mediaId:"different"})).rejects.toMatchObject({code:"IDEMPOTENCY_CONFLICT"});
 });
 it("rejects World media and removed or banned senders",async()=>{
@@ -72,6 +73,7 @@ it("chat gift target must be another member; World gifts are refused",async()=>{
 it("gift messages use the supplied transaction, receipt and outbox with full metadata",async()=>{
   const payload={gift:{id:"AST-g",name:"Rose",quantity:2,mimeType:"application/svga",posterUrl:"https://cdn.test/p.webp"},recipientId:"USR-r",transactionId:"g1"};
   const result=await writeChatGiftMessage(db,conversation,{id:"s"},"gift-request",payload);
+  expect(db.notification.create).not.toHaveBeenCalled();
   expect(result).toMatchObject({type:"gift",gift:payload,clientMessageId:"gift-request"});
   expect(db.realtimeOutbox.create).toHaveBeenCalledWith({data:expect.objectContaining({event:"message:new",channel:"conversation:CONV-test",payload:expect.objectContaining({message:result})})});
   await expect(writeChatGiftMessage(db,conversation,{id:"s"},"gift-request",payload)).rejects.toMatchObject({code:"IDEMPOTENCY_CONFLICT"});
@@ -80,4 +82,11 @@ it("gift request fingerprint includes conversation and message identity",()=>{
   const body={giftId:"AST-g",recipientId:"USR-r",conversationId:"CONV-1",clientMessageId:"msg-123456"};
   expect(giftOperation(body,"key-123456","PAID")).toEqual(giftOperation(body,"key-123456","PAID"));
   expect(giftOperation(body,"key-123456","PAID").fingerprint).not.toBe(giftOperation({...body,conversationId:"CONV-2"},"key-123456","PAID").fingerprint);
+});
+
+it.each([['DIRECT','picture'],['DIRECT','video'],['GROUP','picture'],['GROUP','video']])('%s %s creates chat receipts without Official notifications',async (kind,mediaKind)=>{
+  row.kind=mediaKind;
+  await createMessage({...conversation,kind},{id:'s',name:'Sender'},null,null,{mediaId:'media',clientMessageId:'media-request'});
+  expect(db.messageReceipt.createMany).toHaveBeenCalled();
+  expect(db.notification.create).not.toHaveBeenCalled();
 });

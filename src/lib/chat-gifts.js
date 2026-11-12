@@ -27,15 +27,5 @@ export async function writeChatGiftMessage(tx, conversation, sender, clientMessa
   if (recipients.length) await tx.messageReceipt.createMany({ data: recipients.map(r => ({ messageId: record.id, userId: r.userId })) });
   const message = serializeMessage(record);
   await tx.realtimeOutbox.create({ data: { channel: `conversation:${conversation.publicId}`, event: "message:new", payload: { conversationId: conversation.publicId, message } } });
-  await chatMessageNotifications(tx, conversation, sender, record, recipients, "Gift");
   return message;
-}
-export async function chatMessageNotifications(tx, conversation, sender, message, recipients, label) {
-  for (const recipient of recipients) {
-    await tx.notification.create({ data: {
-      publicId: `NTF-${randomUUID()}`, userId: recipient.userId, type: "CHAT_MESSAGE",
-      sourceKey: `chat:${message.id}:${recipient.userId}`, title: sender.name ?? "New message", body: label,
-      action: { type: "CONVERSATION", conversationId: conversation.publicId, messageId: message.publicId, kind: message.kind },
-    } });
-  }
 }
