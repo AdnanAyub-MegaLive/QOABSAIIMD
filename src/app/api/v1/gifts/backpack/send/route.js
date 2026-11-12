@@ -1,3 +1,4 @@
+import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
 import { isHostUser } from "@/lib/user-roles";
 import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { calculateGiftSettlement, assertGiftRecipient } from "@/lib/gift-currency-settlement";
@@ -59,8 +60,8 @@ export async function POST(request) {
     data.giftBatchId = result.giftBatchId;
     Object.assign(data, { requestId: operation.key, transactionIds: [result.id], recipientIds: [recipientId], giftTier: gift.giftTier, catalogCategory: gift.giftCategory, createdAt: result.createdAt.toISOString() });
     await emitToAudioRoom(roomId, "gift:received", { success: true, data });
-    const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: true, rightRoom: true } });
-    if (pk) { const side = pk.leftRoomId === room.id ? "leftScore" : "rightScore", updated = await tx.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: gross }, revision: { increment: 1 } } }), payload = { id: pk.id, leftRoomId: pk.leftRoom.roomId, rightRoomId: pk.rightRoom.roomId, leftScore: updated.leftScore.toString(), rightScore: updated.rightScore.toString(), revision: updated.revision }; await emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); await emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); }
+    const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: audioPkInclude });
+    if (pk) { const side = pk.leftRoomId === room.id ? "leftScore" : "rightScore", updated = await tx.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: gross }, revision: { increment: 1 } } }), payload = pkDto({ ...pk, ...updated }, origin); await emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); await emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-score", { success: true, data: payload }); }
     await emitToAudioRoom(roomId, "audio-room:gift-leaderboard", { success: true, data: { roomId, refreshLeaderboard: true, origin } });
     await addDailyTaskProgress(sender.id,"SEND_GIFTS",quantity,new Date(),tx);
     await addDailyTaskProgress(sender.id,"TOP_SUPPORTER",quantity,new Date(),tx);

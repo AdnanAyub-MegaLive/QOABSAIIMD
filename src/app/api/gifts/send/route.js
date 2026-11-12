@@ -1,3 +1,4 @@
+import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
 import { isHostUser } from "@/lib/user-roles";
 import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
@@ -326,12 +327,12 @@ export async function POST(request) {
     if (roomId) {
       await emitToAudioRoom(roomId, "gift:received", realtimePayload);
       try {
-        const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: { leftRoom: {select:{roomId:true}}, rightRoom: {select:{roomId:true}} } });
+        const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: audioPkInclude });
         recoveryPk = pk;
         if (pk) {
           const side = pk.leftRoom.roomId === roomId ? "leftScore" : "rightScore";
           const updatedPk = await tx.audioRoomPkSession.update({ where: { id: pk.id }, data: { [side]: { increment: grossCoins }, revision: { increment: 1 } } });
-          const pkData = { id: updatedPk.id, status: updatedPk.status, leftRoomId: pk.leftRoom.roomId, rightRoomId: pk.rightRoom.roomId, leftScore: updatedPk.leftScore.toString(), rightScore: updatedPk.rightScore.toString(), revision: updatedPk.revision, endsAt: updatedPk.endsAt?.toISOString() ?? null };
+          const pkData = pkDto({ ...pk, ...updatedPk }, origin);
           await emitToAudioRoom(pk.leftRoom.roomId, "audio-room:pk-score", { success: true, data: pkData });
           await emitToAudioRoom(pk.rightRoom.roomId, "audio-room:pk-score", { success: true, data: pkData });
         }

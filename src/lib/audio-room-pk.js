@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 import { emitToAudioRoom } from './realtime.js';
 import { roomCoverDto } from './room-cover.js';
-const include = { leftRoom: true, rightRoom: true };
+import { avatarDisplayUrl } from './avatar-history.js';
+export const audioPkInclude = { leftRoom: { include: { owner: { select: { publicId: true, name: true, profileImage: true } } } }, rightRoom: { include: { owner: { select: { publicId: true, name: true, profileImage: true } } } } };
+const include = audioPkInclude;
 const active = ['PENDING', 'LIVE'];
 export function pkError(code, message, status = 409) { throw Object.assign(new Error(message), { code, status }); }
 export function pkDto(p, origin) {
-  const room = r => ({ roomId: r.roomId, title: r.title, coverImageUrl: roomCoverDto(r, origin).coverImageUrl });
+  const room = r => ({ roomId: r.roomId, title: r.title, coverImageUrl: roomCoverDto(r, origin).coverImageUrl, owner: r.owner ? { publicId: r.owner.publicId, name: r.owner.name, profileImage: avatarDisplayUrl(r.owner.profileImage, origin) } : null });
   return { id: p.id, status: p.status, leftRoomId: p.leftRoom.roomId, rightRoomId: p.rightRoom.roomId,
     leftRoom: room(p.leftRoom), rightRoom: room(p.rightRoom), leftScore: p.leftScore.toString(), rightScore: p.rightScore.toString(),
     revision: p.revision, startedAt: p.startedAt?.toISOString() ?? null, endsAt: p.endsAt?.toISOString() ?? null,

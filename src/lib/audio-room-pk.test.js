@@ -1,10 +1,10 @@
 import { expect, it, vi, afterEach } from 'vitest';
-import { readPk, matchmaking, invitePk, respondPk, pkDto, pkTransition } from './audio-room-pk.js';
+import { readPk, matchmaking, invitePk, respondPk, pkDto, pkTransition, audioPkInclude } from './audio-room-pk.js';
 vi.mock('./realtime.js', () => ({ emitToAudioRoom: vi.fn() }));
 import { emitToAudioRoom } from './realtime.js';
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 function fixture() {
- const rooms = ['A','B','C'].map(x => ({ id:x,roomId:`ROOM-${x}`,ownerId:`u${x}`,title:`Room ${x}`,status:'LIVE',privacyMode:'PUBLIC',isBlocked:false,coverImageUrl:null }));
+ const rooms = ['A','B','C'].map(x => ({ id:x,roomId:`ROOM-${x}`,ownerId:`u${x}`,owner:{publicId:`USR-${x}`,name:`Owner ${x}`,profileImage:"/images/avatar.webp"},title:`Room ${x}`,status:'LIVE',privacyMode:'PUBLIC',isBlocked:false,coverImageUrl:null }));
  const searches=[], battles=[]; let tail=Promise.resolve();
  const matches=(s,w)=>Object.entries(w).every(([k,v])=> k==='ownerId_requestKey' ? s.ownerId===v.ownerId&&s.requestKey===v.requestKey : v && typeof v==='object' ? ('in' in v ? v.in.includes(s[k]) : 'not' in v ? s[k]!==v.not : 'lte' in v ? s[k]<=v.lte : 'gt' in v ? s[k]>v.gt : true) : s[k]===v);
  const tx={
@@ -75,7 +75,8 @@ it('only invited owner accepts; repeat accept preserves five-minute timer',async
 it('exact large scores, public metadata and deterministic winner',()=>{
  const f=fixture(),p={id:'p',status:'LIVE',leftRoomId:'A',rightRoomId:'B',leftRoom:f.rooms[0],rightRoom:f.rooms[1],leftScore:9007199254740999n,rightScore:9007199254740998n,revision:1};
  expect(pkTransition(p,'A','END').winnerRoomId).toBe('ROOM-A');
- const dto=pkDto(p,'https://portal.test');expect(dto.leftScore).toBe('9007199254740999');expect(dto.leftRoom).toEqual({roomId:'ROOM-A',title:'Room A',coverImageUrl:null});
+ const dto=pkDto(p,'https://portal.test');expect(dto.leftScore).toBe('9007199254740999');expect(dto.leftRoom).toEqual({roomId:'ROOM-A',title:'Room A',coverImageUrl:null,owner:{publicId:'USR-A',name:'Owner A',profileImage:'https://portal.test/images/avatar.webp'}});
+ expect(dto.rightRoom.owner.publicId).toBe('USR-B');
  expect(JSON.stringify(dto)).not.toContain('uA');
 });
 
@@ -127,4 +128,12 @@ it('accepted battles remain live after the invitation timeout',async()=>{
  await respondPk(f.db,'uB','ROOM-B',pk.id,'ACCEPT');vi.advanceTimersByTime(6000);
  expect((await readPk(f.db,'uA','ROOM-A')).status).toBe('LIVE');
  expect(emitToAudioRoom).not.toHaveBeenCalled();
+});
+
+it('uses the shared owner select and filters private image schemes',()=>{
+ expect(audioPkInclude.leftRoom.include.owner.select).toEqual({publicId:true,name:true,profileImage:true});
+ expect(audioPkInclude.rightRoom.include.owner.select).toEqual(audioPkInclude.leftRoom.include.owner.select);
+ const f=fixture();f.rooms[0].owner.profileImage='file:///private/photo.jpg';f.rooms[1].owner.profileImage='avatar:default';
+ const dto=pkDto({leftRoom:f.rooms[0],rightRoom:f.rooms[1],leftScore:0n,rightScore:0n},'https://portal.test');
+ expect(dto.leftRoom.owner.profileImage).toBeNull();expect(dto.rightRoom.owner.profileImage).toBe('avatar:default');
 });

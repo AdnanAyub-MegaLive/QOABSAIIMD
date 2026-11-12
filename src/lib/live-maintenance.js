@@ -1,7 +1,7 @@
 import { retryVideoRtcCleanup } from "./video-lifecycle.js";
 import { prisma } from "./prisma.js";
 import { emitToAudioRoom, emitToVideoLive } from "./realtime.js";
-import { pkDto } from "./audio-room-pk.js";
+import { pkDto, audioPkInclude } from "./audio-room-pk.js";
 
 export function pkWinner(leftScore, rightScore, leftId, rightId) {
   const left = BigInt(leftScore), right = BigInt(rightScore);
@@ -52,7 +52,7 @@ export async function reconcileAudioRoomPresence(io, now = new Date()) {
 
 export async function finalizeExpiredPkSessions(now = new Date()) {
   const [audio, video] = await Promise.all([
-    prisma.audioRoomPkSession.findMany({ where: { status: "LIVE", endsAt: { lte: now } }, include: { leftRoom: true, rightRoom: true } }),
+    prisma.audioRoomPkSession.findMany({ where: { status: "LIVE", endsAt: { lte: now } }, include: audioPkInclude }),
     prisma.videoLivePkSession.findMany({ where: { status: "LIVE", endsAt: { lte: now } }, include: { leftSession: true, rightSession: true } }),
   ]);
   for (const pk of audio) {
