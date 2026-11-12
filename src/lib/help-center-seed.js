@@ -28,7 +28,7 @@ export function parseHelpSeed(input) {
 export async function importHelpSeed(db, admin, seed) {
   const parsed = parseHelpSeed(seed);
   return db.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('help-center-editor'))`;
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('help-center-editor'))::text AS locked`;
     const settings = await tx.helpSettings.findUnique({ where: { id: "GLOBAL" } });
     if (settings?.seededAt) return { imported: 0, alreadyImported: true };
     let imported = 0;

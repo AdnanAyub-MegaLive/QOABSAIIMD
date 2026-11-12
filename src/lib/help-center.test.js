@@ -48,6 +48,17 @@ describe("Help Center validation and access", () => {
   });
 });
 describe("Help Center edits and seed", () => {
+  it("returns a Prisma-supported text column from the actual seed lock SQL", async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const db = new PGlite();
+    try {
+      const source = readFileSync(new URL("./help-center-seed.js", import.meta.url), "utf8");
+      const sql = source.match(/SELECT pg_advisory_xact_lock[^`]+/)[0];
+      const result = await db.query(sql);
+      expect(result.fields[0].dataTypeID).toBe(25); // PostgreSQL text, not void (2278).
+      expect(result.rows[0]).toEqual({ locked: "" });
+    } finally { await db.close(); }
+  });
   it("imports all bundled content once with deployment audit attribution", async () => {
     const seed = JSON.parse(readFileSync(new URL("../../prisma/help_center_seed.json", import.meta.url), "utf8"));
     const rows = [], audits = []; let storedSettings = null;

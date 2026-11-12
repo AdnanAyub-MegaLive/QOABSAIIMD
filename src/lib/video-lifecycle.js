@@ -10,7 +10,7 @@ export async function closeVideoRtc(live, db = prisma) {
 }
 export async function endVideoLive(live, admin = null, db = prisma) {
   const row = await db.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))`;
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))::text AS locked`;
     await tx.$queryRaw`SELECT id FROM "VideoLiveSession" WHERE id = ${live.id} FOR UPDATE`;
     await tx.videoLiveSession.updateMany({ where: { id: live.id, status: "LIVE" }, data: { status: "ENDED", endedAt: new Date(), viewerCount: 0, revision: { increment: 1 } } });
     await tx.videoLiveViewer.updateMany({ where: { sessionId: live.id }, data: { active: false, socketCount: 0 } });

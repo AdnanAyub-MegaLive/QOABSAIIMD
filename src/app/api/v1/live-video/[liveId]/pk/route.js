@@ -20,7 +20,7 @@ export async function POST(request,{params}) {
     const user=await requireMobileUser(request),{liveId}=await params,body=await request.json(),mode=videoPkMode(body.mode);
     await finalizeExpiredPkSessions();
     const p=await prisma.$transaction(async tx=>{
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))::text AS locked`;
       const left=await tx.videoLiveSession.findUnique({where:{publicId:liveId}}),right=await tx.videoLiveSession.findUnique({where:{publicId:String(body.opponentLiveId||"")}});
       if(!left||left.status!=="LIVE"||left.hostId!==user.id)throw videoError("LIVE_HOST_REQUIRED","Only a live host can invite an opponent.");
       if(!right||right.status!=="LIVE"||right.id===left.id||right.hostId===left.hostId)throw videoError("LIVE_NOT_FOUND","Opponent not available.",404);
@@ -38,7 +38,7 @@ export async function PATCH(request,{params}) {
   try {
     const user=await requireMobileUser(request),{liveId}=await params,body=await request.json();
     const updated=await prisma.$transaction(async tx=>{
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))::text AS locked`;
       const live=await tx.videoLiveSession.findUnique({where:{publicId:liveId}});
       if(!live||live.hostId!==user.id||live.status!=="LIVE")throw videoError("LIVE_HOST_REQUIRED","Only a live host can change PK.");
       const p=await tx.videoLivePkSession.findFirst({where:{id:String(body.pkId||""),OR:[{leftSessionId:live.id},{rightSessionId:live.id}]},include:{leftSession:true,rightSession:true}});

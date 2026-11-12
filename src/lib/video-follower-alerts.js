@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 export async function notifyLiveFollowers(db, live) {
   return db.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`video-alert:${live.hostId}`}))`;
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`video-alert:${live.hostId}`}))::text AS locked`;
     const previous = await tx.videoLiveAlertCooldown.findUnique({ where: { hostId: live.hostId } });
     const now = new Date();
     if (previous && +now - +previous.sentAt < 30 * 60 * 1000) return 0;

@@ -13,7 +13,7 @@ export async function videoPkQueue(db, user, liveId, body) {
   const mode = videoPkMode(body.mode), action = String(body.action || "JOIN").toUpperCase();
   if (!["JOIN", "LEAVE"].includes(action)) throw videoError("VALIDATION_ERROR", "Use JOIN or LEAVE.", 422);
   const result = await db.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))`;
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))::text AS locked`;
     const live = await tx.videoLiveSession.findUnique({ where: { publicId: liveId } });
     if (!live || live.hostId !== user.id || live.status !== "LIVE") throw videoError("LIVE_HOST_REQUIRED", "Only a live host can join the PK queue.");
     if (action === "LEAVE") { await tx.videoLivePkQueue.deleteMany({ where: { sessionId: live.id } }); return { status: "LEFT", mode }; }

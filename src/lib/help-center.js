@@ -53,7 +53,7 @@ async function audit(tx, admin, action, entityId, before, after) {
 }
 export async function mutateHelp(db, admin, input) {
   return db.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('help-center-editor'))`;
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('help-center-editor'))::text AS locked`;
     const now = new Date();
     let result;
     if (input.action === "SAVE_ENTRY") {
