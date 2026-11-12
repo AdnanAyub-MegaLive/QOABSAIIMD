@@ -1,3 +1,4 @@
+import { googleRechargeProductDto } from "@/lib/google-recharge-price";
 import { prisma } from "@/lib/prisma";
 import { requireMobileUser, mobileApiError, mobileJson, mobileOptions } from "@/lib/mobile-api";
 import { billingAccountId, creditGoogleRecharge } from "@/lib/google-recharge";
@@ -6,7 +7,7 @@ export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
     const rows = await prisma.googleRechargeProduct.findMany({where:{active:true},orderBy:{coins:"asc"}});
-    return mobileJson({success:true,data:{obfuscatedAccountId:billingAccountId(user.id),products:rows.map(p=>({productId:p.productId,coins:p.coins.toString()}))}});
+    return mobileJson({success:true,data:{obfuscatedAccountId:billingAccountId(user.id),products:rows.map(googleRechargeProductDto)}});
   } catch (error) { return mobileApiError(error,"RECHARGE_CATALOG_FAILED"); }
 }
 export async function POST(request) {

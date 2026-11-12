@@ -3167,6 +3167,7 @@ model CpLevelClaim {
 model GoogleRechargeProduct {
  productId String @id
  coins BigInt
+ priceUsd Decimal? @db.Decimal(10, 2)
  active Boolean @default(true)
  receipts GoogleRechargeReceipt[]
 }
