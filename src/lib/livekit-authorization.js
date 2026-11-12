@@ -126,3 +126,10 @@ export async function removeLiveKitParticipant(roomId, userId) {
     throw error;
   }
 }
+
+export async function deleteLiveKitRoom(roomId) {
+  const { url, apiKey, apiSecret } = liveKitConfiguration();
+  const client = new RoomServiceClient(serviceUrl(url), apiKey, apiSecret);
+  try { await client.deleteRoom(String(roomId)); }
+  catch (error) { if (![404, 5].includes(error?.status ?? error?.code)) throw error; }
+}

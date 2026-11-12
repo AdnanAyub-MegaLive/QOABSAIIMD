@@ -38,6 +38,14 @@ it("does not expose internal recipient or source keys", () => {
   const dto=notificationDto({publicId:"NOT-1",userId:"private",sourceKey:"private:key",createdAt:new Date()});
   expect(dto).not.toHaveProperty("userId");expect(dto).not.toHaveProperty("sourceKey");
 });
+it("delivers the follower live event alongside the existing inbox notification", async () => {
+  const action={liveId:"LIVE-1",host:{publicId:"TLN-1"},title:"Live",coverUrl:null};
+  const row={id:"n",publicId:"NOT-1",userId:"u",user:{publicId:"USR-2",status:"ACTIVE"},type:"LIVE_FOLLOWED_STARTED",action,createdAt:new Date()};
+  const emit=vi.fn(),db={notification:{findMany:async()=>[row],update:vi.fn()}};
+  db.$transaction=fn=>fn({...db,$queryRaw:async()=>[],notification:{...db.notification,findUnique:async()=>({})}});
+  await dispatchNotifications(db,{to:()=>({emit})});
+  expect(emit).toHaveBeenCalledWith("live-video:followed-started",action);
+});
 it("scopes inbox visibility and validates pagination", () => {
   expect(inboxWhere("u")).toEqual({retractedAt:null,OR:[{userId:null},{userId:"u"}]});
   expect(notificationPage(new URL("https://example.com")).limit).toBe(50);

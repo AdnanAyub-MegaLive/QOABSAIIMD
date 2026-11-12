@@ -92,6 +92,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (["AGENCY_SELECTION_REQUIRED","AGENCY_NOT_FOUND"].includes(error?.code) && error.status) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
+  if (error?.status >= 400 && error.status < 500 && /^(KYC_|LIVE_FOLLOW_REQUIRED|LIVE_INVITE_REQUIRED)/.test(error.code || "")) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   const known = {
     HOST_SALARY_LEVEL_REQUIRED:[403,"HOST_SALARY_LEVEL_REQUIRED","Reach Host Salary Level 1 this cycle before withdrawing or transferring diamonds."],
     CP_GIFT_RELATIONSHIP_REQUIRED: [403, "CP_GIFT_RELATIONSHIP_REQUIRED", "CP Gifts require you and every recipient to have an active CP relationship."],

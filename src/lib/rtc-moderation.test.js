@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(()=>({remove:vi.fn(),emit:vi.fn()}));
+const mocks = vi.hoisted(()=>({remove:vi.fn(),dismiss:vi.fn(),emit:vi.fn()}));
 vi.mock("./prisma.js",()=>({prisma:{audioRoom:{findUnique:async()=>null}}}));
 vi.mock("./audio-room-management.js",()=>({activeRoomBan:async()=>null}));
-vi.mock("tencentcloud-sdk-nodejs-trtc",()=>({trtc:{v20190722:{Client:class { RemoveUserByStrRoomId(input){return mocks.remove(input);} }}}}));
-import { removeRtcParticipant, updateRtcPublishPermission } from "./rtc-moderation.js";
+vi.mock("tencentcloud-sdk-nodejs-trtc",()=>({trtc:{v20190722:{Client:class { RemoveUserByStrRoomId(input){return mocks.remove(input);} DismissRoomByStrRoomId(input){return mocks.dismiss(input);} }}}}));
+import { dismissRtcRoom, removeRtcParticipant, updateRtcPublishPermission } from "./rtc-moderation.js";
 beforeEach(()=>{
   vi.clearAllMocks(); vi.stubEnv("RTC_PROVIDER","TRTC"); vi.stubEnv("TRTC_SDK_APP_ID","20044231");
   vi.stubEnv("TENCENT_CLOUD_SECRET_ID","test"); vi.stubEnv("TENCENT_CLOUD_SECRET_KEY","test");
@@ -23,3 +23,5 @@ it("does not silently succeed when cloud credentials are missing",async()=>{
   vi.stubEnv("TENCENT_CLOUD_SECRET_ID","");
   await expect(removeRtcParticipant("ROOM-1","USR-1")).rejects.toThrow("TRTC_CLOUD_NOT_CONFIGURED");
 });
+
+it("dismisses the video string room through TRTC",async()=>{await dismissRtcRoom("video-LIVE-1");expect(mocks.dismiss).toHaveBeenCalledWith({SdkAppId:20044231,RoomId:"video-LIVE-1"});});

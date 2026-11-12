@@ -21,14 +21,14 @@ it("accepts only the caller's portal upload URLs", async () => {
   await expect(validateLiveCover(path, "u", "https://portal.test", db)).rejects.toThrow();
 });
 it("reserves invitation slots alongside approved guests", async () => {
-  const tx = { videoLiveGuestRequest: { findMany: vi.fn(async () => [{ slot: 1 }, { slot: 2 }, { slot: 3 }]) } };
+  const tx = { videoLiveSession: { findUnique: async () => ({mode:"SOLO"}) }, videoLiveGuestRequest: { findMany: vi.fn(async () => [{ slot: 1 }, { slot: 2 }, { slot: 3 }]) } };
   expect(await freeGuestSlot(tx, "live")).toBe(4);
   expect(tx.videoLiveGuestRequest.findMany.mock.calls[0][0].where.OR[1]).toMatchObject({ status: "INVITED" });
   tx.videoLiveGuestRequest.findMany.mockResolvedValue([1, 2, 3, 4].map(slot => ({ slot })));
   await expect(freeGuestSlot(tx, "live")).rejects.toThrow("GUEST_SLOTS_FULL");
 });
 it("rejects expired or another user's invite", async () => {
-  const tx = { videoLiveSession: { findUnique: async () => ({ id: "s", status: "LIVE" }) }, videoLiveBan: { findFirst: async () => null }, videoLiveGuestRequest: { findFirst: vi.fn(async () => null) } };
+  const tx = { userBlock: { findFirst: async () => null }, videoLiveSession: { findUnique: async () => ({ id: "s", hostId:"host", status: "LIVE", privacyMode:"PUBLIC" }) }, videoLiveBan: { findFirst: async () => null }, videoLiveGuestRequest: { findFirst: vi.fn(async () => null) } };
   await expect(respondVideoInvite("LIVE-1", "user", true, { $transaction: work => work(tx) })).rejects.toThrow("GUEST_REQUEST_UNAVAILABLE");
   expect(tx.videoLiveGuestRequest.findFirst.mock.calls[0][0].where).toMatchObject({ userId: "user", status: "INVITED", expiresAt: { gt: expect.any(Date) } });
 });

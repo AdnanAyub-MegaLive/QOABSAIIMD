@@ -285,6 +285,7 @@ model AuditLog {
 }
 
 model User {
+  kycSubmissions TalentVerification[]
   googleRechargeReceipts GoogleRechargeReceipt[]
   prettyIdGrants PrettyIdGrant[]
   newUserRewardClaims NewUserRewardClaim[]
@@ -775,6 +776,14 @@ model VideoLiveCover {
 }
 
 model VideoLiveSession {
+  announcement String?
+  category String @default("CHAT")
+  privacyMode String @default("PUBLIC")
+  mode String @default("SOLO")
+  rtcClosedAt DateTime?
+  invites VideoLiveInvite[]
+  pkQueue VideoLivePkQueue?
+
   liveRuleVersion Int @default(0)
   rewardTargetCoins BigInt @default(0)
   targetRewardCoins BigInt @default(0)
@@ -809,6 +818,7 @@ model VideoLiveSession {
 }
 
 model VideoLivePkSession {
+  mode String @default("1V1")
   id             String           @id
   leftSessionId  String
   rightSessionId String
@@ -2200,8 +2210,10 @@ model ManagementWebSession {
 }
 
 model TalentVerification {
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
   id                String             @id @default(cuid())
-  talentId          String
+  talentId          String?
   reviewedById      String?
   status            VerificationStatus @default(PENDING)
   identityCardFront String?
@@ -2211,10 +2223,11 @@ model TalentVerification {
   rejectionReason   String?
   submittedAt       DateTime           @default(now())
   reviewedAt        DateTime?
-  talent            Talent             @relation(fields: [talentId], references: [id], onDelete: Cascade)
+  talent            Talent?            @relation(fields: [talentId], references: [id], onDelete: Cascade)
   reviewedBy        Admin?             @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([status, submittedAt])
+  @@index([userId, submittedAt])
 }
 
 model SalaryHistory {
@@ -3197,4 +3210,29 @@ model RoomRocketCredit {
   senderId String
   coins BigInt
   @@index([campaignId, roomId, seq])
+}
+
+model VideoLiveInvite {
+  sessionId String
+  userId String
+  createdAt DateTime @default(now())
+  session VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  @@id([sessionId, userId])
+}
+model VideoLivePkQueue {
+  sessionId String @id
+  mode String @default("1V1")
+  queuedAt DateTime @default(now())
+  expiresAt DateTime
+  session VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+model VideoLiveAlertCooldown {
+  hostId String @id
+  sentAt DateTime
+}
+model KycImage {
+  id String @id @default(cuid())
+  data Bytes
+  mimeType String @default("image/webp")
+  createdAt DateTime @default(now())
 }

@@ -1,3 +1,4 @@
+import { requireVideoAccess } from "./video-access.js";
 import { randomUUID } from "node:crypto";
 import { prisma } from "./prisma.js";
 const fail = code => { throw new Error(code); };
@@ -6,11 +7,13 @@ export async function liveGuestAccess(tx, liveId, userId) {
   if (!live || live.status !== "LIVE") fail("LIVE_NOT_FOUND");
   const ban = await tx.videoLiveBan.findFirst({ where: { sessionId: live.id, userId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } });
   if (ban) fail("LIVE_BANNED");
+  await requireVideoAccess(tx,live,userId);
   return live;
 }
 export async function freeGuestSlot(tx, sessionId, now = new Date()) {
   const used = await tx.videoLiveGuestRequest.findMany({ where: { sessionId, OR: [{ status: "APPROVED" }, { status: "INVITED", expiresAt: { gt: now } }] }, select: { slot: true } });
-  const slot = [1, 2, 3, 4].find(n => !used.some(r => r.slot === n));
+  const live = await tx.videoLiveSession.findUnique({where:{id:sessionId},select:{mode:true}});
+  const slot = Array.from({length:live?.mode==="GROUP"?8:4},(_,i)=>i+1).find(n => !used.some(r => r.slot === n));
   if (!slot) fail("GUEST_SLOTS_FULL");
   return slot;
 }
@@ -20,6 +23,7 @@ export async function inviteVideoGuest(liveId, hostId, publicId, db = prisma) {
     if (live.hostId !== hostId) fail("LIVE_HOST_REQUIRED");
     const user = await tx.user.findUnique({ where: { publicId } });
     if (!user || user.status !== "ACTIVE" || user.deletedAt || user.id === hostId) fail("GUEST_REQUEST_UNAVAILABLE");
+    await tx.videoLiveInvite.upsert({where:{sessionId_userId:{sessionId:live.id,userId:user.id}},create:{sessionId:live.id,userId:user.id},update:{}});
     await liveGuestAccess(tx, liveId, user.id);
     const now = new Date();
     const existing = await tx.videoLiveGuestRequest.findFirst({ where: { sessionId: live.id, userId: user.id, OR: [{ status: "APPROVED" }, { status: "INVITED", expiresAt: { gt: now } }] } });

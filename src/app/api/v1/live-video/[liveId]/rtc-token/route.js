@@ -1,3 +1,4 @@
+import { requireVideoAccess } from "@/lib/video-access";
 import { prisma } from "@/lib/prisma";
 import { requireVerifiedLiveHost } from "@/lib/live-host-policy";
 import { requireRtcMembership } from "@/lib/rtc-access";
@@ -18,6 +19,7 @@ export async function POST(request, context) {
       if (!row || row.status !== "LIVE") throw new Error("LIVE_NOT_FOUND");
       const ban = await prisma.videoLiveBan.findFirst({ where: { sessionId: row.id, userId: user.id, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } });
       if (ban) throw new Error("LIVE_BANNED");
+      await requireVideoAccess(prisma,row,user.id);
       await requireRtcMembership(user, `live-video:${liveId}`);
       if (row.hostId === user.id) await requireVerifiedLiveHost(user.id);
       const canPublish = row.hostId === user.id || row.guestRequests.length > 0;

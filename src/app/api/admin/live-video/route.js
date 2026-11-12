@@ -1,7 +1,8 @@
 import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
-import { emitToVideoLive } from "@/lib/realtime";
+import { endVideoLive } from "@/lib/video-lifecycle";
+import { sameOrigin } from "@/lib/game-control/http";
 
 export async function GET(request) {
   const permissionDenied = await portalPermissionError("video.view");
@@ -38,12 +39,9 @@ export async function PATCH(request) {
   if (body?.action !== "END") return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Unsupported live-video action." } }, { status: 422 });
   const row = await prisma.videoLiveSession.findUnique({ where: { publicId: String(body.liveId ?? "") } });
   if (!row) return Response.json({ success: false, error: { code: "LIVE_NOT_FOUND", message: "Live video not found." } }, { status: 404 });
-  const updated = await prisma.$transaction(async (tx) => {
-    const result = await tx.videoLiveSession.update({ where: { id: row.id }, data: { status: "ENDED", endedAt: new Date(), viewerCount: 0, revision: { increment: 1 } } });
-    await tx.videoLiveViewer.updateMany({ where: { sessionId: row.id, active: true }, data: { active: false, socketCount: 0 } });
-    await tx.auditLog.create({ data: { adminId: admin.id, action: "VIDEO_LIVE_ENDED", category: "CONTENT_MANAGEMENT", entityType: "VideoLiveSession", entityId: row.publicId, description: `${admin.name} ended video live ${row.publicId}.` } });
-    return result;
-  });
-  emitToVideoLive(row.publicId, "live-video:ended", { success: true, data: { liveId: row.publicId, status: "ENDED", endedAt: updated.endedAt.toISOString(), revision: updated.revision } });
-  return Response.json({ success: true, data: { liveId: row.publicId, status: updated.status } });
+  try {
+    sameOrigin(request);
+    const updated = await endVideoLive(row, admin);
+    return Response.json({ success: true, data: { liveId: row.publicId, status: updated.status } });
+  } catch (error) { return Response.json({success:false,error:{message:"Unable to complete live cleanup. Retry the action."}},{status:error.status||503}); }
 }

@@ -1,3 +1,4 @@
+import { retryVideoRtcCleanup } from "./video-lifecycle.js";
 import { prisma } from "./prisma.js";
 import { emitToAudioRoom, emitToVideoLive } from "./realtime.js";
 import { pkDto } from "./audio-room-pk.js";
@@ -62,13 +63,14 @@ export async function finalizeExpiredPkSessions(now = new Date()) {
   for (const pk of video) {
     const winnerLiveId = pkWinner(pk.leftScore, pk.rightScore, pk.leftSession.publicId, pk.rightSession.publicId);
     const updated = await prisma.videoLivePkSession.updateMany({ where: { id: pk.id, status: "LIVE" }, data: { status: "ENDED", endedAt: now, winnerLiveId, revision: { increment: 1 } } });
-    if (updated.count) { const data = { id: pk.id, status: "ENDED", leftLiveId: pk.leftSession.publicId, rightLiveId: pk.rightSession.publicId, leftScore: pk.leftScore.toString(), rightScore: pk.rightScore.toString(), winnerLiveId, endedAt: now.toISOString(), revision: pk.revision + 1 }; emitToVideoLive(pk.leftSession.publicId, "live-video:pk-changed", { success: true, data }); emitToVideoLive(pk.rightSession.publicId, "live-video:pk-changed", { success: true, data }); }
+    if (updated.count) { const data = { id: pk.id, mode: pk.mode || "1V1", status: "ENDED", leftLiveId: pk.leftSession.publicId, rightLiveId: pk.rightSession.publicId, leftScore: pk.leftScore.toString(), rightScore: pk.rightScore.toString(), winnerLiveId, endedAt: now.toISOString(), revision: pk.revision + 1 }; emitToVideoLive(pk.leftSession.publicId, "live-video:pk-changed", { success: true, data }); emitToVideoLive(pk.rightSession.publicId, "live-video:pk-changed", { success: true, data }); }
   }
   return { audio: audio.length, video: video.length };
 }
 
 export async function reconcileStaleVideoPresence(now = new Date(), staleMs = 90_000) {
   await endStaleVideoLives(now, staleMs);
+  await retryVideoRtcCleanup();
   const cutoff = new Date(now.getTime() - staleMs);
   await prisma.videoLiveViewer.updateMany({ where: { active: true, socketCount: 0, lastSeenAt: { lt: cutoff } }, data: { active: false } });
   const lives = await prisma.videoLiveSession.findMany({ where: { status: "LIVE" }, select: { id: true, publicId: true, viewerCount: true } });

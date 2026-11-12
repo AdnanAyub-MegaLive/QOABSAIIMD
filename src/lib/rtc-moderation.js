@@ -4,7 +4,20 @@ import { prisma } from "./prisma.js";
 import { activeRoomBan } from "./audio-room-management.js";
 import { permissionTransitions } from "./rtc-permission-transitions.js";
 const transitions = permissionTransitions();
-import { removeLiveKitParticipant, updateLiveKitPublishPermission } from "./livekit-authorization.js";
+import { removeLiveKitParticipant, updateLiveKitPublishPermission, deleteLiveKitRoom } from "./livekit-authorization.js";
+
+export async function dismissRtcRoom(roomId) {
+  if (rtcProvider() === "LIVEKIT") return deleteLiveKitRoom(roomId);
+  const secretId = process.env.TENCENT_CLOUD_SECRET_ID, secretKey = process.env.TENCENT_CLOUD_SECRET_KEY;
+  if (!secretId || !secretKey) throw new Error("TRTC_CLOUD_NOT_CONFIGURED");
+  const client = new trtc.v20190722.Client({ credential: { secretId, secretKey }, region: process.env.TRTC_REGION || "ap-singapore", profile: { httpProfile: { endpoint: "trtc.intl.tencentcloudapi.com", reqTimeout: 10 } } });
+  try { await client.DismissRoomByStrRoomId({ SdkAppId: Number(process.env.TRTC_SDK_APP_ID), RoomId: String(roomId) }); }
+  catch (error) {
+    if (error?.code === "ResourceNotFound.RoomNotExist") return;
+    console.error("TRTC room dismissal failed", { code: error?.code, requestId: error?.requestId });
+    throw new Error("RTC_MODERATION_FAILED");
+  }
+}
 
 async function removeTrtcParticipant(roomId, userId) {
   const secretId = process.env.TENCENT_CLOUD_SECRET_ID;

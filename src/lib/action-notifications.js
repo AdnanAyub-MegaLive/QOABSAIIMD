@@ -37,6 +37,7 @@ export async function dispatchNotifications(db, io) {
       // Resolve the current public ID, including USR/TLN transitions.
       if (row.userId === null) io.emit("notification:new", notificationDto(row));
       else if (row.user?.status === "ACTIVE" && !row.user.deletedAt) io.to(`user:${row.user.publicId}`).emit("notification:new", notificationDto(row));
+      if (row.type === "LIVE_FOLLOWED_STARTED" && row.user?.status === "ACTIVE" && !row.user.deletedAt) io.to(`user:${row.user.publicId}`).emit("live-video:followed-started", row.action);
       await tx.notification.update({ where: { id: row.id }, data: { deliveredAt: new Date() } });
       });
     }
