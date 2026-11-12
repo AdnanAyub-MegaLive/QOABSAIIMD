@@ -1,0 +1,82 @@
+{
+  "sourceUpdated": "29 October 2026",
+  "supportEmail": "support@megalive.live",
+  "faqs": [
+    { "question": "What are Coins?", "answer": "Coins are the in-app currency you use to send gifts, play games, buy items in the Shop and join paid features. You can top up Coins from the Wallet or buy them from an official reseller in your country." },
+    { "question": "What are Diamonds?", "answer": "Diamonds are what you receive when other users send you gifts. You can see them under My Wallet. Depending on your account, you can exchange Diamonds for Coins, transfer them, or request a withdrawal." },
+    { "question": "Why can't I exchange my Diamonds?", "answer": "Exchange depends on your account and the platform's current rules. If exchange is unavailable, the Wallet shows the reason. Common reasons are a balance below the minimum, a daily or monthly limit, or exchange being paused by the platform." },
+    { "question": "Who can withdraw Diamonds?", "answer": "Withdrawals are available to eligible accounts, such as hosts in an active agency and accounts with an official role. Ordinary users can exchange Diamonds for Coins instead. Your Wallet shows whether withdrawal is available to you." },
+    { "question": "How do lucky gifts work?", "answer": "A lucky gift is a normal gift that can also return Coins to the sender. Each tap is a separate send, and any return is decided by the server and added to your Coins automatically. Returns are never guaranteed." },
+    { "question": "How do I join or create a room?", "answer": "Open the Party or Hot tab and tap any room card to join it. To create your own room, tap the + button at the bottom of the Home screen." },
+    { "question": "How do I get on a seat in a room?", "answer": "Tap an empty seat to take it. If the seat is locked, you can request the mic, and the host or a room admin can invite you." },
+    { "question": "Why can't I send a message in a room?", "answer": "The host may have locked the room chat. When chat is locked, only the owner and users on seats can send messages." },
+    { "question": "How do I block someone?", "answer": "Open their profile, tap the options button and choose Block. Blocked users can't message you. You can see and remove blocked users in Settings under Blacklist." },
+    { "question": "How do I report a user or a room?", "answer": "Open the user's profile or the room's menu and choose Report. Pick a reason and add details. Our team reviews every report." },
+    { "question": "What is VIP?", "answer": "VIP is a membership that unlocks extra perks such as special badges and decorations. Open VIP Membership on the Me page to see your status and the available levels." },
+    { "question": "I sent a gift but it didn't arrive. What should I do?", "answer": "Gifts can take a few seconds to settle during busy moments. Check your Wallet history first. If the Coins were deducted but the gift never arrived, contact support through Live Chat with the time of the gift." },
+    { "question": "How do I change my profile?", "answer": "Go to Me, open your profile and tap the edit button. You can change your name, photo, bio and cover photos. New cover photos may need review before others can see them." }
+  ],
+  "guides": [
+    { "slug": "guide-start", "icon": "🚀", "title": "Getting started", "summary": "Set up your profile and find your first room", "sections": [
+      { "heading": "Set up your profile", "body": "Add a profile photo, a name and a short bio so others know who you are. You can also add cover photos and equip decorations from My Props." },
+      { "heading": "Find a room", "body": "The Party and Hot tabs show live rooms. Use the region chips to find rooms near you, or search by room or user ID." },
+      { "heading": "Say hello", "body": "Once you join a room, use the chat box at the bottom to talk with everyone, or take an empty seat to speak on the mic." }
+    ] },
+    { "slug": "guide-rooms", "icon": "🎙️", "title": "Using audio rooms", "summary": "Seats, mic, chat and room tools", "sections": [
+      { "heading": "Seats and mic", "body": "Tap an empty seat to sit down. Use the mic button at the bottom to mute or unmute yourself. Long-press your own seat to leave it." },
+      { "heading": "Mentioning someone", "body": "Long-press another person's seat to start a chat message that mentions them." },
+      { "heading": "Keeping a room open", "body": "When you leave the room screen, the room can keep running in the background. A floating icon lets you return, and the notification lets you mute or exit." },
+      { "heading": "Room owners and admins", "body": "Owners and admins can lock seats, manage the chat, invite people to seats and play music for the room." }
+    ] },
+    { "slug": "guide-gifts", "icon": "🎁", "title": "Sending gifts", "summary": "Gifts, combos and lucky gifts", "sections": [
+      { "heading": "Send a gift", "body": "Tap the gift button, choose a gift and the people on seats you want to send it to, then tap Send Gift. The cost is taken from your Coins." },
+      { "heading": "Combos", "body": "After sending, a Combo button appears. Each tap sends the same gift again. The combo ends three seconds after your last tap." },
+      { "heading": "Lucky gifts", "body": "Lucky gifts can return Coins to the sender. Any return is shown on screen and added to your Coins automatically." }
+    ] },
+    { "slug": "guide-wallet", "icon": "💰", "title": "Your wallet", "summary": "Coins, Diamonds, exchange and history", "sections": [
+      { "heading": "Coins", "body": "Top up Coins from the Wallet or buy them from an official reseller. Coins are used for gifts, games and the Shop." },
+      { "heading": "Diamonds", "body": "You receive Diamonds when people send you gifts. Open View earnings to see your Diamonds and what you can do with them." },
+      { "heading": "History", "body": "Every Coin and Diamond movement is listed in your Wallet history. Use the search box to find a specific record." }
+    ] },
+    { "slug": "guide-privacy", "icon": "🔒", "title": "Privacy and blocking", "summary": "Control who can reach you", "sections": [
+      { "heading": "Blocking", "body": "Block anyone from their profile. Blocked users can't message you, and you can unblock them later from Settings, Blacklist." },
+      { "heading": "Messages", "body": "Private messages are only visible to you and the other person. Don't share personal details you want to keep private." }
+    ] }
+  ],
+  "safety": { "slug": "safety", "icon": "🛡️", "title": "Safety tips", "summary": "Stay safe while you chat and play", "sections": [
+    { "heading": "Protect your account", "body": "Never share your password, verification codes or login details with anyone, including people who say they are staff. Our team will never ask for your password." },
+    { "heading": "Beware of scams", "body": "Be careful with offers of free Coins, cheap top-ups outside official resellers, or requests to send money. Only buy Coins from the Wallet or an official reseller." },
+    { "heading": "Keep personal details private", "body": "Avoid sharing your phone number, address, bank details or other personal information in rooms or private messages." },
+    { "heading": "Meeting people", "body": "People online may not be who they say they are. Think carefully before meeting anyone in person, and if you do, meet in a public place and tell someone you trust." },
+    { "heading": "Use block and report", "body": "If someone makes you uncomfortable, block them and report them. Reports are reviewed by our team." },
+    { "heading": "Young users", "body": "If you are under the minimum age for this app, please don't use it. Parents can contact support if they have concerns." }
+  ] },
+  "policies": [
+    { "slug": "privacy", "icon": "🔒", "title": "Privacy Policy", "summary": "How we collect, use and protect your data", "sections": [
+      { "heading": "Information we collect", "body": "We collect the information you give us, such as your name, profile photo, country, date of birth and the content you post. We also collect information about how you use the app, such as rooms you join, gifts you send and receive, and your device and connection details." },
+      { "heading": "How we use your information", "body": "We use your information to run the app, show your profile to others, process Coins, gifts and wallet activity, keep the community safe, prevent fraud, and improve our services." },
+      { "heading": "What others can see", "body": "Your public profile, such as your name, photo, level, badges and decorations, can be seen by other users. Private messages are only shared between you and the other person." },
+      { "heading": "Sharing", "body": "We don't sell your personal information. We share it only with service providers who help us run the app, when required by law, or to protect our users and platform." },
+      { "heading": "Keeping your data safe", "body": "We use security measures such as encrypted connections and encrypted storage on your device to protect your information." },
+      { "heading": "Your choices", "body": "You can edit your profile at any time, block other users, and contact support to ask about your data or to request account deletion." },
+      { "heading": "Changes", "body": "We may update this policy from time to time. We'll show the date of the latest update on this page." }
+    ] },
+    { "slug": "community", "icon": "📋", "title": "Community Guidelines", "summary": "Rules for a safe and fun community", "sections": [
+      { "heading": "Be respectful", "body": "Treat everyone with respect. Harassment, bullying, hate speech and threats are not allowed in rooms, chats or private messages." },
+      { "heading": "No sexual or violent content", "body": "Don't share sexual, violent or shocking content, including in profile photos, cover photos, room covers and posts." },
+      { "heading": "No scams or fraud", "body": "Don't scam other users, sell Coins outside official channels, or ask people for money or personal details." },
+      { "heading": "Protect minors", "body": "Content or behaviour that puts minors at risk is strictly forbidden and will be reported to the authorities where required." },
+      { "heading": "No spam", "body": "Don't flood rooms or messages, advertise without permission, or use fake accounts." },
+      { "heading": "Respect privacy", "body": "Don't share other people's personal information or private messages without their permission." },
+      { "heading": "Enforcement", "body": "Breaking these rules can lead to content removal, chat or room restrictions, or account suspension. Use Report to tell us about anything that breaks these rules." }
+    ] },
+    { "slug": "refund", "icon": "🔐", "title": "Refund & Cancellation Policy", "summary": "Learn about refunds and cancellations", "sections": [
+      { "heading": "Coin purchases", "body": "Coins are credited to your account as soon as a purchase is confirmed. Because Coins are a digital item delivered immediately, completed purchases are generally final." },
+      { "heading": "When we can help", "body": "If you were charged but didn't receive your Coins, you were charged more than once, or a purchase failed, contact support through Live Chat with the payment details and time. We'll review it and correct any confirmed error." },
+      { "heading": "Gifts and in-app items", "body": "Gifts that have been sent, and items bought in the Shop, are used immediately and can't be cancelled or refunded." },
+      { "heading": "VIP and subscriptions", "body": "VIP membership starts as soon as it's activated and stays active until it ends. You can choose not to renew it." },
+      { "heading": "Reseller purchases", "body": "Coins bought from an official reseller are handled through that reseller. Contact the reseller first, then our support team if the issue isn't resolved." },
+      { "heading": "Accounts closed for rule breaking", "body": "If an account is suspended for breaking the Community Guidelines, remaining Coins, Diamonds and items may not be refunded." }
+    ] }
+  ]
+}

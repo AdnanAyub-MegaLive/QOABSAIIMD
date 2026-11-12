@@ -37,11 +37,11 @@ export async function importHelpSeed(db, admin, seed) {
       if (before) continue; // Never overwrite Portal edits on import/retry.
       if (data.type === "SAFETY" && data.published && await tx.helpEntry.findFirst({ where: { type: "SAFETY", published: true, language: data.language } })) throw helpError("A different Safety article already exists. Review before importing.");
       const entry = await tx.helpEntry.create({ data: { ...data, updatedById: admin.id } });
-      await tx.auditLog.create({ data: { adminId: admin.id, action: "HELP_ENTRY_SEEDED", category: "CONTENT_MANAGEMENT", entityType: "HelpCenter", entityId: entry.id, description: "Imported original app Help Center content.", metadata: { before: null, after: JSON.parse(JSON.stringify(entry)) } } });
+      await tx.auditLog.create({ data: { adminId: admin.id, action: "HELP_ENTRY_SEEDED", category: "CONTENT_MANAGEMENT", entityType: "HelpCenter", entityId: entry.id, description: "Imported original app Help Center content.", metadata: { source: admin.source || "admin-import", before: null, after: JSON.parse(JSON.stringify(entry)) } } });
       imported++;
     }
     const after = await tx.helpSettings.upsert({ where: { id: "GLOBAL" }, create: { ...parsed.settings, seededAt: new Date(), updatedById: admin.id }, update: { seededAt: new Date(), updatedById: admin.id } });
-    await tx.auditLog.create({ data: { adminId: admin.id, action: "HELP_SEED_IMPORTED", category: "CONTENT_MANAGEMENT", entityType: "HelpCenter", entityId: "GLOBAL", description: "Completed one-time Help Center import.", metadata: JSON.parse(JSON.stringify({ before: settings, after, imported })) } });
+    await tx.auditLog.create({ data: { adminId: admin.id, action: "HELP_SEED_IMPORTED", category: "CONTENT_MANAGEMENT", entityType: "HelpCenter", entityId: "GLOBAL", description: "Completed one-time Help Center import.", metadata: JSON.parse(JSON.stringify({ source: admin.source || "admin-import", before: settings, after, imported })) } });
     return { imported, skipped: parsed.entries.length - imported, alreadyImported: false };
   }, { timeout: 30000 });
 }

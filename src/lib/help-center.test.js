@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { helpDefaults, helpEntrySchema, publicHelp, helpResponse, mutateHelp } from "./help-center.js";
 import { parseHelpSeed, importHelpSeed } from "./help-center-seed.js";
 import { hasPermission, validatePermissions, permissionForPage } from "./portal-permissions.js";
@@ -47,6 +48,30 @@ describe("Help Center validation and access", () => {
   });
 });
 describe("Help Center edits and seed", () => {
+  it("imports all bundled content once with deployment audit attribution", async () => {
+    const seed = JSON.parse(readFileSync(new URL("../../prisma/help_center_seed.json", import.meta.url), "utf8"));
+    const rows = [], audits = []; let storedSettings = null;
+    const tx = { $queryRaw: vi.fn(), helpEntry: {
+      findUnique: async ({ where }) => rows.find(e => e.slug === where.slug_language.slug && e.language === where.slug_language.language),
+      findFirst: async () => null,
+      create: async ({ data }) => { const row = { ...data, id: String(rows.length), updatedAt: new Date() }; rows.push(row); return row; },
+    }, helpSettings: {
+      findUnique: async () => storedSettings,
+      upsert: async ({ create, update }) => (storedSettings = { ...(storedSettings ? { ...storedSettings, ...update } : create), updatedAt: new Date() }),
+    }, auditLog: { create: async ({ data }) => audits.push(data) } };
+    const db = { $transaction: fn => fn(tx) }, actor = { id: null, source: "deployment:bundled-help-center" };
+    expect((await importHelpSeed(db, actor, seed)).imported).toBe(22);
+    const data = publicHelp(rows, storedSettings, "en");
+    expect(data.faqs).toHaveLength(13); expect(data.guides).toHaveLength(5); expect(data.policies).toHaveLength(3);
+    expect(data.safety.sections).toEqual(seed.safety.sections);
+    expect(data.faqs.map(f => f.answer)).toEqual(seed.faqs.map(f => f.answer));
+    expect(data.guides.map(g => g.sections)).toEqual(seed.guides.map(g => g.sections));
+    expect(data.policies.map(p => p.sections)).toEqual(seed.policies.map(p => p.sections));
+    expect(audits).toHaveLength(23);
+    expect(audits.every(a => a.adminId === null && a.metadata.source === actor.source)).toBe(true);
+    expect((await importHelpSeed(db, actor, seed)).alreadyImported).toBe(true);
+    expect(rows).toHaveLength(22); expect(audits).toHaveLength(23);
+  });
   it("audits deletes with before/after and invalidates public content", async () => {
     const tx = { $queryRaw: vi.fn(), helpEntry: { findUnique: vi.fn().mockResolvedValue(faq()), delete: vi.fn() }, auditLog: { create: vi.fn() }, helpSettings: { upsert: vi.fn() } };
     await mutateHelp({ $transaction: fn => fn(tx) }, { id: "admin" }, { action: "DELETE_ENTRY", id: "one" });

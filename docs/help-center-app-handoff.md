@@ -10,7 +10,9 @@ Only published content is returned. Each unavailable translation falls back to i
 
 ## Deployment and exact-content import
 
-The migration creates the tables. The exact `Mega/document/help_center_seed.json` was not available in the current checkout or searched local repositories, so original app content has **not** been imported. Do not replace it with invented text. Before initialization the public endpoint returns 503, allowing the app to retain its built-in content.
+The migration creates the tables. `prisma/help_center_seed.json` contains the original Kotlin content supplied by the owner: 13 FAQs, 5 guides, Safety and 3 policies. Deployment imports it once, preserving existing Portal edits. Audit entries identify the automated deployment import; no administrator is impersonated. Before initialization the public endpoint returns 503, allowing the app to retain its built-in content.
+
+The original source date, 29 October 2026, is recorded in the seed. The API's `updatedAt` reflects the actual import or latest edit, as required by the API contract. Support email and link settings use the supplied Spec 211 defaults; the pasted Kotlin content did not contain these settings.
 
 Deploy the code on the Droplet:
 
@@ -20,13 +22,13 @@ git pull --ff-only origin main &&
 bash scripts/deploy-droplet.sh
 ```
 
-Once the exact seed file is on the Droplet, import it with an existing authorized administrator's email:
+No separate import command is needed with `deploy-droplet.sh`. If deploying another way, after applying migrations and generating Prisma, run:
 
 ```bash
 cd /root/apps/QOABSAIIMD
-node scripts/seed-help-center.mjs /absolute/path/help_center_seed.json admin@example.com
+node scripts/seed-help-center.mjs --bundled
 ```
 
-The importer validates content before writing, imports in one transaction, records audit entries, and marks completion. Re-running it does not repeat the import; existing Portal entries and settings are never overwritten. It accepts an `entries` array or the FAQ/guide/safety/policy response layout. If the actual seed has another structure, adapt its mapping while preserving the original wording before importing.
+The importer validates content before writing, imports in one transaction, records audit entries, and marks completion. Re-running it does not repeat the import; existing Portal entries and settings are never overwritten. For a manual custom import, it also accepts `node scripts/seed-help-center.mjs /absolute/path/help_center_seed.json admin@example.com` with an authorized administrator.
 
 Verify the endpoint returns the expected 13 FAQs, 5 guides, Safety article and 3 policies after import. Test an English fallback translation, unpublished entry, edited settings, an icon upload and an ETag/304 request. Edits can take up to five minutes to appear in clients respecting the cache.

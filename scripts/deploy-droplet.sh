@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run from the portal checkout after reviewing/pulling the intended commit.
-# No seed, reset, reconciliation, payout replay or data cleanup is performed.
+# Only the idempotent Help Center content import is run; no reset, financial
+# reconciliation, payout replay or data cleanup is performed.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 test -f package-lock.json
@@ -18,6 +19,7 @@ trap 'echo "Deployment failed; portal remains stopped. Fix the error before rest
 npm ci --include=dev
 npx prisma migrate deploy
 npx prisma generate
+node scripts/seed-help-center.mjs --bundled
 npm run build
 test -s .next/BUILD_ID
 test -s .next/required-server-files.json
