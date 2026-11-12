@@ -35,7 +35,9 @@ export function validateRocketConfig(input) {
     }));
     return { id: `LV-${i + 1}`, level: i + 1, title: String(stage.title || `Rocket LV.${i + 1}`).slice(0, 100), targetCoins: rocketCoins(stage.targetCoins), thumbnailUrl: url(stage.thumbnailUrl), previewUrl: url(stage.previewUrl), mimeType: String(stage.mimeType || 'video/mp4'), animation: { mediaUrl: url(stage.animation?.mediaUrl), mimeType: String(stage.animation?.mimeType || 'video/mp4'), lowResolutionMediaUrl: url(stage.animation?.lowResolutionMediaUrl), posterUrl: url(stage.animation?.posterUrl), durationMs: integer(Number(stage.animation?.durationMs ?? 5000), 100, 120000), avatarTrack: null }, inRoomWinners: integer(Number(stage.inRoomWinners ?? 0), 0, 100), rewards };
   });
-  return { resetDelayMinutes: integer(Number(input.resetDelayMinutes ?? 180), 1, 10080), enabled: input.enabled, title, rules, endsAt: endsAt.toISOString(), repeatDays: integer(Number(input.repeatDays), 1, 366), stages };
+  const grabWindowSeconds = integer(Number(input.grabWindowSeconds ?? 30), 10, 300);
+  if (input.enabled && stages.some(s => s.inRoomWinners > 0 && grabWindowSeconds < Math.ceil(s.animation.durationMs / 1000) + 7)) throw rocketError('VALIDATION_ERROR', 'The grab window must cover the launch animation, five seconds for countdown/button, and at least two seconds for network delay.');
+  return { grabWindowSeconds, resetDelayMinutes: integer(Number(input.resetDelayMinutes ?? 180), 1, 10080), enabled: input.enabled, title, rules, endsAt: endsAt.toISOString(), repeatDays: integer(Number(input.repeatDays), 1, 366), stages };
 }
 // Allocate the recorded debit, never a catalog price. The same sender owns all carryover.
 export function allocateRocketCoins(stages, level, currentCoins, paidCoins) {

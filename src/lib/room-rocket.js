@@ -18,6 +18,7 @@ export async function saveRocketConfiguration(tx, input, now = new Date()) {
   // Serialize configuration publish against season rollover only, never every gift.
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030147)::text`;
   const previous = await tx.roomRocketSeason.findFirst({ orderBy: { endsAt: 'desc' } });
+  if (config.enabled && previous?.endsAt > now && previous.config.stages.some(s => s.inRoomWinners > 0 && config.grabWindowSeconds < Math.ceil(s.animation.durationMs / 1000) + 7)) throw rocketError('VALIDATION_ERROR', 'The grab window must also cover the current season animation, countdown, button and network delay.');
   if (!previous && config.enabled && new Date(config.endsAt) <= now) throw rocketError('VALIDATION_ERROR', 'The first season must end in the future.');
   for (const stage of config.stages) {
     if (config.enabled && (!stage.thumbnailUrl || !stage.animation.mediaUrl)) throw rocketError('VALIDATION_ERROR', 'Each enabled level needs a rocket picture and launch animation.');
@@ -32,8 +33,8 @@ export async function saveRocketConfiguration(tx, input, now = new Date()) {
     }
   }
   await tx.roomRocketSettings.upsert({ where: { id: 'GLOBAL' }, create: { id: 'GLOBAL', enabled: config.enabled, config }, update: { enabled: config.enabled, config } });
-  if (previous?.endsAt > now && (previous.config.rules !== config.rules || previous.config.resetDelayMinutes !== config.resetDelayMinutes)) {
-    await tx.roomRocketSeason.update({ where: { id: previous.id }, data: { config: { ...previous.config, rules: config.rules, resetDelayMinutes: config.resetDelayMinutes } } });
+  if (previous?.endsAt > now && (previous.config.rules !== config.rules || previous.config.resetDelayMinutes !== config.resetDelayMinutes || previous.config.grabWindowSeconds !== config.grabWindowSeconds)) {
+    await tx.roomRocketSeason.update({ where: { id: previous.id }, data: { config: { ...previous.config, rules: config.rules, resetDelayMinutes: config.resetDelayMinutes, grabWindowSeconds: config.grabWindowSeconds } } });
   }
   if (config.enabled) await currentRocketSeason(tx, now);
   return config;
@@ -89,25 +90,34 @@ async function topContributors(tx, roomId, campaignId, level, cycle, now = new D
   return rows.map((r, i) => ({ userId: r.userId, rank: i + 1, totalCoins: String(r.coins), user: { ...publicUser(r), level: r.level ?? 0, frameUrl: r.frame ? decorationMedia(r.frame, process.env.MOBILE_API_BASE_URL || process.env.AUTH_URL || 'http://localhost:3000').url : null } }));
 }
 
+export async function rocketVisibleMembers(tx, roomId, now, onlyUserId) {
+    const io = globalThis.portalIo;
+    if (!io) throw rocketError('ROCKET_PRESENCE_UNAVAILABLE', 'Room presence is temporarily unavailable. Retry with the same gift request ID.', 503);
+    const sockets = await io.in(`audio-room:${roomId}`).fetchSockets();
+    const ids = [...new Set(sockets.filter(s => s.data?.audioPresenceLeaseUntil > now.getTime()).map(s => s.data.internalUserId).filter(id => id && (!onlyUserId || id === onlyUserId)))];
+    if (!ids.length) return [];
+    const members = await tx.audioRoomMember.findMany({ where: { audioRoom: { roomId }, socketCount: { gt: 0 }, userId: { in: ids }, user: eligibleUser(now) }, select: { userId: true } });
+    const visible = [];
+    for (const member of members) if (!await hasVipPrivilege(member.userId, 'INVISIBLE_ENTRY', tx)) visible.push(member.userId);
+    return visible;
+}
+
 async function launchRocket(tx, roomId, season, level, cycle, now) {
   const stage = season.config.stages[level - 1];
   const top = await topContributors(tx, roomId, season.id, level, cycle, now);
   const winners = top.map(r => ({ userId: r.userId, rank: r.rank, group: `top${r.rank}`, rewards: stage.rewards[`top${r.rank}`] }));
+  const fallbackWinners = [];
   if (stage.inRoomWinners && stage.rewards.inRoom.length) {
-    const io = globalThis.portalIo;
-    if (!io) throw rocketError('ROCKET_PRESENCE_UNAVAILABLE', 'Room presence is temporarily unavailable. Retry with the same gift request ID.', 503);
-    const sockets = await io.in(`audio-room:${roomId}`).fetchSockets();
-    const ids = [...new Set(sockets.filter(s => s.data?.audioPresenceLeaseUntil > now.getTime()).map(s => s.data.internalUserId).filter(Boolean))];
-    const members = await tx.audioRoomMember.findMany({ where: { audioRoom: { roomId }, socketCount: { gt: 0 }, userId: { in: ids }, user: eligibleUser(now) }, select: { userId: true } });
-    const visible = [];
-    for (const member of members) if (!await hasVipPrivilege(member.userId, 'INVISIBLE_ENTRY', tx)) visible.push(member.userId);
-    for (const userId of drawRocketWinners(visible, top.map(r => r.userId), stage.inRoomWinners)) winners.push({ userId, rank: null, group: 'inRoom', rewards: [stage.rewards.inRoom[randomInt(stage.rewards.inRoom.length)]] });
+    const visible = await rocketVisibleMembers(tx, roomId, now);
+    for (const userId of drawRocketWinners(visible, top.map(r => r.userId), stage.inRoomWinners)) fallbackWinners.push({ userId, rank: null, group: 'inRoom', rewards: [stage.rewards.inRoom[randomInt(stage.rewards.inRoom.length)]] });
   }
+  const grabWindowSeconds = season.config.grabWindowSeconds ?? 30;
+  const grabClosesAt = new Date(+now + grabWindowSeconds * 1000);
   const id = `LAUNCH-${randomUUID()}`;
   const topContributor = top[0]?.user ?? null;
   const resetAt = level===season.config.stages.length ? new Date(now.getTime()+(season.config.resetDelayMinutes ?? 180)*60000) : null;
-  await tx.roomRocketLaunch.create({ data: { id, roomId, campaignId: season.id, level, cycle, resetAt, winners, ...(topContributor ? { topContributor } : {}), createdAt: now } });
-  await appendOutbox(tx, `audio-room:${roomId}`, 'audio-room:rocket:launch', { roomId, eventId: id, launchId: id, campaignId: season.id, stageId: stage.id, level, cycle, cooldownUntil: resetAt ? null : new Date(now.getTime()+180000).toISOString(), resetAt: resetAt?.toISOString() ?? null, topContributor, animation: stage.animation });
+  await tx.roomRocketLaunch.create({ data: { id, roomId, campaignId: season.id, level, cycle, resetAt, winners, grabWindowSeconds, grabClosesAt, inRoomWinners: stage.inRoomWinners, inRoomRewards: stage.rewards.inRoom, fallbackWinners, ...(topContributor ? { topContributor } : {}), createdAt: now } });
+  await appendOutbox(tx, `audio-room:${roomId}`, 'audio-room:rocket:launch', { roomId, eventId: id, launchId: id, campaignId: season.id, stageId: stage.id, level, cycle, grabWindowSeconds, grabClosesAt: grabClosesAt.toISOString(), inRoomWinners: stage.inRoomWinners, cooldownUntil: resetAt ? null : new Date(now.getTime()+180000).toISOString(), resetAt: resetAt?.toISOString() ?? null, topContributor, animation: stage.animation });
   await queueRocketAnnouncement(tx, id, roomId, level, top[0]?.userId, now);
 }
 
@@ -244,10 +254,55 @@ export async function displayRocketRewards(tx, rewards, requestOrigin) {
   return output;
 }
 
+export function rocketLaunchWinners(launch) {
+  return launch.winnersFinalizedAt || !launch.grabClosesAt ? launch.winners : [...launch.winners, ...(launch.grabWinners ?? [])];
+}
+export async function rocketRecipients(tx, winners, origin) {
+  const users = await tx.user.findMany({ where: { id: { in: winners.map(w => w.userId) }, deletedAt: null, status: 'ACTIVE' }, select: { id: true, publicId: true, name: true, profileImage: true } });
+  const recipients = [];
+  for (const winner of winners) {
+    const found = users.find(u => u.id === winner.userId);
+    recipients.push({ rank: winner.rank, group: winner.group, user: found ? publicUser(found) : null, rewards: await displayRocketRewards(tx, winner.rewards, origin) });
+  }
+  return recipients;
+}
+// Caller holds the launch row lock. Closing and emitting are committed together.
+export async function finalizeRocketGrab(tx, launch, now = new Date()) {
+  if (launch.winnersFinalizedAt || !launch.grabClosesAt || launch.grabClosesAt > now) return launch;
+  const inRoom = launch.grabWinners?.length ? launch.grabWinners : (launch.fallbackWinners ?? []);
+  const updated = await tx.roomRocketLaunch.update({ where: { id: launch.id }, data: { winners: [...launch.winners, ...inRoom], winnersFinalizedAt: now } });
+  const origin = process.env.MOBILE_API_BASE_URL || process.env.AUTH_URL || 'https://portal.megachat.live';
+  const recipients = await rocketRecipients(tx, updated.winners, origin);
+  await appendOutbox(tx, `audio-room:${launch.roomId}`, 'audio-room:rocket:winners', { roomId: launch.roomId, launchId: launch.id, cycle: launch.cycle, recipients });
+  return updated;
+}
+export async function grabRocketLaunch(db, roomId, launchId, user, origin, clock = () => new Date()) {
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "RoomRocketLaunch" WHERE id=${launchId} FOR UPDATE`;
+    const launch = await tx.roomRocketLaunch.findUnique({ where: { id: launchId } }), now = clock();
+    if (!launch || launch.roomId !== roomId) throw rocketError('ROCKET_LAUNCH_NOT_FOUND', 'Rocket launch not found.', 404);
+    if (!launch.grabClosesAt || launch.winnersFinalizedAt || launch.grabClosesAt <= now) throw rocketError('ROCKET_GRAB_CLOSED', 'The grab window has closed.', 409);
+    if ((launch.grabbedUserIds ?? []).includes(user.id)) throw rocketError('ROCKET_GRAB_ALREADY', 'You have already grabbed this launch.', 409);
+    const visible = await rocketVisibleMembers(tx, roomId, now, user.id);
+    if (!visible.includes(user.id)) throw rocketError('ROCKET_GRAB_NOT_IN_ROOM', 'You must be present and visible in this room to grab.', 403);
+    const grabWinners = [...(launch.grabWinners ?? [])], topWinner = launch.winners.some(w => w.userId === user.id);
+    if (!topWinner && grabWinners.length < launch.inRoomWinners && launch.inRoomRewards?.length) {
+      grabWinners.push({ userId: user.id, rank: null, group: 'inRoom', rewards: [launch.inRoomRewards[randomInt(launch.inRoomRewards.length)]] });
+    }
+    const updated = await tx.roomRocketLaunch.update({ where: { id: launchId }, data: { grabWinners, grabbedUserIds: [...(launch.grabbedUserIds ?? []), user.id] } });
+    const winners = rocketLaunchWinners(updated), mine = winners.find(w => w.userId === user.id);
+    return { launchId, cycle: launch.cycle, grabbed: true, grabClosesAt: launch.grabClosesAt.toISOString(), myRewards: await displayRocketRewards(tx, mine?.rewards ?? [], origin), recipients: await rocketRecipients(tx, winners, origin) };
+  }, { isolationLevel: 'ReadCommitted', timeout: 15000 });
+}
+
 export async function payRocketLaunch(tx, id, now = new Date()) {
   await tx.$queryRaw`SELECT id FROM "RoomRocketLaunch" WHERE id=${id} FOR UPDATE`;
-  const launch = await tx.roomRocketLaunch.findUniqueOrThrow({ where: { id } });
+  let launch = await tx.roomRocketLaunch.findUniqueOrThrow({ where: { id } });
   if (launch.paidAt) return false;
+  if (launch.grabClosesAt && !launch.winnersFinalizedAt) {
+    if (launch.grabClosesAt > now) return false;
+    launch = await finalizeRocketGrab(tx, launch, now);
+  }
   // One recipient per transaction: completed recipients survive a later job retry.
   const paid = launch.paidUserIds ?? [];
   const winner = launch.winners.find(w => !paid.includes(w.userId));
@@ -281,8 +336,18 @@ export async function payRocketLaunch(tx, id, now = new Date()) {
 }
 
 export async function maintainRoomRocketRewards(db = prisma) {
+  // Finalize independently: a delayed wallet/asset payout must not hide winners.
+  const closing = await db.roomRocketLaunch.findMany({ where: { winnersFinalizedAt: null, grabClosesAt: { lte: new Date() } }, orderBy: { grabClosesAt: 'asc' }, take: 50 });
+  for (const launch of closing) {
+    try {
+      await db.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM "RoomRocketLaunch" WHERE id=${launch.id} FOR UPDATE`;
+        await finalizeRocketGrab(tx, await tx.roomRocketLaunch.findUniqueOrThrow({ where: { id: launch.id } }));
+      }, { timeout: 20000 });
+    } catch (error) { console.error('Room Rocket winners deferred', { launchId: launch.id, code: error.code ?? error.name }); }
+  }
   // Pending rewards belong to completed launches: disabling cannot erase earned rewards.
-  const jobs = await db.roomRocketLaunch.findMany({ where: { paidAt: null }, orderBy: { createdAt: 'asc' }, take: 10 });
+  const jobs = await db.roomRocketLaunch.findMany({ where: { paidAt: null, OR: [{ grabClosesAt: null }, { grabClosesAt: { lte: new Date() } }] }, orderBy: { createdAt: 'asc' }, take: 10 });
   for (const job of jobs) {
     try { await db.$transaction(tx => payRocketLaunch(tx, job.id), { isolationLevel: 'Serializable', timeout: 20000 }); }
     catch (error) { console.error('Room Rocket payout deferred', { launchId: job.id, code: error.code ?? error.name, message: error.message?.trim().split('\n').at(-1) }); }

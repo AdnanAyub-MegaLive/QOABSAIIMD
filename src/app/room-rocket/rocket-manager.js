@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900';
 const groups = { top1: 'TOP 1', top2: 'TOP 2', top3: 'TOP 3', inRoom: 'IN ROOM' };
-const defaults = () => ({ enabled: false, title: 'Room Rocket', rules: '', endsAt: new Date(Date.now() + 86400000).toISOString(), repeatDays: 30, resetDelayMinutes: 180, stages: ['50000', '150000', '400000'].map((targetCoins, i) => ({ title: `Rocket LV.${i + 1}`, targetCoins, thumbnailUrl: '', previewUrl: '', mimeType: 'video/mp4', animation: { mediaUrl: '', mimeType: 'video/mp4', lowResolutionMediaUrl: '', posterUrl: '', durationMs: 5000 }, inRoomWinners: 0, rewards: { top1: [], top2: [], top3: [], inRoom: [] } })) });
+const defaults = () => ({ enabled: false, title: 'Room Rocket', rules: '', endsAt: new Date(Date.now() + 86400000).toISOString(), repeatDays: 30, resetDelayMinutes: 180, grabWindowSeconds: 30, stages: ['50000', '150000', '400000'].map((targetCoins, i) => ({ title: `Rocket LV.${i + 1}`, targetCoins, thumbnailUrl: '', previewUrl: '', mimeType: 'video/mp4', animation: { mediaUrl: '', mimeType: 'video/mp4', lowResolutionMediaUrl: '', posterUrl: '', durationMs: 5000 }, inRoomWinners: 0, rewards: { top1: [], top2: [], top3: [], inRoom: [] } })) });
 export default function RocketManager({ initial, enabled, season, assets, canEdit }) {
   const [config, setConfig] = useState(() => ({ ...(initial || defaults()), enabled }));
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
@@ -16,7 +16,7 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
       const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || 'Unable to save.');
-      setConfig(body.data); setMessage('Saved. Rules, reset delay and the on/off switch apply now. Existing reset countdowns keep their deadline. Level and reward changes apply to the next season.');
+      setConfig(body.data); setMessage('Saved. Rules, reset delay, grab window and the on/off switch apply to future launches now. Existing countdowns keep their deadline. Level and reward changes apply to the next season.');
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <form onSubmit={save} className="space-y-6 text-slate-900">
@@ -28,6 +28,7 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
         <label className="space-y-1 text-sm">Season title<input className={field} required maxLength={100} value={config.title} onChange={e => update('title', e.target.value)} /></label>
         <label className="space-y-1 text-sm">First season end (UTC)<input className={field} type="datetime-local" required value={config.endsAt.slice(0,16)} onChange={e => update('endsAt', e.target.value ? `${e.target.value}:00.000Z` : '')} disabled={Boolean(season)} /><span className="text-xs text-slate-500">After the first season, repeats use the interval below.</span></label>
         <label className="space-y-1 text-sm">Subsequent season length (days)<input className={field} type="number" min={1} max={366} required value={config.repeatDays} onChange={e => update('repeatDays', Number(e.target.value))} /></label>
+        <label className="space-y-1 text-sm">Grab window after launch (seconds)<input className={field} type="number" min={10} max={300} required value={config.grabWindowSeconds ?? 30} onChange={e => update('grabWindowSeconds', Number(e.target.value))}/><span className="text-xs text-slate-500">Default: 30 seconds. Include the full animation, 3-second countdown, 2-second button and network delay. First valid grabbers win; if nobody grabs, the launch-time random draw is used.</span></label>
         <label className="space-y-1 text-sm">Reset after top-level launch (minutes)<input className={field} type="number" min={1} max={10080} required value={config.resetDelayMinutes ?? 180} onChange={e => update('resetDelayMinutes', Number(e.target.value))}/><span className="text-xs text-slate-500">Default: 180 minutes (3 hours). After this wait the room starts again at Level 1. Gifts during this wait do not count. Each earlier launch pauses for 3 minutes; gifts during that pause count toward the next rocket.</span></label>
         <label className="space-y-1 text-sm md:col-span-2">Rules shown in the app<textarea className={field} rows={4} maxLength={10000} value={config.rules} onChange={e => update('rules', e.target.value)} /></label>
       </section>
@@ -43,7 +44,7 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
           <label className="text-sm">Launch duration (milliseconds)<input className={field} type="number" min={100} max={120000} value={s.animation.durationMs} onChange={e => stage(index, 'animation', { ...s.animation, durationMs: Number(e.target.value) })} /></label>
           <label className="text-sm">IN ROOM winners<input className={field} type="number" min={0} max={100} value={s.inRoomWinners} onChange={e => stage(index, 'inRoomWinners', Number(e.target.value))} /></label>
         </div>
-        <p className="text-xs text-slate-500">Use stable uploaded/CDN media URLs, not expiring preview links. TOP 1–3 are excluded from the random IN ROOM draw; each selected person gets the bundle below once.</p>
+        <p className="text-xs text-slate-500">Use stable uploaded/CDN media URLs, not expiring preview links. TOP 1–3 are excluded from IN ROOM rewards. The first eligible grabbers each receive one randomly selected in-room reward. The random draw is used only if nobody grabs.</p>
         <div className="grid gap-4 lg:grid-cols-2">{Object.entries(groups).map(([group, label]) => <div key={group} className="space-y-3 rounded-lg border bg-slate-50 p-4">
           <h3 className="font-semibold">{label} rewards</h3>
           {s.rewards[group].map((r, n) => <div key={n} className="space-y-2 rounded border bg-white p-3">

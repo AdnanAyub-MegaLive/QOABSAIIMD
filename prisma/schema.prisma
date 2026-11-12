@@ -3049,6 +3049,14 @@ model RoomRocketGift {
   reversedAt DateTime?
 }
 model RoomRocketLaunch {
+  grabWindowSeconds Int @default(30)
+  grabClosesAt DateTime?
+  winnersFinalizedAt DateTime?
+  inRoomWinners Int @default(0)
+  inRoomRewards Json @default("[]")
+  fallbackWinners Json @default("[]")
+  grabWinners Json @default("[]")
+  grabbedUserIds Json @default("[]")
   cycle Int @default(0)
   resetAt DateTime?
   id String @id
@@ -3062,6 +3070,7 @@ model RoomRocketLaunch {
   paidAt DateTime?
   @@unique([campaignId, roomId, cycle, level])
   @@index([paidAt, createdAt])
+  @@index([winnersFinalizedAt, grabClosesAt])
 }
 
 model PrettyIdGrant {
