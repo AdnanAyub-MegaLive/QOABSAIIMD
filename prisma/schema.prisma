@@ -363,6 +363,7 @@ model User {
   agencyJoinRequests         AgencyJoinRequest[]
   posts                      Post[]
   postLikes                  PostLike[]
+  postShares                 PostShare[]
   postComments               PostComment[]
   postCommentLikes           PostCommentLike[]
   createdConversations       Conversation[]                @relation("ConversationCreator")
@@ -1734,6 +1735,8 @@ enum PostReviewStatus {
 }
 
 model Post {
+  shareCount Int @default(0)
+  shares PostShare[]
   status PostReviewStatus @default(PENDING)
   reviewReason String?
   reviewedAt DateTime?
@@ -1758,6 +1761,16 @@ model Post {
 }
 
 model PostLike {
+  postId String
+  userId String
+  createdAt DateTime @default(now())
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([postId, userId])
+  @@index([userId])
+}
+
+model PostShare {
   postId String
   userId String
   createdAt DateTime @default(now())

@@ -1,0 +1,8 @@
+ALTER TABLE "Post" ADD COLUMN "shareCount" INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE "PostShare" (
+  "postId" TEXT NOT NULL REFERENCES "Post"("id") ON DELETE CASCADE,
+  "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "PostShare_pkey" PRIMARY KEY ("postId", "userId")
+);
+CREATE INDEX "PostShare_userId_idx" ON "PostShare"("userId");

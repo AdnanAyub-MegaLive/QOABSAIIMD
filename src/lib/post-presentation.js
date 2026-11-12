@@ -14,6 +14,7 @@ export function postSelect(viewerId) {
   return {
     _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
     likes: { where: { userId: viewerId }, select: { userId: true } },
+    shareCount: true,
     publicId: true,
     description: true,
     status: true,
@@ -30,6 +31,7 @@ export function postDto(post, viewerId, origin, perksByPublicId) {
   const perks = perksByPublicId.get(post.author.publicId);
   return {
     id: post.publicId,
+    shareCount: post.shareCount ?? 0,
     likeCount: post._count.likes,
     commentCount: post._count.comments,
     liked: post.likes.length > 0,

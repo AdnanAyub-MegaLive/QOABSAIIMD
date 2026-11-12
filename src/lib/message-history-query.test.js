@@ -8,7 +8,7 @@ it("combines media, room text and system history and safely cleans chat notifica
     await db.exec(`
       CREATE TABLE "User" (id text, "publicId" text, name text);
       CREATE TABLE "Conversation" (id text, "publicId" text, kind text, name text);
-      CREATE TABLE "Message" ("publicId" text, "conversationId" text, "senderId" text, body text, kind text, "voiceKey" text, "voiceDurationMs" integer, "voiceMimeType" text, "mediaId" text, media jsonb, gift jsonb, "deletedAt" timestamp, "deletedById" text, "createdAt" timestamp);
+      CREATE TABLE "Message" ("publicId" text, "conversationId" text, "senderId" text, body text, kind text, "voiceKey" text, "voiceDurationMs" integer, "voiceMimeType" text, "mediaId" text, media jsonb, gift jsonb, metadata jsonb, "deletedAt" timestamp, "deletedById" text, "createdAt" timestamp);
       CREATE TABLE "AudioRoomMessage" ("publicId" text, body text, "createdAt" timestamp, "senderPublicId" text, "senderName" text, "roomPublicId" text, "roomTitle" text);
       CREATE TABLE "Notification" (id text PRIMARY KEY, "publicId" text, title text, body text, "createdAt" timestamp, "userId" text, type text);
       CREATE TABLE "NotificationRead" ("notificationId" text REFERENCES "Notification"(id) ON DELETE CASCADE);

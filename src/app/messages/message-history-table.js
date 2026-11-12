@@ -37,7 +37,7 @@ export default function MessageHistoryTable({ records, query, type, kind = "ALL"
         <div className="flex flex-wrap gap-2">
           <input type="hidden" name="type" value={type} />
           <label className="text-xs">Type <select name="kind" defaultValue={kind} className="h-10 rounded-lg border px-3">
-            {[["ALL", "All types"], ["text", "Text"], ["voice", "Voice"], ["picture", "Photo"], ["video", "Video"], ["gift", "Gift"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {[["ALL", "All types"], ["text", "Text"], ["voice", "Voice"], ["picture", "Photo"], ["video", "Video"], ["gift", "Gift"], ["post", "Post"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select></label>
           <button className="rounded-lg bg-[#087f74] px-4 text-xs font-bold text-white">Search</button>
           {(query || type !== "ALL" || kind !== "ALL") && <Link href="/messages" className="grid h-10 place-items-center rounded-lg border border-[#dce6e4] px-3 text-xs font-bold">Clear</Link>}
@@ -85,6 +85,7 @@ function safeImage(url) {
 }
 function MessageContent({ record }) {
   const base = `/api/admin/messages/${encodeURIComponent(record.id)}`;
+  if (record.kind === "post") return <p className="mt-3 text-sm">Shared post{typeof record.metadata?.postId === "string" && <> · <Link className="text-teal-700 underline" href={`/content-moderation?postId=${encodeURIComponent(record.metadata.postId)}#posts`}>View {record.metadata.postId} in Content Moderation</Link></>}</p>;
   if (record.kind === "voice" && record.hasVoice) return <div className="mt-3"><audio controls preload="none" src={`${base}/voice`} /><span className="text-xs">{Math.ceil((record.voiceDurationMs || 0) / 1000)} seconds</span></div>;
   if (record.kind === "picture" && record.hasMedia) return <a href={`${base}/media`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block"><img src={`${base}/media`} alt="Chat photo - open full size" loading="lazy" className="max-h-48 max-w-xs rounded-lg object-contain" /></a>;
   if (record.kind === "video" && record.hasMedia) return <video controls preload="none" src={`${base}/media`} poster={record.media?.posterUrl ? `${base}/media?poster=1` : undefined} className="mt-3 max-h-72 max-w-full rounded-lg" />;

@@ -1,3 +1,4 @@
+import { hydratePostMessages } from "@/lib/chat-posts";
 import { prisma } from "../../../../../lib/prisma";
 import { realtimeTiming } from '@/lib/realtime-timing';
 import { userChatCountry, countryMessageFilter } from "@/lib/country-chat";
@@ -63,7 +64,7 @@ export async function GET(request, { params }) {
         : {}),
     });
     const hasMore = records.length > limit;
-    const page = records.slice(0, limit);
+    const page = await hydratePostMessages(prisma, records.slice(0, limit), requestOrigin(request));
     const nextCursor = hasMore ? page[page.length - 1]?.publicId ?? null : null;
     const perks = await resolveUserPerks(
       page.map((message) => message.sender).filter(Boolean),
@@ -111,7 +112,7 @@ export async function POST(request, { params }) {
       user,
       body?.body,
       senderPerks,
-      { clientMessageId: body?.clientMessageId, mediaId: body?.mediaId },
+      { clientMessageId: body?.clientMessageId, mediaId: body?.mediaId, postId: body?.postId, origin: requestOrigin(request) },
     );
     timing('message_persisted');
     await emitConversationEvent(globalThis.portalIo,membership.conversation.publicId,"message:new", {

@@ -1,3 +1,4 @@
+import { claimChatPost, hydratePostMessages } from "./chat-posts.js";
 import { prisma } from "./prisma.js";
 import { createHash } from "node:crypto";
 import { isRateLimited } from "./rate-limit.js";
@@ -178,6 +179,7 @@ export function serializeMessage(message, senderPerks) {
     type: message.voiceKey ? "voice" : message.kind ?? "text",
     media: message.deletedAt ? null : message.media ?? null,
     gift: message.deletedAt ? null : message.gift ?? null,
+    ...(message.kind === "post" ? { post: message.deletedAt ? null : message.post ?? { id: message.metadata?.postId, available: false } } : {}),
     voice: !message.deletedAt && message.voiceKey ? {url:`/api/v1/conversations/${message.conversation?.publicId ?? message.conversationId}/voice/${message.publicId}`,durationMs:message.voiceDurationMs,mimeType:message.voiceMimeType} : null,
     senderId: message.sender?.publicId ?? null,
     senderName: message.sender?.name ?? "System",
@@ -208,16 +210,20 @@ export async function createMessage(
   const clientMessageId = options.clientMessageId ?? null;
   if(clientMessageId!==null&&(typeof clientMessageId!=="string"||!clientMessageId.trim()||clientMessageId.length>128))throw Object.assign(new Error("Invalid client message ID."),{code:"VALIDATION_ERROR"});
   if (options.mediaId && (typeof options.mediaId !== "string" || options.mediaId.length > 128 || options.voice || !clientMessageId)) throw chatError("VALIDATION_ERROR", "Provide mediaId and clientMessageId without voice content.");
-  const body = options.mediaId ? "Sent media" : options.voice ? "Voice message" : String(rawBody ?? "").trim();
+  const isPost = options.postId !== undefined && options.postId !== null;
+  if (isPost && (typeof options.postId !== "string" || !options.postId.trim() || options.postId.length > 128 || !clientMessageId || options.mediaId || options.voice || String(rawBody ?? "").trim() || conversation.kind !== "DIRECT"))
+    throw chatError("VALIDATION_ERROR", "Provide postId and clientMessageId with an empty body in a direct chat.");
+  const present = async record => serializeMessage((await hydratePostMessages(prisma, [record], options.origin))[0], senderPerks);
+  const body = isPost ? "Shared a post" : options.mediaId ? "Sent media" : options.voice ? "Voice message" : String(rawBody ?? "").trim();
   if(conversation.kind==="WORLD")assertNoCountryLinks(body);
-  const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null,...(options.mediaId?{mediaId:options.mediaId}:{})})).digest("hex");
+  const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null,...(options.mediaId?{mediaId:options.mediaId}:{}),...(isPost?{postId:options.postId}:{})})).digest("hex");
   const replay=async()=>{
     const prior=await prisma.message.findUnique({where:{senderId_clientMessageId:{senderId:sender.id,clientMessageId}},include:messageSenderInclude});
     if(prior&&prior.requestHash!==requestHash)throw Object.assign(new Error("Client message ID already used for different content."),{code:"IDEMPOTENCY_CONFLICT"});
     if(prior&&conversation.kind==="WORLD"&&prior.senderCountry!==senderCountry)throw countryChatErrorForReplay();
     return prior;
   };
-  if(clientMessageId){const prior=await replay();if(prior)return serializeMessage(prior,senderPerks);}
+  if(clientMessageId){const prior=await replay();if(prior)return present(prior);}
   if(conversation.kind==="WORLD"&&isRateLimited(`world-send:${sender.id}`,{limit:5,windowMs:10000}))throw Object.assign(new Error("Please wait before sending another World Chat message."),{code:"RATE_LIMITED"});
   if((options.voice||options.mediaId)&&!["DIRECT","GROUP"].includes(conversation.kind))throw Object.assign(new Error("Media messages are for private and group chats only."),{code:"VALIDATION_ERROR"});
   if (!body || body.length > 2000) {
@@ -233,6 +239,7 @@ export async function createMessage(
     await assertConversationMessagingAllowed(conversation,sender.id,tx,true);
     const currentCountry=conversation.kind==="WORLD"?await userChatCountry(tx,sender.id,true):null;
     if(currentCountry!==senderCountry)throw countryChatErrorForReplay();
+    const post = isPost ? await claimChatPost(tx, conversation, sender.id, options.postId) : null;
     const media = options.mediaId ? await claimChatMedia(tx, options.mediaId, conversation, sender.id) : null;
     const record = await tx.message.create({
       data: {
@@ -243,6 +250,7 @@ export async function createMessage(
         body: media ? (media.kind === "picture" ? "Sent a photo" : "Sent a video") : body,
         kind: options.voice ? "voice" : media?.kind ?? "text",
         ...(media ?? {}),
+        ...(post ?? {}),
         clientMessageId, requestHash,
         ...(options.voice?{voiceKey:options.voice.key,voiceDurationMs:options.voice.durationMs,voiceMimeType:options.voice.mimeType}:{}),
         createdAt,
@@ -288,7 +296,7 @@ export async function createMessage(
     }
     return record;
   }); } catch(error) { if(!["P2002","CHAT_MEDIA_UNAVAILABLE"].includes(error.code)||!clientMessageId)throw error; message=await replay();if(!message)throw error; }
-  return serializeMessage(message, senderPerks);
+  return present(message);
 }
 
 function validatedMessageBody(rawBody) {

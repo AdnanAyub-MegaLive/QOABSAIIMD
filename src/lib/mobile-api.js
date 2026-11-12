@@ -135,6 +135,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     SELF_FOLLOW: [422, "SELF_FOLLOW", "You cannot follow yourself."],
     CONVERSATION_NOT_FOUND: [404, "CONVERSATION_NOT_FOUND", "Conversation not found."],
     MESSAGE_NOT_FOUND: [404, "MESSAGE_NOT_FOUND", "Message not found."],
+    POST_NOT_FOUND: [404, "POST_NOT_FOUND", "This post is unavailable."],
     CHAT_MEDIA_UNAVAILABLE: [409, "CHAT_MEDIA_UNAVAILABLE", "Upload missing, expired or already sent."],
     FILE_TOO_LARGE: [413, "FILE_TOO_LARGE", error.validationMessage ?? "The uploaded file is too large."],
     CHAT_STORAGE_UNAVAILABLE: [503, "CHAT_STORAGE_UNAVAILABLE", "Private media storage or processing is unavailable."],

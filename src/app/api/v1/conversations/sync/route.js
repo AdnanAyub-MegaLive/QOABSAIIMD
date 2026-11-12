@@ -1,3 +1,5 @@
+import { hydratePostMessages } from "@/lib/chat-posts";
+import { prisma } from "@/lib/prisma";
 import { messageSyncLimit, serializeMessage, syncMessagesForUser } from "@/lib/messaging";
 import { mobileApiError, requireMobileUser } from "@/lib/mobile-api";
 import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
@@ -18,6 +20,7 @@ export async function GET(request) {
         cursor: url.searchParams.get("cursor")?.trim() || null,
         limit: messageSyncLimit(url.searchParams.get("limit")),
       });
+      result.records = await hydratePostMessages(prisma, result.records, requestOrigin(request));
       const perks = await resolveUserPerks(
         result.records.map((message) => message.sender).filter(Boolean),
         requestOrigin(request),

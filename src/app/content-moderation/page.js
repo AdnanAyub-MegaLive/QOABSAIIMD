@@ -25,14 +25,16 @@ function Controls({kind,title,filters,page,pages,total}) {
 const identity=user=><>{user.name} <span className="text-xs text-slate-500">({user.publicId})</span></>;
 export default async function ContentModerationPage({searchParams}) {
   await requirePagePermission('content.view');
-  const filters=socialFilters(await searchParams);
-  const [posts,data]=await Promise.all([prisma.post.findMany({include:{author:{select:{publicId:true,name:true}}},orderBy:{createdAt:'desc'},take:100}),loadSocialReview(prisma,filters)]);
+  const params=await searchParams;
+  const postId=typeof params?.postId === "string" ? params.postId.slice(0,128) : null;
+  const filters=socialFilters(params);
+  const [posts,data]=await Promise.all([prisma.post.findMany({...(postId?{where:{publicId:postId}}:{}),include:{author:{select:{publicId:true,name:true}}},orderBy:{createdAt:'desc'},take:100}),loadSocialReview(prisma,filters)]);
   const current={...filters,blocksPage:data.blocksPage,friendsPage:data.friendsPage};
   return <RoomManagementShell title="Content & Social Safety"><div className="space-y-7">
     <ProfileCovers/>
     <PostReview/>
     <div><h2 className="text-2xl font-bold">Social activity review</h2><p className="mt-1 text-sm text-slate-500">Read-only records. Search either person by name or public ID. All friend requests and block relationships are available through pagination.</p></div>
-    <section className="rounded-2xl border bg-white p-5"><h3 className="font-bold">Recent posts (latest 100)</h3><div className="mt-3 divide-y">{posts.map(p=><div key={p.publicId} className="py-3 text-sm"><b>{p.author.name}</b> <span>{p.author.publicId} · {p.publicId}</span><p>{p.description||'Image post'}</p></div>)}{!posts.length&&<p>No posts.</p>}</div></section>
+    <section id="posts" className="rounded-2xl border bg-white p-5"><h3 className="font-bold">{postId ? `Shared post ${postId}` : "Recent posts (latest 100)"}</h3><div className="mt-3 divide-y">{posts.map(p=><div key={p.publicId} className="py-3 text-sm"><b>{p.author.name}</b> <span>{p.author.publicId} · {p.publicId}</span><p>{p.description||'Image post'}</p></div>)}{!posts.length&&<p>{postId ? "This post is no longer available." : "No posts."}</p>}</div></section>
     <div className="grid gap-5 lg:grid-cols-2">
       <section id="blocks" className="rounded-2xl border bg-white p-5"><h3 className="font-bold">User block relationships</h3>
         <Controls kind="blocks" title="blocked users" filters={current} page={data.blocksPage} pages={data.blockPages} total={data.blockTotal}/>

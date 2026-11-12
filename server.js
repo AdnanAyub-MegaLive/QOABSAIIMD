@@ -401,14 +401,14 @@ app.prepare().then(async()=>{
     await refreshCountryChatRooms(prisma,io);
     const ban=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
     socket.emit("session:status",{success:true,data:{sessionVersion:user.sessionVersion,forcedLogoutAt:user.forcedLogoutAt?.toISOString()??null,isVerified:Boolean(user.isVerified),isOfficial:Boolean(user.isOfficial),isBanned:Boolean(ban),banReason:ban?.reason??null,banExpiresAt:ban?.expiresAt?.toISOString()??null}});
-    socket.on("message:send",async({conversationId,body,clientMessageId,mediaId}={},ack=()=>{})=>{
+    socket.on("message:send",async({conversationId,body,clientMessageId,mediaId,postId}={},ack=()=>{})=>{
       try{
         const id=String(conversationId??"");
         const membership=await requireConversationParticipant(id,user.id);
         if(id!=="CONV-WORLD")socket.join(`conversation:${id}`);
         const {chatSenderPerks}=await import("./src/lib/chat-perks-cache.js");
         const senderPerks=await chatSenderPerks(user,connectionOrigin);
-        const message=await createMessage(membership.conversation,user,body,senderPerks,{clientMessageId,mediaId});
+        const message=await createMessage(membership.conversation,user,body,senderPerks,{clientMessageId,mediaId,postId,origin:connectionOrigin});
         const eventPayload={conversationId:id,message};
         await emitConversationEvent(io,id,"message:new",eventPayload);
         ack({success:true,data:eventPayload});
@@ -416,7 +416,7 @@ app.prepare().then(async()=>{
         const code=error?.code??error?.message;
         if(["COUNTRY_REQUIRED","LINK_NOT_ALLOWED"].includes(code))return ack({success:false,error:{code,message:error.message}});
         ack({success:false,error:{
-          code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD","MUTUAL_FOLLOW_REQUIRED","USER_BLOCKED","USER_NOT_FOUND","CHAT_MEDIA_UNAVAILABLE","RATE_LIMITED","IDEMPOTENCY_CONFLICT"].includes(code)?code:"MESSAGE_SEND_FAILED",
+          code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD","MUTUAL_FOLLOW_REQUIRED","USER_BLOCKED","USER_NOT_FOUND","CHAT_MEDIA_UNAVAILABLE","POST_NOT_FOUND","RATE_LIMITED","IDEMPOTENCY_CONFLICT"].includes(code)?code:"MESSAGE_SEND_FAILED",
           message:error?.validationMessage??(code==="CONVERSATION_NOT_FOUND"?"Conversation not found.":"Unable to send this message."),
         }});
       }
@@ -503,6 +503,8 @@ app.prepare().then(async()=>{
     socket.on("conversation:sync",async({cursor,limit}={},ack=()=>{})=>{
       try{
         const result=await syncMessagesForUser(user.id,{cursor:typeof cursor==="string"&&cursor.trim()?cursor.trim():null,limit:messageSyncLimit(limit)});
+        const {hydratePostMessages}=await import("./src/lib/chat-posts.js");
+        result.records=await hydratePostMessages(prisma,result.records,connectionOrigin);
         const perks=await resolveUserPerks(result.records.map((message)=>message.sender).filter(Boolean),connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]);
         ack({success:true,data:{
           messages:result.records.map((message)=>({conversationId:message.conversation.publicId,message:serializeMessage(message,perks.get(message.sender?.publicId))})),
