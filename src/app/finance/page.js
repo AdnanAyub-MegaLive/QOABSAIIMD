@@ -1,3 +1,4 @@
+import { calendarWindow } from '@/lib/business-time.js';
 import { requirePagePermission } from "@/lib/portal-admin";
 import { hasPermission } from "@/lib/portal-permissions";
 import { redirect } from "next/navigation";
@@ -14,8 +15,7 @@ export default async function FinancePage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/");
 
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  const todayStart = calendarWindow('day').start;
   const [packages, reconciliations, pendingWithdrawals, topUpTotals, giftTotals] = await Promise.all([
     prisma.walletCoinPackage.findMany({
       orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { coins: "asc" }],
@@ -32,7 +32,7 @@ export default async function FinancePage() {
     stats: {
       pendingWithdrawals,
       completedTopUpsToday: topUpTotals.reduce((sum, row) => sum + row._count, 0),
-      topUpAmountsToday: topUpTotals.map(row => `${row.currency} ${row._sum.amount?.toFixed(2) ?? "0.00"}`).join(" · ") || "No completed top-ups (UTC)",
+      topUpAmountsToday: topUpTotals.map(row => `${row.currency} ${row._sum.amount?.toFixed(2) ?? "0.00"}`).join(" · ") || "No completed top-ups (UTC+7)",
       giftsToday: String(giftTotals._sum.coinValue ?? 0n),
       reconciliationAlerts: reconciliations.filter((item) => item.status !== "MATCHED").length,
     },

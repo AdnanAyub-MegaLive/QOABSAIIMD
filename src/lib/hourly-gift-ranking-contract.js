@@ -7,7 +7,7 @@ export function giftHours(now = new Date()) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours()));
   const previousStart = new Date(start.getTime() - 3600000);
   const end = new Date(start.getTime() + 3600000);
-  return { timezone: "UTC", hourId: start.toISOString(), nextResetAt: end.toISOString(),
+  return { timezone: "Asia/Bangkok", hourId: start.toISOString(), nextResetAt: end.toISOString(),
     current: { start: start.toISOString(), end: end.toISOString() },
     previous: { start: previousStart.toISOString(), end: start.toISOString() } };
 }

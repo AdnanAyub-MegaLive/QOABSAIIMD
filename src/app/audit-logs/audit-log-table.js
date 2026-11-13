@@ -43,7 +43,7 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {["action","entity","from","to"].map(key=><input key={key} name={key} aria-label={key+" filter (dates UTC)"} placeholder={key==="entity"?"Target ID":key} type={["from","to"].includes(key)?"date":"text"} defaultValue={filters[key]??""} className="h-10 rounded-lg border px-2 text-xs" />)}
+          {["action","entity","from","to"].map(key=><input key={key} name={key} aria-label={key+" filter (dates UTC+7)"} placeholder={key==="entity"?"Target ID":key} type={["from","to"].includes(key)?"date":"text"} defaultValue={filters[key]??""} className="h-10 rounded-lg border px-2 text-xs" />)}
           <select
           name="category"
           defaultValue={category}
@@ -57,7 +57,7 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
         <table className="w-full min-w-[950px] text-left">
           <thead>
             <tr className="bg-[#f8fbfa] text-[10px] tracking-wider text-[#748883] uppercase">
-              <th className="px-5 py-3.5">Date & Time (UTC)</th>
+              <th className="px-5 py-3.5">Date & Time (UTC+7)</th>
               <th>Actor</th>
               <th>Category</th>
               <th>Action</th>
@@ -68,7 +68,7 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
           <tbody className="divide-y divide-[#edf2f1]">
             {logs.map((log) => (
               <tr key={log.id} className="text-xs hover:bg-[#f9fcfb]">
-                <td className="px-5 py-4 text-[#687c77]">{log.createdAt}</td>
+                <td className="px-5 py-4 text-[#687c77]">{new Date(log.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })}</td>
                 <td>
                   <p className="font-semibold">{log.adminName}</p>
                   <p className="text-[9px] text-[#8a9a96]">{log.adminEmail}</p>

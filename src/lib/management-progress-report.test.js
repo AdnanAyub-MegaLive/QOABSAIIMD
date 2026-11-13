@@ -1,8 +1,8 @@
 import { expect,it,vi } from "vitest";
 import { reportSelection,managementProgressReport,progressCsv } from "./management-progress-report.js";
-it("validates dates, roles, inclusive UTC end and bounded ranges",()=>{
+it("validates dates, roles, inclusive UTC+7 end and bounded ranges",()=>{
   const s=reportSelection(new URLSearchParams({from:"2026-10-01",to:"2026-10-10",role:"BD"}));
-  expect(s.end.toISOString()).toBe("2026-10-11T00:00:00.000Z");
+  expect(s.end.toISOString()).toBe("2026-10-10T17:00:00.000Z");
   for(const [from,to,role] of [["2026-02-30","2026-03-01",""],["2026-10-11","2026-10-10",""],["2024-01-01","2026-01-01",""],["2026-01-01","2026-01-02","bogus"]]){
     expect(()=>reportSelection(new URLSearchParams({from,to,role}))).toThrow();
   }

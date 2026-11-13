@@ -8,7 +8,7 @@ export default function PizzaEditor({game,onClose,onSave}){
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
  async function submit(e){e.preventDefault();setBusy(true);try{await onSave(form);}catch(err){setError(err.message);}finally{setBusy(false);}}
  return <form onSubmit={submit}><div className="modal-body"><GameLevelFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))}/><RoundTimingFields game={form} onChange={patch=>setForm(previous=>({...previous,...patch}))} />
- <p>Application coin wallet. Shared room rounds. Settings apply next UTC day; pausing applies immediately. Weight divided by total weight determines each food’s probability.</p>
+ <p>Application coin wallet. Shared room rounds. Settings apply next UTC+7 day; pausing applies immediately. Weight divided by total weight determines each food’s probability.</p>
  <div className="form-grid"><label>Name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Availability<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="paused">Paused</option><option value="active">Active</option></select></label>
  {["minBet","maxBet"].map(k=><label key={k}>{k==="minBet"?"Minimum points":"Maximum points"}<input type="number" min={1} max={100000000} required value={form[k]} onChange={e=>setForm({...form,[k]:Number(e.target.value)})}/></label>)}
  </div>

@@ -1,20 +1,14 @@
+import { calendarWindow } from './business-time.js';
 import { createHash } from "node:crypto";
 
 export const rankingError = (code, message, status = 422) => Object.assign(new Error(message), { code, status });
 export const rankingHash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 export function roomRankingPeriod(period, now = new Date()) {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  let end;
-  if (period === "DAILY") end = new Date(start.getTime() + 86400000);
-  else if (period === "WEEKLY") {
-    start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
-    end = new Date(start.getTime() + 7 * 86400000);
-  } else if (period === "MONTHLY") {
-    start.setUTCDate(1);
-    end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
-  } else throw rankingError("VALIDATION_ERROR", "period must be DAILY, WEEKLY or MONTHLY.");
-  return { period, timezone: "UTC", start: start.toISOString(), end: end.toISOString(), nextResetAt: end.toISOString() };
+  const kind = { DAILY: 'day', WEEKLY: 'week', MONTHLY: 'month' }[period];
+  if (!kind) throw rankingError('VALIDATION_ERROR', 'period must be DAILY, WEEKLY or MONTHLY.');
+  const { start, end, timezone } = calendarWindow(kind, now);
+  return { period, timezone, start: start.toISOString(), end: end.toISOString(), nextResetAt: end.toISOString() };
 }
 
 export function parseRoomRankingQuery(params) {

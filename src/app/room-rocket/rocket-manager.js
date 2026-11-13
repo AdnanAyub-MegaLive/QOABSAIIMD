@@ -1,4 +1,5 @@
 'use client';
+import { portalDateTimeInput, parsePortalDate } from '@/lib/business-time.js';
 import { useState } from 'react';
 
 const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900';
@@ -6,6 +7,7 @@ const groups = { top1: 'TOP 1', top2: 'TOP 2', top3: 'TOP 3', inRoom: 'IN ROOM' 
 const defaults = () => ({ enabled: false, title: 'Room Rocket', rules: '', endsAt: new Date(Date.now() + 86400000).toISOString(), repeatDays: 30, resetDelayMinutes: 180, grabWindowSeconds: 30, stages: ['50000', '150000', '400000'].map((targetCoins, i) => ({ title: `Rocket LV.${i + 1}`, targetCoins, thumbnailUrl: '', previewUrl: '', mimeType: 'video/mp4', animation: { mediaUrl: '', mimeType: 'video/mp4', lowResolutionMediaUrl: '', posterUrl: '', durationMs: 5000 }, inRoomWinners: 0, rewards: { top1: [], top2: [], top3: [], inRoom: [] } })) });
 export default function RocketManager({ initial, enabled, season, assets, canEdit }) {
   const [config, setConfig] = useState(() => ({ ...(initial || defaults()), enabled }));
+  const [applyNow, setApplyNow] = useState(false);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   function update(key, value) { setConfig(c => ({ ...c, [key]: value })); }
   function stage(index, key, value) { setConfig(c => ({ ...c, stages: c.stages.map((s, i) => i === index ? { ...s, [key]: value } : s) })); }
@@ -13,20 +15,20 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
   async function save(event) {
     event.preventDefault(); setBusy(true); setMessage('');
     try {
-      const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
+      const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...config, applyNow }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || 'Unable to save.');
-      setConfig(body.data); setMessage('Saved. Rules, reset delay, grab window and the on/off switch apply to future launches now. Existing countdowns keep their deadline. Level and reward changes apply to the next season.');
+      setConfig(body.data); setApplyNow(false); setMessage(applyNow ? 'Saved. Level and reward changes now apply to the current season. Existing launches keep their original rewards.' : 'Saved. Rules and timing are live. Level and reward changes apply next season.');
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <form onSubmit={save} className="space-y-6 text-slate-900">
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">Only future paid gifts count. Existing gifts are never backfilled. Completed launches pay once; earned rewards remain due even if Rocket is switched off. {season && <p className="mt-2">Current season: {season.id} · ends {new Date(season.endsAt).toLocaleString()}</p>}</div>
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">Only future paid gifts count. Existing gifts are never backfilled. Completed launches pay once; earned rewards remain due even if Rocket is switched off. {season && <p className="mt-2">Current season: {season.id} · ends {new Date(season.endsAt).toLocaleString(undefined, { timeZone: 'Asia/Bangkok' })}</p>}</div>
     <fieldset disabled={!canEdit || busy} className="space-y-6">
       <section className="grid gap-4 rounded-xl border bg-white p-5 md:grid-cols-2">
         <h2 className="md:col-span-2 rounded-xl bg-slate-900 px-4 py-3 text-lg font-bold text-white">Rocket season</h2>
         <label className="flex items-center gap-3 font-semibold"><input type="checkbox" checked={config.enabled} onChange={e => update('enabled', e.target.checked)} />Enable Room Rocket</label>
         <label className="space-y-1 text-sm">Season title<input className={field} required maxLength={100} value={config.title} onChange={e => update('title', e.target.value)} /></label>
-        <label className="space-y-1 text-sm">First season end (UTC)<input className={field} type="datetime-local" required value={config.endsAt.slice(0,16)} onChange={e => update('endsAt', e.target.value ? `${e.target.value}:00.000Z` : '')} disabled={Boolean(season)} /><span className="text-xs text-slate-500">After the first season, repeats use the interval below.</span></label>
+        <label className="space-y-1 text-sm">First season end (UTC+7)<input className={field} type="datetime-local" required value={portalDateTimeInput(config.endsAt)} onChange={e => update('endsAt', e.target.value ? parsePortalDate(e.target.value).toISOString() : '')} disabled={Boolean(season)} /><span className="text-xs text-slate-500">After the first season, repeats use the interval below.</span></label>
         <label className="space-y-1 text-sm">Subsequent season length (days)<input className={field} type="number" min={1} max={366} required value={config.repeatDays} onChange={e => update('repeatDays', Number(e.target.value))} /></label>
         <label className="space-y-1 text-sm">Grab window after launch (seconds)<input className={field} type="number" min={10} max={300} required value={config.grabWindowSeconds ?? 30} onChange={e => update('grabWindowSeconds', Number(e.target.value))}/><span className="text-xs text-slate-500">Default: 30 seconds. Include the full animation, 3-second countdown, 2-second button and network delay. First valid grabbers win; if nobody grabs, the launch-time random draw is used.</span></label>
         <label className="space-y-1 text-sm">Reset after top-level launch (minutes)<input className={field} type="number" min={1} max={10080} required value={config.resetDelayMinutes ?? 180} onChange={e => update('resetDelayMinutes', Number(e.target.value))}/><span className="text-xs text-slate-500">Default: 180 minutes (3 hours). After this wait the room starts again at Level 1. Gifts during this wait do not count. Each earlier launch pauses for 3 minutes; gifts during that pause count toward the next rocket.</span></label>
@@ -56,6 +58,8 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
           <button type="button" disabled={s.rewards[group].length >= 10} className="rounded-lg border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800" onClick={() => rewards(index, group, [...s.rewards[group], { type: 'COINS', amount: '1' }])}>Add reward</button>
         </div>)}</div>
       </section>)}
+      <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={applyNow} onChange={e => setApplyNow(e.target.checked)} />Apply level and reward changes to the current season now</label>
+      {applyNow && <p className="text-sm text-amber-800">Rooms keep their current level and coins. Launches that already happened pay their original rewards.</p>}
       <button type="submit" className="rounded-lg bg-teal-800 px-5 py-3 font-semibold text-white">{busy ? 'Saving…' : 'Save Rocket settings'}</button>
     </fieldset>
     {message && <p role="status" className="rounded-lg border bg-white p-4 text-sm">{message}</p>}

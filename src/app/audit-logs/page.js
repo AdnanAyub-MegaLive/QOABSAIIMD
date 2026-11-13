@@ -1,3 +1,4 @@
+import { parsePortalDate, portalDate } from '@/lib/business-time.js';
 import {auditFilters,auditRow} from "@/lib/audit-view";
 import { requirePagePermission } from "@/lib/portal-admin";
 import { redirect } from "next/navigation";
@@ -22,7 +23,7 @@ export default async function AuditLogsPage({ searchParams }) {
     prisma.auditLog.count({ where }),
     prisma.auditLog.count(),
     prisma.auditLog.count({
-      where: { createdAt: { gte: new Date(new Date().toISOString().slice(0,10)+"T00:00:00.000Z") } },
+      where: { createdAt: { gte: parsePortalDate(portalDate()) } },
     }),
     prisma.auditLog.count({ where: { category: "SECURITY" } }),
   ]);
@@ -72,7 +73,7 @@ export default async function AuditLogsPage({ searchParams }) {
           <div className="mb-6 grid gap-3 sm:grid-cols-3">
             {[
               ["Total records", totalRecords, "Complete audit history"],
-              ["Activity today", totalToday, "Actions since midnight UTC"],
+              ["Activity today", totalToday, "Actions since midnight UTC+7"],
               ["Security events", securityCount, "Bans and restrictions"],
             ].map(([label, value, note]) => (
               <div

@@ -13,8 +13,8 @@ export async function PUT(request) {
     const admin = await requirePermission('rocket.edit');
     const body = await request.json().catch(() => { throw Object.assign(new Error('Send a valid JSON configuration.'), { status: 422, code: 'VALIDATION_ERROR' }); });
     const config = await prisma.$transaction(async tx => {
-      const saved = await saveRocketConfiguration(tx, body);
-      await tx.auditLog.create({ data: { adminId: admin.id, action: 'ROOM_ROCKET_CONFIGURED', category: 'CONTENT_MANAGEMENT', entityType: 'RoomRocketSettings', entityId: 'GLOBAL', description: 'Updated Rocket switch, reset delay and next-season configuration.', metadata: saved } });
+      const saved = await saveRocketConfiguration(tx, body, new Date(), admin.id);
+      await tx.auditLog.create({ data: { adminId: admin.id, action: 'ROOM_ROCKET_CONFIGURED', category: 'CONTENT_MANAGEMENT', entityType: 'RoomRocketSettings', entityId: 'GLOBAL', description: body.applyNow ? 'Updated current-season Rocket configuration.' : 'Updated Rocket rules and timing; saved next-season levels and rewards.', metadata: saved } });
       return saved;
     });
     return Response.json({ success: true, data: config });

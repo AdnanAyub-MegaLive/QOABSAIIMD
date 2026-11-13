@@ -1,4 +1,6 @@
 "use server";
+import { calendarWindow } from "@/lib/business-time.js";
+import { occupiedSpecialId, promoteSpecialId, publishSpecialIdentity } from "@/lib/special-id-ownership";
 
 import { changeDeviceBan } from "../lib/device-ban.js";
 import { revalidatePath } from "next/cache";
@@ -251,11 +253,7 @@ export async function updateTalentAccount(publicId, changes) {
       data: {
         talentId: talent.id,
         adminId: admin.id,
-        periodStart: new Date(
-          new Date().getFullYear(),
-          new Date().getMonth(),
-          1,
-        ),
+        periodStart: calendarWindow('month').start,
         periodEnd: new Date(),
         amount: String(changes.salary),
         status: "PENDING",
@@ -1112,11 +1110,13 @@ export async function deleteSpecialIdDefinition(
   const note = String(reason ?? "").trim().slice(0, 500);
   if (!note) throw new Error("DELETION_REASON_REQUIRED");
   await reconcileExpiredSpecialIds();
-  const definition = await prisma.specialIdDefinition.findUniqueOrThrow({
+  const {definition,mode,identities} = await prisma.$transaction(async tx => {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)::text AS locked`;
+  const definition = await tx.specialIdDefinition.findUniqueOrThrow({
     where: { id: definitionId },
     include: {
       assignments: {
-        where: { status: "ACTIVE", revokedAt: null, expiresAt: { gt: new Date() } },
+        where: occupiedSpecialId(new Date()),
         include: { user: { select: { publicId: true } } },
       },
       _count: { select: { assignments: true } },
@@ -1126,14 +1126,13 @@ export async function deleteSpecialIdDefinition(
     throw new Error("SPECIAL_ID_HAS_ACTIVE_ASSIGNMENT");
   const revokedAt = new Date();
   const mode = definition._count.assignments ? "ARCHIVED" : "DELETED";
-  await prisma.$transaction(async (tx) => {
+  const identities=[];
+  for(const userId of [...new Set(definition.assignments.map(a=>a.userId))].sort()) await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR UPDATE`;
     if (definition.assignments.length)
       await tx.specialIdAssignment.updateMany({
         where: {
           definitionId: definition.id,
-          status: "ACTIVE",
-          revokedAt: null,
-          expiresAt: { gt: revokedAt },
+          ...occupiedSpecialId(revokedAt),
         },
         data: { status: "REVOKED", revokedAt },
       });
@@ -1161,17 +1160,13 @@ export async function deleteSpecialIdDefinition(
         },
       },
     });
+    for (const assignment of definition.assignments) identities.push({assignment,...await promoteSpecialId(tx,assignment.userId)});
+    return {definition,mode,identities};
   });
-  for (const assignment of definition.assignments)
-    emitToUser(assignment.user.publicId, "special-id:revoked", {
-      success: true,
-      data: {
-        normalId: assignment.user.publicId,
-        effectiveId: assignment.user.publicId,
-        specialId: null,
-        reason: note,
-      },
-    });
+  for (const {assignment,row} of identities) {
+    await publishSpecialIdentity(assignment.userId,assignment.user.publicId,row);
+    emitToUser(assignment.user.publicId,"special-id:revoked",{success:true,data:{normalId:assignment.user.publicId,effectiveId:row?.specialId??assignment.user.publicId,specialId:row?.specialId??null,reason:note}});
+  }
   revalidatePath("/users");
   revalidatePath("/vip-management");
   return { id: definition.id, code: definition.code, mode };
@@ -1234,11 +1229,13 @@ export async function revokeSpecialId(assignmentId, reason) {
     where: { id: assignmentId },
     include: { user: true },
   });
-  await prisma.$transaction(async tx => {
+  const replacement = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)::text AS locked`;
     await tx.$queryRaw`SELECT id FROM "User" WHERE id=${assignment.userId} FOR UPDATE`;
     await tx.specialIdAssignment.update({ where: { id: assignmentId }, data: { status: "REVOKED", revokedAt: new Date() } });
+    return await promoteSpecialId(tx,assignment.userId);
   });
+  await publishSpecialIdentity(assignment.userId,assignment.user.publicId,replacement.row);
   await logActivity(admin, {
     action: "REVOKE_SPECIAL_ID",
     category: "USER_MANAGEMENT",

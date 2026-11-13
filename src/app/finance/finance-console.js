@@ -18,8 +18,8 @@ export default function FinanceConsole({ stats, reconciliations, packages, integ
     <>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Metric label="Legacy payouts to review" value={stats.pendingWithdrawals} note="WalletWithdrawal only; currency requests are reviewed in Rules & Profit Split" tone="amber" />
-        <Metric label="Top-ups today (UTC)" value={stats.completedTopUpsToday} note={stats.topUpAmountsToday} tone="emerald" />
-        <Metric label="Gifts today (UTC)" value={formatNumber(stats.giftsToday)} note="Gross sent Coin value, before refunds" tone="violet" />
+        <Metric label="Top-ups today (UTC+7)" value={stats.completedTopUpsToday} note={stats.topUpAmountsToday} tone="emerald" />
+        <Metric label="Gifts today (UTC+7)" value={formatNumber(stats.giftsToday)} note="Gross sent Coin value, before refunds" tone="violet" />
         <Metric label="Reconciliation alerts" value={stats.reconciliationAlerts} note="Baseline or investigation" tone={stats.reconciliationAlerts ? "red" : "emerald"} />
         <Metric label="Active packages" value={packages.filter((item) => item.active).length} note={`${packages.length} configured`} tone="slate" />
       </section>
@@ -123,7 +123,7 @@ function WithdrawalActionModal({ selection, onClose }) {
 }
 
 function formatNumber(value) { try { return BigInt(value ?? 0).toLocaleString(); } catch { return String(value ?? "—"); } }
-function formatDate(value) { return new Date(value).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }); }
+function formatDate(value) { return new Date(value).toLocaleString("en-US", { ...({ dateStyle: "medium", timeStyle: "short" }), timeZone: 'Asia/Bangkok' }); }
 
 
 function FinanceRecords({ kind, children, revision = 0 }) {

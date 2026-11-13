@@ -14,21 +14,29 @@ class Element {
 }
 const descendants=n=>[n,...n.children.flatMap(descendants)];
 async function fixture(track, rewardPolicy=null, pathname='', template='rankings', viewer=null) {
-  const nodes=new Map(),messages=[],requests=[];
+  const nodes=new Map(),messages=[],requests=[];let modalObserver;
   const get=id=>{if(!nodes.has(id))nodes.set(id,new Element('div'));return nodes.get(id);};
   get('search').value='';get('heading').parentElement=new Element('div');
   if(track){get('ranking').dataset.track=track;get('ranking').dataset.event=`ranking-${track}`;}
   const window={location:{pathname},ReactNativeWebView:{postMessage:value=>messages.push(JSON.parse(value))}};
   vm.runInNewContext(readFileSync(`event-templates/${template}/app.js`,'utf8'),{
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
+    MutationObserver:class{constructor(callback){modalObserver=callback;}observe(){}},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
     fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{viewer,rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,gap:rank===1?null:'2700',agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,frameUrl:'https://cdn.example/frame.svga',frameMimeType:'application/svga',framePosterUrl:'https://cdn.example/frame.png',vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
-  return {get,messages,flush,requests};
+  return {get,messages,flush,requests,refreshRewards:()=>modalObserver()};
 }
 describe('ranking native navigation',()=>{
+  it('refreshes the modal from the public rewards endpoint and shows inactive configured prizes',async()=>{
+    const {get,requests,refreshRewards,flush}=await fixture(null,{enabled:false,effectiveFrom:'2026-11-13T00:00:00Z',rewards:[{rank:2,coins:'700',props:[]}]});
+    get('rewards').onclick();refreshRewards();await flush();
+    expect(requests.at(-1)).toContain('/api/v1/events/ranking-rewards?');
+    expect(descendants(get('reward-details')).some(n=>n.textContent==='700 Coins')).toBe(true);
+    expect(descendants(get('reward-details')).some(n=>n.textContent?.includes('inactive'))).toBe(true);
+  });
   it.each(['wealth','charm','agency','cp','game'])('runs independent %s source and local assets',async track=>{
     const {requests,get}=await fixture(null,null,'',`ranking-${track}`);
     expect(requests[0]).toContain(`event=ranking-${track}`);

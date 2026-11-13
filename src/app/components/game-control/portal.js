@@ -72,12 +72,12 @@ const statusLabel = {
   credit_confirmed: "Payout confirmed",
 };
 function date(value) {
-  return new Date(value).toLocaleString(undefined, {
+  return new Date(value).toLocaleString(undefined, { ...({
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  }), timeZone: 'Asia/Bangkok' });
 }
 function Badge({ status }) {
   return (
@@ -1177,14 +1177,14 @@ function ActivityChart({ rounds, period }) {
             </div>
             <small>
               {hours <= 24
-                ? new Date(b.start).toLocaleTimeString([], {
+                ? new Date(b.start).toLocaleTimeString([], { ...({
                     hour: "2-digit",
                     hour12: false,
-                  })
-                : new Date(b.start).toLocaleDateString([], {
+                  }), timeZone: 'Asia/Bangkok' })
+                : new Date(b.start).toLocaleDateString([], { ...({
                     month: "numeric",
                     day: "numeric",
-                  })}
+                  }), timeZone: 'Asia/Bangkok' })}
             </small>
           </div>
         ))}

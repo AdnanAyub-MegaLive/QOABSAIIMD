@@ -20,13 +20,13 @@ export default function PrettyIdSettings() {
   const update = (index, key, value) => setLevels(rows => rows.map((row, i) => i === index ? { ...row, [key]: value } : row));
   async function run(action) { setBusy(true); try { const result = await action(); setMessage(result.message); return result; } catch { setMessage('Could not confirm the request. Retry with the same details.'); } finally { setBusy(false); } }
   return <section className="space-y-6 border-b border-slate-200 bg-slate-50 p-5 sm:p-6">
-    <div><h3 className="text-base font-bold text-slate-900">Weekly Pretty IDs</h3><p className="mt-2 text-sm text-slate-600">Monday to Monday, 00:00 UTC. One highest qualifying entitlement per week. Maintenance uses recharge allowance, never wallet coins.</p></div>
+    <div><h3 className="text-base font-bold text-slate-900">Weekly Pretty IDs</h3><p className="mt-2 text-sm text-slate-600">Monday to Monday, 00:00 UTC+7. One highest qualifying entitlement per week. Maintenance uses recharge allowance, never wallet coins.</p></div>
     {message && <p role="status" className="rounded-xl border border-teal-200 bg-white p-4 text-sm text-teal-900">{message}</p>}
     {!data ? <button onClick={load} className="rounded-lg border px-4 py-2">Load settings</button> : <>
       <form onSubmit={async e => { e.preventDefault(); await run(async () => { const result = await savePrettyPolicy(enabled, levels); if (result.success) await load(); return result; }); }}>
         <fieldset disabled={busy} className="space-y-5">
           <label className="flex items-center gap-3 font-semibold"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} className="h-5 w-5 accent-teal-700" />Enable weekly recharge qualification from next Monday</label>
-          <p className="text-xs text-slate-600">New policy starts {new Date(data.nextWeek).toUTCString()}. Existing IDs keep their granted validity and maintenance terms. Zero maintenance disables renewal offers for that level.</p>
+          <p className="text-xs text-slate-600">New policy starts {new Date(data.nextWeek).toLocaleString('en-US', { timeZone: 'Asia/Bangkok', timeZoneName: 'shortOffset' })}. Existing IDs keep their granted validity and maintenance terms. Zero maintenance disables renewal offers for that level.</p>
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-100"><tr>{['Level / length', 'Weekly recharge coins', 'Pattern', 'Maintain (coins)', 'Validity (days)'].map(t => <th key={t} className="p-3">{t}</th>)}</tr></thead><tbody>{levels.map((row, i) => <tr key={row.level} className="border-t border-slate-100">
             <td className="p-3 font-semibold">{row.level} · {row.characters} characters</td>
             <td className="p-3"><input aria-label={`Level ${row.level} recharge`} className={input} required pattern="[0-9]+" inputMode="numeric" value={row.thresholdCoins} onChange={e => update(i, 'thresholdCoins', e.target.value)} /></td>
@@ -42,7 +42,7 @@ export default function PrettyIdSettings() {
         <h4 className="font-bold">Official manual grant</h4><p className="mt-1 text-xs text-slate-600">Uses the latest saved level settings. Claim reserves the ID; first activation starts its timer. Switching IDs never pauses expiry.</p>
         <fieldset disabled={busy} className="mt-4 grid gap-4 sm:grid-cols-3"><label className="text-xs font-semibold">Normal user ID<input className={input} name="publicId" required placeholder="USR-…" /></label><label className="text-xs font-semibold">Level<select className={input} name="level">{levels.map(row => <option key={row.level} value={row.level}>Level {row.level} · {row.characters} characters</option>)}</select></label><button className="self-end rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white">Grant entitlement</button></fieldset>
       </form>
-      <details className="text-sm"><summary className="cursor-pointer font-semibold">Policy history</summary><ul className="mt-3 space-y-2">{data.policies.map(p => <li key={p.id}>#{p.id} · {new Date(p.effectiveFrom).toUTCString()} · {p.enabled ? 'Enabled' : 'Disabled'}</li>)}</ul></details>
+      <details className="text-sm"><summary className="cursor-pointer font-semibold">Policy history</summary><ul className="mt-3 space-y-2">{data.policies.map(p => <li key={p.id}>#{p.id} · {new Date(p.effectiveFrom).toLocaleString('en-US', { timeZone: 'Asia/Bangkok', timeZoneName: 'shortOffset' })} · {p.enabled ? 'Enabled' : 'Disabled'}</li>)}</ul></details>
     </>}
   </section>;
 }

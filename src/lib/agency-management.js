@@ -55,7 +55,15 @@ async function eligibleOwner(client, publicId, applicationId) {
 
 async function newAgency(client, user, name, bdUserId) {
   const publicId = await generateNumericPublicId("AGN", candidate => client.agency.findUnique({ where: { publicId: candidate }, select: { id: true } }), { db: client });
-  return client.agency.create({ data: { publicId, name, ownerUserId: user.id, country: normalizeSignupCountry(user.country), bdUserId } });
+  const agency = await client.agency.create({ data: { publicId, name, ownerUserId: user.id, country: normalizeSignupCountry(user.country), bdUserId } });
+  // Approval/grant and hosting eligibility commit together. Management owners may
+  // own several agencies: retain their existing personal hosting membership.
+  const data = {
+    ...(!user.appRoles?.includes("HOST") ? { appRoles: { push: "HOST" } } : {}),
+    ...(!user.agencyId ? { agencyId: agency.id } : {}),
+  };
+  if (Object.keys(data).length) await client.user.update({ where: { id: user.id }, data });
+  return agency;
 }
 
 async function audit(client, actor, action, entityId, metadata) {

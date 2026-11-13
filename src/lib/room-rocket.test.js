@@ -17,10 +17,10 @@ function config() { return validateRocketConfig({enabled:true,title:'Rocket',rul
 function fixture() {
  const state={season:{id:'season',startsAt:new Date('2026-11-02'),endsAt:new Date('2026-11-03'),config:config()},progress:null,gifts:new Map(),credits:new Map(),contributions:new Map(),launches:new Map(),users:new Map(['s','r','owner','hidden'].map(id=>[id,{id,publicId:`USR-${id}`,name:id,coinBalance:0n}])),ledger:[],notifications:new Map()};
  const key=k=>[k.campaignId,k.roomId,k.cycle??0,k.level,k.userId].join(':');
- const tx={events:[], globalAnnouncementPolicy:{findUnique:async()=>null}, audioRoom:{findUnique:async()=>null},
+ const tx={events:[], globalAnnouncementPolicy:{findUnique:async()=>null}, audioRoom:{findUnique:async()=>null,findMany:async()=>[{roomId:'ROOM-1'}]},
   roomRocketSettings:{findUnique:async()=>({enabled:true,config:config()})},
   roomRocketSeason:{findFirst:async()=>state.season,findUnique:async()=>state.season,create:async({data})=>state.season=data},
-  roomRocketProgress:{upsert:async({create})=>state.progress=({coins:0n,level:1,cycle:0,revision:0,dirty:true,...create}),findUniqueOrThrow:async()=>state.progress,findUnique:async({where})=>state.progress?.campaignId===where.campaignId_roomId.campaignId?state.progress:null,findFirst:async()=>state.progress,update:async({data})=>{const {revision,...rest}=data;Object.assign(state.progress,rest);if(revision)state.progress.revision+=revision.increment;return state.progress;}},
+  roomRocketProgress:{updateMany:async({where,data})=>{const p=state.progress;if(p&&(!where.level||p.level===where.level)&&(!where.coins||p.coins>=where.coins.gte))Object.assign(p,data);return {count:p?1:0};},upsert:async({create})=>state.progress=({coins:0n,level:1,cycle:0,revision:0,dirty:true,...create}),findUniqueOrThrow:async()=>state.progress,findUnique:async({where})=>state.progress?.campaignId===where.campaignId_roomId.campaignId?state.progress:null,findFirst:async()=>state.progress,update:async({data})=>{const {revision,...rest}=data;Object.assign(state.progress,rest);if(revision)state.progress.revision+=revision.increment;return state.progress;}},
   roomRocketContribution:{upsert:async({where,create,update})=>{const k=key(where.campaignId_roomId_cycle_level_userId),old=state.contributions.get(k);if(old)old.coins+=update.coins.increment;else state.contributions.set(k,{...create});},findUnique:async({where})=>state.contributions.get(key(where.campaignId_roomId_cycle_level_userId)),update:async({where,data})=>Object.assign(state.contributions.get(key(where.campaignId_roomId_cycle_level_userId)),data)},
   roomRocketGift:{findUniqueOrThrow:async({where})=>state.gifts.get(where.giftId),findUnique:async({where})=>state.gifts.get(where.giftId),create:async({data})=>state.gifts.set(data.giftId,data),update:async({where,data})=>Object.assign(state.gifts.get(where.giftId),data)},
   roomRocketLaunch:{create:async({data})=>{if([...state.launches.values()].some(l=>l.roomId===data.roomId&&l.level===data.level&&l.campaignId===data.campaignId&&l.cycle===data.cycle))throw Error('duplicate launch');state.launches.set(data.id,{...data,paidUserIds:[]});},findUnique:async({where})=>where.id?state.launches.get(where.id):[...state.launches.values()].find(l=>Object.entries(where.campaignId_roomId_cycle_level).every(([k,v])=>l[k]===v)),findFirst:async({where})=>[...state.launches.values()].filter(l=>Object.entries(where).every(([k,v])=>l[k]===v)).sort((a,b)=>(b.cycle??0)-(a.cycle??0))[0],findUniqueOrThrow:async({where})=>state.launches.get(where.id),update:async({where,data})=>Object.assign(state.launches.get(where.id),data)},
@@ -101,13 +101,13 @@ it('validates exact stages, integer precision and HTTPS artwork',()=>{
  const c=config();c.stages[0].targetCoins='9007199254740993';expect(validateRocketConfig(c).stages[0].targetCoins).toBe('9007199254740993');
  expect(()=>validateRocketConfig({...c,stages:[]})).toThrow();c.stages[0].thumbnailUrl='http://unsafe';expect(()=>validateRocketConfig(c)).toThrow();
 });
-it('publishes rule edits to the active season while keeping its targets and rewards',async()=>{
+it('publishes rule edits to the active season while keeping its targets',async()=>{
  const f=fixture(), draft=config();
- draft.enabled=false; draft.rules='Updated flight rules'; draft.stages[0].targetCoins='250';
+ draft.enabled=false; draft.rules='Updated flight rules'; draft.stages[0].targetCoins='250'; draft.stages[0].rewards.top1=[{type:'COINS',amount:'99'}];
  f.tx.roomRocketSettings.upsert=vi.fn();
  f.tx.roomRocketSeason.update=vi.fn();
  await saveRocketConfiguration(f.tx,draft,now);
- expect(f.tx.roomRocketSeason.update).toHaveBeenCalledWith({where:{id:'season'},data:{config:{...f.state.season.config,rules:draft.rules,resetDelayMinutes:draft.resetDelayMinutes,grabWindowSeconds:draft.grabWindowSeconds}}});
+ expect(f.tx.roomRocketSeason.update).toHaveBeenCalledWith({where:{id:'season'},data:{updatedAt:now,config:{...f.state.season.config,rules:draft.rules,resetDelayMinutes:draft.resetDelayMinutes,grabWindowSeconds:draft.grabWindowSeconds}}});
 });
 it('allocates overflow once and stays complete after the final stage',()=>{
  const r=allocateRocketCoins(config().stages,1,90n,700n);expect(r.allocations.map(a=>a.amount)).toEqual([10n,200n,300n]);expect(r.level).toBe(3);expect(r.currentCoins).toBe(300n);expect(allocateRocketCoins(config().stages,3,300n,10n).allocations).toEqual([]);
@@ -185,6 +185,8 @@ it('applies the additive schema in isolated PostgreSQL and enforces launch and g
  await pg.exec(`INSERT INTO "RoomRocketProgress" ("roomId","campaignId",coins) VALUES ('room','old',77)`);
  await pg.exec(await readFile('prisma/migrations/20261104140000_deferred_rocket_gifts/migration.sql','utf8'));
  await pg.exec(`INSERT INTO "RoomRocketProgress" ("roomId","campaignId") VALUES ('room','new')`);
+ await pg.exec(await readFile('prisma/migrations/20261113000400_rocket_apply_now/migration.sql','utf8'));
+ expect((await pg.query(`SELECT "awaitingCountedGift" FROM "RoomRocketProgress" WHERE "campaignId"='old'`)).rows[0].awaitingCountedGift).toBe(false);
  expect((await pg.query(`SELECT coins::int FROM "RoomRocketProgress" WHERE "campaignId"='old'`)).rows[0].coins).toBe(77);
  await pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l','s','r',1,'[]')`);
  await expect(pg.exec(`INSERT INTO "RoomRocketLaunch" (id,"campaignId","roomId",level,winners) VALUES ('l2','s','r',1,'[]')`)).rejects.toThrow();
@@ -263,4 +265,60 @@ it('the maintenance worker launches a full waiting rocket without a new gift',as
  f.tx.roomRocketProgress.findMany=async()=>[f.state.progress];
  vi.useFakeTimers();vi.setSystemTime(new Date(+now+180000));
  try{await maintainRoomRockets(f.tx);expect(f.state.launches.size).toBe(2);expect(f.tx.events.some(e=>e.event==='audio-room:rocket:progress'&&e.data.level===3)).toBe(true);}finally{vi.useRealTimers();}
+});
+
+it('publishes edited prizes now without changing progress or an existing launch payout',async()=>{
+ const f=fixture();
+ await recordRocketGift(f.tx,f.gift('before-edit',100),'COINS',now);
+ const launch=[...f.state.launches.values()][0];
+ const progress=structuredClone(f.state.progress);
+ const draft=config();draft.enabled=false;draft.applyNow=true;draft.rules='New rules';draft.title='New title';
+ draft.stages[0].targetCoins='999';draft.stages[0].rewards.top1=[{type:'COINS',amount:'90'}];
+ draft.stages[1].rewards.top1=[{type:'COINS',amount:'90'}];
+ draft.stages[0].inRoomWinners=2;draft.stages[0].rewards.inRoom=[{type:'COINS',amount:'8'}];
+ f.tx.roomRocketSettings.upsert=vi.fn();
+ f.tx.roomRocketSeason.update=async({data})=>Object.assign(f.state.season,data);
+ await saveRocketConfiguration(f.tx,draft,now);
+ expect(f.state.season.config.rules).toBe('New rules');
+ expect(f.state.season.config.stages[0].targetCoins).toBe('999');
+ expect(f.state.season.config.stages[0].rewards.top1[0].amount).toBe('90');
+ expect(f.state.season.config.stages[0].inRoomWinners).toBe(2);
+ expect(f.state.progress).toEqual(progress);
+ expect(launch.winners[0].rewards[0].amount).toBe('5');
+ await payRocketLaunch(f.tx,launch.id,new Date(+now+31000));
+ expect(f.state.users.get('s').coinBalance).toBe(5n);
+ await recordRocketGift(f.tx,f.gift('after-edit',200),'COINS',new Date(+now+180001));
+ const next=[...f.state.launches.values()].find(l=>l.level===2);
+ expect(next.winners[0].rewards[0].amount).toBe('90');
+});
+
+it('holds a lowered target until the next counted gift, emits refresh and audits resolved changes',async()=>{
+ const f=fixture();await recordRocketGift(f.tx,f.gift('partial',80),'COINS',now);
+ const draft=config();draft.enabled=false;draft.applyNow=true;draft.stages[0].targetCoins='50';
+ draft.stages[0].thumbnailUrl='https://media.test/new.png';draft.stages[0].animation.mediaUrl='https://media.test/new.mp4';
+ draft.stages[0].rewards.top1=[{type:'PROP',assetId:'AST-frame',amount:'7'}];
+ f.tx.uploadAsset={findUnique:async()=>({id:'internal-frame',publicId:'AST-frame',active:true,category:'FRAMES',name:'New frame'})};
+ f.tx.auditLog={create:vi.fn()};f.tx.roomRocketSettings.upsert=vi.fn();
+ f.tx.roomRocketSeason.update=async({data})=>{f.state.season={...f.state.season,...data};return f.state.season;};
+ const contributions=structuredClone(f.state.contributions);
+ await saveRocketConfiguration(f.tx,draft,now,'admin');
+ expect(f.state.progress.coins).toBe(80n);expect(f.state.progress.awaitingCountedGift).toBe(true);
+ expect(f.state.contributions).toEqual(contributions);expect(f.state.launches.size).toBe(0);
+ const snapshot=await rocketSnapshot(f.tx,'ROOM-1',new Date(+now+1000));
+ expect(snapshot.progress.targetCoins).toBe('50');expect(snapshot.campaign.updatedAt).toBe(now.toISOString());
+ expect(snapshot.stages[0].thumbnailUrl).toBe(draft.stages[0].thumbnailUrl);
+ expect(f.state.launches.size).toBe(0);
+ await recordRocketGift(f.tx,f.gift('backpack',1),'BACKPACK',now);expect(f.state.launches.size).toBe(0);
+ expect(f.tx.events.some(e=>e.event==='audio-room:rocket:config-updated'&&e.data.campaignId==='season')).toBe(true);
+ expect(f.tx.auditLog.create.mock.calls[0][0].data).toMatchObject({action:'ROOM_ROCKET_SEASON_UPDATED',metadata:{before:expect.any(Array),after:expect.any(Array)}});
+ await recordRocketGift(f.tx,f.gift('next-counted',1),'COINS',new Date(+now+2000));
+ expect(f.state.launches.size).toBe(1);
+ expect([...f.state.launches.values()][0].winners[0].rewards[0]).toMatchObject({internalAssetId:'internal-frame',category:'FRAMES',name:'New frame'});
+});
+it.each(['remove','reorder'])('rejects %s levels with the specified error before writing',async change=>{
+ const f=fixture(),draft=config();draft.applyNow=true;
+ if(change==='remove')draft.stages.pop();else [draft.stages[0],draft.stages[1]]=[draft.stages[1],draft.stages[0]];
+ f.tx.roomRocketSettings.upsert=vi.fn();
+ await expect(saveRocketConfiguration(f.tx,draft,now)).rejects.toMatchObject({status:422,code:'ROCKET_LEVELS_CHANGED'});
+ expect(f.tx.roomRocketSettings.upsert).not.toHaveBeenCalled();
 });

@@ -26,6 +26,6 @@ export default function GiftRefunds({canRefund}) {
     <p role="status" className="text-sm">{message}</p>
     <button disabled={busy} className={input} onClick={()=>run(()=>loadPage(1))}>Load refunds / review queue</button>
     {pagination&&<nav aria-label="Refund history pages" className="flex items-center gap-3"><button disabled={busy||pagination.page<=1} onClick={()=>run(()=>loadPage(pagination.page-1))}>Previous</button><span>Page {pagination.page} · {pagination.total} records</span><button disabled={busy||pagination.page*pagination.pageSize>=pagination.total} onClick={()=>run(()=>loadPage(pagination.page+1))}>Next</button></nav>}
-    {rows.map(row=><article key={row.giftId} className="rounded-lg border p-3 text-sm"><strong>{row.giftId} — {row.status}</strong><p>{row.reason}</p><p>{row.reviewReason}</p><time>{row.createdAt}</time></article>)}
+    {rows.map(row=><article key={row.giftId} className="rounded-lg border p-3 text-sm"><strong>{row.giftId} — {row.status}</strong><p>{row.reason}</p><p>{row.reviewReason}</p><time>{new Date(row.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })}</time></article>)}
   </div>;
 }

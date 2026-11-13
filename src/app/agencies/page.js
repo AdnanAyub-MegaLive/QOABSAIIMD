@@ -1,3 +1,4 @@
+import { calendarWindow } from '@/lib/business-time.js';
 import DirectoryExport from '../components/directory-export';
 import CreateAgency from "./create-agency";
 import { hasPermission } from "@/lib/portal-permissions";
@@ -13,7 +14,7 @@ export default async function AgenciesPage() {
   const admin = await requirePagePermission("agencies.view");
   const session = await auth();
   if (!session?.user) redirect("/");
-  const monthStart=new Date(Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),1));
+  const monthStart=calendarWindow('month').start;
   const [records, joinRecords, agencyRecords, settlementTotals, rechargeTotals, userHosts, talentHosts, userGiftTotals]=await Promise.all([prisma.agencyApplication.findMany({
     select:{
       publicId:true,

@@ -2963,6 +2963,8 @@ model RoomRewardPayout {
   giftCoins BigInt
   giftIds Json
   diamonds BigInt
+  coins BigInt?
+  currency String @default("DIAMONDS")
   status String @default("PENDING")
   error String?
   paidAt DateTime? @db.Timestamp(3)
@@ -3003,6 +3005,7 @@ model RoomRocketSettings {
   updatedAt DateTime @updatedAt
 }
 model RoomRocketSeason {
+  updatedAt DateTime @default(now()) @updatedAt
   id String @id
   startsAt DateTime
   endsAt DateTime
@@ -3016,6 +3019,7 @@ model RoomRocketPendingGift {
 }
 
 model RoomRocketProgress {
+  awaitingCountedGift Boolean @default(false)
   cycle Int @default(0)
   cycleStartedAt DateTime?
   cooldownUntil DateTime?

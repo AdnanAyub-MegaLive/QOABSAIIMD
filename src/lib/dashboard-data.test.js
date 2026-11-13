@@ -10,10 +10,10 @@ it("shows zero game totals when no rounds have been recorded", async () => {
   const result = await dashboardData({ gameLog: { aggregate: async () => ({ _sum: { wager: null, payout: null } }) } }, { active: true, permissions: ["games.view"] }, 30);
   expect(result.cards[0]).toMatchObject({ value: "0", wins: "0" });
 });
-it("uses explicit UTC day boundaries and bounded periods", () => {
+it("uses explicit UTC+7 day boundaries and bounded periods", () => {
   const range = dashboardRange("30", new Date("2026-10-13T23:59:00Z"));
-  expect(range.today.toISOString()).toBe("2026-10-13T00:00:00.000Z");
-  expect(range.start.toISOString()).toBe("2026-09-14T00:00:00.000Z");
+  expect(range.today.toISOString()).toBe("2026-10-13T17:00:00.000Z");
+  expect(range.start.toISOString()).toBe("2026-09-14T17:00:00.000Z");
   expect(dashboardRange("999").days).toBe(7);
 });
 it("fills missing days with zero and preserves large coin amounts", () => {

@@ -171,10 +171,10 @@ export default async function TalentsPage() {
     mac: device.macAddress,
     location: device.location ?? "Unknown",
     loginTime:
-      device.lastLoginAt?.toLocaleString("en-US", {
+      device.lastLoginAt?.toLocaleString("en-US", { ...({
         dateStyle: "medium",
         timeStyle: "medium",
-      }) ?? "Never",
+      }), timeZone: 'Asia/Bangkok' }) ?? "Never",
     isUserBanned: device.talent.status === "BANNED",
     isDeviceBanned: device.isBanned,
   }));
@@ -188,8 +188,8 @@ export default async function TalentsPage() {
         identityFront: item.identityCardFront ? "Submitted" : "Missing",
         identityBack: item.identityCardBack ? "Submitted" : "Missing",
         profileImage: item.profileImage ? "Submitted" : "Missing",
-        submitted: item.submittedAt.toLocaleDateString("en-US"),
-        reviewed: item.reviewedAt?.toLocaleDateString("en-US") ?? "Pending",
+        submitted: item.submittedAt.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),
+        reviewed: item.reviewedAt?.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }) ?? "Pending",
       })),
     ),
     gifts: talents.flatMap((talent) =>
@@ -202,7 +202,7 @@ export default async function TalentsPage() {
         gift: item.giftName,
         quantity: item.quantity,
         value: Number(item.coinValue).toLocaleString(),
-        received: item.createdAt.toLocaleString("en-US"),
+        received: item.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
       })),
     ),
     salaries: talents.flatMap((talent) =>
@@ -210,10 +210,10 @@ export default async function TalentsPage() {
         id: item.id,
         talentId: talent.publicId,
         talent: talent.displayName,
-        period: `${item.periodStart.toLocaleDateString("en-US")} – ${item.periodEnd.toLocaleDateString("en-US")}`,
+        period: `${item.periodStart.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' })} – ${item.periodEnd.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' })}`,
         amount: `${item.currency} ${Number(item.amount).toLocaleString()}`,
         status: item.status,
-        paid: item.paidAt?.toLocaleDateString("en-US") ?? "—",
+        paid: item.paidAt?.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }) ?? "—",
         notes: item.notes ?? "—",
       })),
     ),
@@ -224,7 +224,7 @@ export default async function TalentsPage() {
         talent: talent.displayName,
         room: item.roomId,
         type: item.streamType,
-        started: item.startedAt.toLocaleString("en-US"),
+        started: item.startedAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
         duration: item.endedAt
           ? `${Math.round((item.endedAt - item.startedAt) / 60000)} min`
           : "Live",
@@ -256,7 +256,7 @@ export default async function TalentsPage() {
         description: item.description,
         status: item.status,
         action: item.actionTaken ?? "—",
-        reported: item.createdAt.toLocaleDateString("en-US"),
+        reported: item.createdAt.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),
       })),
     ),
   };
@@ -265,10 +265,10 @@ export default async function TalentsPage() {
     ...operationalHosts.map(h => [h.name, "Audio Host", h.id, h.isVerified ? "Verified" : "Not verified (video only)", BigInt(h.giftCoins).toLocaleString(), "—"]),
     ...talentData.filter(row => !currentIds.has(row[2])),
   ];
-  const linkedDevices = [...portalHosts.flatMap(h => h.devices.map(d => ({ userId: h.publicId, userName: h.name, ip: d.lastLoginIp ?? "—", mac: d.macAddress, location: d.location ?? "Unknown", loginTime: d.lastLoginAt?.toLocaleString("en-US") ?? "Never", isUserBanned: h.status === "BANNED", isDeviceBanned: d.isBanned }))), ...deviceData];
+  const linkedDevices = [...portalHosts.flatMap(h => h.devices.map(d => ({ userId: h.publicId, userName: h.name, ip: d.lastLoginIp ?? "—", mac: d.macAddress, location: d.location ?? "Unknown", loginTime: d.lastLoginAt?.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) ?? "Never", isUserBanned: h.status === "BANNED", isDeviceBanned: d.isBanned }))), ...deviceData];
   const knownGifts = new Set(talentModules.gifts.map(g => g.id));
-  talentModules.gifts.push(...portalHosts.flatMap(h => h.receivedGifts.filter(g => !knownGifts.has(g.id)).map(g => ({ id:g.id,talentId:h.publicId,talent:h.name,senderId:g.sender.publicId,sender:g.sender.name,gift:g.giftName,quantity:g.quantity,value:g.coinValue.toLocaleString(),received:g.createdAt.toLocaleString("en-US") }))));
-  talentModules.salaries.push(...portalHosts.flatMap(h => h.currencyRequests.map(r => ({id:r.id,talentId:h.publicId,talent:h.name,period:r.createdAt.toLocaleDateString("en-US"),amount:`${r.diamonds.toLocaleString()} Diamonds`,status:r.status,paid:r.paidAt?.toLocaleDateString("en-US")??"—",notes:`${r.kind} · ${r.reviewNote??""}`}))));
+  talentModules.gifts.push(...portalHosts.flatMap(h => h.receivedGifts.filter(g => !knownGifts.has(g.id)).map(g => ({ id:g.id,talentId:h.publicId,talent:h.name,senderId:g.sender.publicId,sender:g.sender.name,gift:g.giftName,quantity:g.quantity,value:g.coinValue.toLocaleString(),received:g.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) }))));
+  talentModules.salaries.push(...portalHosts.flatMap(h => h.currencyRequests.map(r => ({id:r.id,talentId:h.publicId,talent:h.name,period:r.createdAt.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),amount:`${r.diamonds.toLocaleString()} Diamonds`,status:r.status,paid:r.paidAt?.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' })??"—",notes:`${r.kind} · ${r.reviewNote??""}`}))));
   return (
     <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
       <PortalSidebar />

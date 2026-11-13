@@ -1,3 +1,4 @@
+import { calendarWindow } from './business-time.js';
 export const rankingTypes = new Set([
   "overall",
   "streamers",
@@ -9,16 +10,8 @@ export const rankingTypes = new Set([
 export const rankingPeriods = new Set(["today", "week", "month", "allTime"]);
 
 export function rankingPeriodStart(period, now = new Date()) {
-  if (!rankingPeriods.has(period)) throw rankingValidationError("period is invalid.");
-  if (period === "allTime") return null;
-  const start = new Date(now);
-  start.setUTCHours(0, 0, 0, 0);
-  if (period === "week") {
-    const daysSinceMonday = (start.getUTCDay() + 6) % 7;
-    start.setUTCDate(start.getUTCDate() - daysSinceMonday);
-  }
-  if (period === "month") start.setUTCDate(1);
-  return start;
+  if (!rankingPeriods.has(period)) throw rankingValidationError('period is invalid.');
+  return period === 'allTime' ? null : calendarWindow(period === 'today' ? 'day' : period, now).start;
 }
 
 export function rankingScoreLabel(type) {

@@ -1,3 +1,4 @@
+import { portalDate } from '@/lib/business-time.js';
 import WeeklyStar from '../_components/weekly-star.js';
 import {rankingWindow} from '../../../lib/events/ranking-contract.js';
 import { requireEventUser } from "../../../lib/events/auth.js";
@@ -18,5 +19,5 @@ export default async function EventsPage() {
     prisma.vipTier.findMany({where:{active:true},select:{id:true,name:true},orderBy:{level:'asc'}})
   ]);
   const [weeks,gifts]=await Promise.all([prisma.weeklyStarWeek.findMany({orderBy:{startsAt:'desc'},take:52}),prisma.uploadAsset.findMany({where:{active:true,category:'GIFTS'},select:{id:true,name:true},orderBy:{name:'asc'}})]);
-  return <><h2 className="text-3xl font-black">Events</h2><p className="mt-1 text-slate-500">Search, publish, version, roll back, or remove hosted experiences.</p><RankingTemplate exists={events.some(event=>event.slug==='rankings')}/><WeeklyStar weeks={JSON.parse(JSON.stringify(weeks))} gifts={gifts} canEdit={user.role==='SUPER_ADMIN'} nextWeek={rankingWindow('week').end.toISOString().slice(0,10)}/><RankingRewards events={events.map(e=>e.slug)} policies={JSON.parse(JSON.stringify(policies))} rounds={JSON.parse(JSON.stringify(rounds))} assets={assets} tiers={tiers} canEdit={user.role==='SUPER_ADMIN'}/><EventTable initialEvents={events} superAdmin={user.role === "SUPER_ADMIN"} /></>;
+  return <><h2 className="text-3xl font-black">Events</h2><p className="mt-1 text-slate-500">Search, publish, version, roll back, or remove hosted experiences.</p><RankingTemplate exists={events.some(event=>event.slug==='rankings')}/><WeeklyStar weeks={JSON.parse(JSON.stringify(weeks))} gifts={gifts} canEdit={user.role==='SUPER_ADMIN'} nextWeek={portalDate(rankingWindow('week').end)}/><RankingRewards events={events.map(e=>e.slug)} policies={JSON.parse(JSON.stringify(policies))} rounds={JSON.parse(JSON.stringify(rounds))} assets={assets} tiers={tiers} canEdit={user.role==='SUPER_ADMIN'}/><EventTable initialEvents={events} superAdmin={user.role === "SUPER_ADMIN"} /></>;
 }

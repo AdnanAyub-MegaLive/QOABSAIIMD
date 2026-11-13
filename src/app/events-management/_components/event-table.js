@@ -46,7 +46,7 @@ export default function EventTable({ initialEvents, superAdmin, fixedStatus }) {
         <tbody className="divide-y divide-slate-100">{events.map((event) => <tr key={event.id} className="hover:bg-slate-50/70">
           <td className="px-5 py-4 font-bold">{event.name}</td><td className="px-5 py-4 font-mono text-xs">{event.slug}</td><td className="px-5 py-4">v{event.version} <span className="text-slate-400">/ {event.latestVersion}</span></td>
           <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${event.status === "PUBLISHED" ? "bg-emerald-100 text-emerald-700" : event.status === "DRAFT" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>{event.status}</span></td>
-          <td className="px-5 py-4">{event.createdBy?.name || "Deleted user"}</td><td className="px-5 py-4 text-slate-500">{new Date(event.createdAt).toLocaleDateString()}</td>
+          <td className="px-5 py-4">{event.createdBy?.name || "Deleted user"}</td><td className="px-5 py-4 text-slate-500">{new Date(event.createdAt).toLocaleDateString(undefined, { timeZone: 'Asia/Bangkok' })}</td>
           <td className="px-5 py-4"><div className="flex flex-wrap gap-2">
             <a href={`/event/${event.slug}`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold">View</a>
             {event.status === "PUBLISHED" ? <button disabled={busy} onClick={() => action(event, "unpublish")} className="rounded-lg border border-amber-200 px-2.5 py-1.5 font-semibold text-amber-700">Unpublish</button> : <button disabled={busy} onClick={() => action(event, "publish")} className="rounded-lg border border-emerald-200 px-2.5 py-1.5 font-semibold text-emerald-700">Publish</button>}

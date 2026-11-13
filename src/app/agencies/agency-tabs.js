@@ -64,7 +64,7 @@ function AgencyHome({ overview }) {
           ["Total agencies", overview.totalAgencies, `${overview.activeAgencies} currently active`],
           ["Agency hosts", overview.totalHosts, "Across all agencies"],
           ["Total Recharge", overview.totalRecharge, "Recorded host recharge coins"],
-          ["Monthly gifts", overview.monthlyGifts, "Current UTC calendar month"],
+          ["Monthly gifts", overview.monthlyGifts, "Current UTC+7 calendar month"],
           [
             "Pending applications",
             overview.pendingApplications + overview.pendingJoinRequests,
@@ -713,13 +713,13 @@ function ApplicationStatus({ value }) {
 }
 
 function formatDate(value) {
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("en-US", { ...({
     month: "short",
     day: "2-digit",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+  }), timeZone: 'Asia/Bangkok' });
 }
 function relativeTime(value) {
   const minutes = Math.max(

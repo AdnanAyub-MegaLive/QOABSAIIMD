@@ -260,10 +260,10 @@ export default function ProfileManager({ profile, type }) {
                   : [
                       {
                         ...asset,
-                        assignedAt: new Date(result.assignedAt).toLocaleDateString("en-US"),
+                        assignedAt: new Date(result.assignedAt).toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),
                         assignedAtIso: result.assignedAt,
                         expiresAt: result.expiresAt
-                          ? new Date(result.expiresAt).toLocaleString("en-US")
+                          ? new Date(result.expiresAt).toLocaleString("en-US", { timeZone: 'Asia/Bangkok' })
                           : "Never",
                         expiresAtIso: result.expiresAt,
                         durationMinutes: result.durationMinutes,

@@ -28,7 +28,7 @@ export default function TaskEvidenceQueue() {
   }
   return <section className="rounded-2xl border bg-white p-5">
     <h3 className="font-bold">Task evidence review</h3>
-    <p className="mt-1 text-xs text-slate-500">Actionable evidence is shown oldest first for the current UTC period. Approval enables claiming; it does not credit Coins. History is read-only and includes expired submissions without changing their records.</p>
+    <p className="mt-1 text-xs text-slate-500">Actionable evidence is shown oldest first for the current UTC+7 period. Approval enables claiming; it does not credit Coins. History is read-only and includes expired submissions without changing their records.</p>
     <div className="my-4 flex gap-3">
       <select aria-label="Evidence view" disabled={busy} value={view} onChange={e => { setView(e.target.value); navigate([""]); }} className="rounded-lg border p-2"><option value="actionable">Awaiting review (current)</option><option value="history">All evidence / history</option></select>
       <button disabled={busy || loading} onClick={() => { navigate([""]); refresh(n => n + 1); }}>Refresh</button>
@@ -38,7 +38,7 @@ export default function TaskEvidenceQueue() {
       {!data?.items.length && <p>No evidence in this view.</p>}
       {data?.items.map(row => <article key={row.id} className="my-3 rounded-xl border p-4">
         <b>{row.title}</b><p>{row.user.name} · {row.user.publicId}</p>
-        <p className="text-xs text-slate-500">{row.reviewStatus} · Period {new Date(row.periodStart).getTime() === 0 ? "Beginner (once)" : row.periodStart} · Updated {row.updatedAt}</p>
+        <p className="text-xs text-slate-500">{row.reviewStatus} · Period {new Date(row.periodStart).getTime() === 0 ? "Beginner (once)" : new Date(row.periodStart).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })} · Updated {new Date(row.updatedAt).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })}</p>
         <p className="my-3 whitespace-pre-wrap break-words">{row.evidence}</p>
         {row.reviewReason && <p className="text-sm">Review: {row.reviewReason}</p>}
         {row.actionable && <div className="flex gap-4">{["APPROVED", "REJECTED"].map(decision => <button key={decision} disabled={busy} className="rounded-lg border px-4 py-2 disabled:opacity-50" onClick={() => review(row.id, decision)}>{decision === "APPROVED" ? "Approve" : "Reject"}</button>)}</div>}

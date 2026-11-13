@@ -1,5 +1,5 @@
 export function activeSearchSpecialId(now) {
-  return { status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, expiresAt: { gt: now } };
+  return { status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
 }
 
 export async function searchUsers(db, callerId, query, now = new Date()) {

@@ -48,13 +48,29 @@ verification enabled; do not change the public origin to HTTP to fix internal
 Server Action redirects. This integration uses Next's internal-origin hook and
 must be regression-tested when upgrading Next.
 
-After reviewing and pulling a deployment, run `bash scripts/deploy-droplet.sh`
-from the checkout. It refuses tracked-file drift, stops PM2 before installing or
-building, applies migrations, generates Prisma, verifies the production
-manifests, and restarts. On failure it leaves the portal stopped rather than
-serving a partial build. Schedule a maintenance window and take a database
-backup first. The script never seeds, resets, reconciles balances or invokes
-historical reward settlement. Review pending migrations before running it.
+Run `bash scripts/deploy-droplet.sh` from the checkout. It refuses tracked-file
+changes and overlapping deployments, pulls `origin/main` using fast-forward only,
+and prepares a separate release in the sibling `<checkout>-releases` directory.
+Dependencies, Prisma generation and the Next build run there; the active
+process's `node_modules` and `.next` are not replaced. Configuration files and
+uploaded event storage are shared with the original checkout.
+
+After build validation, the script applies migrations and the idempotent Help
+Center content import, then restarts only `megalive-portal` using the new release.
+It checks `/api/health` and restores the prior PM2 configuration if activation
+fails. Preparation failures do not stop or restart the existing portal. No
+Droplet shutdown or Nginx restart is performed. The final single-process restart
+still briefly interrupts requests and Socket.IO connections; this is not a
+zero-downtime deployment. PM2 watch must be disabled and cluster mode is not
+supported by this script.
+
+Use backward-compatible migrations while the previous code is serving traffic.
+Database migrations are not rolled back on failure. The script does not reset,
+reconcile balances or replay historical rewards. Builds need enough free memory
+and disk alongside the running server. Previous releases (including protected
+PM2 snapshots) are retained for troubleshooting/rollback. Never delete the
+active release, and keep the original checkout/configuration/storage in place.
+`pm2 describe megalive-portal` shows the active script and working directory.
 
 Task automation: `PLAY_FREE_GAME` counts server-settled `GamePlayRound` receipts
 only, from no earlier than the task definition's creation. It does not count

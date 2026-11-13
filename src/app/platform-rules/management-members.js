@@ -17,7 +17,7 @@ export default function ManagementMembers() {
       .finally(() => { if (!controller.signal.aborted) setBusy(false); });
     return () => controller.abort();
   }, [role, country, search, page, refresh]);
-  const date = value => value ? new Date(value).toLocaleString() : "Not recorded";
+  const date = value => value ? new Date(value).toLocaleString(undefined, { timeZone: 'Asia/Bangkok' }) : "Not recorded";
   return <div className="rounded-xl bg-white p-5">
     <h3 className="text-lg font-bold">Active Management Members</h3>
     <p className="my-3 text-sm text-slate-600">Platform Admin directory of active, non-deleted management accounts. Expand a member for contact details and agency assignments. Available means no supervisor assigned, not online status. Target performance is in Targets &amp; Progress.</p>

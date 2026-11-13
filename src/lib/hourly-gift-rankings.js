@@ -131,7 +131,7 @@ export async function getHourlyGiftRankings({ user, origin }, db = prisma, clock
   const stableEntry = e => ({ ...e, frameUrl: e.frameMediaVersion ? undefined : e.frameUrl, badgeUrl: e.badgeMediaVersion ? undefined : e.badgeUrl, framePosterUrl: undefined, badgePosterUrl: undefined });
   const revision = rankingHash([snapshot.hours.hourId, user.publicId, current.map(r => [r.userId, r.score]), previous.map(r => [r.userId, r.score]),
     currentHour.entries.map(stableEntry), previousHour.entries.map(stableEntry), stableEntry(viewer), currentHour.coverageStatus, previousHour.coverageStatus]);
-  return { scope: "GLOBAL_GIFT_SENDING", timezone: "UTC", hourId: snapshot.hours.hourId, nextResetAt: snapshot.hours.nextResetAt,
+  return { scope: "GLOBAL_GIFT_SENDING", timezone: "Asia/Bangkok", hourId: snapshot.hours.hourId, nextResetAt: snapshot.hours.nextResetAt,
     serverTime: serverTime.toISOString(), generatedAt: snapshot.generatedAt.toISOString(), revision, status: !currentAvailable && !previousAvailable ? "UNAVAILABLE" : !currentAvailable || !previousAvailable ? "PARTIAL" : stale ? "STALE" : "AVAILABLE", stale,
     refreshAfterMs: stale ? Math.max(100, HOURLY_GIFT_COALESCE_MS - (serverTime.getTime() - snapshot.generatedAt.getTime())) : HOURLY_GIFT_COALESCE_MS,
     cacheScope: "ACCOUNT_AND_VISIBILITY", visibilityPolicy: "FILTER_THEN_RANK", unit: HOURLY_GIFT_UNIT,

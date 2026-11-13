@@ -45,7 +45,7 @@ export default function RankingsView({ type, period, generatedAt, podium, rankin
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[10px] text-[#80918d]">Generated {new Date(generatedAt).toUTCString()}</span>
+            <span className="text-[10px] text-[#80918d]">Generated {new Date(generatedAt).toLocaleString('en-US', { timeZone: 'Asia/Bangkok', timeZoneName: 'shortOffset' })}</span>
             <button type="button" disabled={refreshing} onClick={() => startRefresh(() => router.refresh())} className="rounded-lg border border-[#d4e3e0] px-3 py-2 text-[10px] font-bold text-[#087f74] disabled:opacity-50">
               {refreshing ? "Refreshing…" : "Refresh"}
             </button>

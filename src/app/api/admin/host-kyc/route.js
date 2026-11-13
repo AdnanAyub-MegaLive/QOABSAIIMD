@@ -3,7 +3,10 @@ import { requirePermission } from "@/lib/portal-admin";
 import { sameOrigin } from "@/lib/game-control/http";
 import { reviewKyc } from "@/lib/host-kyc";
 import { emitToUser } from "@/lib/realtime";
-const failure = e => Response.json({ success: false, error: { message: e.status ? e.message : "Unable to process verification." } }, { status: e.status || 500 });
+const failure = e => {
+  if (!e.status || e.status >= 500) console.error("Host KYC request failed", e);
+  return Response.json({ success: false, error: { message: e.status ? e.message : "Unable to process verification." } }, { status: e.status || 500 });
+};
 export async function GET() {
   try {
     await requirePermission("hosts.manage");
