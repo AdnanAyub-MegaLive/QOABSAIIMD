@@ -7,6 +7,7 @@ const groups = { top1: 'TOP 1', top2: 'TOP 2', top3: 'TOP 3', inRoom: 'IN ROOM' 
 const defaults = () => ({ enabled: false, title: 'Room Rocket', rules: '', endsAt: new Date(Date.now() + 86400000).toISOString(), repeatDays: 30, resetDelayMinutes: 180, grabWindowSeconds: 30, stages: ['50000', '150000', '400000'].map((targetCoins, i) => ({ title: `Rocket LV.${i + 1}`, targetCoins, thumbnailUrl: '', previewUrl: '', mimeType: 'video/mp4', animation: { mediaUrl: '', mimeType: 'video/mp4', lowResolutionMediaUrl: '', posterUrl: '', durationMs: 5000 }, inRoomWinners: 0, rewards: { top1: [], top2: [], top3: [], inRoom: [] } })) });
 export default function RocketManager({ initial, enabled, season, assets, canEdit }) {
   const [config, setConfig] = useState(() => ({ ...(initial || defaults()), enabled }));
+  const [applyNow, setApplyNow] = useState(false);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   function update(key, value) { setConfig(c => ({ ...c, [key]: value })); }
   function stage(index, key, value) { setConfig(c => ({ ...c, stages: c.stages.map((s, i) => i === index ? { ...s, [key]: value } : s) })); }
@@ -14,10 +15,10 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
   async function save(event) {
     event.preventDefault(); setBusy(true); setMessage('');
     try {
-      const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
+      const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...config, applyNow }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || 'Unable to save.');
-      setConfig(body.data); setMessage('Saved. Rules and rewards are live for future launches. Reopen Room Rocket in the app to refresh. Existing launches keep their rewards and countdowns. Level targets and artwork change next season.');
+      setConfig(body.data); setApplyNow(false); setMessage(applyNow ? 'Saved. Level and reward changes now apply to the current season. Existing launches keep their original rewards.' : 'Saved. Rules and timing are live. Level and reward changes apply next season.');
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <form onSubmit={save} className="space-y-6 text-slate-900">
@@ -57,6 +58,8 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
           <button type="button" disabled={s.rewards[group].length >= 10} className="rounded-lg border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800" onClick={() => rewards(index, group, [...s.rewards[group], { type: 'COINS', amount: '1' }])}>Add reward</button>
         </div>)}</div>
       </section>)}
+      <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={applyNow} onChange={e => setApplyNow(e.target.checked)} />Apply level and reward changes to the current season now</label>
+      {applyNow && <p className="text-sm text-amber-800">Rooms keep their current level and coins. Launches that already happened pay their original rewards.</p>}
       <button type="submit" className="rounded-lg bg-teal-800 px-5 py-3 font-semibold text-white">{busy ? 'Saving…' : 'Save Rocket settings'}</button>
     </fieldset>
     {message && <p role="status" className="rounded-lg border bg-white p-4 text-sm">{message}</p>}
