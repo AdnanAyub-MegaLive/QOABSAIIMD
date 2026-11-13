@@ -8,7 +8,7 @@ import { profileCoverDto } from "./profile-cover.js";
 import { formatDateOnly } from "./date-only.js";
 import { getEffectiveUserId, reconcileExpiredSpecialIds } from "./special-id.js";
 import { resolveUserPerks } from "./user-perks.js";
-import { managementIdentity } from "./user-roles.js";
+import { managementIdentity, managementRole, displayApplicationRole } from "./user-roles.js";
 import { profileEditPermissions } from "./profile-edit-policy.js";
 
 const profileSelect = {
@@ -36,6 +36,7 @@ const profileSelect = {
   updatedAt: true,
   profilePrivate: true,
   showDateOfBirth: true,
+  supervisorUserId: true,
 };
 
 export async function mobileUserProfile(userId, origin = null) {
@@ -45,6 +46,10 @@ export async function mobileUserProfile(userId, origin = null) {
   const identity = await getEffectiveUserId(user.id, user.publicId);
   const perks = origin ? (await resolveUserPerks([user], origin, ["FRAMES", "BADGES", "BUSINESS_CARD"])).get(user.publicId) : null;
   const equippedAssets = origin ? (await equippedProfileAssets([user], origin)).get(user.id) : null;
+  const supervisorUser = user.supervisorUserId ? await prisma.user.findUnique({ where: { id: user.supervisorUserId }, select: { id: true, publicId: true, name: true, profileImage: true, country: true, appRoles: true, status: true, deletedAt: true } }) : null;
+  const supervisorPerks = origin && supervisorUser ? (await resolveUserPerks([supervisorUser], origin, ["FRAMES"])).get(supervisorUser.publicId) : null;
+  const supervisorRole = supervisorUser ? managementRole(supervisorUser) : null;
+  const supervisor = supervisorUser && !supervisorUser.deletedAt ? { publicId: supervisorUser.publicId, name: supervisorUser.name, profileImage: supervisorUser.profileImage ?? null, frameUrl: supervisorPerks?.frameUrl ?? null, role: supervisorRole, roleLabel: supervisorRole ? displayApplicationRole(supervisorRole) : null, country: supervisorUser.country ?? null } : null;
   const card = await profileCardArtwork(prisma,user.id,(await publicProgression([user],origin)).get(user.publicId)?.charmLevel??0,origin);
   return {
     ...card,
@@ -63,6 +68,7 @@ export async function mobileUserProfile(userId, origin = null) {
     bio: user.bio,
     profileImage: user.profileImage,
     frameUrl: perks?.frameUrl ?? null,
+    supervisor,
     badgeUrl: perks?.badgeUrl ?? null,
     businessCardUrl: perks?.businessCardUrl ?? null,
     businessCardPosterUrl: perks?.businessCardPosterUrl ?? null,
