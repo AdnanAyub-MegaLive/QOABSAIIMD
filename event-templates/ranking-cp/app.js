@@ -15,10 +15,11 @@
   }
   function renderRewards(data){
     rewardsPanel.replaceChildren();
-    if(!fixedTrack){rewardsPanel.append(el('p','','Rewards are configured in the separate Wealth, Charm, Agency and CP events. Open the corresponding event to view its rewards.'));return;}
+
     const show=(policy,title)=>{
       rewardsPanel.append(el('h3','',title));
-      if(!policy?.enabled){rewardsPanel.append(el('p','','Automatic rewards are not enabled for this period.'));return;}
+      if(!policy){rewardsPanel.append(el('p','','No rewards configured for this period.'));return;}
+      if(!policy.enabled)rewardsPanel.append(el('p','','These rewards are inactive. Automatic awards are not enabled.'));
       rewardsPanel.append(el('p','',`Applies from ${new Date(policy.effectiveFrom).toLocaleString('en-US', { timeZone: 'Asia/Bangkok', timeZoneName: 'shortOffset' })}`));
       if(!policy.rewards?.length){rewardsPanel.append(el('p','','No rewards configured for this period.'));return;}
       for(const r of policy.rewards){
@@ -52,6 +53,23 @@
 
 
   }
+  // Refresh configured prizes even when this page is opened outside the app.
+  let rewardRequest=0;
+  async function loadRewards(){
+    const sequence=++rewardRequest;
+    renderRules();
+    rewardsPanel.replaceChildren(el('p','','Loading rewards…'));
+    const params=new URLSearchParams({event:eventSlug,type,period});
+    if(typeof selectedWeek!=='undefined')params.set('week',selectedWeek);
+    try{
+      const response=await fetch(`/api/v1/events/ranking-rewards?${params}`,{cache:'no-store'});
+      const result=await response.json();
+      if(sequence!==rewardRequest)return;
+      if(!response.ok||!result.data)throw new Error('Rewards unavailable');
+      renderRewards(result.data);
+    }catch{if(sequence===rewardRequest)rewardsPanel.replaceChildren(el('p','','Rewards could not be loaded. Close and reopen to try again.'));}
+  }
+  if(typeof MutationObserver!=='undefined')new MutationObserver(()=>{if($('rewards-dialog').open)loadRewards();}).observe($('rewards-dialog'),{attributes:true,attributeFilter:['open']});
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { n.hidden = true; }, { once: true }); return n; };
