@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
+import { VerificationStatus } from "@prisma/client";
 vi.mock("./prisma.js", () => ({ prisma: {} }));
 vi.mock("./realtime.js", () => ({ emitToVideoLive: vi.fn() }));
 import { videoSetup, requireVideoAccess } from "./video-access.js";
@@ -74,16 +75,32 @@ describe("host KYC", () => {
     if (state === "role") tx.user.findUnique.mockResolvedValue({ id: "u", publicId: "USR-1", appRoles: [] });
     await expect(submitKyc(db, "u", {}, {})).rejects.toMatchObject({ code }); expect(tx.kycImage.create).not.toHaveBeenCalled();
   });
-  it("approves the user, records reviewer, audits and notifies in one transaction", async () => {
-    const { db, tx } = kycDb(); tx.talentVerification.findUnique.mockResolvedValue({ id: "k", userId: "u", status: "PENDING" });
-    tx.talentVerification.update.mockImplementation(async ({ data }) => ({ id: "k", ...data }));
+  it.each([false, true])("approves using valid database statuses (legacy Talent: %s)", async legacy => {
+    const { db, tx } = kycDb(); tx.talentVerification.findUnique.mockResolvedValue({ id: "k", userId: legacy ? null : "u", talentId: legacy ? "t" : null, talent: legacy ? { publicId: "USR-1" } : null, status: "PENDING" });
+    tx.talentVerification.update.mockImplementation(async ({ data }) => {
+      expect(Object.values(VerificationStatus)).toContain(data.status);
+      expect(data.status).toBe("VERIFIED");
+      return { id: "k", ...data };
+    });
     const result = await reviewKyc(db, { id: "admin" }, "k", "APPROVE");
     expect(result.status).toBe("APPROVED"); expect(tx.user.update).toHaveBeenCalledWith({ where: { id: "u" }, data: { isVerified: true } });
     expect(tx.talentVerification.update.mock.calls[0][0].data.reviewedById).toBe("admin"); expect(tx.auditLog.create).toHaveBeenCalled(); expect(tx.notification.upsert).toHaveBeenCalled();
+    if (legacy) expect(tx.talent.update).toHaveBeenCalledWith({ where: { id: "t" }, data: { verification: VerificationStatus.VERIFIED } });
+    else expect(tx.talent.update).not.toHaveBeenCalled();
+    expect(tx.notification.upsert.mock.calls[0][0].create.action.status).toBe("APPROVED");
+    expect(kycDto({ isVerified: true }, { status: "VERIFIED" })).toMatchObject({ status: "APPROVED", isVerified: true });
+  });
+  it("stores rejection without marking the host verified", async () => {
+    const { db, tx } = kycDb();
+    tx.talentVerification.findUnique.mockResolvedValue({ id: "k", userId: "u", talentId: "t", status: "PENDING" });
+    tx.talentVerification.update.mockImplementation(async ({ data }) => ({ id: "k", ...data }));
+    expect(await reviewKyc(db, { id: "a" }, "k", "REJECT", "Unreadable")).toMatchObject({ status: "REJECTED", rejectionReason: "Unreadable" });
+    expect(tx.talent.update).toHaveBeenCalledWith({ where: { id: "t" }, data: { verification: VerificationStatus.REJECTED } });
+    expect(tx.user.update).not.toHaveBeenCalled();
   });
   it("requires rejection reasons and refuses a second review", async () => {
     const { db, tx } = kycDb(); await expect(reviewKyc(db, { id: "a" }, "k", "REJECT", " ")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-    tx.talentVerification.findUnique.mockResolvedValue({ status: "APPROVED" });
+    tx.talentVerification.findUnique.mockResolvedValue({ status: "VERIFIED" });
     await expect(reviewKyc(db, { id: "a" }, "k", "REJECT", "Unreadable")).rejects.toMatchObject({ code: "KYC_ALREADY_REVIEWED" });
   });
 });

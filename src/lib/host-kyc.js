@@ -1,7 +1,7 @@
 import { videoError } from "./video-access.js";
 import { notifyAction } from "./action-notifications.js";
 export function kycDto(user, row) {
-  return { status: row?.status || "NONE", isVerified: Boolean(user.isVerified), rejectionReason: row?.rejectionReason || null, submittedAt: row?.submittedAt?.toISOString() || null, reviewedAt: row?.reviewedAt?.toISOString() || null, idType: row?.supportingFiles?.idType || null };
+  return { status: row?.status === "VERIFIED" ? "APPROVED" : row?.status || "NONE", isVerified: Boolean(user.isVerified), rejectionReason: row?.rejectionReason || null, submittedAt: row?.submittedAt?.toISOString() || null, reviewedAt: row?.reviewedAt?.toISOString() || null, idType: row?.supportingFiles?.idType || null };
 }
 export async function kycIdentity(db, user) {
   const talent = await db.talent.findUnique({ where: { publicId: user.publicId }, select: { id: true } });
@@ -41,8 +41,10 @@ export async function reviewKyc(db, admin, id, action, rejectionReason) {
     if (before.status !== "PENDING") throw videoError("KYC_ALREADY_REVIEWED", "This submission has already been reviewed.", 409);
     const user = before.userId ? await tx.user.findUnique({ where: { id: before.userId } }) : before.talent ? await tx.user.findUnique({ where: { publicId: before.talent.publicId } }) : null;
     const status = action === "APPROVE" ? "APPROVED" : "REJECTED";
-    const row = await tx.talentVerification.update({ where: { id }, data: { status, reviewedById: admin.id, reviewedAt: new Date(), rejectionReason: status === "REJECTED" ? reason : null } });
-    if (before.talentId) await tx.talent.update({ where: { id: before.talentId }, data: { verification: status } });
+    // The database enum uses VERIFIED; the mobile contract uses APPROVED.
+    const storedStatus = action === "APPROVE" ? "VERIFIED" : "REJECTED";
+    const row = await tx.talentVerification.update({ where: { id }, data: { status: storedStatus, reviewedById: admin.id, reviewedAt: new Date(), rejectionReason: status === "REJECTED" ? reason : null } });
+    if (before.talentId) await tx.talent.update({ where: { id: before.talentId }, data: { verification: storedStatus } });
     if (user && status === "APPROVED") await tx.user.update({ where: { id: user.id }, data: { isVerified: true } });
     await tx.auditLog.create({ data: { adminId: admin.id, action: `KYC_${status}`, category: "USER_MANAGEMENT", entityType: "TalentVerification", entityId: id, description: "Reviewed host verification.", metadata: { before: { status: before.status }, after: { status, rejectionReason: row.rejectionReason, userId: user?.publicId || null } } } });
     if (user) await notifyAction(tx, { userId: user.id, key: `kyc-review:${id}`, type: "KYC_REVIEWED", title: "Host verification", body: status === "APPROVED" ? "Your host verification has been approved." : `Your host verification was declined: ${reason}`, action: { screen: "HOST_VERIFICATION", status, rejectionReason: row.rejectionReason } });
