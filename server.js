@@ -80,7 +80,8 @@ app.prepare().then(async()=>{
   const {versionMediaPayload}=await import("./src/lib/media-payload.js");
   const {registerRoomGiftPreviews}=await import("./src/lib/room-gift-preview.js");
   const {formatDateOnly}=await import("./src/lib/date-only.js");
-  const {getEffectiveUserId}=await import("./src/lib/special-id.js");
+  const {getEffectiveUserId,reconcileExpiredSpecialIds}=await import("./src/lib/special-id.js");
+  const {reconcileUserSpecialIds}=await import("./src/lib/special-id-ownership.js");
   const {isLiveKitConfigured,issueLiveKitAccess}=await import("./src/lib/livekit-authorization.js");
   const {rtcProvider,rtcFields}=await import("./src/lib/rtc-provider.js");
   const {audioRtcAccess,selfSeatRtcStatus}=await import("./src/lib/rtc-access.js");
@@ -263,16 +264,19 @@ app.prepare().then(async()=>{
         if(!assignment||assignment.status!=="ACTIVE"||assignment.revokedAt)return;
         const now=new Date();
         if(assignment.expiresAt&&assignment.expiresAt>now)return scheduleSpecialIdExpiry(assignment.id,assignment.expiresAt);
-        const expired=await prisma.specialIdAssignment.updateMany({where:{id:assignment.id,status:"ACTIVE",revokedAt:null,expiresAt:{lte:now}},data:{status:"EXPIRED"}});
-        if(!expired.count)return;
-        await prisma.auditLog.create({data:{action:"SPECIAL_ID_EXPIRED",category:"USER_MANAGEMENT",entityType:"User",entityId:assignment.user.publicId,description:`Special ID ${assignment.specialId} expired for user ${assignment.user.publicId}; the normal ID was restored.`,metadata:{source:"SYSTEM_TIMER",specialId:assignment.specialId,expiredAt:now.toISOString()}}});
-        io.to(`user:${assignment.user.publicId}`).emit("special-id:expired",{success:true,data:{normalId:assignment.user.publicId,effectiveId:assignment.user.publicId,specialId:null,expiredSpecialId:assignment.specialId,expiredAt:now.toISOString()}});
+        const result=await reconcileUserSpecialIds(prisma,assignment.userId);
+        if(!result?.expired)return;
+        const identity=await getEffectiveUserId(assignment.userId,assignment.user.publicId);
+        await prisma.auditLog.create({data:{action:"SPECIAL_ID_EXPIRED",category:"USER_MANAGEMENT",entityType:"User",entityId:assignment.user.publicId,description:`Special ID ${assignment.specialId} expired; the next available identity was selected.`,metadata:{source:"SYSTEM_TIMER",specialId:assignment.specialId,effectiveId:identity.effectiveId,expiredAt:now.toISOString()}}});
+        io.to(`user:${assignment.user.publicId}`).emit("special-id:expired",{success:true,data:{...identity,expiredSpecialId:assignment.specialId,expiredAt:now.toISOString()}});
       }catch(error){console.error("Special ID expiry failed",error);}
     },Math.max(remaining,0));
   };
   globalThis.portalScheduleSpecialIdExpiry=scheduleSpecialIdExpiry;
   const now=new Date();
-  await prisma.specialIdAssignment.updateMany({where:{status:"ACTIVE",expiresAt:{lte:now}},data:{status:"EXPIRED"}});
+  await reconcileExpiredSpecialIds();
+  let reconcilingSpecialIds=false;
+  setInterval(async()=>{if(reconcilingSpecialIds)return;reconcilingSpecialIds=true;try{await reconcileExpiredSpecialIds();}catch(error){console.error("Special ID reconciliation failed",error);}finally{reconcilingSpecialIds=false;}},30000).unref();
   const timedSpecialIds=await prisma.specialIdAssignment.findMany({where:{status:"ACTIVE",revokedAt:null,expiresAt:{gt:now}},select:{id:true,expiresAt:true}});
   for(const assignment of timedSpecialIds)scheduleSpecialIdExpiry(assignment.id,assignment.expiresAt);
 

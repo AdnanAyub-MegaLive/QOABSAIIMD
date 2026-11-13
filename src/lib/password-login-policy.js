@@ -16,7 +16,7 @@ export function identifierBucket(value) {
 export async function resolvePasswordLoginUser(db, identifier, now = new Date()) {
   if (!identifier || identifier.length > 255) return null;
   const special = await db.specialIdAssignment.findFirst({
-    where: { specialId: { equals: identifier, mode: "insensitive" }, status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, expiresAt: { gt: now } },
+    where: { specialId: { equals: identifier, mode: "insensitive" }, status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
     select: { user: true }, orderBy: { id: "asc" },
   });
   if (special) return special.user;

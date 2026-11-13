@@ -66,9 +66,11 @@ function fixture() {
     },
     publicNumberReservation: { findMany: async () => [] }, specialIdDefinition: { findMany: async () => [] },
     specialIdAssignment: {
+      findFirst: async () => null,
+      findUnique: async ({where}) => { const a=state.assignments.find(a=>a.id===where.id); return a?{...a,prettyIdGrant:state.grants.find(g=>g.assignmentId===a.id)}:null; },
       findMany: async () => [],
       update: async ({ where, data }) => Object.assign(state.assignments.find(a => a.id === where.id), data),
-      updateMany: async ({ where, data }) => { for (const a of state.assignments) if (a.userId === where.userId && a.status === where.status && a.id !== where.id?.not && (typeof where.source === 'string' ? a.source === where.source : a.source !== where.source.not)) Object.assign(a, data); },
+      updateMany: async ({ where, data }) => { let count=0; for (const a of state.assignments) if (a.userId === where.userId && a.status === where.status && a.id !== where.id?.not && (!where.expiresAt || (a.expiresAt && a.expiresAt<=where.expiresAt.lte)) && (!where.OR || !a.expiresAt || a.expiresAt>where.OR[1].expiresAt.gt)) { Object.assign(a, data); count++; } return {count}; },
       create: async ({ data }) => { const a = { ...data, id: `a${state.assignments.length + 1}` }; state.assignments.push(a); return a; },
     },
   };

@@ -65,7 +65,7 @@ export default function SpecialIdAssignments({ initialAssignments, canManage = t
                   <span
                     className={`rounded-full px-2 py-1 text-[9px] font-bold ${row.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}
                   >
-                    {row.status}
+                    {row.status === "OWNED" ? "Owned (inactive)" : row.status}
                   </span>
                 </td>
                 <td>
@@ -548,7 +548,7 @@ function AssignModal({ item, onClose, onAssigned }) {
       <Field label="User public ID"><input autoFocus name="userId" required maxLength={64} placeholder="USR-123456 or TLN-123456" className={input}/></Field>
       <DurationPicker defaultMinutes={item.defaultDurationMinutes}/>
       <Field label="Admin reason"><textarea name="reason" required maxLength={500} rows={3} className={input}/></Field>
-      <p className="text-xs text-[#748782]">Assigning this ID replaces the user&apos;s existing Special ID. Their permanent account ID is unchanged.</p>
+      <p className="text-xs text-[#748782]">Assigning this ID keeps the user&apos;s previous unexpired IDs as owned and inactive. Their permanent account ID is unchanged.</p>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" disabled={pending} onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>

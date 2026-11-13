@@ -6,7 +6,7 @@ const row = (id, names) => ({ id, publicId: `USR-${id}`, name: id, specialIds: n
 it.each(["PHOJI", "pho", "phoji", "OZ069", "oz069"])("matches %s case-insensitively with all active-assignment constraints", async query => {
   const findMany = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([row("holder", ["PHOJI"])]);
   await searchUsers({ user: { findMany } }, "caller", query, now);
-  const active = { status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, expiresAt: { gt: now } };
+  const active = { status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
   expect(findMany.mock.calls[0][0].where.specialIds.some).toEqual({ ...active, specialId: { equals: query, mode: "insensitive" } });
   expect(findMany.mock.calls[1][0].where.OR[2]).toEqual({ specialIds: { some: { ...active, specialId: { contains: query, mode: "insensitive" } } } });
   for (const [args] of findMany.mock.calls) {
@@ -34,9 +34,11 @@ it("returns null for ordinary name/public-ID results with no active Special ID",
 it.each([
   { status: "EXPIRED" }, { revokedAt: new Date("2026-10-20") },
   { startsAt: new Date("2026-10-22") }, { expiresAt: now },
-  { expiresAt: new Date("2026-10-20") }, { expiresAt: null },
+  { expiresAt: new Date("2026-10-20") },
 ])("active predicate excludes %j (including exact expiry boundary)", change => {
   const a = { status: "ACTIVE", revokedAt: null, startsAt: new Date("2026-10-20"), expiresAt: new Date("2026-10-22"), ...change };
   const w = activeSearchSpecialId(now);
-  expect(a.status === w.status && a.revokedAt === w.revokedAt && a.startsAt <= w.startsAt.lte && a.expiresAt !== null && a.expiresAt > w.expiresAt.gt).toBe(false);
+  expect(a.status === w.status && a.revokedAt === w.revokedAt && a.startsAt <= w.startsAt.lte && a.expiresAt !== null && a.expiresAt > now).toBe(false);
 });
+
+it("allows permanent active special IDs", () => { expect(activeSearchSpecialId(now).OR).toContainEqual({ expiresAt: null }); });

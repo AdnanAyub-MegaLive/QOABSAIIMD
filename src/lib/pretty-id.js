@@ -1,5 +1,6 @@
 import { randomInt } from "node:crypto";
 import { occupiedSpecialId } from "./special-id-commerce.js";
+import { selectUserSpecialId } from "./special-id-ownership.js";
 import { lockPrettyUser } from "./pretty-id-weekly.js";
 
 export const validPattern = pattern => typeof pattern === "string" && /^[A-Z]{3,7}$/.test(pattern);
@@ -65,17 +66,9 @@ export async function claimPrettyId(db,userId,grantId,code) {
 }
 
 export async function activatePrettyId(db,userId,grantId) {
-  return db.$transaction(async tx=>{
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)::text AS locked`;
-    const user=await lockPrettyUser(tx,userId);
-    const grant=await tx.prettyIdGrant.findFirst({where:{id:grantId,userId},include:{assignment:true}});
-    const assignment=grant?.assignment, now=new Date();
-    if(!assignment || assignment.revokedAt || !['CLAIMED','OWNED','ACTIVE'].includes(assignment.status) || (assignment.expiresAt && assignment.expiresAt<=now)) reject("Claim an available ID before activating it. Expired IDs cannot be reactivated.");
-    const expiresAt=assignment.expiresAt ?? new Date(+now+grant.durationMinutes*60000);
-    // Switching preserves ownership and elapsed time of every Pretty ID.
-    await tx.specialIdAssignment.updateMany({where:{userId,status:'ACTIVE',source:'PRETTY_ID',id:{not:assignment.id}},data:{status:'OWNED'}});
-    await tx.specialIdAssignment.updateMany({where:{userId,status:'ACTIVE',source:{not:'PRETTY_ID'},id:{not:assignment.id}},data:{status:'REPLACED',revokedAt:now}});
-    await tx.specialIdAssignment.update({where:{id:assignment.id},data:{status:'ACTIVE',expiresAt,...(!assignment.expiresAt?{startsAt:now}:{})}});
-    return {assignmentId:assignment.id,normalId:user.publicId,specialId:assignment.specialId,expiresAt:expiresAt.toISOString(),active:true};
-  },{isolationLevel:'ReadCommitted'});
+  const grant=await db.prettyIdGrant.findFirst({where:{id:grantId,userId},include:{assignment:true}});
+  if (!grant?.assignment) reject("Claim an available ID before activating it.");
+  const item=await selectUserSpecialId(db,userId,grant.assignment.id);
+  const user=await db.user.findUnique({where:{id:userId},select:{publicId:true}});
+  return {assignmentId:item.assignmentId,normalId:user.publicId,specialId:item.specialId,expiresAt:item.expiresAt,active:true};
 }

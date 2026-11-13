@@ -15,7 +15,7 @@ it("gives exact active special IDs precedence, including validity boundaries", a
   const now = new Date();
   expect(await resolvePasswordLoginUser(db, "Star1", now)).toEqual({ id: "special" });
   expect(db.specialIdAssignment.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: {
-    specialId: { equals: "Star1", mode: "insensitive" }, status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, expiresAt: { gt: now },
+    specialId: { equals: "Star1", mode: "insensitive" }, status: "ACTIVE", revokedAt: null, startsAt: { lte: now }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
   } }));
   expect(db.user.findFirst).not.toHaveBeenCalled();
 });
