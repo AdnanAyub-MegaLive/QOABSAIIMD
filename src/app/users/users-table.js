@@ -4,6 +4,7 @@ import { unwrapAction } from "@/lib/action-validation";
 
 import Link from "next/link";
 import CoinAdjustmentModal from "./coin-adjustment-modal";
+import DiamondDeductionModal from "./diamond-deduction-modal";
 import { Search, Crown, ChevronDown, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -221,6 +222,7 @@ export default function UsersTable({ initialData, specialIdCatalog, canAdjustCoi
                   </button>
                   {menu === user.id && (
                     <div className="absolute top-12 right-5 z-20 w-52 rounded-xl border bg-white py-1.5 text-left shadow-xl">
+                      {canAdjustCoins && <Menu text="Deduct diamonds" icon="−" onClick={() => { setModal({ type: "diamonds", user }); setMenu(null); }} />}
                       {canAdjustCoins && <>{["add", "remove"].map(operation => <Menu key={operation} text={operation === "add" ? "Add coins" : "Remove coins"} icon={operation === "add" ? "+" : "−"} onClick={() => { setModal({ type: "coins", user, operation }); setMenu(null); }} />)}</> }
                       <Menu
                         text="Adjust role"
@@ -281,6 +283,7 @@ export default function UsersTable({ initialData, specialIdCatalog, canAdjustCoi
         Showing {filtered.length} of {users.length} users
       </div>
       {canAdjustCoins && modal?.type === "coins" && <CoinAdjustmentModal user={modal.user} operation={modal.operation} onClose={() => setModal(null)} onSaved={balance => { saveUser(modal.user.id, { balance }); setModal(null); }} />}
+      {canAdjustCoins && modal?.type === "diamonds" && <DiamondDeductionModal user={modal.user} onClose={() => setModal(null)} onSaved={diamondBalance => { saveUser(modal.user.id, { diamondBalance }); setModal(null); }} />}
       {modal?.type === "role" && (
         <RoleModal
           title="Adjust user role"

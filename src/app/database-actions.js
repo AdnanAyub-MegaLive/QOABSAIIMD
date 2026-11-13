@@ -3,6 +3,7 @@
 import { changeDeviceBan } from "../lib/device-ban.js";
 import { revalidatePath } from "next/cache";
 import { applyAdminCoinAdjustment } from "../lib/admin-coin-adjustment.js";
+import { applyAdminDiamondDeduction } from "../lib/admin-diamond-deduction.js";
 import { safeAuditDetails } from "@/lib/audit-view";
 import { validationResult } from "@/lib/action-validation";
 import { adminProfileFields } from "../lib/admin-profile-input";
@@ -445,6 +446,25 @@ export async function adjustUserCoins(publicId, operation, amount, reason, reque
     console.error("Coin adjustment committed; follow-up refresh failed", { referenceId: result.referenceId, code: error.code ?? "UNKNOWN" });
   }
   return result.balance;
+}
+
+export async function deductUserDiamonds(publicId, amount, reason, requestId) {
+  const admin = await requirePermission("finance.adjust");
+  let result;
+  try {
+    result = await applyAdminDiamondDeduction(prisma, admin, { publicId, amount, reason, requestId });
+  } catch (error) {
+    if (error.message === "INSUFFICIENT_DIAMONDS") return { error: "This user does not have enough available diamonds." };
+    throw error;
+  }
+  try {
+    revalidatePath("/users");
+    revalidatePath(`/users/${publicId}`);
+    revalidatePath("/finance");
+  } catch (error) {
+    console.error("Diamond deduction committed; refresh failed", { referenceId: result.referenceId });
+  }
+  return result;
 }
 
 export async function manageUserAssetGrant(

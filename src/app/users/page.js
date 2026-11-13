@@ -95,6 +95,7 @@ export default async function UsersPage() {
       totalSpent: Number(user.totalSpent),
       totalTopUp: Number(user.totalTopUp),
       balance: String(user.coinBalance),
+      diamondBalance: String(user.hostSalaryCoinBalance),
       gifts: user._count.sentGifts,
     };
   });
