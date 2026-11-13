@@ -9,7 +9,7 @@ function fixture(users, rules, policy = { limitScope: "DIRECT", allowAncestorRem
   const db = {
     user: {
       findUnique: async ({ where }) => users.find(u => where.id ? u.id === where.id : u.publicId === where.publicId),
-      findMany: vi.fn(async ({ where }) => users.filter(u => where.supervisorUserId?.in ? where.supervisorUserId.in.includes(u.supervisorUserId) : u.supervisorUserId === null && u.country === where.country && u.appRoles.includes(where.appRoles.has) && u.status === "ACTIVE" && !u.deletedAt && u.id !== where.id.not && (!where.OR || u.publicId.toLowerCase().includes(where.OR[0].publicId.contains.toLowerCase()) || u.name.toLowerCase().includes(where.OR[1].name.contains.toLowerCase())))),
+      findMany: vi.fn(async ({ where }) => users.filter(u => where.supervisorUserId?.in ? where.supervisorUserId.in.includes(u.supervisorUserId) : u.supervisorUserId === null && (typeof where.country === "string" ? u.country === where.country : where.country.in.some(v => v.toLowerCase() === String(u.country).toLowerCase())) && u.appRoles.includes(where.appRoles.has) && u.status === "ACTIVE" && !u.deletedAt && u.id !== where.id.not && (!where.OR || u.publicId.toLowerCase().includes(where.OR[0].publicId.contains.toLowerCase()) || u.name.toLowerCase().includes(where.OR[1].name.contains.toLowerCase())))),
       updateMany: async ({ where, data }) => { const u = users.find(u => u.id === where.id && u.supervisorUserId === null); if (!u) return { count: 0 }; Object.assign(u, data); return { count: 1 }; },
       update: async ({ where, data }) => Object.assign(users.find(u => u.id === where.id), data),
     },
@@ -70,11 +70,11 @@ it("removes only a direct member by default, retaining that member's team", asyn
   await removeTeamMember("j", "USR-b", db); expect(users[2].supervisorUserId).toBeNull();
 });
 it("returns the whole tree and scoped candidates with nullable decoration fields", async () => {
-  const db = fixture([person("j", "JUNIOR_ADMIN"), person("a", "ADMIN", "j"), person("b", "BD", "a"), person("c", "BD"), person("foreign", "BD", null, "US")], [rule("JUNIOR_ADMIN", "BD", 4)]);
+  const db = fixture([person("j", "JUNIOR_ADMIN"), person("a", "ADMIN", "j"), person("b", "BD", "a"), person("c", "BD"), person("d", "BD", null, "pakistan"), person("foreign", "BD", null, "US")], [rule("JUNIOR_ADMIN", "BD", 4)]);
   const team = await readTeam("j", "https://portal.test", db);
   expect(team.members).toHaveLength(2); expect(team.members[1]).toMatchObject({ supervisorId: "USR-a", frameUrl: null });
   expect(team.limits[0].used).toBe(0);
-  expect((await teamCandidates("j", "BD", "", "https://portal.test", db)).map(u => u.publicId)).toEqual(["USR-c"]);
+  expect((await teamCandidates("j", "BD", "", "https://portal.test", db)).map(u => u.publicId)).toEqual(["USR-c", "USR-d"]);
   await expect(teamCandidates("j", "INVALID", "", "", db)).rejects.toMatchObject({ code: "TEAM_ROLE_NOT_ALLOWED" });
 });
 it("advertises management roles without granting portal administrator access", () => {

@@ -1,5 +1,6 @@
 const messages = {
   HOST_AGENCY_REQUIRED: 'Join an agency before assigning the Host role.',
+  REFERENCE_COUNTRY_REQUIRED: 'Set a country before giving this user a BD, Admin, Country Head or Manager role.',
   USER_NOT_FOUND: 'User not found. Refresh the page and use the current USR/TLN public ID.',
   SPECIAL_ID_NOT_FOUND: 'This Special ID no longer exists. Refresh the list.',
   SPECIAL_ID_IS_DISABLED: 'This Special ID is disabled.',

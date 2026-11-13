@@ -1,5 +1,6 @@
 import { applicationRolesWithPermission, agencyReferenceRole, displayApplicationRole } from "./user-roles.js";
-import { normalizeSignupCountry } from "./geo-country.js";
+import { avatarDisplayUrl } from "./avatar-history.js";
+import { countryWhere, normalizeSignupCountry, sameCountry } from "./geo-country.js";
 
 export function referenceError(status = 422) {
   throw Object.assign(new Error("The reference must be an active, eligible user assigned to the agency country."), { code: "BD_REFERENCE_INVALID", status });
@@ -16,11 +17,26 @@ export async function findAgencyReference(db, publicId, country) {
 }
 export function referenceWhere(country, q = "") {
   const canonical = normalizeSignupCountry(country);
-  return { status: "ACTIVE", deletedAt: null, country: canonical ?? "__UNASSIGNED__", appRoles: { hasSome: applicationRolesWithPermission("agencies.reference") },
+  return { status: "ACTIVE", deletedAt: null, country: countryWhere(canonical), appRoles: { hasSome: applicationRolesWithPermission("agencies.reference") },
     ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { publicId: { contains: q, mode: "insensitive" } }] } : {}) };
+}
+export function referenceMatches(users, country) {
+  return users.filter(user => sameCountry(user.country, country));
+}
+export function requireReferenceUser(user) {
+  if (!agencyReferenceRole(user)) throw new Error("ROLE_FORBIDDEN");
+  return user;
 }
 export function referenceDto(user, perks = new Map()) {
   if (!user) return null;
   const role = agencyReferenceRole(user);
   return { publicId: user.publicId, name: user.name, profileImage: user.profileImage ?? null, frameUrl: perks.get(user.publicId)?.frameUrl ?? null, role, roleLabel: role === "BD" ? "BD Admin" : role ? displayApplicationRole(role) : null, country: normalizeSignupCountry(user.country) };
+}
+export const applicantSelect = { id: true, publicId: true, name: true, profileImage: true, country: true };
+export function applicantDto(user, perks = new Map(), origin) {
+  if (!user) return null;
+  const perk = perks.get(user.publicId);
+  const specialId = perk?.specialId ?? null;
+  return { publicId: user.publicId, name: user.name, profileImage: avatarDisplayUrl(user.profileImage, origin), frameUrl: perk?.frameUrl ?? null,
+    displayId: specialId ?? user.publicId, normalId: user.publicId, specialId, country: normalizeSignupCountry(user.country) ?? user.country ?? null, level: perk?.progression?.level ?? 0 };
 }

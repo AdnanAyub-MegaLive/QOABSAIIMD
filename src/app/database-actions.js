@@ -9,7 +9,8 @@ import { applyAdminDiamondDeduction } from "../lib/admin-diamond-deduction.js";
 import { safeAuditDetails } from "@/lib/audit-view";
 import { validationResult } from "@/lib/action-validation";
 import { adminProfileFields } from "../lib/admin-profile-input";
-import { rolesWithOfficial } from "../lib/admin-role-update";
+import { normalizeSignupCountry } from "../lib/geo-country";
+import { referenceRoleNeedsCountry, rolesWithOfficial } from "../lib/admin-role-update";
 import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "../lib/prisma";
 import { generateTemporaryPassword, hashPassword } from "../lib/password";
@@ -84,6 +85,7 @@ export async function updateUserAccount(publicId, changes) {
       appRoles: true,
       isVerified: true,
       status: true,
+      country: true,
     },
   });
   if (!currentUser) return validationResult("USER_NOT_FOUND");
@@ -111,6 +113,8 @@ export async function updateUserAccount(publicId, changes) {
     nextRoles = rolesWithOfficial(nextRoles, data.isOfficial);
     data.appRoles = { set: nextRoles };
   }
+  if (referenceRoleNeedsCountry(currentUser.appRoles, nextRoles, data.country !== undefined ? data.country : currentUser.country, data.country !== undefined))
+    return validationResult("REFERENCE_COUNTRY_REQUIRED");
   const nextStatus = data.status ?? currentUser.status;
   const isHost = Boolean(currentUser.agencyId) && (
     nextRoles.includes("HOST") ||
@@ -585,7 +589,7 @@ export async function createAccount(type, values) {
         email,
         phone,
         passwordHash,
-        country: values.country,
+        country: normalizeSignupCountry(values.country) ?? (values.country || null),
         status: enumValue(values.status),
         vipLevel: values.userType === "VIP User" ? 1 : 0,
       },

@@ -1,7 +1,7 @@
 import { resolveRoleTags } from "./role-tags.js";
 import { prisma } from "./prisma.js";
 import { MANAGEMENT_ROLE_ORDER, managementRole, displayApplicationRole } from "./user-roles.js";
-import { normalizeSignupCountry } from "./geo-country.js";
+import { countryWhere, normalizeSignupCountry, sameCountry } from "./geo-country.js";
 import { resolveUserPerks } from "./user-perks.js";
 
 export const teamSelect = { companyBdCountry: true, id: true, publicId: true, name: true, profileImage: true, country: true, appRoles: true, status: true, deletedAt: true, supervisorUserId: true, teamRole: true, countryHeadDesignation: true };
@@ -65,8 +65,8 @@ export async function teamCandidates(userId, role, q, origin, db = prisma) {
   if (!rule || !canSupervise(managementRole(me), role)) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "You cannot supervise this role.");
   const country = normalizeSignupCountry(me.country);
   if (!country) return [];
-  const users = await db.user.findMany({ where: { id: { not: me.id }, deletedAt: null, status: "ACTIVE", country, supervisorUserId: null, appRoles: { has: role }, ...(q ? { OR: [{ publicId: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {}) }, select: teamSelect, orderBy: { publicId: "asc" }, take: 100 });
-  return teamPeople(users.filter(u => !u.companyBdCountry && canSupervise(managementRole(me), managementRole(u))).map(u => ({ ...u, teamRole: role })), origin);
+  const users = await db.user.findMany({ where: { id: { not: me.id }, deletedAt: null, status: "ACTIVE", country: countryWhere(country), supervisorUserId: null, appRoles: { has: role }, ...(q ? { OR: [{ publicId: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {}) }, select: teamSelect, orderBy: { publicId: "asc" }, take: 100 });
+  return teamPeople(users.filter(u => !u.companyBdCountry && sameCountry(u.country, country) && canSupervise(managementRole(me), managementRole(u))).map(u => ({ ...u, teamRole: role })), origin);
 }
 export async function assignTeamMember(userId, publicId, role, db = prisma) {
   return db.$transaction(async tx => {

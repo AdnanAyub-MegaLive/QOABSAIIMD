@@ -1,6 +1,7 @@
 import { submitAgencyApplication } from "@/lib/agency-management";
 import { mobileApiError, requireMobileUser } from "@/lib/mobile-api";
 import { prisma } from "../../../../lib/prisma";
+import { isRateLimited } from "@/lib/rate-limit";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
@@ -50,7 +51,7 @@ export async function POST(request) {
   }
 
   const agencyName = text(payload, "agencyName", 120);
-  const whatsapp = text(payload, "whatsapp", 40);
+  const whatsapp = text(payload, "whatsapp", 40)?.replace(/[\s-]+/g, "") || null;
   const bdCode = text(payload, "bdCode", 50);
   const fields = {};
   if (!agencyName)
@@ -68,6 +69,8 @@ export async function POST(request) {
       422,
       fields,
     );
+  if (isRateLimited(`agency-apply:${user.id}`, { limit: 5, windowMs: 3600000 }))
+    return error("RATE_LIMITED", "Too many agency applications. Try again in an hour.", 429);
 
   try {
     const data = await prisma.$transaction(

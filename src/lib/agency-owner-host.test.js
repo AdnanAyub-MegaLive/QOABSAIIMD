@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
-import { grantAgency, reviewAgency } from "./agency-management.js";
+import { grantAgency, reviewAgency, submitAgencyApplication } from "./agency-management.js";
 
 function setup(changes = {}) {
   const owner = { id: "owner", publicId: "USR-2030146", name: "Owner", role: "LISTENER", appRoles: ["LISTENER"], status: "ACTIVE", country: "PK", ownedAgencies: [], agencyId: null, ...changes };
@@ -12,6 +12,8 @@ function setup(changes = {}) {
     agency: { findUnique: vi.fn(async () => null), create: vi.fn(async ({data}) => ({id:"agency",...data})) },
     agencyApplication: { findFirst: vi.fn(async ({where}) => where.publicId ? {id:"application",publicId:"AGA-1",status:"PENDING",agencyName:"Agency",bdUserId:"bd",user:owner} : null), updateMany: vi.fn(async () => ({count:1})), update: vi.fn(), create: vi.fn(async ({data}) => data) },
     auditLog: { create: vi.fn() },
+    notification: { upsert: vi.fn(async ({create}) => create) },
+    realtimeOutbox: { create: vi.fn(async ({data}) => data) },
   };
   return db;
 }
@@ -36,6 +38,27 @@ it("rejection creates neither an agency nor hosting eligibility", async () => {
   const db=setup(); await reviewAgency(db,"AGA-1",{decision:"REJECTED",note:"Missing information"},{adminId:"admin",name:"Admin"});
   expect(db.user.update).not.toHaveBeenCalled(); expect(db.agency.create).not.toHaveBeenCalled();
 });
+it("notifies the chosen reference on submit and the applicant on review", async () => {
+  const db=setup(); db.agencyApplication.count=vi.fn(async () => 0);
+  const submitted=await submitAgencyApplication(db,{publicId:"USR-2030146"},{agencyName:"Agency",whatsapp:"+923001234567",bdCode:"USR-BD"});
+  expect(db.notification.upsert.mock.calls[0][0].create).toMatchObject({userId:"bd",type:"AGENCY_APPLICATION",body:"New agency application from Owner"});
+  expect(db.realtimeOutbox.create).toHaveBeenLastCalledWith({data:{channel:"user:USR-BD",event:"agency:application",payload:{success:true,data:{applicationId:submitted.applicationId,status:"PENDING"}}}});
+  await reviewAgency(db,"AGA-1",{decision:"REJECTED",note:"Missing information"},{bdUserId:"bd",name:"BD"});
+  expect(db.notification.upsert.mock.calls[1][0].create).toMatchObject({userId:"owner",sourceKey:"owner:agency-application:AGA-1:REJECTED",body:"Your agency application was rejected: Missing information"});
+  expect(db.realtimeOutbox.create).toHaveBeenLastCalledWith({data:{channel:"user:USR-2030146",event:"agency:application",payload:{success:true,data:{applicationId:"AGA-1",status:"REJECTED"}}}});
+  await reviewAgency(db,"AGA-1",{decision:"APPROVED"},{adminId:"admin",name:"Admin"});
+  expect(db.notification.upsert.mock.calls[2][0].create).toMatchObject({userId:"owner",title:"Agency application approved"});
+});
+it("normalizes recognised country names to codes and leaves unknown values", async () => {
+  const db=new PGlite();
+  try {
+    await db.exec(`CREATE TABLE "User" (id text PRIMARY KEY, country text);
+      INSERT INTO "User" VALUES ('a','Pakistan'),('b','pk'),('c',' pakistan '),('d','United States of America'),('e','Atlantis'),('f',NULL),('g','PK'),('h','UK'),('i','Côte d’Ivoire');`);
+    await db.exec(readFileSync("prisma/migrations/20261114000100_normalize_user_country/migration.sql","utf8"));
+    const rows=Object.fromEntries((await db.query('SELECT id, country FROM "User"')).rows.map(r=>[r.id,r.country]));
+    expect(rows).toEqual({a:"PK",b:"PK",c:"PK",d:"US",e:"Atlantis",f:null,g:"PK",h:"GB",i:"CI"});
+  } finally { await db.close(); }
+}, 30000);
 it("repair grants active owners HOST once, preserves membership/tenure, and skips inactive owners", async () => {
   const db=new PGlite();
   try {

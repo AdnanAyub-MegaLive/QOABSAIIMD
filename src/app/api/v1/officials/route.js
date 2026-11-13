@@ -3,6 +3,7 @@ import { teamRequest } from "@/lib/team-api";
 import { resolveRoleTags } from "@/lib/role-tags";
 import { requestOrigin, resolveUserPerks } from "@/lib/user-perks";
 import { avatarDisplayUrl } from "@/lib/avatar-history";
+import { countryWhere, normalizeSignupCountry } from "@/lib/geo-country";
 
 const roles = ["RESELLER","OFFICIAL","BD","ADMIN","JUNIOR_ADMIN","SENIOR_ADMIN","SUPER_ADMIN","COUNTRY_HEAD","MANAGER","CS","CS_LEADER"];
 export async function GET(request) {
@@ -12,8 +13,10 @@ export async function GET(request) {
     if (!Number.isInteger(page)) throw Object.assign(new Error("Invalid page."), {code:"VALIDATION_ERROR"});
     const q = (query.get("q") ?? "").trim().slice(0,100), role = query.get("role");
     if (role && !roles.includes(role)) throw Object.assign(new Error("Invalid official role."), {code:"VALIDATION_ERROR"});
+    const countryParam = (query.get("country") ?? "").trim();
+    if (countryParam && !normalizeSignupCountry(countryParam)) throw Object.assign(new Error("Invalid country."), {code:"VALIDATION_ERROR"});
     const users = await prisma.user.findMany({ where: {
-      status:"ACTIVE", deletedAt:null, appRoles:{hasSome:role?[role]:roles},
+      status:"ACTIVE", deletedAt:null, ...(countryParam?{country:countryWhere(countryParam)}:{}), appRoles:{hasSome:role?[role]:roles},
       bans:{none:{target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}},
       ...(q?{OR:[{name:{contains:q,mode:"insensitive"}},{publicId:{contains:q,mode:"insensitive"}}]}:{}),
     }, select:{id:true,publicId:true,name:true,profileImage:true,country:true,appRoles:true},

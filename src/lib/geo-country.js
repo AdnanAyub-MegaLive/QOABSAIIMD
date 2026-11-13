@@ -59,3 +59,19 @@ export function resolveSignupCountry(request) {
   }
   return { country: null, source: null };
 }
+
+export function countryStoredVariants(value) {
+  const code = normalizeSignupCountry(value);
+  if (!code) return [];
+  return [...new Set([code, displayNames.of(code), ...[...COUNTRY_NAMES].filter(([, c]) => c === code).map(([name]) => name)])];
+}
+
+export function countryWhere(value) {
+  const variants = countryStoredVariants(value);
+  return variants.length ? { in: variants, mode: "insensitive" } : "__UNASSIGNED__";
+}
+
+export function sameCountry(value, country) {
+  const code = normalizeSignupCountry(country);
+  return Boolean(code) && normalizeSignupCountry(value) === code;
+}

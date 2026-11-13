@@ -27,7 +27,7 @@ export async function assignManagementAgency(userId,publicId,db=prisma,bdCode) {
   publicId=publicId.trim();
   return db.$transaction(async tx=>{
     const {me,country}=await businessScope(userId,tx);
-    const bd=await selectedAgencyBd(tx,bdCode,country,me.id);
+    const bd=await selectedAgencyBd(tx,String(bdCode??"").trim()||me.publicId,country,me.id);
     const agency=await tx.agency.findUnique({where:{publicId},include:{owner:true}});
     if(!agency||agency.country!==country||normalizeSignupCountry(agency.owner?.country)!==country||agency.status!=="ACTIVE")throw managementFailure("An active agency in your country is required.");
     if(agency.bdUserId&&agency.bdUserId!==bd.id)throw managementFailure("This agency already has a supervisor. Only the Manager transfer workflow may move it.",409);
@@ -53,5 +53,5 @@ export async function managementPerformance(userId,month,agencyPublicId,db=prism
   const agencySalaryDiamonds=rows.reduce((n,r)=>n+BigInt(r.work.salaryDiamonds),0n);
   const rates=new Set(workReports.map(r=>r.work.diamondsPerUsd));
   const diamondsPerUsd=rates.size===1?[...rates][0]:null;
-  return {commissionCycleMatches:!commissionUnavailable,totalDiamonds:String(totalDiamonds),totalUsd:diamondsPerUsd?usdValue(totalDiamonds,diamondsPerUsd):null,agencySalaryDiamonds:commissionUnavailable?null:String(agencySalaryDiamonds),agencySalaryUsd:diamondsPerUsd?usdValue(agencySalaryDiamonds,diamondsPerUsd):null,diamondsPerUsd,hierarchy,cycle:publicCycle(period),month:period.month,timezone:period.timezone,attribution:"CURRENT_AGENCY_SUPERVISION",agencyCount:rows.length,hostCount:rows.reduce((s,r)=>s+r.hostCount,0),giftCoins:rows.reduce((s,r)=>s+BigInt(r.giftCoins),0n).toString(),salaryCoins:rows.reduce((s,r)=>s+BigInt(r.salaryCoins),0n).toString(),agencies:rows.sort(rank),topAgencies:[...rows].sort(rank).slice(0,3),topSupervisors:[...groups.values()].sort(rank).slice(0,3)};
+  return {commissionCycleMatches:!commissionUnavailable,totalDiamonds:String(totalDiamonds),totalUsd:diamondsPerUsd?usdValue(totalDiamonds,diamondsPerUsd):null,agencySalaryDiamonds:commissionUnavailable?null:String(agencySalaryDiamonds),agencySalaryUsd:diamondsPerUsd?usdValue(agencySalaryDiamonds,diamondsPerUsd):null,diamondsPerUsd,hierarchy,target:targetMap.get(scope.me.publicId)??null,cycle:publicCycle(period),month:period.month,timezone:period.timezone,attribution:"CURRENT_AGENCY_SUPERVISION",agencyCount:rows.length,hostCount:rows.reduce((s,r)=>s+r.hostCount,0),giftCoins:rows.reduce((s,r)=>s+BigInt(r.giftCoins),0n).toString(),salaryCoins:rows.reduce((s,r)=>s+BigInt(r.salaryCoins),0n).toString(),agencies:rows.sort(rank),topAgencies:[...rows].sort(rank).slice(0,3),topSupervisors:[...groups.values()].sort(rank).slice(0,3)};
 }

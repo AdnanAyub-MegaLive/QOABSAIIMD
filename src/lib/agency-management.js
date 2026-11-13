@@ -5,6 +5,7 @@ import { normalizeSignupCountry } from "./geo-country.js";
 import { agencyReferenceRole } from "./user-roles.js";
 import { companyBd, selectedAgencyBd } from './company-bd.js';
 import { canOwnMultipleAgencies } from './agency-ownership.js';
+import { notifyAction } from './action-notifications.js';
 
 export function agencyError(code) { throw new Error(code); }
 
@@ -66,6 +67,12 @@ async function newAgency(client, user, name, bdUserId) {
   return agency;
 }
 
+async function notifyApplication(client, recipient, application, status, title, body) {
+  if (!recipient?.id || !recipient.publicId) return;
+  await notifyAction(client, { userId: recipient.id, key: `agency-application:${application.publicId}:${status}`, type: "AGENCY_APPLICATION", title, body, action: { screen: "AGENCY_APPLICATION", applicationId: application.publicId, status } });
+  await client.realtimeOutbox.create({ data: { channel: `user:${recipient.publicId}`, event: "agency:application", payload: { success: true, data: { applicationId: application.publicId, status } } } });
+}
+
 async function audit(client, actor, action, entityId, metadata) {
   await client.auditLog.create({ data: {
     adminId: actor.adminId ?? null, action, category: "AGENCY_MANAGEMENT",
@@ -118,6 +125,8 @@ export async function reviewAgency(client, applicationId, body, actor) {
   const agency = user ? await newAgency(client, user, current.agencyName, current.bdUserId) : null;
   if (agency) await client.agencyApplication.update({ where: { id: current.id }, data: { agencyId: agency.id } });
   await audit(client, actor, `AGENCY_APPLICATION_${decision}`, current.publicId, { ownerPublicId: current.user.publicId, agencyId: agency?.publicId ?? null, note });
+  await notifyApplication(client, current.user, current, decision, decision === "APPROVED" ? "Agency application approved" : "Agency application rejected",
+    decision === "APPROVED" ? `Your agency application for ${current.agencyName} was approved.` : `Your agency application was rejected: ${note}`);
   return { applicationId, status: decision, agency: agency ? { id: agency.publicId, name: agency.name } : null,
     reviewedAt: reviewedAt.toISOString(), reviewNote: decision === "APPROVED" ? note || null : null,
     rejectionReason: decision === "REJECTED" ? note : null };
@@ -134,5 +143,6 @@ export async function submitAgencyApplication(client, user, input) {
     bdCode: bd.publicId, bdUserId: bd.id, email: user.email, country: user.country,
   } });
   await audit(client, { name: user.publicId }, "AGENCY_APPLICATION_SUBMITTED", application.publicId, { bdUserId: bd.id, ownerPublicId: user.publicId });
+  await notifyApplication(client, bd, application, "PENDING", "New agency application", `New agency application from ${user.name || user.publicId}`);
   return { applicationId: application.publicId, status: application.status, bdCode: bd.publicId, attemptsRemainingForAdminId: Math.max(0, 2 - rejected) };
 }
