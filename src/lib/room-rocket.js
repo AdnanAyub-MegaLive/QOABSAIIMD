@@ -18,7 +18,7 @@ export async function saveRocketConfiguration(tx, input, now = new Date()) {
   // Serialize configuration publish against season rollover only, never every gift.
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030147)::text`;
   const previous = await tx.roomRocketSeason.findFirst({ orderBy: { endsAt: 'desc' } });
-  if (config.enabled && previous?.endsAt > now && previous.config.stages.some(s => s.inRoomWinners > 0 && config.grabWindowSeconds < Math.ceil(s.animation.durationMs / 1000) + 7)) throw rocketError('VALIDATION_ERROR', 'The grab window must also cover the current season animation, countdown, button and network delay.');
+  if (config.enabled && previous?.endsAt > now && previous.config.stages.some((s, i) => config.stages[i].inRoomWinners > 0 && config.grabWindowSeconds < Math.ceil(s.animation.durationMs / 1000) + 7)) throw rocketError('VALIDATION_ERROR', 'The grab window must also cover the current season animation, countdown, button and network delay.');
   if (!previous && config.enabled && new Date(config.endsAt) <= now) throw rocketError('VALIDATION_ERROR', 'The first season must end in the future.');
   for (const stage of config.stages) {
     if (config.enabled && (!stage.thumbnailUrl || !stage.animation.mediaUrl)) throw rocketError('VALIDATION_ERROR', 'Each enabled level needs a rocket picture and launch animation.');
@@ -33,8 +33,14 @@ export async function saveRocketConfiguration(tx, input, now = new Date()) {
     }
   }
   await tx.roomRocketSettings.upsert({ where: { id: 'GLOBAL' }, create: { id: 'GLOBAL', enabled: config.enabled, config }, update: { enabled: config.enabled, config } });
-  if (previous?.endsAt > now && (previous.config.rules !== config.rules || previous.config.resetDelayMinutes !== config.resetDelayMinutes || previous.config.grabWindowSeconds !== config.grabWindowSeconds)) {
-    await tx.roomRocketSeason.update({ where: { id: previous.id }, data: { config: { ...previous.config, rules: config.rules, resetDelayMinutes: config.resetDelayMinutes, grabWindowSeconds: config.grabWindowSeconds } } });
+  if (previous?.endsAt > now) {
+    // Keep progress targets stable, but publish prizes for launches not yet created.
+    // Existing launches own immutable reward snapshots, including open grab windows.
+    const activeConfig = { ...previous.config, title: config.title, rules: config.rules,
+      resetDelayMinutes: config.resetDelayMinutes, grabWindowSeconds: config.grabWindowSeconds,
+      stages: previous.config.stages.map((stage, i) => ({ ...stage,
+        rewards: config.stages[i].rewards, inRoomWinners: config.stages[i].inRoomWinners })) };
+    await tx.roomRocketSeason.update({ where: { id: previous.id }, data: { config: activeConfig } });
   }
   if (config.enabled) await currentRocketSeason(tx, now);
   return config;

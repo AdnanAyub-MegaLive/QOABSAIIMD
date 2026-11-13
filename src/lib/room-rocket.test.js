@@ -101,7 +101,7 @@ it('validates exact stages, integer precision and HTTPS artwork',()=>{
  const c=config();c.stages[0].targetCoins='9007199254740993';expect(validateRocketConfig(c).stages[0].targetCoins).toBe('9007199254740993');
  expect(()=>validateRocketConfig({...c,stages:[]})).toThrow();c.stages[0].thumbnailUrl='http://unsafe';expect(()=>validateRocketConfig(c)).toThrow();
 });
-it('publishes rule edits to the active season while keeping its targets and rewards',async()=>{
+it('publishes rule edits to the active season while keeping its targets',async()=>{
  const f=fixture(), draft=config();
  draft.enabled=false; draft.rules='Updated flight rules'; draft.stages[0].targetCoins='250';
  f.tx.roomRocketSettings.upsert=vi.fn();
@@ -263,4 +263,29 @@ it('the maintenance worker launches a full waiting rocket without a new gift',as
  f.tx.roomRocketProgress.findMany=async()=>[f.state.progress];
  vi.useFakeTimers();vi.setSystemTime(new Date(+now+180000));
  try{await maintainRoomRockets(f.tx);expect(f.state.launches.size).toBe(2);expect(f.tx.events.some(e=>e.event==='audio-room:rocket:progress'&&e.data.level===3)).toBe(true);}finally{vi.useRealTimers();}
+});
+
+it('publishes edited prizes now without changing progress or an existing launch payout',async()=>{
+ const f=fixture();
+ await recordRocketGift(f.tx,f.gift('before-edit',100),'COINS',now);
+ const launch=[...f.state.launches.values()][0];
+ const progress=structuredClone(f.state.progress);
+ const draft=config();draft.enabled=false;draft.rules='New rules';draft.title='New title';
+ draft.stages[0].targetCoins='999';draft.stages[0].rewards.top1=[{type:'COINS',amount:'90'}];
+ draft.stages[1].rewards.top1=[{type:'COINS',amount:'90'}];
+ draft.stages[0].inRoomWinners=2;draft.stages[0].rewards.inRoom=[{type:'COINS',amount:'8'}];
+ f.tx.roomRocketSettings.upsert=vi.fn();
+ f.tx.roomRocketSeason.update=async({data})=>Object.assign(f.state.season,data);
+ await saveRocketConfiguration(f.tx,draft,now);
+ expect(f.state.season.config.rules).toBe('New rules');
+ expect(f.state.season.config.stages[0].targetCoins).toBe('100');
+ expect(f.state.season.config.stages[0].rewards.top1[0].amount).toBe('90');
+ expect(f.state.season.config.stages[0].inRoomWinners).toBe(2);
+ expect(f.state.progress).toEqual(progress);
+ expect(launch.winners[0].rewards[0].amount).toBe('5');
+ await payRocketLaunch(f.tx,launch.id,new Date(+now+31000));
+ expect(f.state.users.get('s').coinBalance).toBe(5n);
+ await recordRocketGift(f.tx,f.gift('after-edit',200),'COINS',new Date(+now+180001));
+ const next=[...f.state.launches.values()].find(l=>l.level===2);
+ expect(next.winners[0].rewards[0].amount).toBe('90');
 });

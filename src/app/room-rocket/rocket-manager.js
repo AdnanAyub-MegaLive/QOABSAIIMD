@@ -17,7 +17,7 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
       const response = await fetch('/api/admin/room-rocket', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || 'Unable to save.');
-      setConfig(body.data); setMessage('Saved. Rules, reset delay, grab window and the on/off switch apply to future launches now. Existing countdowns keep their deadline. Level and reward changes apply to the next season.');
+      setConfig(body.data); setMessage('Saved. Rules and rewards are live for future launches. Reopen Room Rocket in the app to refresh. Existing launches keep their rewards and countdowns. Level targets and artwork change next season.');
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <form onSubmit={save} className="space-y-6 text-slate-900">

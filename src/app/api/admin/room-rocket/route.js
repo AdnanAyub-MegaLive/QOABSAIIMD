@@ -14,7 +14,7 @@ export async function PUT(request) {
     const body = await request.json().catch(() => { throw Object.assign(new Error('Send a valid JSON configuration.'), { status: 422, code: 'VALIDATION_ERROR' }); });
     const config = await prisma.$transaction(async tx => {
       const saved = await saveRocketConfiguration(tx, body);
-      await tx.auditLog.create({ data: { adminId: admin.id, action: 'ROOM_ROCKET_CONFIGURED', category: 'CONTENT_MANAGEMENT', entityType: 'RoomRocketSettings', entityId: 'GLOBAL', description: 'Updated Rocket switch, reset delay and next-season configuration.', metadata: saved } });
+      await tx.auditLog.create({ data: { adminId: admin.id, action: 'ROOM_ROCKET_CONFIGURED', category: 'CONTENT_MANAGEMENT', entityType: 'RoomRocketSettings', entityId: 'GLOBAL', description: 'Updated live Rocket rules and future-launch rewards; saved next-season level configuration.', metadata: saved } });
       return saved;
     });
     return Response.json({ success: true, data: config });
