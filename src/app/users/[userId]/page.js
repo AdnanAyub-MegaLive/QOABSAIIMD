@@ -133,11 +133,11 @@ export default async function UserProfilePage({ params }) {
         }
       : null,
     specialIdCatalog,
-    joined: user.createdAt.toLocaleDateString("en-US", {
+    joined: user.createdAt.toLocaleDateString("en-US", { ...({
       month: "short",
       day: "2-digit",
       year: "numeric",
-    }),
+    }), timeZone: 'Asia/Bangkok' }),
     totalSpent: Number(user.totalSpent),
     balance: Number(user.coinBalance),
     gifts: user._count.sentGifts,
@@ -145,7 +145,7 @@ export default async function UserProfilePage({ params }) {
     receivedGiftValue: Number(receivedGiftTotals._sum.grossCoins ?? 0n),
     reusableGiftCoins: Number(receivedGiftTotals._sum.reusableCoins ?? 0n),
     salaryCoinBalance: Number(user.hostSalaryCoinBalance),
-    lastLogin: device?.lastLoginAt?.toLocaleString("en-US") ?? "Never",
+    lastLogin: device?.lastLoginAt?.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) ?? "Never",
     ip: device?.lastLoginIp ?? "—",
     mac: device?.macAddress ?? "—",
     location: device?.location ?? "Unknown",
@@ -158,13 +158,13 @@ export default async function UserProfilePage({ params }) {
         mimeType: asset.mimeType,
         fileSize: asset.fileSize,
         isRoomBackground: asset.isRoomBackground,
-        assignedAt: assignedAt.toLocaleDateString("en-US", {
+        assignedAt: assignedAt.toLocaleDateString("en-US", { ...({
           month: "short",
           day: "2-digit",
           year: "numeric",
-        }),
+        }), timeZone: 'Asia/Bangkok' }),
         assignedAtIso: assignedAt.toISOString(),
-        expiresAt: expiresAt?.toLocaleString("en-US") ?? "Never",
+        expiresAt: expiresAt?.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) ?? "Never",
         expiresAtIso: expiresAt?.toISOString() ?? null,
         durationMinutes,
         source,
@@ -189,7 +189,7 @@ export default async function UserProfilePage({ params }) {
     .map((message) => ({
       messageId: message.publicId,
       body: message.body,
-      createdAt: message.createdAt.toLocaleString("en-US"),
+      createdAt: message.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
       timestamp: message.createdAt.getTime(),
     }));
   const audioRoomMessages = roomMessages.map((message) => ({
@@ -197,7 +197,7 @@ export default async function UserProfilePage({ params }) {
     roomId: message.roomPublicId,
     roomTitle: message.roomTitle,
     body: message.body,
-    createdAt: message.createdAt.toLocaleString("en-US"),
+    createdAt: message.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
     timestamp: message.createdAt.getTime(),
   }));
   const directConversationMap = new Map();
@@ -215,7 +215,7 @@ export default async function UserProfilePage({ params }) {
         ? { id: otherUser.publicId, name: otherUser.name }
         : null,
       messages: [],
-      lastActivity: message.createdAt.toLocaleString("en-US"),
+      lastActivity: message.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
       timestamp: message.createdAt.getTime(),
     };
     conversation.messages.push({
@@ -223,7 +223,7 @@ export default async function UserProfilePage({ params }) {
       senderId: message.sender?.publicId ?? null,
       senderName: message.sender?.name ?? "Deleted user",
       body: message.body,
-      createdAt: message.createdAt.toLocaleString("en-US"),
+      createdAt: message.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
       timestamp: message.createdAt.getTime(),
     });
     directConversationMap.set(message.conversation.publicId, conversation);
@@ -241,7 +241,7 @@ export default async function UserProfilePage({ params }) {
     title: notification.title,
     body: notification.body,
     scope: notification.userId ? "Personal" : "Global broadcast",
-    createdAt: notification.createdAt.toLocaleString("en-US"),
+    createdAt: notification.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
     timestamp: notification.createdAt.getTime(),
   }));
   return (

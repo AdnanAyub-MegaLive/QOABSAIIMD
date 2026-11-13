@@ -38,11 +38,11 @@ export default async function ContentModerationPage({searchParams}) {
     <div className="grid gap-5 lg:grid-cols-2">
       <section id="blocks" className="rounded-2xl border bg-white p-5"><h3 className="font-bold">User block relationships</h3>
         <Controls kind="blocks" title="blocked users" filters={current} page={data.blocksPage} pages={data.blockPages} total={data.blockTotal}/>
-        <div className="mt-3 divide-y">{data.blocks.map(b=><p key={`${b.blocker.publicId}:${b.blocked.publicId}`} className="py-3 text-sm">{identity(b.blocker)} blocked {identity(b.blocked)}<br/><time>{b.createdAt.toISOString()} (UTC)</time></p>)}{!data.blocks.length&&<p className="py-6">No matching user blocks.</p>}</div>
+        <div className="mt-3 divide-y">{data.blocks.map(b=><p key={`${b.blocker.publicId}:${b.blocked.publicId}`} className="py-3 text-sm">{identity(b.blocker)} blocked {identity(b.blocked)}<br/><time>{b.createdAt.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })} (UTC+7)</time></p>)}{!data.blocks.length&&<p className="py-6">No matching user blocks.</p>}</div>
       </section>
       <section id="friends" className="rounded-2xl border bg-white p-5"><h3 className="font-bold">Friend requests</h3>
         <Controls kind="friends" title="friend requests" filters={current} page={data.friendsPage} pages={data.friendPages} total={data.friendTotal}/>
-        <div className="mt-3 divide-y">{data.requests.map(r=><p key={r.publicId} className="py-3 text-sm">{identity(r.requester)} → {identity(r.addressee)}<br/><span>{r.publicId} · {r.status}</span><br/><time>{r.createdAt.toISOString()} (UTC)</time></p>)}{!data.requests.length&&<p className="py-6">No matching friend requests.</p>}</div>
+        <div className="mt-3 divide-y">{data.requests.map(r=><p key={r.publicId} className="py-3 text-sm">{identity(r.requester)} → {identity(r.addressee)}<br/><span>{r.publicId} · {r.status}</span><br/><time>{r.createdAt.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })} (UTC+7)</time></p>)}{!data.requests.length&&<p className="py-6">No matching friend requests.</p>}</div>
       </section>
     </div>
   </div></RoomManagementShell>;

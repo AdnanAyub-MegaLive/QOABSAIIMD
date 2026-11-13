@@ -1,10 +1,8 @@
+import { calendarWindow } from '../business-time.js';
 import { randomBytes } from "node:crypto";
-import { DAY_MS, sharedClock, sharedDuration } from "./shared-engine.mjs";
+import { sharedClock, sharedDuration } from "./shared-engine.mjs";
 
-export function utcGameDay(now) {
-  const start = Math.floor(now / DAY_MS) * DAY_MS;
-  return { start, end: start + DAY_MS, date: new Date(start).toISOString().slice(0, 10) };
-}
+export function utcGameDay(now) { const {start,end,date}=calendarWindow('day',new Date(now)); return {start:+start,end:+end,date}; }
 
 export function activeGameSchedule(db, gameId, now) {
   const { start } = utcGameDay(now);

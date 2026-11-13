@@ -1,3 +1,4 @@
+import { parsePortalDate } from './business-time.js';
 import { Prisma, UserRole, ApplicationRole, AccountStatus } from '@prisma/client';
 import { reportCycle, publicCycle } from './reporting-cycles.js';
 export const exportModules = { users:'WEALTH_RANKING', hosts:'HOST_SALARY', agencies:'AGENCY_COMMISSION' };
@@ -17,7 +18,7 @@ export function exportFilters(params) {
 }
 export async function directoryCsv(db, filters, signal, now=new Date()) {
   const {kind,country,role,status,from,to}=filters;
-  const period=from?{start:new Date(`${from}T00:00:00Z`),end:new Date(Date.parse(to)+86400000),key:'CUSTOM',days:null,revision:null,label:'Custom date range'}:await reportCycle(db,exportModules[kind],filters.cycle,now);
+  const period=from?{start:parsePortalDate(from),end:new Date(+parsePortalDate(to)+86400000),key:'CUSTOM',days:null,revision:null,label:'Custom date range'}:await reportCycle(db,exportModules[kind],filters.cycle,now);
   const agency=kind==='agencies',model=agency?db.agency:db.user;
   const where={createdAt:{lte:now},...(agency?{}:{deletedAt:null}),...(country?{country}:{}),...(status?{status}:{}),...(!agency&&kind==='hosts'?{OR:[{role:'HOST'},{appRoles:{has:'HOST'}}]}:{}),...(!agency&&role?{AND:[{OR:[...(Object.values(UserRole).includes(role)?[{role}]:[]),...(Object.values(ApplicationRole).includes(role)?[{appRoles:{has:role}}]:[])]}]}:{})};
   let cursor=null,cancelled=false,legacy=false;

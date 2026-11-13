@@ -145,7 +145,7 @@ function RoomRow({ room, onAction }) {
         </span>
         {room.joiningDisabledUntil && (
           <p className="mt-1 text-[9px] text-[#849590]">
-            Until {new Date(room.joiningDisabledUntil).toLocaleString()}
+            Until {new Date(room.joiningDisabledUntil).toLocaleString(undefined, { timeZone: 'Asia/Bangkok' })}
           </p>
         )}
       </td>
@@ -187,7 +187,7 @@ function Status({ room }) {
       </span>
       {until && (
         <p className="mt-1 text-[9px] text-[#849590]">
-          Until {new Date(until).toLocaleString()}
+          Until {new Date(until).toLocaleString(undefined, { timeZone: 'Asia/Bangkok' })}
         </p>
       )}
     </div>

@@ -17,6 +17,6 @@ export default function DashboardChart({ charts, days }) {
     </div>
     <div className="mt-3 flex justify-between text-[9px] text-[#93a19e]">{chart?.points.filter((_, i, rows) => days === 7 || i === 0 || i === rows.length - 1 || i % 5 === 0).map(p => <span key={p.day}>{p.day.slice(5)}</span>)}</div>
     {total === 0n && <p className="mt-3 text-[10px] text-[#81928e]">No activity recorded in this period.</p>}
-    {chart && <details className="mt-4 text-[10px] text-[#81928e]"><summary className="cursor-pointer font-semibold text-[#087f74]">Daily values · UTC · today is partial</summary><div className="mt-2 max-h-40 overflow-y-auto"><table className="w-full text-left"><thead><tr><th>Date</th><th>{chart.unit}</th></tr></thead><tbody>{chart.points.map(p => <tr key={p.day}><td className="py-1">{p.day}</td><td>{BigInt(p.value).toLocaleString("en-US")}</td></tr>)}</tbody></table></div></details>}
+    {chart && <details className="mt-4 text-[10px] text-[#81928e]"><summary className="cursor-pointer font-semibold text-[#087f74]">Daily values · UTC+7 · today is partial</summary><div className="mt-2 max-h-40 overflow-y-auto"><table className="w-full text-left"><thead><tr><th>Date</th><th>{chart.unit}</th></tr></thead><tbody>{chart.points.map(p => <tr key={p.day}><td className="py-1">{p.day}</td><td>{BigInt(p.value).toLocaleString("en-US")}</td></tr>)}</tbody></table></div></details>}
   </section>;
 }

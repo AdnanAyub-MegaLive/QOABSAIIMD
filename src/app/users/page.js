@@ -84,11 +84,11 @@ export default async function UsersPage() {
       roles: user.appRoles.map(display),
       isOfficial: Boolean(user.isOfficial),
       status: display(user.status),
-      joined: user.createdAt.toLocaleDateString("en-US", {
+      joined: user.createdAt.toLocaleDateString("en-US", { ...({
         month: "short",
         day: "2-digit",
         year: "numeric",
-      }),
+      }), timeZone: 'Asia/Bangkok' }),
       streams: user._count.sentGifts,
       vipLevel: user.vipLevel,
       vip: user.vipLevel > 0,
@@ -105,10 +105,10 @@ export default async function UsersPage() {
     mac: device.macAddress,
     location: device.location ?? "Unknown",
     loginTime:
-      device.lastLoginAt?.toLocaleString("en-US", {
+      device.lastLoginAt?.toLocaleString("en-US", { ...({
         dateStyle: "medium",
         timeStyle: "medium",
-      }) ?? "Never",
+      }), timeZone: 'Asia/Bangkok' }) ?? "Never",
     isUserBanned: device.user.status === "BANNED",
     isDeviceBanned: device.isBanned,
   }));
@@ -119,7 +119,7 @@ export default async function UsersPage() {
     owner: room.owner.name,
     status: room.status,
     participantCount: room.participantCount,
-    startedAt: room.startedAt.toLocaleString("en-US"),
+    startedAt: room.startedAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
     audioUrl: room.liveAudioUrl ?? room.recordingUrl,
     joiningDisabled: room.joiningDisabled,
     joiningDisabledUntil: room.joiningDisabledUntil?.toISOString() ?? null,
@@ -136,7 +136,7 @@ export default async function UsersPage() {
         type: item.mediaType,
         caption: item.caption ?? "—",
         status: item.status,
-        uploaded: item.createdAt.toLocaleDateString("en-US"),
+        uploaded: item.createdAt.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),
       })),
     ),
     specialIds: users.flatMap((user) =>
@@ -151,8 +151,8 @@ export default async function UsersPage() {
         durationMinutes: item.expiresAt
           ? Math.max(1, Math.round((item.expiresAt - item.startsAt) / 60000))
           : null,
-        starts: item.startsAt.toLocaleString("en-US"),
-        expires: item.expiresAt?.toLocaleString("en-US") ?? "Legacy",
+        starts: item.startsAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
+        expires: item.expiresAt?.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) ?? "Legacy",
       })),
     ),
     topHistory: [...users]
@@ -176,7 +176,7 @@ export default async function UsersPage() {
         wager: Number(item.wager).toLocaleString(),
         payout: Number(item.payout).toLocaleString(),
         result: item.result,
-        played: item.createdAt.toLocaleString("en-US"),
+        played: item.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
       })),
     ),
   };

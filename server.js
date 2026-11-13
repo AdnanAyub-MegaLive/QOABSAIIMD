@@ -16,6 +16,9 @@ const { loadEnvConfig } = require("@next/env");
 const { verifyMobileSessionToken } = require("./src/lib/mobile-session.cjs");
 
 loadEnvConfig(process.cwd(), process.env.NODE_ENV === "development");
+if (process.env.NODE_ENV === 'production' && !Number.isFinite(Date.parse(process.env.NEXT_PUBLIC_BUSINESS_TIMEZONE_CUTOVER_AT || ''))) {
+  throw new Error('Business calendar cutover is required. Deploy with scripts/deploy-droplet.sh.');
+}
 const dev=process.argv.includes("--dev");
 const webpack=process.argv.includes("--webpack");
 const hostname=process.env.HOSTNAME||"0.0.0.0";

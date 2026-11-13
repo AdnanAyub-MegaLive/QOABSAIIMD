@@ -28,7 +28,7 @@ export async function PUT(request) {
   try {
     const admin=await requirePermission("agencies.edit");
     const body=await request.json(),period=await reportCycle(prisma,'AGENCY_COMMISSION',body?.month);
-    if(new Date()<period.start||new Date()>=period.end)throw Object.assign(new Error("Only the current UTC cycle's targets can be changed. Historical policies are preserved."),{status:422});
+    if(new Date()<period.start||new Date()>=period.end)throw Object.assign(new Error("Only the current UTC+7 cycle's targets can be changed. Historical policies are preserved."),{status:422});
     let tiers;try{tiers=validateSalaryTiers(body?.tiers);}catch(error){throw Object.assign(error,{status:422});}
     await prisma.$transaction(async tx=>{
       const old=await tx.agencySalaryPolicy.findUnique({where:{month:period.policyKey}});

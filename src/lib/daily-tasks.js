@@ -1,3 +1,4 @@
+import { calendarWindow } from './business-time.js';
 import { prisma } from "./prisma.js";
 import { ledgerData } from "./wallet.js";
 import { checkInDay, metricOf } from "./task-center-config.js";
@@ -7,10 +8,7 @@ import { notifyAction } from "./action-notifications.js";
 
 import { periodStart, utcDayStart } from "./task-periods.js";
 export { periodStart, utcDayStart, utcWeekStart } from "./task-periods.js";
-export function periodEnd(d,now){
-  if(d.cadence==="BEGINNER")return null;
-  const end=periodStart(d,now);if(d.cadence==="MONTHLY")end.setUTCMonth(end.getUTCMonth()+1);else end.setUTCDate(end.getUTCDate()+(d.cadence==="WEEKLY"?7:1));return end;
-}
+export function periodEnd(d,now) { return d.cadence === 'BEGINNER' ? null : calendarWindow(d.cadence === 'MONTHLY' ? 'month' : d.cadence === 'WEEKLY' ? 'week' : 'day', now).end; }
 const fail=code=>{throw Object.assign(new Error(code),{code,status:code==="TASK_NOT_FOUND"?404:409});};
 const rewardOf=d=>d.rewardSpec??{kind:"COINS",coins:String(d.rewardCoins)};
 const duration=n=>{const m=Math.floor(n/60);return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m} min`;};
@@ -57,7 +55,7 @@ export async function getDailyTasksOverview(user,now=new Date(),origin=null){
  for(let n=1;n<=7;n++)days.push({day:n,done:n<cycle.day||(n===cycle.day&&cycle.claimedToday),current:n===cycle.day,reward:await rewardDisplay(prisma,sign?.definition.config?.days?.[n-1]??(sign?rewardOf(sign.definition):{kind:"COINS",coins:"0"}),origin)});
  const daily=ordered.filter(i=>i.definition.cadence==="DAILY"),remaining=Math.max(0,periodEnd({cadence:"DAILY"},now)-now);
  const label=[Math.floor(remaining/3600000),Math.floor(remaining/60000)%60,Math.floor(remaining/1000)%60].map(v=>String(v).padStart(2,"0")).join(":");
- return {coinBalance:user.coinBalance.toString(),timezone:"UTC",today:{done:daily.filter(i=>i.claimedAt).length,total:daily.length,resetsInLabel:label},
+ return {coinBalance:user.coinBalance.toString(),timezone:calendarWindow('day',now).timezone,today:{done:daily.filter(i=>i.claimedAt).length,total:daily.length,resetsInLabel:label},
   streak:{label:`Day ${cycle.day} check-in`,days},checkIn:sign?{...payloads[signIndex],days}:null,
   categories:categories.map(c=>({key:c.key,icon:c.icon,tasks:payloads.filter((_,n)=>ordered[n].definition.categoryKey===c.key&&!ordered[n].definition.topSupporter&&metricOf(ordered[n].definition)!=="COMPLETE_TASKS"),completionBonus:payloads.find((_,n)=>ordered[n].definition.categoryKey===c.key&&metricOf(ordered[n].definition)==="COMPLETE_TASKS")??null})),
   featured:payloads.find((_,n)=>ordered[n].definition.featured)??null,topSupporter:(()=>{const n=ordered.findIndex(i=>i.definition.topSupporter);return n<0?null:{...payloads[n],endsInLabel:payloads[n].resetsAt?`${Math.max(0,Math.ceil((new Date(payloads[n].resetsAt)-now)/86400000))}d`:null};})()};

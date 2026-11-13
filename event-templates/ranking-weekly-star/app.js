@@ -5,11 +5,11 @@
   let token = '', type = fixedTrack || 'wealth', period = 'week', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
   const rewardsPanel=$('reward-details');
   const labels={wealth:'Wealth',charm:'Charm',agency:'Agency',cp:'CP',game:'Game','weekly-star':'Weekly Star'};
-  const scoring={'weekly-star':'Ranked by the Coin value of selected Weekly Star gifts sent during this UTC week. Only participating senders qualify for rewards.',game:'Ranked by Coins wagered in settled games across all rooms during the selected period. Pending, cancelled and play-point entries are excluded; winnings do not change the score.',wealth:'Ranked by the Coin value of gifts sent during the selected period.',charm:'Ranked by the Coin value of gifts received during the selected period.',agency:'Ranked by gifts received by hosts, attributed to their agency at the time of gift settlement.',cp:'Ranked by gifts exchanged between active CP partners since their relationship began, within the selected period.'};
+  const scoring={'weekly-star':'Ranked by the Coin value of selected Weekly Star gifts sent during this UTC+7 week. Only participating senders qualify for rewards.',game:'Ranked by Coins wagered in settled games across all rooms during the selected period. Pending, cancelled and play-point entries are excluded; winnings do not change the score.',wealth:'Ranked by the Coin value of gifts sent during the selected period.',charm:'Ranked by the Coin value of gifts received during the selected period.',agency:'Ranked by gifts received by hosts, attributed to their agency at the time of gift settlement.',cp:'Ranked by gifts exchanged between active CP partners since their relationship began, within the selected period.'};
   let cycleLabel = 'Cycle', selectedWeek='this';
   function renderRules(){
     $('rules-title').textContent=`${labels[type]} event rules`;
-    $('rule-text').textContent='Only gifts selected by the admin for this week count. Senders rank by their combined Coin value. Refunded gifts are excluded. Weeks run Monday through Sunday in UTC. Only ranked participants qualify for configured rewards. Equal scores use public ID order.';
+    $('rule-text').textContent='Only gifts selected by the admin for this week count. Senders rank by their combined Coin value. Refunded gifts are excluded. Weeks run Monday through Sunday in UTC+7. Only ranked participants qualify for configured rewards. Equal scores use public ID order.';
     $('award-rules').textContent=`${type==='agency'?'Rewards go to the agency owner.':type==='cp'?'Both CP partners receive the full configured reward.':'Rewards go to the ranked user.'} Rewards follow the admin settings for this event and period and are processed after the period closes. No rewards apply before activation. Awards requiring review may be delayed. Profile blocks may hide entries; awards use global ranking positions.`;
     $('rewards-title').textContent=`${labels[type]} · ${{today:'Daily',week:'Weekly',month:cycleLabel}[period]} rewards`;
   }
@@ -19,7 +19,7 @@
     const show=(policy,title)=>{
       rewardsPanel.append(el('h3','',title));
       if(!policy?.enabled){rewardsPanel.append(el('p','','Automatic rewards are not enabled for this period.'));return;}
-      rewardsPanel.append(el('p','',`Applies from ${new Date(policy.effectiveFrom).toUTCString()}`));
+      rewardsPanel.append(el('p','',`Applies from ${new Date(policy.effectiveFrom).toLocaleString('en-US', { timeZone: 'Asia/Bangkok', timeZoneName: 'shortOffset' })}`));
       if(!policy.rewards?.length){rewardsPanel.append(el('p','','No rewards configured for this period.'));return;}
       for(const r of policy.rewards){
         const card=el('article','reward-card');card.append(el('h4','reward-rank',`TOP ${r.rank}`));

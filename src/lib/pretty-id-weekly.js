@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { notifyAction } from './action-notifications.js';
-import { prettyWeek, WEEK_MS, qualification, policyForWeek, prettyError } from './pretty-id-policy.js';
+import { prettyWeek, qualification, policyForWeek, prettyError } from './pretty-id-policy.js';
 
 // Count settled ledger credits at their original settlement time. Gifts, bonuses,
 // admin adjustments and business-wallet funding do not satisfy this predicate.
@@ -93,14 +93,14 @@ export async function maintainPrettyIds(db) {
     if (!first) return;
     const current = prettyWeek().start;
     const last = await db.prettyIdWeek.findFirst({ orderBy: { start: 'desc' } });
-    const start = last ? (last.completedAt ? new Date(+last.start + WEEK_MS) : last.start) : first.effectiveFrom;
-    if (start >= current || Date.now() < +start + WEEK_MS + 300000) return;
+    const start = last ? (last.completedAt ? prettyWeek(last.start).end : last.start) : first.effectiveFrom;
+    if (start >= current || Date.now() < +prettyWeek(start).end + 300000) return;
     await db.$transaction(async tx => {
       // One small page per tick; multiple server processes share this lock.
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030141)::text AS locked`;
       const week = await tx.prettyIdWeek.upsert({ where: { start }, create: { start }, update: {} });
       if (week.completedAt) return;
-      const policy = await policyForWeek(tx, start), end = new Date(+start + WEEK_MS);
+      const policy = await policyForWeek(tx, start), end = prettyWeek(start).end;
       const rows = policy?.enabled ? await tx.$queryRaw(prettyRechargeSql(start, end, null, week.cursor, 50)) : [];
       for (const row of rows) {
         await tx.$queryRaw`SELECT id FROM "User" WHERE id=${row.userId} FOR UPDATE`;

@@ -10,8 +10,8 @@ const groups={
   "Resellers":[["redemptionDiamondsPerCoin","Redemption Diamond units (denominator)"],["redemptionCoinsNumerator","Coins per Diamond unit group (numerator; 9 Diamonds / 5 Coins = 9 and 5)"],["redemptionDeductionBps","Deduction basis points (100 = 1%)"]],
   "USDT Commission":[["usdtMicrosPerUsd","USDT micro-units per USD (1 USDT = 1000000)"],["withdrawalMinDiamonds","Minimum withdrawal Diamonds"],["withdrawalMaxDiamonds","Maximum withdrawal Diamonds"]],
 };
-groups.Exchange.push(["exchangeMaxDiamonds","Maximum exchange Diamonds"],["exchangeMultiple","Exchange amount multiple"],["exchangeDailyLimit","Daily exchange limit (UTC, debited Diamonds)"],["exchangeMonthlyLimit","Monthly exchange limit (UTC, debited Diamonds)"]);
-groups.Resellers.push(["transferMinDiamonds","Minimum transfer Diamonds"],["transferMaxDiamonds","Maximum transfer Diamonds"],["transferMultiple","Transfer amount multiple"],["transferDailyLimit","Daily transfer limit (UTC, Diamonds)"],["transferMonthlyLimit","Monthly transfer limit (UTC, Diamonds)"]);
+groups.Exchange.push(["exchangeMaxDiamonds","Maximum exchange Diamonds"],["exchangeMultiple","Exchange amount multiple"],["exchangeDailyLimit","Daily exchange limit (UTC+7, debited Diamonds)"],["exchangeMonthlyLimit","Monthly exchange limit (UTC+7, debited Diamonds)"]);
+groups.Resellers.push(["transferMinDiamonds","Minimum transfer Diamonds"],["transferMaxDiamonds","Maximum transfer Diamonds"],["transferMultiple","Transfer amount multiple"],["transferDailyLimit","Daily transfer limit (UTC+7, Diamonds)"],["transferMonthlyLimit","Monthly transfer limit (UTC+7, Diamonds)"]);
 export default function CurrencySettings({initial,version,canManage,canReview}){
   const [rules,setRules]=useState(initial),[tab,setTab]=useState("Gift & Recharge"),[notice,setNotice]=useState(""),[pending,start]=useTransition();
   const change=(key,value)=>setRules(old=>({...old,[key]:value}));

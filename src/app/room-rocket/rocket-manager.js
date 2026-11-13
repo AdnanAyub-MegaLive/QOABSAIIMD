@@ -1,4 +1,5 @@
 'use client';
+import { portalDateTimeInput, parsePortalDate } from '@/lib/business-time.js';
 import { useState } from 'react';
 
 const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900';
@@ -20,13 +21,13 @@ export default function RocketManager({ initial, enabled, season, assets, canEdi
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
   return <form onSubmit={save} className="space-y-6 text-slate-900">
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">Only future paid gifts count. Existing gifts are never backfilled. Completed launches pay once; earned rewards remain due even if Rocket is switched off. {season && <p className="mt-2">Current season: {season.id} · ends {new Date(season.endsAt).toLocaleString()}</p>}</div>
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">Only future paid gifts count. Existing gifts are never backfilled. Completed launches pay once; earned rewards remain due even if Rocket is switched off. {season && <p className="mt-2">Current season: {season.id} · ends {new Date(season.endsAt).toLocaleString(undefined, { timeZone: 'Asia/Bangkok' })}</p>}</div>
     <fieldset disabled={!canEdit || busy} className="space-y-6">
       <section className="grid gap-4 rounded-xl border bg-white p-5 md:grid-cols-2">
         <h2 className="md:col-span-2 rounded-xl bg-slate-900 px-4 py-3 text-lg font-bold text-white">Rocket season</h2>
         <label className="flex items-center gap-3 font-semibold"><input type="checkbox" checked={config.enabled} onChange={e => update('enabled', e.target.checked)} />Enable Room Rocket</label>
         <label className="space-y-1 text-sm">Season title<input className={field} required maxLength={100} value={config.title} onChange={e => update('title', e.target.value)} /></label>
-        <label className="space-y-1 text-sm">First season end (UTC)<input className={field} type="datetime-local" required value={config.endsAt.slice(0,16)} onChange={e => update('endsAt', e.target.value ? `${e.target.value}:00.000Z` : '')} disabled={Boolean(season)} /><span className="text-xs text-slate-500">After the first season, repeats use the interval below.</span></label>
+        <label className="space-y-1 text-sm">First season end (UTC+7)<input className={field} type="datetime-local" required value={portalDateTimeInput(config.endsAt)} onChange={e => update('endsAt', e.target.value ? parsePortalDate(e.target.value).toISOString() : '')} disabled={Boolean(season)} /><span className="text-xs text-slate-500">After the first season, repeats use the interval below.</span></label>
         <label className="space-y-1 text-sm">Subsequent season length (days)<input className={field} type="number" min={1} max={366} required value={config.repeatDays} onChange={e => update('repeatDays', Number(e.target.value))} /></label>
         <label className="space-y-1 text-sm">Grab window after launch (seconds)<input className={field} type="number" min={10} max={300} required value={config.grabWindowSeconds ?? 30} onChange={e => update('grabWindowSeconds', Number(e.target.value))}/><span className="text-xs text-slate-500">Default: 30 seconds. Include the full animation, 3-second countdown, 2-second button and network delay. First valid grabbers win; if nobody grabs, the launch-time random draw is used.</span></label>
         <label className="space-y-1 text-sm">Reset after top-level launch (minutes)<input className={field} type="number" min={1} max={10080} required value={config.resetDelayMinutes ?? 180} onChange={e => update('resetDelayMinutes', Number(e.target.value))}/><span className="text-xs text-slate-500">Default: 180 minutes (3 hours). After this wait the room starts again at Level 1. Gifts during this wait do not count. Each earlier launch pauses for 3 minutes; gifts during that pause count toward the next rocket.</span></label>

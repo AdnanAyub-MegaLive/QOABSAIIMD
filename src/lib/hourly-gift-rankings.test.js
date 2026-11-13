@@ -5,10 +5,10 @@ vi.mock("./decoration-media.js", () => ({ perkMediaFields: () => ({}) }));
 import { giftHours, hourlyCacheAction, hourlyViewerPosition, orderHourlyScores } from "./hourly-gift-ranking-contract.js";
 import { accessibleHourlyRooms, getHourlyGiftRankings, hourlyScoreSnapshot } from "./hourly-gift-rankings.js";
 
-describe("fixed UTC hours and Top 50 threshold", () => {
+describe("fixed UTC+7 hours and Top 50 threshold", () => {
   it("uses fixed hours, including year rollover, never a rolling hour", () => {
     const h = giftHours(new Date("2026-12-31T23:59:59.999Z"));
-    expect(h).toMatchObject({ timezone: "UTC", hourId: "2026-12-31T23:00:00.000Z", nextResetAt: "2027-01-01T00:00:00.000Z", previous: { start: "2026-12-31T22:00:00.000Z", end: "2026-12-31T23:00:00.000Z" } });
+    expect(h).toMatchObject({ timezone: "Asia/Bangkok", hourId: "2026-12-31T23:00:00.000Z", nextResetAt: "2027-01-01T00:00:00.000Z", previous: { start: "2026-12-31T22:00:00.000Z", end: "2026-12-31T23:00:00.000Z" } });
     expect(giftHours(new Date(h.nextResetAt)).previous).toEqual(h.current);
   });
   it("keeps scores larger than Number.MAX_SAFE_INTEGER exact and breaks ties by stable identity", () => {

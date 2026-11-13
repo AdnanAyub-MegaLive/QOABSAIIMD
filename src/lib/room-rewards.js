@@ -1,8 +1,9 @@
+import { calendarWindow } from './business-time.js';
 import { Prisma } from "@prisma/client";
 import { prisma } from './prisma.js';
 import { ledgerData } from './wallet.js';
 import { notifyAction } from './action-notifications.js';
-export function nextRoomRewardDay(now=new Date()) { const day=new Date(now);day.setUTCHours(0,0,0,0);day.setUTCDate(day.getUTCDate()+1);return day; }
+export function nextRoomRewardDay(now=new Date()) { return calendarWindow('day',now).end; }
 export function roomRewardAmount(coins,rateBps){if(coins<0n||!Number.isInteger(rateBps)||rateBps<0||rateBps>10000)throw new Error('Invalid room reward amount or percentage.');return coins*BigInt(rateBps)/10000n;}
 export async function payRoomReward(id,db=prisma){
  return db.$transaction(async tx=>{
@@ -20,7 +21,7 @@ export async function payRoomReward(id,db=prisma){
   if(!user||user.status!=='ACTIVE'||user.deletedAt||ban)throw new Error('Room owner unavailable; reward held for review.');
   const credited=await tx.user.updateMany({where:{id:payout.ownerId,hostSalaryCoinBalance:{lte:9223372036854775807n-payout.diamonds}},data:{hostSalaryCoinBalance:{increment:payout.diamonds}}});
   if(!credited.count)throw new Error('Diamond balance cannot accept this reward.');
-  const day=payout.day.toISOString().slice(0,10);
+  const day=calendarWindow('day',payout.day).date;
   await tx.walletTransaction.create({data:ledgerData({userId:payout.ownerId,type:'BONUS',direction:'CREDIT',title:'Daily room owner reward',diamonds:payout.diamonds,referenceId:`room-reward:${payout.id}`,metadata:{roomId:payout.roomId,day,giftCoins:payout.giftCoins.toString(),rateBps:payout.rateBps,policyVersion:payout.policyVersion}})});
   await notifyAction(tx,{userId:payout.ownerId,key:`room-reward:${payout.id}`,type:'ROOM_REWARD',title:'Daily room reward received',body:`${payout.diamonds} Diamonds are earned by the Room owner on ${day}`,action:{screen:'DIAMONDS',roomId:payout.roomId,payoutId:payout.id}});
   await tx.roomRewardPayout.update({where:{id},data:{status:'PAID',paidAt:new Date(),error:null}});
@@ -75,7 +76,7 @@ export async function activateRoomRewards(adminId,db=prisma,now=new Date()) {
  return db.$transaction(async tx=>{
   const inserted=await tx.roomRewardActivation.createMany({data:[{id:'GLOBAL',startsAt:nextRoomRewardDay(now)}],skipDuplicates:true});
   const activation=await tx.roomRewardActivation.findUnique({where:{id:'GLOBAL'}});
-  if(inserted.count)await tx.auditLog.create({data:{adminId,action:'ROOM_REWARD_ACTIVATED',category:'FINANCE',entityType:'RoomRewardActivation',entityId:'GLOBAL',description:'Activated room rewards from next UTC midnight.',metadata:{startsAt:activation.startsAt.toISOString()}}});
+  if(inserted.count)await tx.auditLog.create({data:{adminId,action:'ROOM_REWARD_ACTIVATED',category:'FINANCE',entityType:'RoomRewardActivation',entityId:'GLOBAL',description:'Activated room rewards from next UTC+7 midnight.',metadata:{startsAt:activation.startsAt.toISOString()}}});
   return activation;
  });
 }

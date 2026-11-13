@@ -19,7 +19,7 @@ export default async function DashboardHome({ searchParams }) {
   const data = await dashboardData(prisma, admin, (await searchParams).days);
   const now = data.generatedAt;
   const recentLogs = data.logs;
-  const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Karachi" }).format(now));
+  const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Bangkok" }).format(now));
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
@@ -55,7 +55,7 @@ export default async function DashboardHome({ searchParams }) {
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold text-[#16877d]">
-                {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Karachi" })}
+                {now.toLocaleDateString("en-US", { ...({ weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Bangkok" }), timeZone: 'Asia/Bangkok' })}
               </p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
                 {greeting}, {firstName}.
@@ -68,7 +68,7 @@ export default async function DashboardHome({ searchParams }) {
               View audit report
             </Link>}</div>
           </div>
-          <p className="mb-4 text-[10px] text-[#81928e]">Updated {now.toISOString().replace("T", " ").slice(0,19)} UTC · Charts use UTC daily totals</p>
+          <p className="mb-4 text-[10px] text-[#81928e]">Updated {now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })} UTC+7 · Charts use UTC+7 daily totals</p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {data.cards.map(({ label, value, wins, detail, href, urgent }) => (
               <Link

@@ -1,12 +1,13 @@
+import { portalDate, parsePortalDate } from './business-time.js';
 import { hasPermission } from "./portal-permissions.js";
 export function dashboardRange(value, now = new Date()) {
   const days = String(value) === "30" ? 30 : 7;
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const today = parsePortalDate(portalDate(now));
   return { days, today, start: new Date(today.getTime() - (days - 1) * 86400000) };
 }
 export function dailySeries(rows, start, days) {
   const values = new Map(rows.map(row => [row.day, String(row.value)]));
-  return Array.from({ length: days }, (_, i) => { const day = new Date(start.getTime() + i * 86400000).toISOString().slice(0, 10); return { day, value: values.get(day) ?? "0" }; });
+  return Array.from({ length: days }, (_, i) => { const day = portalDate(new Date(start.getTime() + i * 86400000)); return { day, value: values.get(day) ?? "0" }; });
 }
 export async function dashboardData(db, admin, period, now = new Date()) {
   const range = dashboardRange(period, now), can = p => hasPermission(admin, p);
@@ -18,7 +19,7 @@ export async function dashboardData(db, admin, period, now = new Date()) {
       cards.push({ label: "Games · all time", value: String(totals._sum.wager ?? 0n), wins: String(totals._sum.payout ?? 0n), detail: "Coins · recorded wagers / player payouts", href: "/games-management" });
     })(),
     can("users.view") && (async () => {
-      const [total, rows] = await Promise.all([db.user.count({ where: { deletedAt: null } }), db.$queryRaw`SELECT to_char("createdAt", 'YYYY-MM-DD') AS day, count(*)::bigint AS value FROM "User" WHERE "createdAt" >= ${range.start} AND "createdAt" <= ${now} AND "deletedAt" IS NULL GROUP BY 1 ORDER BY 1`]);
+      const [total, rows] = await Promise.all([db.user.count({ where: { deletedAt: null } }), db.$queryRaw`SELECT to_char("createdAt" + interval '7 hours', 'YYYY-MM-DD') AS day, count(*)::bigint AS value FROM "User" WHERE "createdAt" >= ${range.start} AND "createdAt" <= ${now} AND "deletedAt" IS NULL GROUP BY 1 ORDER BY 1`]);
       card("Registered users", total, "Excludes deleted accounts", "/users");
       charts.push({ title: "New accounts", unit: "users", detail: "Signups by creation date · excludes deleted accounts", points: dailySeries(rows, range.start, range.days) });
     })(),
@@ -36,9 +37,9 @@ export async function dashboardData(db, admin, period, now = new Date()) {
         db.walletWithdrawal.count({ where: { status: { in: ["PENDING", "APPROVED"] } } }),
         db.currencyRequest.count({ where: { status: "PENDING" } }),
         db.currencyRequest.count({ where: { status: "APPROVED", kind: "USDT" } }),
-        db.$queryRaw`SELECT to_char("createdAt", 'YYYY-MM-DD') AS day, sum("coinValue") AS value FROM "GiftTransaction" WHERE "createdAt" >= ${range.start} AND "createdAt" <= ${now} AND "reversedAt" IS NULL GROUP BY 1 ORDER BY 1`,
+        db.$queryRaw`SELECT to_char("createdAt" + interval '7 hours', 'YYYY-MM-DD') AS day, sum("coinValue") AS value FROM "GiftTransaction" WHERE "createdAt" >= ${range.start} AND "createdAt" <= ${now} AND "reversedAt" IS NULL GROUP BY 1 ORDER BY 1`,
       ]);
-      card("Gift Coins today", gifts._sum.coinValue ?? 0n, "Gift value, not platform profit · UTC", "/finance");
+      card("Gift Coins today", gifts._sum.coinValue ?? 0n, "Gift value, not platform profit · UTC+7", "/finance");
       card("Finance action queue", legacy + pending + approved, `${pending} reviews · ${approved} approved USDT · ${legacy} legacy`, "/finance", true);
       attention.push({ label: "Currency requests", count: pending, href: "/platform-rules?tab=exchange", detail: "Requests awaiting review · Currency rules → Review Queue" }, { label: "Approved USDT payouts", count: approved, href: "/platform-rules?tab=exchange", detail: "Approved but not yet marked paid · Currency rules → Review Queue" });
       charts.push({ title: "Gift activity", unit: "Coins", detail: "Audio + video · reversed gifts excluded · not revenue", points: dailySeries(rows, range.start, range.days) });
@@ -56,7 +57,7 @@ export async function dashboardData(db, admin, period, now = new Date()) {
         db.videoLiveViewer.count({ where: { session: live, active: true, user: { status: "ACTIVE", deletedAt: null }, OR: [{ socketCount: { gt: 0 } }, { lastSeenAt: { gte: cutoff } }] } }),
         db.videoLiveSession.count({ where: { status: "LIVE", hostLastSeenAt: { lt: cutoff } } }),
         db.videoLiveReport.count({ where: { status: "OPEN" } }),
-        db.$queryRaw`SELECT to_char("startedAt", 'YYYY-MM-DD') AS day, count(*)::bigint AS value FROM "VideoLiveSession" WHERE "startedAt" >= ${range.start} AND "startedAt" <= ${now} GROUP BY 1 ORDER BY 1`,
+        db.$queryRaw`SELECT to_char("startedAt" + interval '7 hours', 'YYYY-MM-DD') AS day, count(*)::bigint AS value FROM "VideoLiveSession" WHERE "startedAt" >= ${range.start} AND "startedAt" <= ${now} GROUP BY 1 ORDER BY 1`,
       ]);
       card("Live video streams", count, `${viewers} current viewer memberships`, "/live-management");
       network.push({ label: "Video streams", value: count, detail: `${viewers} active viewer memberships · not peak viewers`, href: "/live-management" });

@@ -1,3 +1,4 @@
+import { calendarWindow } from './business-time.js';
 export const taskMetrics = {
   SIGN_IN: "Daily check-in", SEND_GIFTS: "Gift quantity sent", GIFT_COINS_SENT: "Gift Coin value sent",
   GIFT_COINS_RECEIVED: "Gift Coin value received", JOIN_AGENCY: "Currently in an agency",
@@ -36,8 +37,8 @@ export function validateTaskOptions(body) {
   return {metric,config,rewardSpec:validateReward(body.rewardSpec??{kind:"COINS",coins:body.rewardCoins})};
 }
 export function checkInDay(streak, now) {
-  const today=Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate());
+  const today=+calendarWindow('day',now).start;
   const last=streak?.lastSignInDate?.getTime();
-  const count=last===today?streak.currentStreak:last===today-86400000?streak.currentStreak+1:1;
+  const count=last===today?streak.currentStreak:last===+calendarWindow('day',new Date(today-1)).start?streak.currentStreak+1:1;
   return {count,day:((Math.max(count,1)-1)%7)+1,claimedToday:last===today};
 }

@@ -1,4 +1,5 @@
 "use server";
+import { calendarWindow } from "@/lib/business-time.js";
 import { occupiedSpecialId, promoteSpecialId, publishSpecialIdentity } from "@/lib/special-id-ownership";
 
 import { changeDeviceBan } from "../lib/device-ban.js";
@@ -251,11 +252,7 @@ export async function updateTalentAccount(publicId, changes) {
       data: {
         talentId: talent.id,
         adminId: admin.id,
-        periodStart: new Date(
-          new Date().getFullYear(),
-          new Date().getMonth(),
-          1,
-        ),
+        periodStart: calendarWindow('month').start,
         periodEnd: new Date(),
         amount: String(changes.salary),
         status: "PENDING",

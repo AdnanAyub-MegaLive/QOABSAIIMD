@@ -1,3 +1,4 @@
+import { parsePortalDate } from './business-time.js';
 const sensitive = /password|secret|token|authorization|cookie|privatekey|encryptionkey|signature|displaySig|bank|iban|accountnumber|routingnumber|cnic|passport|filedata|ciphertext|proofurl/i;
 export function safeAuditDetails(value,depth=0){
  if(depth>8)return '[TRUNCATED]';
@@ -14,7 +15,7 @@ export function safeAuditDetails(value,depth=0){
 export function auditFilters(params={}){
  const text=key=>typeof params[key]==='string'?params[key].trim().slice(0,200):'';
  const q=text('q'),category=text('category')||'All',action=text('action'),entity=text('entity'),from=text('from'),to=text('to');
- const date=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))?new Date(value+'T00:00:00.000Z'):null;
+ const date=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))?parsePortalDate(value):null;
  const start=date(from),end=date(to);if(end)end.setUTCDate(end.getUTCDate()+1);
  const where={...(category!=='All'?{category}:{}),...(action?{action:{contains:action,mode:'insensitive'}}:{}),...(entity?{entityId:{contains:entity,mode:'insensitive'}}:{}),...((start||end)?{createdAt:{...(start?{gte:start}:{}),...(end?{lt:end}:{})}}:{})};
  if(q)where.OR=['action','description','entityId','entityType'].map(key=>({[key]:{contains:q,mode:'insensitive'}})).concat([{admin:{is:{name:{contains:q,mode:'insensitive'}}}},{admin:{is:{email:{contains:q,mode:'insensitive'}}}}],['actorPublicId','actorUserId','actorBdUserId','requestId','transactionId'].map(key=>({metadata:{path:[key],equals:q}})));

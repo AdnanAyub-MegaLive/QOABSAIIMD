@@ -1,3 +1,4 @@
+import { calendarWindow } from '@/lib/business-time.js';
 import { reportCycle, publicCycle } from '@/lib/reporting-cycles';
 import { prisma } from "@/lib/prisma";
 import { agencyLogoUrl } from "@/lib/agency-logo";
@@ -64,9 +65,7 @@ export async function GET(request) {
       },
     });
     const referencePerks = await resolveUserPerks(agency?.bd ? [agency.bd] : [], requestOrigin(request), ["FRAMES"]);
-    const monthStart = new Date(
-      Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
-    );
+    const monthStart = calendarWindow('month').start;
     const [lifetimeGifting, monthlySalary, recharge] = agency
       ? await Promise.all([
           prisma.giftSettlement.aggregate({

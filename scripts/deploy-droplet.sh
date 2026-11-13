@@ -46,6 +46,7 @@ ln -s "$repo/storage" "$release/storage"
 cd "$release"
 echo "Preparing release $(git rev-parse --short HEAD 2>/dev/null || basename "$release") while the portal stays online"
 npm ci --include=dev
+node scripts/prepare-business-timezone.mjs "$repo"
 node scripts/prepare-droplet-release.mjs "$repo" "$release"
 node scripts/check-auth-config.mjs
 node scripts/check-media-tools.mjs
@@ -63,10 +64,13 @@ NODE
 # Live deployments require backward-compatible migrations. No database rollback is attempted.
 npx prisma migrate deploy
 node scripts/seed-help-center.mjs --bundled
+node scripts/align-business-schedules.mjs
+node scripts/prepare-business-timezone.mjs "$repo"
 activating=1
 pm2 restart "$release/release.ecosystem.json" --only megalive-portal --update-env
 node scripts/prepare-droplet-release.mjs --health "$release"
 pm2 save
+node scripts/prepare-business-timezone.mjs "$repo" --activate
 activating=0
 trap - ERR
 echo "Deployment healthy: $release"

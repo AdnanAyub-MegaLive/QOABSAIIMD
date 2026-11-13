@@ -1359,7 +1359,7 @@ function formatSize(bytes) {
       : `${(bytes / 1048576).toFixed(1)} MB`;
 }
 function formatDate(value) {
-  return value ? new Date(value).toLocaleString("en-US") : "Never";
+  return value ? new Date(value).toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) : "Never";
 }
 function distributionLabel(item) {
   if (item.category === "GIFTS")

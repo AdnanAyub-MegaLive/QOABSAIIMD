@@ -1,13 +1,9 @@
+import { calendarWindow } from '../business-time.js';
 import { moduleCycle } from '../reporting-cycles.js';
 export const eventRankingTypes = ['wealth', 'charm', 'agency', 'cp', 'game', 'weekly-star'];
 export function rankingWindow(period, now = new Date()) {
-  const start = new Date(now); start.setUTCHours(0, 0, 0, 0);
-  if (period === 'week') start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
-  else if (period === 'month') start.setUTCDate(1);
-  else if (period !== 'today') throw Object.assign(new Error('Choose Daily, Weekly or Monthly.'), { code: 'VALIDATION_ERROR' });
-  const end = new Date(start);
-  if (period === 'month') end.setUTCMonth(end.getUTCMonth() + 1);
-  else end.setUTCDate(end.getUTCDate() + (period === 'week' ? 7 : 1));
+  if (!['today','week','month'].includes(period)) throw Object.assign(new Error('Choose Daily, Weekly or Monthly.'), { code: 'VALIDATION_ERROR' });
+  const { start, end } = calendarWindow(period === 'today' ? 'day' : period, now);
   return { start, end };
 }
 export function rankingInput(params) {

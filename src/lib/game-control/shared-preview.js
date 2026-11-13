@@ -1,3 +1,4 @@
+import { calendarWindow } from '../business-time.js';
 import {roundSummary} from "./round-summary.mjs";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import {randomBytes} from "node:crypto";
@@ -8,13 +9,13 @@ import {GameError,serializeGame} from "./service.js";
 const previews=new Map();
 const view=e=>e?{id:e.id,status:e.status,amount:String(e.amount),input:e.input,answered:!!e.answer,result:e.result}:null;
 export function previewRound(owner,gameRow,input,now=Date.now()){
- const key=`${owner}:${gameRow.id}`,date=new Date(now).toISOString().slice(0,10);
+ const key=`${owner}:${gameRow.id}`,date=calendarWindow('day',new Date(now)).date;
  for(const [k,v] of previews)if(now-v.seen>3600000)previews.delete(k);
  let state=previews.get(key);
  if(!state||state.day.id!==`${gameRow.id}:${date}`||state.day.settings.revision!==gameRow.revision){
   if(previews.size>=200)previews.delete(previews.keys().next().value);
   const game={...serializeGame(gameRow),status:"active",outcomeScope:"application-v1"};
-  state={day:{id:`${gameRow.id}:${date}`,day:new Date(`${date}T00:00:00Z`),settings:game,durationMs:sharedDuration(game),seed:randomBytes(32).toString("hex")},entries:[],points:10000n,seen:now};previews.set(key,state);
+  state={day:{id:`${gameRow.id}:${date}`,day:calendarWindow('day',new Date(now)).start,settings:game,durationMs:sharedDuration(game),seed:randomBytes(32).toString("hex")},entries:[],points:10000n,seen:now};previews.set(key,state);
  }
  state.seen=now;
  const {day}=state,clock=sharedClock(day,now),roomId="admin-preview";

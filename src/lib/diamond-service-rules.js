@@ -1,3 +1,4 @@
+import { calendarWindow } from './business-time.js';
 import { walletEligibility } from "./wallet-eligibility.js";
 export const serviceFields = ["MinDiamonds", "MaxDiamonds", "Multiple", "DailyLimit", "MonthlyLimit"];
 export function serviceError(code, message, status = 422) { return Object.assign(new Error(message), { code, status }); }
@@ -14,7 +15,7 @@ export function diamondRules(policy, user, kind) {
   else if (user.status !== "ACTIVE" || user.deletedAt) reason = "Your account is not eligible.";
   else if (kind === "TRANSFER" && (!eligibility.transfer || !user.country)) reason = "Diamond Transfer requires an eligible assigned role or active agency ownership and a selected country. CS and CS Leaders can only Exchange.";
   else if (kind === "EXCHANGE" && (!eligibility.exchange || user.diamondExchangeEnabled === false)) reason = "Exchange is unavailable for this account.";
-  return { enabled: !reason, reason, policyVersion: policy.version, minDiamonds: fields.MinDiamonds, maxDiamonds: fields.MaxDiamonds, amountMultiple: fields.Multiple, dailyLimit: fields.DailyLimit, monthlyLimit: fields.MonthlyLimit, feeDiamonds: "0", feeBps: 0, periodTimezone: "UTC", ...(kind === "EXCHANGE" ? { diamondsPerCoin: rate || null } : {}) };
+  return { enabled: !reason, reason, policyVersion: policy.version, minDiamonds: fields.MinDiamonds, maxDiamonds: fields.MaxDiamonds, amountMultiple: fields.Multiple, dailyLimit: fields.DailyLimit, monthlyLimit: fields.MonthlyLimit, feeDiamonds: "0", feeBps: 0, periodTimezone: "Asia/Bangkok", ...(kind === "EXCHANGE" ? { diamondsPerCoin: rate || null } : {}) };
 }
 export function validateServiceAmount(value, rules, kind) {
   if (!rules.enabled) throw serviceError(`${kind}_DISABLED`, rules.reason, 403);
@@ -23,8 +24,8 @@ export function validateServiceAmount(value, rules, kind) {
   if (value % BigInt(rules.amountMultiple)) throw serviceError(`${kind}_INVALID_MULTIPLE`, `Amount must be a multiple of ${rules.amountMultiple} Diamonds.`);
 }
 export async function checkDiamondLimits(tx, userId, value, rules, kind, now = new Date()) {
-  const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const day = calendarWindow('day',now).start;
+  const month = calendarWindow('month',now).start;
   // Existing immutable debits are the authoritative usage source, including pre-policy history.
   const where = { userId, direction: "DEBIT", type: kind === "TRANSFER" ? "TRANSFER_SENT" : "DIAMOND_EXCHANGE_DEBIT", diamonds: { not: null } };
   // Reviewed redemptions also use DIAMOND_EXCHANGE_DEBIT, but have their own rules.

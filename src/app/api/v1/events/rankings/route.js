@@ -1,3 +1,4 @@
+import { calendarWindow } from '@/lib/business-time.js';
 import { requireMobileUser, mobileJson, mobileApiError, mobileOptions } from '@/lib/mobile-api';
 import { prisma } from '@/lib/prisma';
 import { requestOrigin } from '@/lib/user-perks';
@@ -19,8 +20,8 @@ export async function GET(request) {
     const event = await prisma.event.findUnique({ where: { slug }, select: { status: true } });
     if (event?.status !== 'PUBLISHED') return mobileJson({success:false,error:{code:'EVENT_UNAVAILABLE',message:'The ranking event is not currently published.'}},404);
     const policies=slug==='rankings'?[]:await prisma.rankingRewardPolicy.findMany({where:{eventSlug:slug,period:input.period}});
-    const when=new Date();
-    if(input.type==='weekly-star' && params.get('week')==='last')when.setUTCDate(when.getUTCDate()-7);
+    let when=new Date();
+    if(input.type==='weekly-star' && params.get('week')==='last')when = new Date(+calendarWindow('week',when).start - 1);
     const window=await configuredRankingWindow(prisma,input.type,input.period,when);
     const weekly=input.type==='weekly-star'?await prisma.weeklyStarWeek.findUnique({where:{startsAt:window.start}}):null;
     const weeklyGifts=weekly?.giftIds.length ? await prisma.uploadAsset.findMany({where:{id:{in:weekly.giftIds}},select:{publicId:true,name:true,mimeType:true,mediaVersion:true,posterMimeType:true,posterMediaVersion:true}}):[];

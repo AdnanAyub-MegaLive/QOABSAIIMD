@@ -51,3 +51,6 @@ next-env.d.ts
 
 # Local PostgreSQL cluster
 /.local/
+
+# Permanent deployment calendar marker (kept beside the local environment).
+/.business-timezone-active

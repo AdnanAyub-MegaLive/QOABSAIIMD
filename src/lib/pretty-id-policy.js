@@ -1,10 +1,6 @@
+import { calendarWindow } from './business-time.js';
 export const WEEK_MS = 7 * 86400000;
-export function prettyWeek(now = new Date()) {
-  const start = new Date(now);
-  start.setUTCHours(0, 0, 0, 0);
-  start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
-  return { start, end: new Date(+start + WEEK_MS) };
-}
+export function prettyWeek(now = new Date()) { const {start,end}=calendarWindow('week',now); return {start,end}; }
 export const defaultPrettyLevels = [1000000, 5000000, 10000000, 15000000, 25000000].map((coins, i) => ({
   level: i + 1, characters: 7 - i, thresholdCoins: String(coins),
   pattern: ['BBBCCCC', 'BBBCCC', 'BBCCC', 'BBCC', 'BCC'][i],

@@ -1,3 +1,4 @@
+import { calendarWindow } from '../business-time.js';
 import { weightedOutcomeDraw } from "./outcome-weights.mjs";
 import { roundTiming } from "./round-timing.mjs";
 import { instantGames, resolveInstant } from "./instant-games.mjs";
@@ -10,7 +11,7 @@ import {pizzaSettings,pizzaResult} from "./pizza.mjs";
 export const DAY_MS=86400000;
 export function sharedDuration(game){return Object.values(roundTiming(game)).reduce((sum, seconds)=>sum+seconds,0)*1000;}
 export function sharedClock(day, now=Date.now()){
- const start=new Date(day.day).getTime(),duration=day.durationMs,elapsed=Math.max(0,now-start),resetAt=Math.floor(start/DAY_MS)*DAY_MS+DAY_MS,slots=Math.floor((resetAt-start)/duration),offset=day.settings.scheduleRoundOffset||0;
+ const start=new Date(day.day).getTime(),duration=day.durationMs,elapsed=Math.max(0,now-start),resetAt=+calendarWindow('day',new Date(start)).end,slots=Math.floor((resetAt-start)/duration),offset=day.settings.scheduleRoundOffset||0;
  const timing=roundTiming(day.settings);
  const slot=Math.min(Math.floor(elapsed/duration),slots-1),opensAt=start+slot*duration,closesAt=opensAt+timing.selectionSeconds*1000,revealsAt=opensAt+duration-timing.resultSeconds*1000,endsAt=opensAt+duration;
  const phase=now>=resetAt||now>=endsAt?"reset":now<closesAt?"open":now<revealsAt?"playing":"reveal";
