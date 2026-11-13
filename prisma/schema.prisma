@@ -2963,6 +2963,8 @@ model RoomRewardPayout {
   giftCoins BigInt
   giftIds Json
   diamonds BigInt
+  coins BigInt?
+  currency String @default("DIAMONDS")
   status String @default("PENDING")
   error String?
   paidAt DateTime? @db.Timestamp(3)

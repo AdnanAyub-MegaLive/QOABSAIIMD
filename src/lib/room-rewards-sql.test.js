@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { readFile } from 'node:fs/promises';
 import { it, expect, vi } from 'vitest';
 vi.mock('./prisma.js',()=>({prisma:{}}));
 import { roomRewardSnapshotSql, roomRewardAmount, activateRoomRewards } from './room-rewards.js';
@@ -26,6 +27,13 @@ it('counts single, three combo taps and four recipients exactly once from paid p
  await db.exec(`DELETE FROM "GiftTransaction" WHERE id IN ('multi-2','multi-3')`);
  const [six]=(await db.query(q.text,q.values)).rows;
  expect(BigInt(six.coins)).toBe(6000n);expect(roomRewardAmount(BigInt(six.coins),200)).toBe(120n);
+ await gift('before-local-day','before-local-day',{at:'2026-11-04T16:59:59.999Z'});await debit('before-local-day');
+ await gift('local-start','local-start',{at:'2026-11-04T17:00:00Z'});await debit('local-start');
+ await gift('local-end','local-end',{at:'2026-11-05T17:00:00Z'});await debit('local-end');
+ const local=roomRewardSnapshotSql(new Date('2026-11-04T17:00:00Z'),new Date('2026-11-05T17:00:00Z'));
+ const [localTotal]=(await db.query(local.text,local.values)).rows;
+ expect(localTotal.giftIds.sort()).toEqual(['local-start','next']);
+ expect(roomRewardAmount(BigInt(localTotal.coins),200)).toBe(40n);
  }finally{await db.close();}
 },30000);
 it('activation is next UTC midnight and repeat activation preserves the cutoff',async()=>{
@@ -34,3 +42,14 @@ it('activation is next UTC midnight and repeat activation preserves the cutoff',
  expect((await activateRoomRewards('admin',db,new Date('2026-11-03T23:59:59Z'))).startsAt.toISOString()).toBe('2026-11-04T00:00:00.000Z');
  await activateRoomRewards('admin',db,new Date('2026-12-01T00:00:00Z'));expect(row.startsAt.toISOString()).toBe('2026-11-04T00:00:00.000Z');expect(audit).toHaveBeenCalledTimes(1);
 });
+it('adds Coin receipts without changing historical Diamond payouts or blocking old inserts',async()=>{
+ const db=new PGlite();try{
+  await db.exec(await readFile(new URL('../../prisma/migrations/20261018010000_daily_room_rewards/migration.sql',import.meta.url),'utf8'));
+  const insert=`INSERT INTO "RoomRewardPayout" (id,day,"roomId","ownerId","policyVersion","rateBps","giftCoins","giftIds",diamonds,status) VALUES ('old','2026-11-01','r','u',1,200,100000,'[]',2000,'PAID')`;
+  await db.exec(insert);
+  await db.exec(await readFile(new URL('../../prisma/migrations/20261113000300_room_rewards_coins/migration.sql',import.meta.url),'utf8'));
+  const old=(await db.query('SELECT coins,diamonds,currency,status FROM "RoomRewardPayout"')).rows[0];
+  expect(old).toMatchObject({coins:null,currency:'DIAMONDS',status:'PAID'});expect(BigInt(old.diamonds)).toBe(2000n);
+  await db.exec(insert.replace("'old'","'during-deploy'").replace("'r'","'r2'"));
+ }finally{await db.close();}
+},30000);
