@@ -1,2 +1,18 @@
-import { prisma } from "@/lib/prisma";import { mobileApiError,mobileJson,mobileOptions,requireMobileUser } from "@/lib/mobile-api";import { ledgerData } from "@/lib/wallet";
-export function OPTIONS(){return mobileOptions()}export async function POST(request){try{const user=await requireMobileUser(request),body=await request.json(),giftId=String(body?.giftId??""),quantity=Number(body?.quantity??1);if(!Number.isInteger(quantity)||quantity<1||quantity>999)throw Object.assign(new Error("Quantity must be 1-999."),{code:"VALIDATION_ERROR"});const gift=await prisma.uploadAsset.findFirst({where:{publicId:giftId,category:"GIFTS",active:true,coinPrice:{gt:0n}}});if(!gift)throw Object.assign(new Error("Gift unavailable."),{code:"GIFT_NOT_FOUND"});const coins=gift.coinPrice*BigInt(quantity),result=await prisma.$transaction(async tx=>{const debit=await tx.user.updateMany({where:{id:user.id,coinBalance:{gte:coins}},data:{coinBalance:{decrement:coins},totalSpent:{increment:coins}}});if(!debit.count)throw new Error("INSUFFICIENT_COINS");const inventory=await tx.userGiftInventory.upsert({where:{userId_giftAssetId:{userId:user.id,giftAssetId:gift.id}},create:{userId:user.id,giftAssetId:gift.id,quantity},update:{quantity:{increment:quantity}}});await tx.walletTransaction.create({data:ledgerData({userId:user.id,type:"BACKPACK_GIFT_PURCHASE",direction:"DEBIT",title:`Added ${gift.name} to backpack`,coins,referenceId:`${user.publicId}:${gift.publicId}:${Date.now()}`,metadata:{giftId,quantity}})});return inventory});return mobileJson({success:true,data:{giftId,quantity:result.quantity,spentCoins:coins.toString()}},201)}catch(e){if(e?.message==="INSUFFICIENT_COINS")return mobileJson({success:false,error:{code:"INSUFFICIENT_COINS",message:"Your coin balance is too low."}},409);return mobileApiError(e,"BACKPACK_PURCHASE_FAILED")}}
+import { prisma } from '@/lib/prisma';
+import { mobileApiError,mobileJson,mobileOptions,requireMobileUser } from '@/lib/mobile-api';
+import { purchaseBackpack } from '@/lib/backpack-purchase';
+export function OPTIONS(){return mobileOptions();}
+export async function GET(request){
+  try{await requireMobileUser(request);return mobileJson({success:true,data:{idempotencyVersion:1}},200);}
+  catch(error){return mobileApiError(error,'BACKPACK_PURCHASE_FAILED');}
+}
+export async function POST(request){
+  try {
+    const user=await requireMobileUser(request),body=await request.json();
+    const data=await purchaseBackpack(prisma,user,{giftId:body?.giftId,quantity:body?.quantity ?? 1,requestKey:request.headers.get('Idempotency-Key')});
+    return mobileJson({success:true,data},201);
+  }catch(error){
+    if(error.status)return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
+    return mobileApiError(error,'BACKPACK_PURCHASE_FAILED');
+  }
+}

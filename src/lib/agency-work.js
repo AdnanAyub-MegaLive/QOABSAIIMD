@@ -63,10 +63,11 @@ export async function agencyWorkReports(db, agencies, period, aliases = new Map(
         for(const [agencyId,diamonds] of host.agencies) {
           const report=reports.get(agencyId);
           if(!report)continue;
-          const row=report.get(id) ?? {key:'USER:'+id,diamonds:0n,salaryDiamonds:0n,unvaluedGiftCount:0};
+          const row=report.get(id) ?? {key:'USER:'+id,diamonds:0n,salaryDiamonds:0n,unvaluedGiftCount:0, salaryCycles:[]};
           row.diamonds+=diamonds;
           row.salaryDiamonds+=BigInt(shares[agencyId] ?? 0);
           row.unvaluedGiftCount+=Number(host.incomplete);
+          row.salaryCycles.push({cycleStart:cycle.start.toISOString(),cycleEnd:cycle.end.toISOString(),...salaryProgress(host.total,tiers),awardedLevel:award?.level ?? null,agencyDiamonds:String(diamonds),agencyShareDiamonds:String(shares[agencyId] ?? 0)});
           row.targetDiamonds=tier?String(tier.target):null;
           row.commissionBps=tier?tier.percent*100:0;
           report.set(id,row);

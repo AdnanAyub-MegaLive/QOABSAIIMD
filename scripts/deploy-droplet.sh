@@ -22,7 +22,8 @@ on_error() {
   trap - ERR
   if [ "$activating" = 1 ]; then
     echo 'New release failed. Restoring the previous PM2 configuration.' >&2
-    if pm2 restart "$release/previous.ecosystem.json" --only megalive-portal --update-env; then
+    pm2 delete megalive-portal || true
+    if pm2 start "$release/previous.ecosystem.json" --only megalive-portal; then
       pm2 save || true
     else
       echo 'Rollback failed. Check pm2 logs megalive-portal immediately.' >&2
@@ -67,7 +68,10 @@ node scripts/seed-help-center.mjs --bundled
 node scripts/align-business-schedules.mjs
 node scripts/prepare-business-timezone.mjs "$repo"
 activating=1
-pm2 restart "$release/release.ecosystem.json" --only megalive-portal --update-env
+# PM2 restart can retain the old resolved script/cwd even with an ecosystem file.
+# Recreate only this process so Next actually serves the isolated release.
+pm2 delete megalive-portal
+pm2 start "$release/release.ecosystem.json" --only megalive-portal
 node scripts/prepare-droplet-release.mjs --health "$release"
 pm2 save
 node scripts/prepare-business-timezone.mjs "$repo" --activate

@@ -113,7 +113,7 @@ function AgencyTable({ agencies }) {
                 #{item.rank}
               </td>
               <td>
-                <strong className="block">{item.name}</strong>
+                <Link href={`/agencies/${encodeURIComponent(item.id)}`} className="block font-bold text-[#087f74] underline">{item.name} · Manage</Link>
                 <span className="text-[9px] text-[#849691]">{item.id}</span>
               </td>
               <td>{item.hosts}</td>
@@ -154,7 +154,7 @@ function TalentTable({ hosts }) {
                 #{item.rank}
               </td>
               <td>
-                <strong className="block">{item.name}</strong>
+                <Link href={`/users/${encodeURIComponent(item.id)}`} className="block font-bold text-[#087f74] underline">{item.name}</Link>
                 <span className="text-[9px] text-[#849691]">{item.id}</span>
               </td>
               <td>{item.agency}</td>
