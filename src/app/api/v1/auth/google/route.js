@@ -12,6 +12,7 @@ import { formatDateOnly } from "@/lib/date-only";
 import { normalizeGooglePhone, verifyGoogleIdToken } from "@/lib/google-sso";
 import { bannedAccountLoginResponse } from "@/lib/mobile-login-response";
 import { clientIp, v1Json, v1Options, withV1Request } from "@/lib/mobile-v1";
+import { authVersionGate } from "@/lib/app-version";
 import { requestOrigin,resolveUserPerks } from "@/lib/user-perks";
 
 import { assertDeviceAccount, replaceMobileSession, disconnectReplacedSessions } from "@/lib/device-account-policy";
@@ -107,6 +108,8 @@ export async function POST(request) {
     request,
     { path, methods, rateLimit: { limit: 5, windowMs: 60_000 } },
     async ({ requestId }) => {
+      const outdated = await authVersionGate(request);
+      if (outdated) return outdated;
       let body;
       try {
         body = await request.json();

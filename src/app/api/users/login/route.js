@@ -15,13 +15,14 @@ import { formatDateOnly } from "../../../../lib/date-only";
 import { bannedAccountLoginResponse } from "../../../../lib/mobile-login-response";
 import { requestOrigin,resolveUserPerks } from "../../../../lib/user-perks";
 
+import { authVersionGate } from "@/lib/app-version";
 import { assertDeviceAccount, replaceMobileSession, disconnectReplacedSessions } from "@/lib/device-account-policy";
 
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-App-Version-Code, X-App-Platform",
 };
 const json = async (body, status = 200) =>
   Response.json(await versionMediaPayload(body), { status, headers: corsHeaders });
@@ -33,6 +34,8 @@ export function OPTIONS() {
 }
 
 export async function POST(request) {
+  const outdated = await authVersionGate(request, { headers: corsHeaders });
+  if (outdated) return outdated;
   try { return await login(request); } catch (error) {
     if (error.status) {
       const response = await json({ success: false, error: { code: error.code, message: error.message } }, error.status);

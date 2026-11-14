@@ -9,13 +9,14 @@ import { generateNumericPublicId } from "../../../../lib/public-id";
 import { clientSignupCountry, resolveSignupCountry } from "../../../../lib/geo-country";
 import { requestOrigin,resolveUserPerks } from "../../../../lib/user-perks";
 
+import { authVersionGate } from "@/lib/app-version";
 import { assertDeviceAccount } from "@/lib/device-account-policy";
 
 const allowedOrigin = process.env.MOBILE_APP_ORIGIN || "*";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-App-Version-Code, X-App-Platform",
 };
 
 const json = async (body, status = 200) =>
@@ -75,6 +76,8 @@ export function OPTIONS() {
 }
 
 export async function POST(request) {
+  const outdated = await authVersionGate(request, { headers: corsHeaders });
+  if (outdated) return outdated;
   let body;
   try {
     body = await request.json();

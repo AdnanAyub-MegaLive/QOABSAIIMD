@@ -340,9 +340,12 @@ app.prepare().then(async()=>{
   const {assertSessionDevice,disconnectBannedDevice}=await import("./src/lib/device-ban.js");
   globalThis.portalDisconnectDevice=(deviceId,data)=>disconnectBannedDevice(io,deviceId,data);
 
+  const {socketVersionGate}=await import("./src/lib/app-version.js");
   io.use(async(socket,nextSocket)=>{
     try{
       const payload=verifyMobileSessionToken(socket.handshake.auth?.token);
+      const outdated=await socketVersionGate(socket.handshake,prisma);
+      if(outdated)return nextSocket(outdated);
       const user=await prisma.user.findUnique({where:{publicId:payload.userId}});
       if(!user||user.deletedAt||user.sessionVersion!==payload.sessionVersion)return nextSocket(new Error("SESSION_REVOKED"));
       await assertSessionDevice(prisma,user.id,payload.deviceId);

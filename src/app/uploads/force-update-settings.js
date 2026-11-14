@@ -1,0 +1,22 @@
+"use client";
+import { useEffect, useState } from "react";
+
+export default function ForceUpdateSettings({ canManage = false }) {
+  const [form, setForm] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState(""), [saved, setSaved] = useState(false);
+  useEffect(() => {
+    fetch("/api/admin/app-version", { cache: "no-store" }).then(async response => {
+      const json = await response.json(); if (!response.ok) throw new Error(json.error?.message || "Unable to load force update settings."); setForm(json.data);
+    }).catch(e => setError(e.message));
+  }, []);
+  async function save(e) {
+    e.preventDefault(); setBusy(true); setError(""); setSaved(false);
+    try {
+      const response = await fetch("/api/admin/app-version", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, androidMinVersionCode: Number(form.androidMinVersionCode) }) });
+      const json = await response.json(); if (!response.ok) throw new Error(json.error?.message || "Unable to save."); setForm(json.data); setSaved(true);
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
+  }
+  const input = "mt-2 w-full rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-sm";
+  const set = key => e => setForm({ ...form, [key]: e.target.value });
+  if (!form) return <section className="mb-7 rounded-2xl border border-[#dfe9e7] bg-white p-5"><h3 className="text-lg font-bold">Android force update</h3>{error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : <p className="mt-2 text-sm text-[#71847f]">Loading…</p>}</section>;
+  return <form onSubmit={save} className="mb-7 rounded-2xl border border-[#dfe9e7] bg-white p-5"><h3 className="text-lg font-bold">Android force update</h3><p className="mt-2 text-sm text-[#71847f]">When enabled, Android builds below the minimum version code (and builds that do not report a version) cannot sign in or use the app until they update.</p><fieldset disabled={!canManage || busy} className="mt-4 grid gap-4 sm:grid-cols-2"><label className="flex gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={form.forceUpdateEnabled} onChange={e => setForm({ ...form, forceUpdateEnabled: e.target.checked })}/>Enable force update</label><label className="block text-sm font-semibold">Minimum version code<input className={input} type="number" required min={1} max={1000000} step={1} value={form.androidMinVersionCode} onChange={set("androidMinVersionCode")}/></label><label className="block text-sm font-semibold">Latest version name<input className={input} required maxLength={32} placeholder="2.0.2" value={form.androidLatestVersionName} onChange={set("androidLatestVersionName")}/></label><label className="block text-sm font-semibold sm:col-span-2">Play Store URL<input className={input} type="url" required pattern="https://.*" maxLength={500} value={form.androidStoreUrl} onChange={set("androidStoreUrl")}/></label><label className="block text-sm font-semibold sm:col-span-2">Update message<textarea className={input} rows={2} maxLength={500} value={form.updateMessage} onChange={set("updateMessage")}/></label>{canManage && <div className="sm:col-span-2"><button className="rounded-xl bg-[#183f3b] px-5 py-2.5 text-sm font-bold text-white">{busy ? "Saving…" : "Save force update"}</button></div>}</fieldset>{error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}{saved && <p role="status" className="mt-3 text-sm text-emerald-700">Force update settings saved.</p>}</form>;
+}

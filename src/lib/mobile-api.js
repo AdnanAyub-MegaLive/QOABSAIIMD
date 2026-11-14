@@ -5,11 +5,12 @@ import { versionMediaPayload } from "./media-payload.js";
 import { synchronizeVip } from "./vip-membership.js";
 import mobileSession from "./mobile-session.cjs";
 import { assertMobileSession, mobileSessionError } from "./mobile-session-state";
+import { appUpdateRequiredResponse, assertMobileAppVersion, isAppUpdateRequired } from "./app-version.js";
 
 export const mobileCorsHeaders = {
   "Access-Control-Allow-Origin": process.env.MOBILE_APP_ORIGIN || "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key, X-Request-Id",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key, X-Request-Id, X-App-Version-Code, X-App-Platform",
   "Access-Control-Expose-Headers": "X-Request-Id",
   "Cache-Control": "no-store, max-age=0",
 };
@@ -42,11 +43,12 @@ export function mobileOptions() {
   return new Response(null, { status: 204, headers: mobileCorsHeaders });
 }
 
-export async function requireMobileUser(request, { syncVip = true } = {}) {
+export async function requireMobileUser(request, { syncVip = true, versionGate = true } = {}) {
   const token = request.headers
     .get("authorization")
     ?.replace(/^Bearer\s+/i, "");
   const payload = mobileSession.verifyMobileSessionToken(token);
+  if (versionGate) await assertMobileAppVersion(request, prisma);
   const user = await prisma.user.findUnique({
     where: { publicId: payload.userId },
     select: {
@@ -88,6 +90,7 @@ export async function requireMobileRole(request, allowedRoles) {
 }
 
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
+  if (isAppUpdateRequired(error)) return appUpdateRequiredResponse(error, mobileCorsHeaders);
   if (error?.status && isServerProblem(error, error.status)) return mobileJson({ success: false, error }, error.status, error);
   if (["AGENCY_SELECTION_REQUIRED","AGENCY_NOT_FOUND"].includes(error?.code) && error.status) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);

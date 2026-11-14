@@ -2,6 +2,7 @@ import { isServerProblem, mobileRequestContext, mobileRequestId, serverProblemBo
 import { prisma } from "./prisma";
 import { isRateLimited } from "./rate-limit";
 import mobileSession from "./mobile-session.cjs";
+import { appUpdateRequiredResponse, isAppUpdateRequired } from "./app-version.js";
 
 export const MOBILE_API_VERSION = "v1";
 
@@ -35,7 +36,7 @@ export function v1Headers(request, requestIdValue, methods = "GET, POST, PATCH, 
   return {
     "Access-Control-Allow-Origin": originFor(request),
     "Access-Control-Allow-Methods": methods,
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key, X-Request-Id",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key, X-Request-Id, X-App-Version-Code, X-App-Platform",
     "Access-Control-Expose-Headers": "X-Request-Id",
     "Cache-Control": "no-store, max-age=0",
     "Vary": "Origin",
@@ -141,8 +142,8 @@ export async function withV1Request(request, { path, methods, rateLimit }, handl
     try {
       response = await mobileRequestContext.run(requestIdValue, () => handler({ requestId: requestIdValue }));
     } catch (error) {
-
-      response = v1Json(
+      if (isAppUpdateRequired(error)) response = appUpdateRequiredResponse(error);
+      else response = v1Json(
         request,
         requestIdValue,
         {

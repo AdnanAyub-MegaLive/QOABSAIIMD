@@ -5,6 +5,7 @@ import { SVGA_CATEGORIES, SVGA_MIME, SVGA_MAX_BYTES, isSvgaFile, uploadMimeType 
 import { GIFT_CATEGORIES, giftCategory as resolveGiftCategory } from "@/lib/gift-categories";
 import Image from "next/image";
 import ApkManager from "./apk-manager";
+import ForceUpdateSettings from "./force-update-settings";
 import PermanentDeleteButton from "./permanent-delete-button";
 import { UPLOAD_SECTIONS, filterUploadRecords } from "./upload-sections";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -128,7 +129,7 @@ export default function UploadTabs({ initialUploads, users, canCreate = false, c
           ))}
         </div>
       </div>
-      {active === "APK" ? <ApkManager canCreate={canCreate} canManage={canEdit} canArchive={canArchive} /> : <section role="tabpanel">
+      {active === "APK" ? <><ForceUpdateSettings canManage={canEdit} /><ApkManager canCreate={canCreate} canManage={canEdit} canArchive={canArchive} /></> : <section role="tabpanel">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-bold">{active}</h3>

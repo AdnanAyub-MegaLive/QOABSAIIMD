@@ -15,7 +15,7 @@ export async function POST(request) {
     { path, methods, rateLimit: { limit: 12, windowMs: 60_000 } },
     async ({ requestId }) => {
       try {
-        const user = await requireMobileUser(request);
+        const user = await requireMobileUser(request, { versionGate: false });
         const loggedOutAt = new Date();
         const updated = await prisma.$transaction(async (tx) => {
           const record = await tx.user.update({

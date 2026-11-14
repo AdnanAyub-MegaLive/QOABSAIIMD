@@ -1381,6 +1381,17 @@ model NotificationSettings {
   updatedAt DateTime @updatedAt
 }
 
+model AppVersionSettings {
+  id String @id @default("GLOBAL")
+  forceUpdateEnabled Boolean @default(false)
+  androidMinVersionCode Int @default(1)
+  androidLatestVersionName String @default("")
+  androidStoreUrl String @default("https://play.google.com/store/apps/details?id=com.megachat.megalive")
+  updateMessage String @default("A new version of MegaLive is available. Please update MegaLive from the Play Store to continue.")
+  revision Int @default(0)
+  updatedAt DateTime @updatedAt
+}
+
 model NotificationRead {
   notificationId String
   userId         String
