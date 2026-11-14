@@ -1,12 +1,26 @@
 import { expect, it, vi } from "vitest";
 vi.mock("./role-tags.js", () => ({ resolveRoleTags: async () => new Map() }));
 vi.mock("./user-perks.js", () => ({ resolveUserPerks: async () => new Map() }));
-import { assignTeamMember, removeTeamMember, readTeam, teamCandidates, countRole } from "./management-team.js";
+import { assignTeamMember, removeTeamMember, readTeam, teamCandidates, countRole, respondTeamInvitation, listTeamInvitations } from "./management-team.js";
 import { managementIdentity } from "./user-roles.js";
 
 const person = (id, role, supervisorUserId = null, country = "PK") => ({ id, publicId: `USR-${id}`, name: id, appRoles: [role], country, status: "ACTIVE", deletedAt: null, supervisorUserId, teamRole: supervisorUserId ? role : null });
+function matches(row, where) {
+  return Object.entries(where).every(([k, v]) => k === "OR" ? v.some(w => matches(row, w)) : v && typeof v === "object" && !(v instanceof Date) ? (v.lte ? row[k] <= v.lte : v.gt ? row[k] > v.gt : true) : row[k] === v);
+}
 function fixture(users, rules, policy = { limitScope: "DIRECT", allowAncestorRemoval: false }) {
+  const invitations = [];
+  const withPeople = r => ({ ...r, supervisor: users.find(u => u.id === r.supervisorUserId), member: users.find(u => u.id === r.memberUserId) });
   const db = {
+    invitations,
+    teamInvitation: {
+      findMany: async ({ where, include }) => invitations.filter(r => matches(r, where)).map(r => include ? withPeople(r) : { ...r }),
+      findFirst: async ({ where }) => invitations.find(r => matches(r, where)) ?? null,
+      findUnique: async ({ where }) => invitations.find(r => r.publicId === where.publicId) ?? null,
+      create: async ({ data }) => { const row = { id: `inv${invitations.length}`, respondedAt: null, ...data }; invitations.push(row); return { ...row }; },
+      updateMany: async ({ where, data }) => { const rows = invitations.filter(r => matches(r, where)); rows.forEach(r => Object.assign(r, data)); return { count: rows.length }; },
+    },
+    notification: { upsert: vi.fn(async ({ create }) => create) }, realtimeOutbox: { createMany: vi.fn() },
     user: {
       findUnique: async ({ where }) => users.find(u => where.id ? u.id === where.id : u.publicId === where.publicId),
       findMany: vi.fn(async ({ where }) => users.filter(u => where.supervisorUserId?.in ? where.supervisorUserId.in.includes(u.supervisorUserId) : u.supervisorUserId === null && (typeof where.country === "string" ? u.country === where.country : where.country.in.some(v => v.toLowerCase() === String(u.country).toLowerCase())) && u.appRoles.includes(where.appRoles.has) && u.status === "ACTIVE" && !u.deletedAt && u.id !== where.id.not && (!where.OR || u.publicId.toLowerCase().includes(where.OR[0].publicId.contains.toLowerCase()) || u.name.toLowerCase().includes(where.OR[1].name.contains.toLowerCase())))),
@@ -29,9 +43,10 @@ it("Company BDs cannot join any manager's team", async () => {
 it("CS leaders assign only CS and see their team count without business permissions", async () => {
   const users=[person("leader","CS_LEADER"),person("cs","CS"),person("bd","BD")];
   const db=fixture(users,[rule("CS_LEADER","CS",null),rule("CS_LEADER","BD",null)]);
-  await assignTeamMember("leader","USR-cs","CS",db);
+  const receipt=await assignTeamMember("leader","USR-cs","CS",db);
+  await respondTeamInvitation("cs",receipt.invitationId,"ACCEPT",db);
   const result=await readTeam("leader","https://portal.example",db);
-  expect(result.limits).toEqual([{role:"CS",roleLabel:"Customer Support",used:1,max:null}]);
+  expect(result.limits).toEqual([{role:"CS",roleLabel:"Customer Support",used:1,pending:0,max:null}]);
   expect(result.members).toHaveLength(1);
   await expect(assignTeamMember("leader","USR-bd","BD",db)).rejects.toMatchObject({code:"TEAM_ROLE_NOT_ALLOWED"});
   expect(managementIdentity(users[0]).management.permissions).toEqual(["team.view","team.assign","team.remove"]);
@@ -39,8 +54,11 @@ it("CS leaders assign only CS and see their team count without business permissi
 it("uses database quotas, audits assignment and rejects taken members", async () => {
   const users = [person("a", "ADMIN"), person("b", "BD"), person("c", "BD")];
   const db = fixture(users, [rule("ADMIN", "BD", 1)]);
-  expect(await assignTeamMember("a", "USR-b", "BD", db)).toMatchObject({ supervisorId: "USR-a" });
-  expect(db.auditLog.create).toHaveBeenCalledTimes(1);
+  const receipt = await assignTeamMember("a", "USR-b", "BD", db);
+  expect(receipt).toMatchObject({ publicId: "USR-b", userPublicId: "USR-b", supervisorId: "USR-a", role: "BD", status: "PENDING" });
+  await expect(assignTeamMember("a", "USR-c", "BD", db)).rejects.toMatchObject({ code: "TEAM_LIMIT_REACHED" });
+  await respondTeamInvitation("b", receipt.invitationId, "ACCEPT", db);
+  expect(db.auditLog.create.mock.calls.map(c => c[0].data.action)).toEqual(["TEAM_INVITATION_SENT", "TEAM_MEMBER_ASSIGNED"]);
   await expect(assignTeamMember("a", "USR-b", "BD", db)).rejects.toMatchObject({ code: "TEAM_MEMBER_TAKEN", status: 409 });
   await expect(assignTeamMember("a", "USR-c", "BD", db)).rejects.toMatchObject({ code: "TEAM_LIMIT_REACHED" });
   expect(db.$transaction.mock.calls[0][1]).toEqual({ isolationLevel: "Serializable" });
@@ -84,4 +102,62 @@ it("advertises management roles without granting portal administrator access", (
   expect(bd.permissions).toContain("performance.view");
   expect(bd.permissions).not.toContain("team.assign");
   expect(bd.portal.enabled).toBe(false);
+});
+it("invites instead of assigning, notifies the member and enforces one pending invitation", async () => {
+  const users = [person("a", "ADMIN"), person("a2", "ADMIN"), { ...person("b", "BD"), name: "Bee" }];
+  users[0].name = "Ali";
+  const db = fixture(users, [rule("ADMIN", "BD", null)]);
+  const receipt = await assignTeamMember("a", "USR-b", "BD", db);
+  expect(receipt.invitationId).toMatch(/^TIV-[0-9A-F]{12}$/);
+  expect(new Date(receipt.expiresAt) - Date.now()).toBeGreaterThan(6.9 * 86400000);
+  expect(users[2].supervisorUserId).toBeNull();
+  expect(db.notification.upsert.mock.calls[0][0].create).toMatchObject({ userId: "b", type: "TEAM_INVITATION", title: "Team invitation", body: "Ali (Admin) wants to add you to their team as BD.", action: { screen: "TEAM_INVITATION", invitationId: receipt.invitationId, supervisorPublicId: "USR-a", role: "BD" } });
+  expect(db.realtimeOutbox.createMany.mock.calls[0][0].data).toEqual([{ channel: "user:USR-b", event: "team:invitation", payload: { success: true, data: { invitationId: receipt.invitationId, status: "PENDING" } } }]);
+  expect(await assignTeamMember("a", "USR-b", "BD", db)).toEqual(receipt);
+  await expect(assignTeamMember("a2", "USR-b", "BD", db)).rejects.toMatchObject({ code: "TEAM_INVITATION_PENDING", status: 409 });
+  const team = await readTeam("a", "", db);
+  expect(team.limits[0]).toMatchObject({ used: 0, pending: 1 });
+  expect(team.invitations.outgoing[0]).toMatchObject({ invitationId: receipt.invitationId, status: "PENDING", member: { publicId: "USR-b", role: "BD" }, supervisor: { publicId: "USR-a" } });
+  expect((await listTeamInvitations("b", "", db)).incoming).toHaveLength(1);
+  await expect(respondTeamInvitation("a", receipt.invitationId, "ACCEPT", db)).rejects.toMatchObject({ code: "TEAM_INVITATION_NOT_FOUND" });
+  await expect(respondTeamInvitation("b", receipt.invitationId, "CANCEL", db)).rejects.toMatchObject({ code: "TEAM_INVITATION_NOT_FOUND" });
+  expect(await respondTeamInvitation("b", receipt.invitationId, "DECLINE", db)).toMatchObject({ status: "DECLINED" });
+  expect(db.notification.upsert.mock.calls.at(-1)[0].create).toMatchObject({ userId: "a", type: "TEAM_INVITATION_DECLINED", body: "Bee declined your team invitation" });
+  await expect(respondTeamInvitation("b", receipt.invitationId, "ACCEPT", db)).rejects.toMatchObject({ code: "TEAM_INVITATION_CLOSED" });
+  const second = await assignTeamMember("a2", "USR-b", "BD", db);
+  expect(await respondTeamInvitation("a2", second.invitationId, "CANCEL", db)).toMatchObject({ status: "CANCELLED" });
+  expect(db.notification.upsert.mock.calls.at(-1)[0].create).toMatchObject({ userId: "b", type: "TEAM_INVITATION_CANCELLED" });
+});
+it("accepting assigns, rechecks eligibility and expires stale invitations", async () => {
+  const users = [person("a", "ADMIN"), person("b", "BD"), person("c", "BD"), person("d", "BD")];
+  const db = fixture(users, [rule("ADMIN", "BD", null)]);
+  const first = await assignTeamMember("a", "USR-b", "BD", db);
+  expect(await respondTeamInvitation("b", first.invitationId, "ACCEPT", db)).toEqual({ invitationId: first.invitationId, status: "ACCEPTED", publicId: "USR-b", supervisorId: "USR-a", role: "BD" });
+  expect(users[1]).toMatchObject({ supervisorUserId: "a", teamRole: "BD" });
+  expect(db.notification.upsert.mock.calls.at(-1)[0].create).toMatchObject({ userId: "a", type: "TEAM_INVITATION_ACCEPTED", body: "b accepted your team invitation" });
+  expect(db.realtimeOutbox.createMany.mock.calls.at(-1)[0].data.map(r => [r.channel, r.event, r.payload.data.status])).toEqual([["user:USR-a", "team:changed", "ASSIGNED"], ["user:USR-b", "team:changed", "ASSIGNED"]]);
+  const moved = await assignTeamMember("a", "USR-c", "BD", db);
+  users[2].country = "US";
+  await expect(respondTeamInvitation("c", moved.invitationId, "ACCEPT", db)).rejects.toMatchObject({ code: "TEAM_COUNTRY_MISMATCH" });
+  expect(db.invitations.find(i => i.publicId === moved.invitationId).status).toBe("EXPIRED");
+  const old = await assignTeamMember("a", "USR-d", "BD", db);
+  db.invitations.find(i => i.publicId === old.invitationId).expiresAt = new Date(Date.now() - 1000);
+  await expect(respondTeamInvitation("d", old.invitationId, "ACCEPT", db)).rejects.toMatchObject({ code: "TEAM_INVITATION_EXPIRED", status: 409 });
+  expect(users[3].supervisorUserId).toBeNull();
+  expect((await listTeamInvitations("d", "", db)).incoming).toEqual([]);
+});
+it("keeps an invitation pending when a limit blocks acceptance", async () => {
+  const users = [person("a", "ADMIN"), person("b", "BD"), person("c", "BD", "a")];
+  const limits = [rule("ADMIN", "BD", 2)], db = fixture(users, limits);
+  const receipt = await assignTeamMember("a", "USR-b", "BD", db);
+  limits[0].max = 1;
+  await expect(respondTeamInvitation("b", receipt.invitationId, "ACCEPT", db)).rejects.toMatchObject({ code: "TEAM_LIMIT_REACHED" });
+  expect(db.invitations[0].status).toBe("PENDING");
+});
+it("notifies a removed member", async () => {
+  const users = [{ ...person("a", "ADMIN"), name: "Ali" }, person("b", "BD", "a")];
+  const db = fixture(users, []);
+  await removeTeamMember("a", "USR-b", db);
+  expect(db.notification.upsert.mock.calls[0][0].create).toMatchObject({ userId: "b", type: "TEAM_MEMBER_REMOVED", body: "You were removed from Ali's team" });
+  expect(db.realtimeOutbox.createMany.mock.calls[0][0].data.map(r => r.event)).toEqual(["team:changed", "team:changed"]);
 });

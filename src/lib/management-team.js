@@ -3,6 +3,8 @@ import { prisma } from "./prisma.js";
 import { MANAGEMENT_ROLE_ORDER, managementRole, displayApplicationRole } from "./user-roles.js";
 import { countryWhere, normalizeSignupCountry, sameCountry } from "./geo-country.js";
 import { resolveUserPerks } from "./user-perks.js";
+import { notifyAction } from "./action-notifications.js";
+import { randomUUID } from "node:crypto";
 
 export const teamSelect = { companyBdCountry: true, id: true, publicId: true, name: true, profileImage: true, country: true, appRoles: true, status: true, deletedAt: true, supervisorUserId: true, teamRole: true, countryHeadDesignation: true };
 export function teamError(code, status, message) { throw Object.assign(new Error(message), { code, status }); }
@@ -48,15 +50,15 @@ export async function teamPeople(rows, origin, supervisorMap = new Map()) {
 export async function readTeam(userId, origin, db = prisma) {
   const snapshot = await db.$transaction(async tx => {
     const me = await requireTeamManager(tx, userId);
-    const [members, rules, policy] = await Promise.all([subtree(tx, me.id), teamRules(tx, me), teamPolicy(tx)]);
-    return { me, members, rules, policy };
+    const [members, rules, policy, outgoing] = await Promise.all([subtree(tx, me.id), teamRules(tx, me), teamPolicy(tx), tx.teamInvitation.findMany({ where: { supervisorUserId: me.id, status: "PENDING", expiresAt: { gt: new Date() } }, include: invitationInclude, orderBy: { createdAt: "desc" } })]);
+    return { me, members, rules, policy, outgoing };
   }, { isolationLevel: "RepeatableRead" });
-  const { me, members, rules, policy } = snapshot;
+  const { me, members, rules, policy, outgoing } = snapshot;
   const country = normalizeSignupCountry(me.country);
   const visible = members.filter(m => !m.deletedAt && country && normalizeSignupCountry(m.country) === country);
   const map = new Map([me, ...visible].map(m => [m.id, m.publicId]));
   const [person] = await teamPeople([{ ...me, teamRole: null }], origin, map);
-  return { me: person, limits: rules.filter(r => canSupervise(managementRole(me), r.memberRole)).map(r => ({ role: r.memberRole, roleLabel: displayApplicationRole(r.memberRole), used: countRole(members, me.id, r.memberRole, policy.limitScope), max: r.max })), members: await teamPeople(visible, origin, map), policy: { limitScope: policy.limitScope, allowAncestorRemoval: policy.allowAncestorRemoval } };
+  return { me: person, limits: rules.filter(r => canSupervise(managementRole(me), r.memberRole)).map(r => ({ role: r.memberRole, roleLabel: displayApplicationRole(r.memberRole), used: countRole(members, me.id, r.memberRole, policy.limitScope), pending: outgoing.filter(i => i.role === r.memberRole).length, max: r.max })), members: await teamPeople(visible, origin, map), policy: { limitScope: policy.limitScope, allowAncestorRemoval: policy.allowAncestorRemoval }, invitations: { outgoing: await invitationItems(outgoing, origin) } };
 }
 export async function teamCandidates(userId, role, q, origin, db = prisma) {
   const me = await requireTeamManager(db, userId);
@@ -68,38 +70,130 @@ export async function teamCandidates(userId, role, q, origin, db = prisma) {
   const users = await db.user.findMany({ where: { id: { not: me.id }, deletedAt: null, status: "ACTIVE", country: countryWhere(country), supervisorUserId: null, appRoles: { has: role }, ...(q ? { OR: [{ publicId: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {}) }, select: teamSelect, orderBy: { publicId: "asc" }, take: 100 });
   return teamPeople(users.filter(u => !u.companyBdCountry && sameCountry(u.country, country) && canSupervise(managementRole(me), managementRole(u))).map(u => ({ ...u, teamRole: role })), origin);
 }
+export const TEAM_INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const invitationPeopleSelect = { id: true, publicId: true, supervisorUserId: true, memberUserId: true, role: true, status: true, createdAt: true, respondedAt: true, expiresAt: true };
+function roleName(role) { return role ? displayApplicationRole(role) : "Member"; }
+function invitationReceipt(invitation, me, target) {
+  return { publicId: target.publicId, userPublicId: target.publicId, supervisorId: me.publicId, role: invitation.role, invitationId: invitation.publicId, status: invitation.status, expiresAt: invitation.expiresAt.toISOString() };
+}
+async function teamRealtime(tx, publicIds, event, data) {
+  const channels = [...new Set(publicIds.filter(Boolean))];
+  if (channels.length) await tx.realtimeOutbox.createMany({ data: channels.map(publicId => ({ channel: `user:${publicId}`, event, payload: { success: true, data } })) });
+}
+async function expireInvitations(tx, where, now = new Date()) {
+  await tx.teamInvitation.updateMany({ where: { ...where, status: "PENDING", expiresAt: { lte: now } }, data: { status: "EXPIRED", respondedAt: now } });
+}
+async function checkAssignable(tx, me, target, role, policy, pendingInvitations = []) {
+  if (target?.companyBdCountry) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "Official Company BDs belong only to the Company.");
+  const rule = await tx.roleTeamLimit.findUnique({ where: { supervisorRole_memberRole: { supervisorRole: managementRole(me), memberRole: role } } });
+  if (!target || target.deletedAt || target.status !== "ACTIVE" || !rule || !target.appRoles.includes(role) || !canSupervise(managementRole(me), role) || !canSupervise(managementRole(me), managementRole(target))) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "The requested reporting role is not allowed.");
+  if (!normalizeSignupCountry(me.country) || normalizeSignupCountry(me.country) !== normalizeSignupCountry(target.country)) teamError("TEAM_COUNTRY_MISMATCH", 422, "Team members must be assigned to the same country.");
+  if (target.supervisorUserId) teamError("TEAM_MEMBER_TAKEN", 409, "This user already has a supervisor.");
+  const incoming = await subtree(tx, target.id);
+  if (target.id === me.id || incoming.some(m => m.id === me.id)) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "A reporting cycle is not allowed.");
+  if (incoming.some(m => normalizeSignupCountry(m.country) !== normalizeSignupCountry(me.country))) teamError("TEAM_COUNTRY_MISMATCH", 422, "The member's existing team contains a different country.");
+  const ownMembers = await subtree(tx, me.id);
+  const additions = [{ ...target, teamRole: role, supervisorUserId: me.id }, ...incoming];
+  const pending = pendingInvitations.filter(i => i.memberUserId !== target.id).map(i => ({ id: `invitation:${i.memberUserId}`, supervisorUserId: me.id, teamRole: i.role }));
+  const ownRules = await teamRules(tx, me);
+  for (const limit of ownRules) if (limit.max !== null && countRole([...ownMembers, ...additions, ...pending], me.id, limit.memberRole, policy.limitScope) > limit.max) teamError("TEAM_LIMIT_REACHED", 409, `The ${displayApplicationRole(limit.memberRole)} team limit is reached.`);
+  if (policy.limitScope === "SUBTREE") {
+    const seen = new Set([me.id]); let parentId = me.supervisorUserId;
+    while (parentId && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = await tx.user.findUnique({ where: { id: parentId }, select: teamSelect });
+      if (!parent) break;
+      const [members, rules] = await Promise.all([subtree(tx, parent.id), teamRules(tx, parent)]);
+      for (const limit of rules) if (limit.max !== null && countRole([...members, ...additions], parent.id, limit.memberRole, "SUBTREE") > limit.max) teamError("TEAM_LIMIT_REACHED", 409, "An ancestor's team limit is reached.");
+      parentId = parent.supervisorUserId;
+    }
+  }
+}
 export async function assignTeamMember(userId, publicId, role, db = prisma) {
-  return db.$transaction(async tx => {
+  const result = await db.$transaction(async tx => {
     const me = await requireTeamManager(tx, userId), policy = await teamPolicy(tx);
     const target = await tx.user.findUnique({ where: { publicId }, select: teamSelect });
-    if (target?.companyBdCountry) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "Official Company BDs belong only to the Company.");
-    const rule = await tx.roleTeamLimit.findUnique({ where: { supervisorRole_memberRole: { supervisorRole: managementRole(me), memberRole: role } } });
-    if (!target || target.deletedAt || target.status !== "ACTIVE" || !rule || !target.appRoles.includes(role) || !canSupervise(managementRole(me), role) || !canSupervise(managementRole(me), managementRole(target))) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "The requested reporting role is not allowed.");
-    if (!normalizeSignupCountry(me.country) || normalizeSignupCountry(me.country) !== normalizeSignupCountry(target.country)) teamError("TEAM_COUNTRY_MISMATCH", 422, "Team members must be assigned to the same country.");
-    if (target.supervisorUserId) teamError("TEAM_MEMBER_TAKEN", 409, "This user already has a supervisor.");
-    const incoming = await subtree(tx, target.id);
-    if (target.id === me.id || incoming.some(m => m.id === me.id)) teamError("TEAM_ROLE_NOT_ALLOWED", 403, "A reporting cycle is not allowed.");
-    if (incoming.some(m => normalizeSignupCountry(m.country) !== normalizeSignupCountry(me.country))) teamError("TEAM_COUNTRY_MISMATCH", 422, "The member's existing team contains a different country.");
-    const ownMembers = await subtree(tx, me.id);
-    const additions = [{ ...target, teamRole: role, supervisorUserId: me.id }, ...incoming];
-    const ownRules = await teamRules(tx, me);
-    for (const limit of ownRules) if (limit.max !== null && countRole([...ownMembers, ...additions], me.id, limit.memberRole, policy.limitScope) > limit.max) teamError("TEAM_LIMIT_REACHED", 409, `The ${displayApplicationRole(limit.memberRole)} team limit is reached.`);
-    if (policy.limitScope === "SUBTREE") {
-      const seen = new Set([me.id]); let parentId = me.supervisorUserId;
-      while (parentId && !seen.has(parentId)) {
-        seen.add(parentId);
-        const parent = await tx.user.findUnique({ where: { id: parentId }, select: teamSelect });
-        if (!parent) break;
-        const [members, rules] = await Promise.all([subtree(tx, parent.id), teamRules(tx, parent)]);
-        for (const limit of rules) if (limit.max !== null && countRole([...members, ...additions], parent.id, limit.memberRole, "SUBTREE") > limit.max) teamError("TEAM_LIMIT_REACHED", 409, "An ancestor's team limit is reached.");
-        parentId = parent.supervisorUserId;
-      }
+    const now = new Date();
+    if (target) await expireInvitations(tx, { memberUserId: target.id }, now);
+    await expireInvitations(tx, { supervisorUserId: me.id }, now);
+    const pendingInvitations = await tx.teamInvitation.findMany({ where: { supervisorUserId: me.id, status: "PENDING" }, select: invitationPeopleSelect });
+    await checkAssignable(tx, me, target, role, policy, pendingInvitations);
+    const existing = await tx.teamInvitation.findFirst({ where: { memberUserId: target.id, status: "PENDING" }, select: invitationPeopleSelect });
+    if (existing) {
+      if (existing.supervisorUserId === me.id && existing.role === role) return { receipt: invitationReceipt(existing, me, target) };
+      teamError("TEAM_INVITATION_PENDING", 409, "This user already has a pending team invitation.");
     }
-    const changed = await tx.user.updateMany({ where: { id: target.id, supervisorUserId: null, status: "ACTIVE", deletedAt: null }, data: { supervisorUserId: me.id, teamRole: role } });
-    if (!changed.count) teamError("TEAM_MEMBER_TAKEN", 409, "This user already has a supervisor.");
-    await tx.auditLog.create({ data: { action: "TEAM_MEMBER_ASSIGNED", category: "USER_MANAGEMENT", entityType: "User", entityId: target.publicId, description: `${me.publicId} assigned ${target.publicId} to their team.`, metadata: { actorUserId: me.id, memberUserId: target.id, role, supervisorUserId: me.id } } });
-    return { publicId: target.publicId, supervisorId: me.publicId, role };
+    const invitation = await tx.teamInvitation.create({ data: { publicId: `TIV-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`, supervisorUserId: me.id, memberUserId: target.id, role, status: "PENDING", createdAt: now, expiresAt: new Date(now.getTime() + TEAM_INVITATION_TTL_MS) }, select: invitationPeopleSelect });
+    const supervisorRole = managementRole(me);
+    await notifyAction(tx, { userId: target.id, key: `team-invitation:${invitation.publicId}:PENDING`, type: "TEAM_INVITATION", title: "Team invitation", body: `${me.name || me.publicId} (${roleName(supervisorRole)}) wants to add you to their team as ${roleName(role)}.`, action: { screen: "TEAM_INVITATION", invitationId: invitation.publicId, supervisorPublicId: me.publicId, role } });
+    await teamRealtime(tx, [target.publicId], "team:invitation", { invitationId: invitation.publicId, status: "PENDING" });
+    await tx.auditLog.create({ data: { action: "TEAM_INVITATION_SENT", category: "USER_MANAGEMENT", entityType: "TeamInvitation", entityId: invitation.publicId, description: `${me.publicId} invited ${target.publicId} to their team.`, metadata: { actorUserId: me.id, memberUserId: target.id, role, supervisorUserId: me.id } } });
+    return { receipt: invitationReceipt(invitation, me, target) };
   }, { isolationLevel: "Serializable" });
+  return result.receipt;
+}
+export async function respondTeamInvitation(userId, invitationId, action, db = prisma) {
+  if (!["ACCEPT", "DECLINE", "CANCEL"].includes(action)) teamError("TEAM_INPUT_INVALID", 422, "Action must be ACCEPT, DECLINE or CANCEL.");
+  const result = await db.$transaction(async tx => {
+    const invitation = await tx.teamInvitation.findUnique({ where: { publicId: invitationId }, select: invitationPeopleSelect });
+    const allowed = invitation && (action === "CANCEL" ? invitation.supervisorUserId === userId : invitation.memberUserId === userId);
+    if (!allowed) teamError("TEAM_INVITATION_NOT_FOUND", 404, "This team invitation was not found.");
+    if (invitation.status !== "PENDING") teamError("TEAM_INVITATION_CLOSED", 409, `This team invitation is already ${invitation.status.toLowerCase()}.`);
+    const now = new Date();
+    const [supervisor, member] = await Promise.all([tx.user.findUnique({ where: { id: invitation.supervisorUserId }, select: teamSelect }), tx.user.findUnique({ where: { id: invitation.memberUserId }, select: teamSelect })]);
+    const close = async status => {
+      const changed = await tx.teamInvitation.updateMany({ where: { id: invitation.id, status: "PENDING" }, data: { status, respondedAt: now } });
+      if (!changed.count) teamError("TEAM_INVITATION_CLOSED", 409, "This team invitation is no longer pending.");
+    };
+    const realtime = status => teamRealtime(tx, [supervisor?.publicId, member?.publicId], "team:invitation", { invitationId: invitation.publicId, status });
+    if (invitation.expiresAt <= now) {
+      await close("EXPIRED"); await realtime("EXPIRED");
+      return { error: { code: "TEAM_INVITATION_EXPIRED", status: 409, message: "This team invitation has expired." } };
+    }
+    if (action === "ACCEPT") {
+      try {
+        const me = await requireTeamManager(tx, supervisor?.id);
+        await checkAssignable(tx, me, member, invitation.role, await teamPolicy(tx));
+      } catch (error) {
+        if (!error.code?.startsWith("TEAM_") || error.code === "TEAM_LIMIT_REACHED") throw error;
+        await close("EXPIRED"); await realtime("EXPIRED");
+        return { error: { code: error.code, status: error.status, message: `${error.message} This invitation is no longer valid.` } };
+      }
+      const changed = await tx.user.updateMany({ where: { id: member.id, supervisorUserId: null, status: "ACTIVE", deletedAt: null }, data: { supervisorUserId: supervisor.id, teamRole: invitation.role } });
+      if (!changed.count) teamError("TEAM_MEMBER_TAKEN", 409, "This user already has a supervisor.");
+      await close("ACCEPTED");
+      await tx.auditLog.create({ data: { action: "TEAM_MEMBER_ASSIGNED", category: "USER_MANAGEMENT", entityType: "User", entityId: member.publicId, description: `${supervisor.publicId} assigned ${member.publicId} to their team.`, metadata: { actorUserId: supervisor.id, memberUserId: member.id, role: invitation.role, supervisorUserId: supervisor.id, invitationId: invitation.publicId } } });
+      await notifyAction(tx, { userId: supervisor.id, key: `team-invitation:${invitation.publicId}:ACCEPTED`, type: "TEAM_INVITATION_ACCEPTED", title: "Team invitation accepted", body: `${member.name || member.publicId} accepted your team invitation`, action: { screen: "TEAM", invitationId: invitation.publicId, memberPublicId: member.publicId, role: invitation.role } });
+      await realtime("ACCEPTED");
+      await teamRealtime(tx, [supervisor.publicId, member.publicId], "team:changed", { status: "ASSIGNED", memberPublicId: member.publicId, supervisorPublicId: supervisor.publicId, role: invitation.role });
+      return { data: { invitationId: invitation.publicId, status: "ACCEPTED", publicId: member.publicId, supervisorId: supervisor.publicId, role: invitation.role } };
+    }
+    const status = action === "DECLINE" ? "DECLINED" : "CANCELLED";
+    await close(status);
+    if (action === "DECLINE") await notifyAction(tx, { userId: supervisor.id, key: `team-invitation:${invitation.publicId}:DECLINED`, type: "TEAM_INVITATION_DECLINED", title: "Team invitation declined", body: `${member.name || member.publicId} declined your team invitation`, action: { screen: "TEAM", invitationId: invitation.publicId, memberPublicId: member.publicId, role: invitation.role } });
+    else await notifyAction(tx, { userId: member.id, key: `team-invitation:${invitation.publicId}:CANCELLED`, type: "TEAM_INVITATION_CANCELLED", title: "Team invitation cancelled", body: `${supervisor.name || supervisor.publicId} cancelled their team invitation`, action: { screen: "TEAM_INVITATION", invitationId: invitation.publicId, supervisorPublicId: supervisor.publicId, role: invitation.role } });
+    await realtime(status);
+    return { data: { invitationId: invitation.publicId, status, publicId: member.publicId, supervisorId: supervisor.publicId, role: invitation.role } };
+  }, { isolationLevel: "Serializable" });
+  if (result.error) teamError(result.error.code, result.error.status, result.error.message);
+  return result.data;
+}
+async function invitationItems(rows, origin) {
+  const pick = p => p && { publicId: p.publicId, name: p.name, profileImage: p.profileImage, frameUrl: p.frameUrl, role: p.role, roleLabel: p.roleLabel, country: p.country };
+  const people = await teamPeople([...rows.map(r => ({ ...r.supervisor, teamRole: null })), ...rows.map(r => ({ ...r.member, teamRole: r.role }))], origin);
+  return rows.map((r, i) => ({ invitationId: r.publicId, role: r.role, roleLabel: roleName(r.role), status: r.status, createdAt: r.createdAt.toISOString(), expiresAt: r.expiresAt.toISOString(), supervisor: pick(people[i]), member: pick(people[rows.length + i]) }));
+}
+const invitationInclude = { supervisor: { select: teamSelect }, member: { select: teamSelect } };
+export async function listTeamInvitations(userId, origin, db = prisma) {
+  const now = new Date();
+  const [incoming, outgoing] = await db.$transaction(async tx => {
+    await expireInvitations(tx, { OR: [{ memberUserId: userId }, { supervisorUserId: userId }] }, now);
+    return Promise.all([
+      tx.teamInvitation.findMany({ where: { memberUserId: userId, status: "PENDING", expiresAt: { gt: now } }, include: invitationInclude, orderBy: { createdAt: "desc" } }),
+      tx.teamInvitation.findMany({ where: { supervisorUserId: userId, status: "PENDING", expiresAt: { gt: now } }, include: invitationInclude, orderBy: { createdAt: "desc" } }),
+    ]);
+  });
+  return { incoming: await invitationItems(incoming, origin), outgoing: await invitationItems(outgoing, origin) };
 }
 export async function removeTeamMember(userId, publicId, db = prisma) {
   return db.$transaction(async tx => {
@@ -110,6 +204,8 @@ export async function removeTeamMember(userId, publicId, db = prisma) {
     if (!normalizeSignupCountry(me.country) || normalizeSignupCountry(me.country) !== normalizeSignupCountry(target.country)) teamError("TEAM_COUNTRY_MISMATCH", 422, "Team members must be in the same country.");
     await tx.user.update({ where: { id: target.id }, data: { supervisorUserId: null, teamRole: null } });
     await tx.auditLog.create({ data: { action: "TEAM_MEMBER_REMOVED", category: "USER_MANAGEMENT", entityType: "User", entityId: target.publicId, description: `${me.publicId} removed ${target.publicId} from their reporting chain.`, metadata: { actorUserId: me.id, previousSupervisorUserId: target.supervisorUserId, memberUserId: target.id } } });
+    await notifyAction(tx, { userId: target.id, key: `team-removed:${randomUUID()}`, type: "TEAM_MEMBER_REMOVED", title: "Removed from team", body: `You were removed from ${me.name || me.publicId}'s team`, action: { screen: "TEAM", supervisorPublicId: me.publicId } });
+    await teamRealtime(tx, [target.publicId, me.publicId], "team:changed", { status: "REMOVED", memberPublicId: target.publicId, supervisorPublicId: me.publicId });
     return { publicId: target.publicId, supervisorId: null, removed: true };
   }, { isolationLevel: "Serializable" });
 }

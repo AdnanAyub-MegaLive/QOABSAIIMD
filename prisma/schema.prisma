@@ -323,6 +323,8 @@ model User {
   supervisorUserId String?
   supervisor User? @relation("ManagementTeam", fields: [supervisorUserId], references: [id], onDelete: SetNull)
   teamMembers User[] @relation("ManagementTeam")
+  sentTeamInvitations TeamInvitation[] @relation("TeamInvitationSupervisor")
+  receivedTeamInvitations TeamInvitation[] @relation("TeamInvitationMember")
   teamRole ApplicationRole?
   countryHeadDesignation String?
   @@index([supervisorUserId])
@@ -3249,4 +3251,28 @@ model KycImage {
   data Bytes
   mimeType String @default("image/webp")
   createdAt DateTime @default(now())
+}
+
+enum TeamInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+model TeamInvitation {
+  id String @id @default(cuid())
+  publicId String @unique
+  supervisorUserId String
+  supervisor User @relation("TeamInvitationSupervisor", fields: [supervisorUserId], references: [id], onDelete: Cascade)
+  memberUserId String
+  member User @relation("TeamInvitationMember", fields: [memberUserId], references: [id], onDelete: Cascade)
+  role ApplicationRole
+  status TeamInvitationStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  respondedAt DateTime?
+  expiresAt DateTime
+  @@index([memberUserId, status])
+  @@index([supervisorUserId, status])
 }
