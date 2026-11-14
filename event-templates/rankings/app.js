@@ -5,7 +5,7 @@
   const fixedTrack=pathTrack||root.dataset.track, eventSlug=fixedTrack?`ranking-${fixedTrack}`:(root.dataset.event||'rankings');
   let token = '', type = fixedTrack || 'wealth', period = 'today', entries = [], nextOffset = null, request, timer, resetAt = 0, clockOffset = 0;
   const rewardsPanel=$('reward-details');
-  const labels={wealth:'Wealth',charm:'Charm',agency:'Agency',cp:'CP',game:'Game'};
+  const labels={wealth:'Wealth',charm:'Charm',agency:'Agency',cp:'CP'};
   const scoring={game:'Ranked by Coins wagered in settled games across all rooms during the selected period. Pending, cancelled and play-point entries are excluded; winnings do not change the score.',wealth:'Ranked by the Coin value of gifts sent during the selected period.',charm:'Ranked by the Coin value of gifts received during the selected period.',agency:'Ranked by gifts received by hosts, attributed to their agency at the time of gift settlement.',cp:'Ranked by gifts exchanged between active CP partners since their relationship began, within the selected period.'};
   let cycleLabel = 'Cycle';
   function renderRules(){
@@ -53,6 +53,7 @@
   let rewardRequest=0;
   async function loadRewards(){
     const sequence=++rewardRequest;
+    const requestedType=type, requestedPeriod=period;
     const viewportHeight=window.visualViewport?.height || window.innerHeight;
     if(viewportHeight>0)$('rewards-dialog').style.setProperty('--reward-viewport-height',`${viewportHeight}px`);
     renderRules();
@@ -62,10 +63,10 @@
     try{
       const response=await fetch(`/api/v1/events/ranking-rewards?${params}`,{cache:'no-store'});
       const result=await response.json();
-      if(sequence!==rewardRequest)return;
+      if(sequence!==rewardRequest||type!==requestedType||period!==requestedPeriod)return;
       if(!response.ok||!result.data)throw new Error('Rewards unavailable');
       renderRewards(result.data);
-    }catch{if(sequence===rewardRequest)rewardsPanel.replaceChildren(el('p','','Rewards could not be loaded. Close and reopen to try again.'));}
+    }catch{if(sequence===rewardRequest&&type===requestedType&&period===requestedPeriod)rewardsPanel.replaceChildren(el('p','','Rewards could not be loaded. Close and reopen to try again.'));}
   }
   if(typeof MutationObserver!=='undefined')new MutationObserver(()=>{if($('rewards-dialog').open)loadRewards();}).observe($('rewards-dialog'),{attributes:true,attributeFilter:['open']});
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
@@ -155,6 +156,7 @@
     }); $('more').hidden = nextOffset === null;
   }
   async function load(append = false) {
+    ++rewardRequest;
     renderRules();
     if(!append)rewardsPanel.replaceChildren(el('p','',token?'Loading rewards…':'Open this event from Mega Live to view rewards.'));
     if (!token) return; request?.abort(); const current = new AbortController(); request = current;
@@ -169,7 +171,7 @@
   function tabs(id, values, selected, change) { $(id).replaceChildren(); if(id==='tracks'&&fixedTrack){$(id).append(el('h1','',`${fixedTrack.toUpperCase()} Rankings`));return;} for(const [value,label] of values){const button=el('button','',label);button.setAttribute('aria-selected',String(value===selected));button.onclick=()=>change(value);$(id).append(button);} }
   function filters(){
     renderRules();
-    tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP'],['game','Game']],type,v=>{type=v;root.dataset.theme=v;entries=[];nextOffset=null;resetAt=0;render();filters();load();});
+    tabs('tracks',[['wealth','Wealth'],['charm','Charm'],['agency','Agency'],['cp','CP']],type,v=>{type=v;root.dataset.theme=v;entries=[];nextOffset=null;resetAt=0;render();filters();load();});
     if(window.RankingDesign && fixedTrack){
       const nav=el('div','flex w-full justify-around gap-2');
       for(const [key,label] of Object.entries(labels)){const link=el('a',key===type?'text-yellow-300 underline underline-offset-8':'text-white',label);link.href=`/event/ranking-${key}/index.html`;if(key===type)link.setAttribute('aria-current','page');nav.append(link);}

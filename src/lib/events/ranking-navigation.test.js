@@ -23,13 +23,30 @@ async function fixture(track, rewardPolicy=null, pathname='', template='rankings
     window,document:{getElementById:get,createElement:tag=>new Element(tag)},
     MutationObserver:class{constructor(callback){modalObserver=callback;}observe(){}},
     URLSearchParams,AbortController,setInterval:()=>0,setTimeout,clearTimeout,
-    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{viewer,rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,gap:rank===1?null:'2700',agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,frameUrl:'https://cdn.example/frame.svga',frameMimeType:'application/svga',framePosterUrl:'https://cdn.example/frame.png',vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
+    fetch:async url=>{requests.push(url);const type=new URL(url,'https://example.test').searchParams.get('type');return {ok:true,json:async()=>({data:{viewer,rewardPolicy:typeof rewardPolicy==='function'?await rewardPolicy(type,url):rewardPolicy,entries:[1,2,3,4].map(rank=>({id:type==='agency'?`AGN-${rank}`:`USR-${rank}`,name:`Entry ${rank}`,rank,gap:rank===1?null:'2700',agencyLevel:6,agencyLevelBackgroundUrl:'https://cdn.example/agency.png',agencyLevelBackgroundMimeType:'image/png',score:'100',person:{publicId:`USR-${rank}`,name:`Person ${rank}`,frameUrl:'https://cdn.example/frame.svga',frameMimeType:'application/svga',framePosterUrl:'https://cdn.example/frame.png',vip:rank===1?{level:3,artwork:{mimeType:'image/gif',url:'https://cdn.example/vip-3.gif'}}:null,userLevel:42,charmLevel:17,ownedBadges:Array.from({length:7},(_,i)=>({assetId:`AST-${i}`,name:`Badge ${i}`,mimeType:'image/gif',url:`https://cdn.example/badge-${i}.gif`})),userLevelBackgroundUrl:'https://cdn.example/wealth.png',userLevelBackgroundMimeType:'image/png',charmLevelBackgroundUrl:'https://cdn.example/charm.svga',charmLevelBackgroundMimeType:'application/svga',charmLevelBackgroundPosterUrl:'https://cdn.example/charm.png'},partner:{publicId:`TLN-${rank}`,name:'Partner'}})),nextOffset:null,generatedAt:new Date().toISOString(),resetsAt:new Date(Date.now()+60000).toISOString()}})};},
   });
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.MegaRankings.setSession('test-session');await flush();
   return {get,messages,flush,requests,refreshRewards:()=>modalObserver()};
 }
 describe('ranking native navigation',()=>{
+  it('limits combined navigation and discards rewards from a previous category',async()=>{
+    let release;
+    const policy=type=>({enabled:true,effectiveFrom:'2026-11-09T00:00:00Z',rewards:[{rank:1,coins:type==='charm'?'222':'111',props:[]}]});
+    const {get,flush,refreshRewards}=await fixture(null,async(type,url)=>{
+      if(type==='wealth'&&url.includes('ranking-rewards?'))await new Promise(resolve=>{release=resolve;});
+      return policy(type);
+    });
+    expect(get('tracks').children.map(n=>n.textContent)).toEqual(['Wealth','Charm','Agency','CP']);
+    get('rewards').onclick();refreshRewards();await flush();
+    get('tracks').children[1].onclick();await flush();
+    release();await flush();
+    const text=descendants(get('reward-details')).map(n=>n.textContent);
+    expect(text).toContain('Charm · TOP 1');
+    expect(text).toContain('222 Coins');
+    expect(text).not.toContain('111 Coins');
+  });
+
   it('refreshes the modal from the public rewards endpoint and shows inactive configured prizes',async()=>{
     const {get,requests,refreshRewards,flush}=await fixture(null,{enabled:false,effectiveFrom:'2026-11-13T00:00:00Z',rewards:[{rank:2,coins:'700',props:[]}]});
     get('rewards').onclick();refreshRewards();await flush();

@@ -29,7 +29,11 @@ try{
     if(!root.startsWith(storage+path.sep))throw new Error('Invalid event path');
     const original=await readFile(path.join(root,'app.js'),'utf8');
     const template=await readFile(path.join('event-templates',slug,'app.js'),'utf8');
-    const patched=patchRewardModal(original,template);
+    let patched=patchRewardModal(original,template);
+    if(slug==='rankings'){
+      patched=patched.replace(",['game','Game']",'').replace(",game:'Game'",'');
+      patched=patched.replace('  async function load(append = false) {\n    renderRules();','  async function load(append = false) {\n    ++rewardRequest;\n    renderRules();');
+    }
     const css=await readFile(path.join('event-templates',slug,'rewards.css'),'utf8');
     const oldCss=await readFile(path.join(root,'rewards.css'),'utf8').catch(()=>null);
     const rewardFiles=await filesAt(path.join('event-templates',slug,'assets/rewards'));
