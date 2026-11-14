@@ -53,6 +53,8 @@
   let rewardRequest=0;
   async function loadRewards(){
     const sequence=++rewardRequest;
+    const viewportHeight=window.visualViewport?.height || window.innerHeight;
+    if(viewportHeight>0)$('rewards-dialog').style.setProperty('--reward-viewport-height',`${viewportHeight}px`);
     renderRules();
     rewardsPanel.replaceChildren(el('p','','Loading rewards…'));
     const params=new URLSearchParams({event:eventSlug,type,period});
