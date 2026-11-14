@@ -15,6 +15,7 @@
   }
   function renderRewards(data){
     rewardsPanel.replaceChildren();
+    const art=(src,cls)=>{const n=el('img',cls);n.src=src;n.alt='';return n;};
     const theme=['wealth','charm','agency','game'].includes(type)?type:'wealth';
     const show=(policy,title,upcoming=false)=>{
       rewardsPanel.append(el('h3','reward-period-title',title));
@@ -26,10 +27,10 @@
         const rank=Math.min(3,Math.max(1,r.rank));
         const card=el('article','reward-card');
         card.setAttribute('style',`--reward-panel:url("assets/rewards/${theme}-${rank}.webp")`);
-        card.append(image(`assets/rewards/crown-${rank}.webp`,'reward-crown'));
+        card.append(art(`assets/rewards/crown-${rank}.webp`,'reward-crown'));
         card.append(el('h4','reward-rank',`${labels[type]||'Event'} · TOP ${r.rank}`));
         const items=el('div','reward-items');
-        const add=(name,detail,media)=>{const item=el('div','reward-item');if(media){const box=el('div','reward-art-box');box.append(image(media,'reward-art'));item.append(box);}item.append(el('strong','',name));if(detail)item.append(el('span','',detail));items.append(item);};
+        const add=(name,detail,media)=>{const item=el('div','reward-item');if(media){const box=el('div','reward-art-box');box.append(media.startsWith('assets/rewards/')?art(media,'reward-art'):image(media,'reward-art'));item.append(box);}item.append(el('strong','',name));if(detail)item.append(el('span','',detail));items.append(item);};
         if(r.coinRateBps){
           card.append(el('div','reward-rate',`${r.coinRateBps/100}%`));
           card.append(el('p','reward-note','of all settled coin wagers across the application this week'));
