@@ -11,6 +11,7 @@ export async function GET(request) {
     const query = new URL(request.url).searchParams;
     const page = Math.max(1, Math.min(10000, Number(query.get("page")) || 1));
     if (!Number.isInteger(page)) throw Object.assign(new Error("Invalid page."), {code:"VALIDATION_ERROR"});
+    const limit = Math.max(1, Math.min(100, Number.parseInt(query.get("limit") ?? "20", 10) || 20));
     const q = (query.get("q") ?? "").trim().slice(0,100), role = query.get("role");
     if (role && !roles.includes(role)) throw Object.assign(new Error("Invalid official role."), {code:"VALIDATION_ERROR"});
     const countryParam = (query.get("country") ?? "").trim();
@@ -20,10 +21,10 @@ export async function GET(request) {
       bans:{none:{target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}},
       ...(q?{OR:[{name:{contains:q,mode:"insensitive"}},{publicId:{contains:q,mode:"insensitive"}}]}:{}),
     }, select:{id:true,publicId:true,name:true,profileImage:true,country:true,appRoles:true},
-      orderBy:[{name:"asc"},{publicId:"asc"}],skip:(page-1)*20,take:21 });
-    const rows=users.slice(0,20), origin=requestOrigin(request);
+      orderBy:[{name:"asc"},{publicId:"asc"}],skip:(page-1)*limit,take:limit+1 });
+    const rows=users.slice(0,limit), origin=requestOrigin(request);
     const [tags,perks]=await Promise.all([resolveRoleTags(rows,origin),resolveUserPerks(rows,origin,["FRAMES"])]);
-    return {page,hasMore:users.length>20,items:rows.map(u=>({publicId:u.publicId,name:u.name,country:u.country,
+    return {page,hasMore:users.length>limit,items:rows.map(u=>({publicId:u.publicId,name:u.name,country:u.country,
       profileImage:avatarDisplayUrl(u.profileImage,origin),frameUrl:perks.get(u.publicId)?.frameUrl??null,
       roles:u.appRoles.filter(r=>roles.includes(r)),roleTags:(tags.get(u.publicId)??[]).filter(t=>roles.includes(t.role))}))};
   });

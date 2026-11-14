@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 vi.mock("./role-tags.js", () => ({ resolveRoleTags: async () => new Map() }));
 vi.mock("./user-perks.js", () => ({ resolveUserPerks: async () => new Map() }));
+vi.mock("./reseller-props.js", () => ({ syncResellerProps: vi.fn(async () => {}) }));
 import { assignTeamMember, removeTeamMember, readTeam, teamCandidates, countRole, respondTeamInvitation, listTeamInvitations } from "./management-team.js";
 import { managementIdentity } from "./user-roles.js";
 
@@ -23,11 +24,13 @@ function fixture(users, rules, policy = { limitScope: "DIRECT", allowAncestorRem
     notification: { upsert: vi.fn(async ({ create }) => create) }, realtimeOutbox: { createMany: vi.fn() },
     user: {
       findUnique: async ({ where }) => users.find(u => where.id ? u.id === where.id : u.publicId === where.publicId),
-      findMany: vi.fn(async ({ where }) => users.filter(u => where.supervisorUserId?.in ? where.supervisorUserId.in.includes(u.supervisorUserId) : u.supervisorUserId === null && (typeof where.country === "string" ? u.country === where.country : where.country.in.some(v => v.toLowerCase() === String(u.country).toLowerCase())) && u.appRoles.includes(where.appRoles.has) && u.status === "ACTIVE" && !u.deletedAt && u.id !== where.id.not && (!where.OR || u.publicId.toLowerCase().includes(where.OR[0].publicId.contains.toLowerCase()) || u.name.toLowerCase().includes(where.OR[1].name.contains.toLowerCase())))),
+      findMany: vi.fn(async ({ where }) => users.filter(u => where.supervisorUserId?.in ? where.supervisorUserId.in.includes(u.supervisorUserId) : u.supervisorUserId === null && (typeof where.country === "string" ? u.country === where.country : where.country.in.some(v => v.toLowerCase() === String(u.country).toLowerCase())) && u.status === "ACTIVE" && !u.deletedAt && u.id !== where.id.not && (!where.OR || u.publicId.toLowerCase().includes(where.OR[0].publicId.contains.toLowerCase()) || u.name.toLowerCase().includes(where.OR[1].name.contains.toLowerCase())))),
       updateMany: async ({ where, data }) => { const u = users.find(u => u.id === where.id && u.supervisorUserId === null); if (!u) return { count: 0 }; Object.assign(u, data); return { count: 1 }; },
-      update: async ({ where, data }) => Object.assign(users.find(u => u.id === where.id), data),
+      update: async ({ where, data }) => Object.assign(users.find(u => u.id === where.id), Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v && v.set ? v.set : v]))),
+      count: async ({ where }) => users.filter(u => u.supervisorUserId === where.supervisorUserId).length,
     },
     roleTeamLimit: { findUnique: async ({ where }) => rules.find(r => r.supervisorRole === where.supervisorRole_memberRole.supervisorRole && r.memberRole === where.supervisorRole_memberRole.memberRole), findMany: async ({ where }) => rules.filter(r => r.supervisorRole === where.supervisorRole) },
+    agency: { count: async ({ where }) => (db.agencies ?? []).filter(a => a.bdUserId === where.bdUserId).length },
     teamPolicy: { findUnique: async () => policy }, auditLog: { create: vi.fn() },
   };
   db.$transaction = vi.fn(work => work(db)); return db;
@@ -132,7 +135,7 @@ it("accepting assigns, rechecks eligibility and expires stale invitations", asyn
   const users = [person("a", "ADMIN"), person("b", "BD"), person("c", "BD"), person("d", "BD")];
   const db = fixture(users, [rule("ADMIN", "BD", null)]);
   const first = await assignTeamMember("a", "USR-b", "BD", db);
-  expect(await respondTeamInvitation("b", first.invitationId, "ACCEPT", db)).toEqual({ invitationId: first.invitationId, status: "ACCEPTED", publicId: "USR-b", supervisorId: "USR-a", role: "BD" });
+  expect(await respondTeamInvitation("b", first.invitationId, "ACCEPT", db)).toEqual({ invitationId: first.invitationId, status: "ACCEPTED", publicId: "USR-b", supervisorId: "USR-a", role: "BD", grantedRole: false });
   expect(users[1]).toMatchObject({ supervisorUserId: "a", teamRole: "BD" });
   expect(db.notification.upsert.mock.calls.at(-1)[0].create).toMatchObject({ userId: "a", type: "TEAM_INVITATION_ACCEPTED", body: "b accepted your team invitation" });
   expect(db.realtimeOutbox.createMany.mock.calls.at(-1)[0].data.map(r => [r.channel, r.event, r.payload.data.status])).toEqual([["user:USR-a", "team:changed", "ASSIGNED"], ["user:USR-b", "team:changed", "ASSIGNED"]]);
@@ -160,4 +163,42 @@ it("notifies a removed member", async () => {
   await removeTeamMember("a", "USR-b", db);
   expect(db.notification.upsert.mock.calls[0][0].create).toMatchObject({ userId: "b", type: "TEAM_MEMBER_REMOVED", body: "You were removed from Ali's team" });
   expect(db.realtimeOutbox.createMany.mock.calls[0][0].data.map(r => r.event)).toEqual(["team:changed", "team:changed"]);
+});
+const listener = (id, country = "PK") => ({ ...person(id, "LISTENER"), country, role: "LISTENER" });
+it("lists users without the role as candidates and excludes ineligible people", async () => {
+  const users = [person("a", "ADMIN"), listener("l"), person("b", "BD"), person("j", "JUNIOR_ADMIN"), { ...listener("o"), appRoles: ["OFFICIAL"], isOfficial: true }, person("cs", "CS"), listener("f", "US"), { ...listener("x"), status: "BANNED" }];
+  const db = fixture(users, [rule("ADMIN", "BD", null)]);
+  const list = await teamCandidates("a", "BD", "", "", db);
+  expect(list.map(u => [u.publicId, u.hasRole])).toEqual([["USR-l", false], ["USR-b", true]]);
+  await expect(assignTeamMember("a", "USR-o", "BD", db)).rejects.toMatchObject({ code: "TEAM_ROLE_NOT_ALLOWED" });
+  await expect(assignTeamMember("a", "USR-cs", "BD", db)).rejects.toMatchObject({ code: "TEAM_ROLE_NOT_ALLOWED" });
+});
+it("accepting grants the role and records it as team granted", async () => {
+  const users = [{ ...person("a", "ADMIN"), name: "Ali" }, listener("l")];
+  const db = fixture(users, [rule("ADMIN", "BD", null)]);
+  const receipt = await assignTeamMember("a", "USR-l", "BD", db);
+  expect(receipt.grantsRole).toBe(true);
+  expect(db.notification.upsert.mock.calls[0][0].create.body).toBe("Ali (Admin) wants you to join their team as BD. You will become a BD after accepting.");
+  expect((await listTeamInvitations("l", "", db)).incoming[0].grantsRole).toBe(true);
+  expect(await respondTeamInvitation("l", receipt.invitationId, "ACCEPT", db)).toMatchObject({ status: "ACCEPTED", grantedRole: true });
+  expect(users[1]).toMatchObject({ supervisorUserId: "a", teamRole: "BD", teamGrantedRole: "BD", role: "LISTENER" });
+  expect(users[1].appRoles).toEqual(["LISTENER", "BD"]);
+  const events = db.realtimeOutbox.createMany.mock.calls.flatMap(c => c[0].data);
+  expect(events.find(e => e.event === "user:roles-changed")).toMatchObject({ channel: "user:USR-l", payload: { data: { roles: ["LISTENER", "BD"], management: { role: "BD" } } } });
+});
+it("removing strips only a team granted role", async () => {
+  const users = [{ ...person("a", "ADMIN"), name: "Ali" }, { ...person("g", "BD", "a"), appRoles: ["LISTENER", "BD"], teamGrantedRole: "BD" }, person("p", "BD", "a")];
+  const db = fixture(users, []);
+  expect(await removeTeamMember("a", "USR-g", db)).toMatchObject({ removed: true, roleRemoved: true, roleKept: false });
+  expect(users[1]).toMatchObject({ appRoles: ["LISTENER"], teamGrantedRole: null, supervisorUserId: null });
+  expect(db.notification.upsert.mock.calls[0][0].create.body).toBe("You were removed from Ali's team and are no longer a BD");
+  expect(await removeTeamMember("a", "USR-p", db)).toMatchObject({ roleRemoved: false, roleKept: false });
+  expect(users[2].appRoles).toEqual(["BD"]);
+});
+it("keeps a team granted role when the BD still has agencies", async () => {
+  const users = [person("a", "ADMIN"), { ...person("g", "BD", "a"), appRoles: ["LISTENER", "BD"], teamGrantedRole: "BD" }];
+  const db = fixture(users, []); db.agencies = [{ bdUserId: "g" }];
+  expect(await removeTeamMember("a", "USR-g", db)).toMatchObject({ removed: true, roleRemoved: false, roleKept: true, reason: "AGENCIES_ASSIGNED" });
+  expect(users[1]).toMatchObject({ appRoles: ["LISTENER", "BD"], teamGrantedRole: "BD", supervisorUserId: null });
+  expect(db.realtimeOutbox.createMany.mock.calls.flatMap(c => c[0].data).some(e => e.event === "user:roles-changed")).toBe(false);
 });

@@ -86,6 +86,7 @@ export async function updateUserAccount(publicId, changes) {
       isVerified: true,
       status: true,
       country: true,
+      teamGrantedRole: true,
     },
   });
   if (!currentUser) return validationResult("USER_NOT_FOUND");
@@ -105,6 +106,7 @@ export async function updateUserAccount(publicId, changes) {
     nextRoles = roles;
     data.role = primaryLegacyRole(roles, currentUser.role);
     data.isOfficial = roles.includes("OFFICIAL");
+    if (currentUser.teamGrantedRole && !roles.includes(currentUser.teamGrantedRole)) data.teamGrantedRole = null;
   }
   if (changes.status !== undefined) data.status = enumValue(changes.status);
   if (changes.vipLevel !== undefined) data.vipLevel = Number(changes.vipLevel);

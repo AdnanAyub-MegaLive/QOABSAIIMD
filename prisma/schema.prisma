@@ -326,8 +326,10 @@ model User {
   sentTeamInvitations TeamInvitation[] @relation("TeamInvitationSupervisor")
   receivedTeamInvitations TeamInvitation[] @relation("TeamInvitationMember")
   teamRole ApplicationRole?
+  teamGrantedRole ApplicationRole?
   countryHeadDesignation String?
   @@index([supervisorUserId])
+  @@index([appRoles], type: Gin)
   liveCovers VideoLiveCover[]
   diamondExchangeEnabled Boolean @default(true)
   id                         String                        @id @default(cuid())
@@ -3280,6 +3282,7 @@ model TeamInvitation {
   memberUserId String
   member User @relation("TeamInvitationMember", fields: [memberUserId], references: [id], onDelete: Cascade)
   role ApplicationRole
+  grantsRole Boolean @default(false)
   status TeamInvitationStatus @default(PENDING)
   createdAt DateTime @default(now())
   respondedAt DateTime?
