@@ -1,3 +1,4 @@
+import { gameRewardPool } from '@/lib/events/game-reward-pool';
 import { calendarWindow } from '@/lib/business-time.js';
 import { mobileJson, mobileApiError, mobileOptions } from '@/lib/mobile-api';
 import { prisma } from '@/lib/prisma';
@@ -20,7 +21,8 @@ export async function GET(request) {
     if(input.type==='weekly-star' && params.get('week')==='last')when = new Date(+calendarWindow('week',when).start - 1);
     const window=await configuredRankingWindow(prisma,input.type,input.period,when);
     const current=policyFor(policies,window.start), upcoming=policyFor(policies,window.end);
+    const gamePoolCoins=input.type==='game' && input.period==='week' ? (await gameRewardPool(prisma,window)).toString() : null;
     const describe=policy=>describeRankingRewardPolicy(prisma,policy,requestOrigin(request));
-    return mobileJson({success:true,data:{rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
+    return mobileJson({success:true,data:{gamePoolCoins,rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
   } catch(error) { if(error.code==='VALIDATION_ERROR')return mobileJson({success:false,error:{code:error.code,message:error.message}},422);return mobileApiError(error,'EVENT_RANKINGS_FAILED'); }
 }

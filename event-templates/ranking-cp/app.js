@@ -15,43 +15,37 @@
   }
   function renderRewards(data){
     rewardsPanel.replaceChildren();
-
-    const show=(policy,title)=>{
-      rewardsPanel.append(el('h3','',title));
-      if(!policy){rewardsPanel.append(el('p','','No rewards configured for this period.'));return;}
-      if(!policy.enabled)rewardsPanel.append(el('p','','These rewards are inactive. Automatic awards are not enabled.'));
-      rewardsPanel.append(el('p','',`Applies from ${new Date(policy.effectiveFrom).toLocaleString('en-US', { timeZone: 'Asia/Bangkok', timeZoneName: 'shortOffset' })}`));
-      if(!policy.rewards?.length){rewardsPanel.append(el('p','','No rewards configured for this period.'));return;}
+    const theme=['wealth','charm','agency','game'].includes(type)?type:'wealth';
+    const show=(policy,title,upcoming=false)=>{
+      rewardsPanel.append(el('h3','reward-period-title',title));
+      if(!policy){rewardsPanel.append(el('p','reward-note','No rewards configured for this period.'));return;}
+      if(!policy.enabled)rewardsPanel.append(el('p','reward-note','These rewards are inactive. Automatic awards are not enabled.'));
+      rewardsPanel.append(el('p','reward-note',`Applies from ${new Date(policy.effectiveFrom).toLocaleString('en-US',{timeZone:'Asia/Bangkok',timeZoneName:'shortOffset'})}`));
+      if(!policy.rewards?.length){rewardsPanel.append(el('p','reward-note','No rewards configured for this period.'));return;}
       for(const r of policy.rewards){
-        const card=el('article','reward-card');card.append(el('h4','reward-rank',`TOP ${r.rank}`));
+        const rank=Math.min(3,Math.max(1,r.rank));
+        const card=el('article','reward-card');
+        card.setAttribute('style',`--reward-panel:url("assets/rewards/${theme}-${rank}.webp")`);
+        card.append(image(`assets/rewards/crown-${rank}.webp`,'reward-crown'));
+        card.append(el('h4','reward-rank',`${labels[type]||'Event'} · TOP ${r.rank}`));
         const items=el('div','reward-items');
-        const add=(name,detail,media)=>{const item=el('div','reward-item');if(media)item.append(image(media,'reward-art'));item.append(el('strong','',name));if(detail)item.append(el('span','',detail));items.append(item);};
-        if(r.coins&&r.coins!=='0')add(`${r.coins} Coins`,'');
-        if(r.diamonds&&r.diamonds!=='0')add(`${r.diamonds} Diamonds`,'');
+        const add=(name,detail,media)=>{const item=el('div','reward-item');if(media){const box=el('div','reward-art-box');box.append(image(media,'reward-art'));item.append(box);}item.append(el('strong','',name));if(detail)item.append(el('span','',detail));items.append(item);};
+        if(r.coinRateBps){
+          card.append(el('div','reward-rate',`${r.coinRateBps/100}%`));
+          card.append(el('p','reward-note','of all settled coin wagers across the application this week'));
+          if(!upcoming&&data.gamePoolCoins!=null){const estimate=BigInt(data.gamePoolCoins)*BigInt(r.coinRateBps)/10000n;card.append(el('p','reward-note',`Estimated reward: ${estimate.toLocaleString()} Coins · Final amount at weekly close`));}
+        }
+        if(r.coins&&r.coins!=='0')add(`${BigInt(r.coins).toLocaleString()} Coins`,'','assets/rewards/coins.webp');
+        if(r.diamonds&&r.diamonds!=='0')add(`${BigInt(r.diamonds).toLocaleString()} Diamonds`,'','assets/rewards/diamonds.webp');
         for(const p of r.props||[])add(p.name,`${p.days} days`,p.posterUrl||(p.mimeType?.startsWith('image/')?p.url:null));
         if(r.vip)add(r.vip.name,`${r.vip.days} days of VIP`);
         card.append(items);rewardsPanel.append(card);
       }
     };
-    show(data.rewardPolicy,'Current period');if(data.upcomingRewardPolicy)show(data.upcomingRewardPolicy,'Next period settings');
+    if(data.rewardPolicy||!data.upcomingRewardPolicy)show(data.rewardPolicy,'Current period');
+    if(data.upcomingRewardPolicy)show(data.upcomingRewardPolicy,'Upcoming rewards',true);
     const preview=$('cp-reward-preview');
-    if(preview){
-      preview.replaceChildren(el('h2','text-center font-bold','Rewards for this period'));
-      const cards=el('div','mt-3 grid grid-cols-3 gap-2');
-      for(const reward of data.rewardPolicy?.enabled ? data.rewardPolicy.rewards || [] : []){
-        const card=el('div','flex min-h-24 flex-col items-center justify-center rounded-xl border border-amber-300 bg-pink-950/70 p-2 text-center text-xs');
-        card.append(el('strong','',`TOP ${reward.rank}`));
-        if(reward.coins && reward.coins!=='0')card.append(el('p','',`${reward.coins} Coins`));
-        if(reward.diamonds && reward.diamonds!=='0')card.append(el('p','',`${reward.diamonds} Diamonds`));
-        for(const prop of reward.props || [])card.append(el('p','',`${prop.name} · ${prop.days} days`));
-        if(reward.vip)card.append(el('p','',`${reward.vip.name} · ${reward.vip.days} days`));
-        cards.append(card);
-      }
-      if(cards.children.length)preview.append(cards);
-      else preview.append(el('p','py-3 text-center text-xs','No rewards configured for this period.'));
-    }
-
-
+    if(preview){preview.replaceChildren(el('h2','text-center font-bold','Rewards for this period'),el('p','py-3 text-center text-xs','Tap Rewards to view prizes and activation dates.'));}
   }
   // Refresh configured prizes even when this page is opened outside the app.
   let rewardRequest=0;

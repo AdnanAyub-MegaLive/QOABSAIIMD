@@ -30,11 +30,17 @@ try{
     const original=await readFile(path.join(root,'app.js'),'utf8');
     const template=await readFile(path.join('event-templates',slug,'app.js'),'utf8');
     const patched=patchRewardModal(original,template);
-    if(patched===original){console.log(`${slug}: already updated`);continue;}
+    const css=await readFile(path.join('event-templates',slug,'rewards.css'),'utf8');
+    const oldCss=await readFile(path.join(root,'rewards.css'),'utf8').catch(()=>null);
+    if(patched===original && oldCss===css){console.log(`${slug}: already updated`);continue;}
     const formData=new FormData();
     for(const name of await filesAt(root)){
-      formData.append('files',new File([name==='app.js'?patched:await readFile(path.join(root,name))],path.basename(name)));
+      if(name==='rewards.css'||name.startsWith('assets/rewards/'))continue;
+      formData.append('files',new File([name==='app.js'?patched:name==='index.html'?((await readFile(path.join(root,name),'utf8')).replace(/<link[^>]+href="rewards\.css"[^>]*>/g,'').replace('</head>','<link rel="stylesheet" href="rewards.css"></head>')):await readFile(path.join(root,name))],path.basename(name)));
       formData.append('paths',name);
+    }
+    for(const name of ['rewards.css',...(await filesAt(path.join('event-templates',slug,'assets/rewards'))).map(n=>'assets/rewards/'+n)]){
+      formData.append('files',new File([await readFile(path.join('event-templates',slug,name))],path.basename(name)));formData.append('paths',name);
     }
     const updated=await uploadNewVersion({id:event.id,formData,user,ip:'127.0.0.1'});
     console.log(`${slug}: published version ${updated.version}`);

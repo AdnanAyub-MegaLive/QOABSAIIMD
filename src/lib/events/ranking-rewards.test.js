@@ -89,3 +89,18 @@ it('pays a Game winner once using the normal ranking reward transaction', async 
  expect(tx.user.update.mock.calls[0][0]).toMatchObject({where:{id:'winner'},data:{coinBalance:{increment:100n}}});
  expect(rewardInput({...input,track:'game'}).eventSlug).toBe('ranking-game');
 });
+
+ it('pays a percentage from the frozen global pool exactly once, not the winner stake',async()=>{
+ const {tx,db,round}=fixture(['winner'],'game');
+ round.period='week';round.winners[0].gamePoolCoins='123456789';
+ tx.rankingRewardPolicy.findUnique.mockResolvedValue({...input,track:'game',period:'week',eventSlug:'ranking-game',id:'p',effectiveFrom:round.startsAt,rewards:[{rank:1,coins:'0',diamonds:'0',props:[],vip:null,coinRateBps:5}]});
+ await awardRankingRound('r',db);await awardRankingRound('r',db);
+ expect(tx.user.update).toHaveBeenCalledTimes(1);
+ expect(tx.user.update.mock.calls[0][0].data.coinBalance.increment).toBe(61728n);
+ expect(tx.walletTransaction.create.mock.calls[0][0].data.metadata.gamePoolCoins).toBe('123456789');
+ });
+ it('refuses percentage payout without a frozen pool',async()=>{
+ const {tx,db,round}=fixture(['winner'],'game');round.period='week';
+ tx.rankingRewardPolicy.findUnique.mockResolvedValue({...input,track:'game',period:'week',eventSlug:'ranking-game',id:'p',effectiveFrom:round.startsAt,rewards:[{rank:1,coins:'0',diamonds:'0',props:[],coinRateBps:5}]});
+ await expect(awardRankingRound('r',db)).rejects.toThrow();expect(tx.user.update).not.toHaveBeenCalled();
+ });

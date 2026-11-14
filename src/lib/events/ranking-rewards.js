@@ -1,3 +1,4 @@
+import { gameRewardPool, gameRewardCoins } from './game-reward-pool.js';
 import { prisma } from '../prisma.js';
 import { ledgerData } from '../wallet.js';
 import { notifyAction } from '../action-notifications.js';
@@ -62,10 +63,10 @@ export async function awardRankingRound(roundId, db = prisma) {
       if (!reward) continue;
       for (const userId of winner.recipients) {
         const key = `ranking:${round.id}:${winner.rank}:${userId}`;
-        const coins = BigInt(reward.coins), diamonds = BigInt(reward.diamonds);
+        const coins = reward.coinRateBps ? gameRewardCoins(winner.gamePoolCoins, reward.coinRateBps) : BigInt(reward.coins), diamonds = BigInt(reward.diamonds);
         if (coins || diamonds) {
           await tx.user.update({where:{id:userId},data:{coinBalance:{increment:coins},hostSalaryCoinBalance:{increment:diamonds}}});
-          await tx.walletTransaction.create({data:ledgerData({userId,type:'BONUS',direction:'CREDIT',title:'Ranking event reward',coins,diamonds,referenceId:key,metadata:{roundId:round.id,rank:winner.rank,eventSlug:round.eventSlug,period:round.period}})});
+          await tx.walletTransaction.create({data:ledgerData({userId,type:'BONUS',direction:'CREDIT',title:'Ranking event reward',coins,diamonds,referenceId:key,metadata:{roundId:round.id,rank:winner.rank,eventSlug:round.eventSlug,period:round.period,...(reward.coinRateBps?{coinRateBps:reward.coinRateBps,gamePoolCoins:winner.gamePoolCoins}:{})}})});
         }
         for (const prop of reward.props) {
           const where = {assetId_userId:{assetId:prop.assetId,userId}};
@@ -114,7 +115,8 @@ export async function maintainRankingRewards(db = prisma) {
         const event = await db.event.findUnique({where:{slug:first.eventSlug},select:{status:true}});
         const eligible = policy?.enabled && event?.status === 'PUBLISHED';
         const rows = eligible ? await eventRankings({type:first.track,period:first.period,window,raw:true},db) : [];
-        const winners = rows.filter(w => policy.rewards.some(r => r.rank===w.rank));
+        const gamePoolCoins = eligible && policy.rewards.some(r=>r.coinRateBps) ? (await gameRewardPool(db,window)).toString() : null;
+        const winners = rows.filter(w => policy.rewards.some(r => r.rank===w.rank)).map(w=>gamePoolCoins===null?w:{...w,gamePoolCoins});
         // Membership/ownership is mutable; after extended downtime do not silently
         // pay a reconstructed ranking as if it had been captured at the deadline.
         const delayed = eligible && now.getTime()-window.end.getTime()>10*60000;

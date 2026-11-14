@@ -63,7 +63,7 @@ describe('ranking native navigation',()=>{
     const nodes=descendants(get('reward-details'));
     get('rewards').onclick();expect(get('rewards-dialog').open).toBe(true);
     get('close-rewards').onclick();expect(get('rewards-dialog').open).toBe(false);
-    expect(nodes.some(n=>n.className==='reward-rank'&&n.textContent==='TOP 1')).toBe(true);
+    expect(nodes.some(n=>n.className==='reward-rank'&&n.textContent==='Wealth · TOP 1')).toBe(true);
     expect(nodes.some(n=>n.textContent==='500 Coins')).toBe(true);
     expect(nodes.some(n=>n.textContent==='VIP 3')).toBe(true);
     expect(nodes.some(n=>n.className==='reward-art'&&n.src==='https://media.example/frame.gif')).toBe(true);

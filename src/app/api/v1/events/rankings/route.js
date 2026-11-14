@@ -1,3 +1,4 @@
+import { gameRewardPool } from '@/lib/events/game-reward-pool';
 import { calendarWindow } from '@/lib/business-time.js';
 import { requireMobileUser, mobileJson, mobileApiError, mobileOptions } from '@/lib/mobile-api';
 import { prisma } from '@/lib/prisma';
@@ -27,7 +28,8 @@ export async function GET(request) {
     const weekly=input.type==='weekly-star'?await prisma.weeklyStarWeek.findUnique({where:{startsAt:window.start}}):null;
     const weeklyGifts=weekly?.giftIds.length ? await prisma.uploadAsset.findMany({where:{id:{in:weekly.giftIds}},select:{publicId:true,name:true,mimeType:true,mediaVersion:true,posterMimeType:true,posterMediaVersion:true}}):[];
     const current=policyFor(policies,window.start), upcoming=policyFor(policies,window.end);
+    const gamePoolCoins=input.type==='game' && input.period==='week' ? (await gameRewardPool(prisma,window)).toString() : null;
     const describe=policy=>describeRankingRewardPolicy(prisma,policy,requestOrigin(request));
-    return mobileJson({success:true,data:{weeklyGifts:weeklyGifts.map(a=>({name:a.name,...decorationMedia(a,requestOrigin(request))})),...await eventRankings({...input,window,viewerId:user.id,origin:requestOrigin(request)}),rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
+    return mobileJson({success:true,data:{gamePoolCoins,weeklyGifts:weeklyGifts.map(a=>({name:a.name,...decorationMedia(a,requestOrigin(request))})),...await eventRankings({...input,window,viewerId:user.id,origin:requestOrigin(request)}),rewardPolicy:await describe(current),upcomingRewardPolicy:upcoming?.id!==current?.id?await describe(upcoming):null}});
   } catch(error) { if(error.code==='VALIDATION_ERROR')return mobileJson({success:false,error:{code:error.code,message:error.message}},422);return mobileApiError(error,'EVENT_RANKINGS_FAILED'); }
 }

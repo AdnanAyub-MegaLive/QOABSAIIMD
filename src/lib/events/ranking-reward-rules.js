@@ -15,7 +15,12 @@ export function rewardInput(input, now = new Date()) {
     const props = (row.props ?? []).map(p => ({ assetId: id(p.assetId), days: days(p.days) }));
     if (new Set(props.map(p => p.assetId)).size !== props.length) throw new Error('A prop may appear only once per rank.');
     const result = { rank: row.rank, coins: amount(row.coins), diamonds: amount(row.diamonds), props, vip: row.vip ? { tierId: id(row.vip.tierId), days: days(row.vip.days) } : null };
-    if (result.coins === '0' && result.diamonds === '0' && !props.length && !result.vip) throw new Error('Each rank needs at least one reward.');
+    if (row.coinRateBps != null && row.coinRateBps !== 0) {
+      if (input.track !== 'game' || input.period !== 'week' || !Number.isInteger(row.coinRateBps) || row.coinRateBps < 1 || row.coinRateBps > 10000) throw new Error('Percentage rewards require weekly Game ranking and a valid basis-point rate.');
+      if (result.coins !== '0') throw new Error('Choose fixed coins or a percentage, not both.');
+      result.coinRateBps = row.coinRateBps;
+    }
+    if (result.coins === '0' && result.diamonds === '0' && !props.length && !result.vip && !result.coinRateBps) throw new Error('Each rank needs at least one reward.');
     return result;
   }).sort((a, b) => a.rank - b.rank);
   return { track: input.track, period: input.period, enabled: input.enabled, eventSlug: `ranking-${input.track}`, effectiveFrom: rankingWindow(input.period, now).end, rewards };
