@@ -32,7 +32,14 @@ try{
     const patched=patchRewardModal(original,template);
     const css=await readFile(path.join('event-templates',slug,'rewards.css'),'utf8');
     const oldCss=await readFile(path.join(root,'rewards.css'),'utf8').catch(()=>null);
-    if(patched===original && oldCss===css){console.log(`${slug}: already updated`);continue;}
+    const rewardFiles=await filesAt(path.join('event-templates',slug,'assets/rewards'));
+    let artMatches=true;
+    for(const name of rewardFiles){
+      const expected=await readFile(path.join('event-templates',slug,'assets/rewards',name));
+      const current=await readFile(path.join(root,'assets/rewards',name)).catch(()=>null);
+      if(!current?.equals(expected)){artMatches=false;break;}
+    }
+    if(patched===original && oldCss===css && artMatches){console.log(`${slug}: already updated`);continue;}
     const formData=new FormData();
     for(const name of await filesAt(root)){
       if(name==='rewards.css'||name.startsWith('assets/rewards/'))continue;
