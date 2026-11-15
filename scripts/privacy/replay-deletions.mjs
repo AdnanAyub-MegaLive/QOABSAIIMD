@@ -5,7 +5,7 @@ if(existsSync('.env.local'))process.loadEnvFile('.env.local');
 process.env.ACCOUNT_DELETION_ENABLED='true';
 const {prisma}=await import('../../src/lib/prisma.js');
 const {readDeletionJournal,assertNoRestoredDeletedAccounts}=await import('../../src/lib/account-deletion-journal.js');
-const {runAccountDeletion,completeAccountDeletion}=await import('../../src/lib/account-deletion.js');
+const {purgeAccountData,runAccountDeletion,completeAccountDeletion}=await import('../../src/lib/account-deletion.js');
 try {
  for(const row of readDeletionJournal()) {
   const user=await prisma.user.findUnique({where:{id:row.userId}});if(!user)continue;
@@ -15,6 +15,10 @@ try {
    await tx.user.update({where:{id:row.userId},data:{status:'BANNED',deletedAt:new Date(),forcedLogoutAt:new Date(),sessionVersion:{increment:1}}});
    await tx.accountDeletionRequest.upsert({where:{id:row.requestId},create:{id:row.requestId,userId:row.userId,source:'RESTORE_REPLAY',createdAt:new Date(0),scope:{restoreAnonymous:row.anonymous}},update:{status:'RETRY',createdAt:new Date(0),scope:{restoreAnonymous:row.anonymous},attempts:0}});
   });
+  await purgeAccountData(prisma,row.requestId);
+  // A partially cleaned backup may already contain the anonymous User row but
+  // still contain original identities in snapshots. Preserve all journal IDs.
+  await prisma.accountDeletionRequest.update({where:{id:row.requestId},data:{scope:{identities:row.identities,anonymous:row.anonymous}}});
   // Each pass is bounded; any unsettled restored ledger requires manual reconciliation.
   for(let pass=0;pass<1000;pass++) {
    await runAccountDeletion(prisma,row.requestId);
