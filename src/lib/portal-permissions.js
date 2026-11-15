@@ -65,7 +65,7 @@ export const pagePermissions = {
   "/room-rocket": "rocket.view",
   "/cp-levels": "cp.view",
   "/vip-management": "vip.view",
-  "/users": "users.view", "/talents": "hosts.view", "/agencies": "agencies.view",
+  "/account-deletions": "users.delete", "/users": "users.view", "/talents": "hosts.view", "/agencies": "agencies.view",
   "/finance": "finance.view", "/platform-rules": "rules.view", "/uploads": "uploads.view", "/room-management": "rooms.view",
   "/daily-tasks": "tasks.view", "/red-envelopes": "envelopes.view", "/room-appearance": "appearance.view", "/room-games": "roomGames.view",
   "/games-management": "games.view", "/games/preview": "games.view", "/live-video-management": "video.view", "/live-management": "video.view",

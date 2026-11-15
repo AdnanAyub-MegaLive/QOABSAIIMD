@@ -62,6 +62,8 @@ for (const key of ["previewModeId", "previewModeSigningKey", "previewModeEncrypt
   if (!manifest.preview?.[key]) throw new Error(`Missing preview configuration: ${key}`);
 }
 NODE
+# Register new recovery dumps under the same expiry policy when privacy cleanup is configured.
+if [ -f /etc/megalive/backup-retention.json ]; then bash scripts/privacy/create-backup.sh; fi
 # Live deployments require backward-compatible migrations. No database rollback is attempted.
 npx prisma migrate deploy
 node scripts/seed-help-center.mjs --bundled

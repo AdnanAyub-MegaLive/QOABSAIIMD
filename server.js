@@ -43,6 +43,13 @@ app.prepare().then(async()=>{
   const recoveryKey=(user,roomId)=>`${user.id}:${user.sessionVersion}:${roomId}`;
   const recoveryCleanup=setInterval(()=>{for(const[key,until]of recoveringRooms)if(until<Date.now())recoveringRooms.delete(key)},60000);recoveryCleanup.unref();
   const {prisma}=await import("./src/lib/prisma.js");
+  if(process.env.ACCOUNT_DELETION_ENABLED==='true') {
+    const {assertNoRestoredDeletedAccounts}=await import('./src/lib/account-deletion-journal.js');
+    await assertNoRestoredDeletedAccounts(prisma);
+    const {startAccountDeletionWorker}=await import('./src/lib/account-deletion.js');
+    startAccountDeletionWorker(prisma);
+  }
+
   const {closeHostSalaryCycle}=await import("./src/lib/host-salary-close.js");
   let salaryClosing=false;
   const salaryTimer=setInterval(async()=>{

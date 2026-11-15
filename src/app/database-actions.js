@@ -888,31 +888,15 @@ export async function resetUserPassword(publicId, reason) {
   return { temporaryPassword };
 }
 
-export async function deleteUserAccount(publicId, reason) {
+export async function deleteUserAccount(publicId, _reason) {
   const admin = await requirePermission("users.delete");
   const user = await prisma.user.findUniqueOrThrow({ where: { publicId } });
-  const deletedAt = new Date();
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      name: "Deleted User",
-      email: null,
-      phone: `deleted-${user.id}`,
-      profileImage: null,
-      passwordHash: null,
-      status: "BANNED",
-      deletedAt,
-      forcedLogoutAt: deletedAt,
-      sessionVersion: { increment: 1 },
-    },
-  });
+  const { requestAccountDeletion } = await import('../lib/account-deletion.js');
+  const job = await requestAccountDeletion(prisma, user.id, {source:'ADMIN_ACTION',verifiedBy:admin.id});
   await logActivity(admin, {
-    action: "DELETE_USER_ACCOUNT",
-    category: "USER_MANAGEMENT",
-    entityType: "User",
-    entityId: publicId,
-    description: `${admin.name} deleted user account ${publicId}`,
-    metadata: { reason, deletedAt: deletedAt.toISOString() },
+    action:'REQUEST_ACCOUNT_DELETION',category:'USER_MANAGEMENT',entityType:'AccountDeletionRequest',
+    entityId:job.id,description:'Administrator requested permanent account and associated-data deletion.',
+    metadata:{requestId:job.id},
   });
   emitToUser(publicId, "session:force-logout", {
     success: true,

@@ -15,7 +15,7 @@ export async function updateProfileWithHistory(db, userId, data, beforeUpdate = 
     // lose the picture immediately preceding them.
     await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
     const current = await tx.user.findUnique({ where: { id: userId } });
-    if (!current) throw new Error("SESSION_REVOKED");
+    if (!current || current.deletedAt || current.status === "BANNED") throw new Error("SESSION_REVOKED");
     if (Object.hasOwn(data, "profileImage") && data.profileImage !== current.profileImage) {
       if (current.profileImage) {
         const last = await tx.userAvatarHistory.findFirst({ where: { userId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });

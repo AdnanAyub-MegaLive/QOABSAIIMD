@@ -3290,3 +3290,28 @@ model TeamInvitation {
   @@index([memberUserId, status])
   @@index([supervisorUserId, status])
 }
+
+// Separate from User: jobs survive account anonymisation; no contact details in completed jobs.
+model AccountDeletionRequest {
+  id String @id @default(cuid())
+  userId String? @unique
+  status String @default("QUEUED")
+  source String
+  verifiedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  attempts Int @default(0)
+  lastError String?
+  scope Json?
+  @@index([status, createdAt])
+}
+model AccountDeletionObject {
+  id String @id @default(cuid())
+  requestId String
+  kind String
+  key String
+  completedAt DateTime?
+  @@unique([requestId, kind, key])
+  @@index([requestId, completedAt])
+}
