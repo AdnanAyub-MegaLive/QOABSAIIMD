@@ -1,5 +1,5 @@
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
-import { giftXpInput } from "@/lib/gift-xp-input";
+import { giftXpInput, receiverDiamondsInput } from "@/lib/gift-xp-input";
 import crypto from "node:crypto";
 import sharp from "sharp";
 import { isSvgaFile, SVGA_MAX_BYTES, SVGA_MIME } from "@/lib/svga-policy";
@@ -21,7 +21,7 @@ function failure(e) { return Response.json({ success: false, error: { code: e.co
 export async function GET() {
   try {
     await requirePermission("video.view");
-    const [rule, gifts] = await Promise.all([getLiveCommerceRule(), prisma.uploadAsset.findMany({ where: { category: "LIVE_GIFTS", archivedAt: null }, select: { publicId: true, name: true, coinPrice: true, senderXp: true, receiverXp: true, active: true }, orderBy: { createdAt: "desc" } })]);
+    const [rule, gifts] = await Promise.all([getLiveCommerceRule(), prisma.uploadAsset.findMany({ where: { category: "LIVE_GIFTS", archivedAt: null }, select: { publicId: true, name: true, coinPrice: true, senderXp: true, receiverXp: true, receiverDiamonds: true, active: true }, orderBy: { createdAt: "desc" } })]);
     return Response.json({ success: true, data: safe({ rule, gifts }) });
   } catch (e) { return failure(e); }
 }
@@ -41,7 +41,7 @@ export async function POST(request) {
       const coinPrice = amount(form.get("coinPrice"), true);
       const xp=giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")});
       const createdAsset = await prisma.$transaction(async tx => {
-        const asset = await tx.uploadAsset.create({ data: { publicId: `AST-${crypto.randomUUID()}`, name, category: "LIVE_GIFTS", fileName: svga ? "live-gift.svga" : "live-gift.webp", mimeType: svga ? SVGA_MIME : "image/webp", fileSize: bytes.length, fileData: bytes, ...poster, coinPrice, ...xp, giftTier: "CLASSIC", active: true, isGlobal: true } });
+        const asset = await tx.uploadAsset.create({ data: { publicId: `AST-${crypto.randomUUID()}`, name, category: "LIVE_GIFTS", fileName: svga ? "live-gift.svga" : "live-gift.webp", mimeType: svga ? SVGA_MIME : "image/webp", fileSize: bytes.length, fileData: bytes, ...poster, coinPrice, ...xp, receiverDiamonds: receiverDiamondsInput(form.get("receiverDiamonds")), giftTier: "CLASSIC", active: true, isGlobal: true } });
         await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_GIFT_CREATED", category: "LIVE_MANAGEMENT", entityType: "UploadAsset", entityId: asset.publicId, description: "Created a live-only gift." } });
         return asset;
       });
@@ -54,7 +54,7 @@ export async function POST(request) {
         if (!name || name.length > 120 || typeof body.active !== "boolean") throw Object.assign(new Error("Invalid gift details."), { status: 422 });
         const coinPrice = amount(body.coinPrice, true);
         await prisma.$transaction(async tx => {
-          const row = await tx.uploadAsset.updateMany({ where: { publicId: String(body.publicId), category: "LIVE_GIFTS", archivedAt: null }, data: { name, coinPrice, ...giftXpInput(body), active: body.active } });
+          const row = await tx.uploadAsset.updateMany({ where: { publicId: String(body.publicId), category: "LIVE_GIFTS", archivedAt: null }, data: { name, coinPrice, ...giftXpInput(body), ...("receiverDiamonds" in body ? {receiverDiamonds:receiverDiamondsInput(body.receiverDiamonds)} : {}), active: body.active } });
           if (!row.count) throw Object.assign(new Error("Live gift not found."), { status: 404 });
           await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_GIFT_UPDATED", category: "LIVE_MANAGEMENT", entityType: "UploadAsset", entityId: body.publicId, description: "Updated live-only gift pricing or availability." } });
         });

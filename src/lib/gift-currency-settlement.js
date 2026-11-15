@@ -15,8 +15,13 @@ export async function assertGiftRecipient(tx, recipient) {
 export function calculateGiftSettlement(gross, host, policy, currency, requestedReward = 0n, options = {}) {
   const agencyCoins = host ? coinsForShare(gross, policy.agencyShareBps) : 0n;
   const recipientCoins = host ? coinsForShare(gross, policy.hostShareBps) : coinsForShare(gross, policy.normalUserReusableShareBps);
-  // Wallet credit is based on gross gift value. Accounting allocations stay separate.
-  const receivedDiamonds = host ? gross : gross / 2n;
+  // The per-gift amount controls wallet credit only. Coin allocations stay separate.
+  const quantity = BigInt(options.quantity ?? 1);
+  const configured = options.receiverDiamonds == null ? null : BigInt(options.receiverDiamonds);
+  if (quantity < 1n || (configured != null && (configured < 0n || configured > 1000000000000n)))
+    throw new Error("Invalid receiver Diamonds configuration.");
+  const diamondBasis = configured == null ? gross : configured * quantity;
+  const receivedDiamonds = host ? diamondBasis : diamondBasis / 2n;
   const hostSalaryCoins = host ? recipientCoins : 0n;
   const reusableCoins = host ? 0n : recipientCoins;
   const available = gross - hostSalaryCoins - agencyCoins - reusableCoins;

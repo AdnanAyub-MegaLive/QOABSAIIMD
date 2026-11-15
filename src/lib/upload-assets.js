@@ -175,7 +175,7 @@ export function serializeUploadAsset(asset,url) {
     storeVisible:Boolean(asset.storeVisible),
     coinPrice:asset.coinPrice?.toString()??null,
       senderXp:String(asset.senderXp??0),
-      hostDiamonds:asset.hostDiamonds==null?"":String(asset.hostDiamonds),
+      receiverDiamonds:asset.receiverDiamonds==null?"":String(asset.receiverDiamonds),
       receiverXp:String(asset.receiverXp??0),
     giftCategory:asset.giftCategory??null,
     giftTier:asset.giftTier??null,

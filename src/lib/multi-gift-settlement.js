@@ -54,7 +54,7 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
       const results = [], prepared = []; let progression = null, totalLucky = 0n;
       for (const recipient of recipients) {
         const host = isHostUser(recipient);
-        const split = calculateGiftSettlement(each, host, policy, currency, 0n, { luckyPoolBps: lucky?.poolContributionBps ?? null });
+        const split = calculateGiftSettlement(each, host, policy, currency, 0n, { luckyPoolBps: lucky?.poolContributionBps ?? null, receiverDiamonds: gift.receiverDiamonds, quantity });
         const giftTx = await tx.giftTransaction.create({ data: { operationKey: operation.key, giftBatchId, senderId: sender.id, recipientUserId: recipient.id, giftAssetId: gift.id, giftName: gift.name, quantity, coinValue: each, roomId } });
         const settlement = await tx.giftSettlement.create({ data: {
           giftTransactionId: giftTx.id, recipientDiamonds: split.receivedDiamonds, currencyPolicyVersion: currency.version,

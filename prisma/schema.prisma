@@ -1564,6 +1564,7 @@ model UploadAsset {
   senderXp BigInt @default(0)
   receiverXp BigInt @default(0)
   hostDiamonds BigInt?
+  receiverDiamonds BigInt?
   id                          String                       @id @default(cuid())
   publicId                    String                       @unique
   name                        String

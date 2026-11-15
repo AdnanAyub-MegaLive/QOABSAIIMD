@@ -14,7 +14,7 @@ vi.mock("@/lib/mobile-api", () => ({
   giftJson: (body, status = 200) => Response.json(body, { status }),
   mobileApiError: e => Response.json({ success: false, error: { code: e.code } }, { status: 422 }),
 }));
-vi.mock("@/lib/profit-rules", () => ({ coinsForShare: (n, b) => n * BigInt(b) / 10000n, getProfitSplitRule: async () => ({ normalUserReusableShareBps: 1000, version: 1 }) }));
+vi.mock("@/lib/profit-rules", () => ({ coinsForShare: (n, b) => n * BigInt(b) / 10000n, getProfitSplitRule: async () => ({ hostShareBps:4000, agencyShareBps:2000, normalUserReusableShareBps: 1000, version: 1 }) }));
 vi.mock("@/lib/realtime", () => ({ audioRoomParticipantIds: async () => new Set(["USR-S", "USR-A", "USR-B", ...Array.from({length:26},(_,i)=>`USR-QA${i}`)]), emitToAudioRoom: mocks.emit, emitToUser: mocks.emit, emitToVideoLive: mocks.emit }));
 vi.mock("@/lib/upload-assets", () => ({ createPublicDisplayAssetUrl: () => "https://portal.test/gift" }));
 vi.mock("@/lib/user-perks", () => ({ requestOrigin: () => "https://portal.test" }));
@@ -200,4 +200,34 @@ it("still rejects self-gifts with insufficient Coins",async()=>{
   expect(response.status).not.toBe(201);
   expect(mocks.rows).toHaveLength(0);
   expect(mocks.ledger).toHaveLength(0);
+});
+
+describe.each([["standard",standard],["Lucky",lucky],["backpack",backpack]])("%s configured receiver Diamonds",(_name,send)=>{
+ it.each([0n,20n])("credits host quantity at configured %s and records the actual settlement",async amount=>{
+  const asset=await mocks.db.uploadAsset.findFirst();
+  mocks.db.uploadAsset.findFirst=async()=>({...asset,receiverDiamonds:amount});
+  mocks.db.user.findFirst=async()=>({id:"USR-A",publicId:"USR-A",appRoles:["HOST"],agencyId:"agency"});
+  mocks.db.agency={update:vi.fn(async()=>({}))};
+  mocks.db.giftSettlement.create=vi.fn(async({data})=>data);
+  const response=await send(request({quantity:3}));
+  expect(response.status).toBe(201);
+  expect(mocks.db.user.update).toHaveBeenCalledWith({where:{id:"USR-A"},data:{hostSalaryCoinBalance:{increment:amount*3n}}});
+  expect(mocks.db.giftSettlement.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({recipientDiamonds:amount*3n,grossCoins:300n})}));
+  const credits=mocks.ledger.filter(x=>x.type==="GIFT_RECEIVED");
+  expect(credits).toHaveLength(amount===0n?0:1);
+  if(amount>0n)expect(credits[0].diamonds).toBe(amount*3n);
+ });
+});
+it("applies Diamonds to every combo tap and recipient without changing coin debits",async()=>{
+ const asset=await mocks.db.uploadAsset.findFirst();
+ mocks.db.uploadAsset.findFirst=async()=>({...asset,receiverDiamonds:20n});
+ mocks.db.user.findMany=async()=>["USR-A","USR-B"].map(publicId=>({id:publicId,publicId,appRoles:[]}));
+ const body={roomId:"ROOM-1",giftId:"AST-1",recipientIds:["USR-A","USR-B"],quantity:3};
+ const prepared=await prepareMultiGift({id:"sender",publicId:"USR-S"},body,request(body),{batch:true});
+ for(const key of ["tap-one","tap-two"]){
+  const result=await prepared.settle(mocks.db,{key});
+  expect(result.recipients.map(r=>r.recipientDiamonds)).toEqual(["30","30"]);
+  expect(result.totalCoins).toBe("600");
+ }
+ expect(mocks.ledger.filter(r=>r.type==="GIFT_RECEIVED").map(r=>r.diamonds)).toEqual([30n,30n,30n,30n]);
 });

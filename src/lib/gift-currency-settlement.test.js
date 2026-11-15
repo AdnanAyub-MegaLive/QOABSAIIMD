@@ -25,3 +25,20 @@ it("moves the lucky pool share out of the company share",()=>{
  const result=calculateGiftSettlement(100n,true,split,currency,0n,{luckyPoolBps:3000});
  expect(result).toMatchObject({luckyPoolCoins:30n,companyCoins:10n,luckyRewardCoins:0n});
 });
+
+it.each([true,false])("applies receiver Diamonds per gift and quantity for host=%s",host=>{
+ const result=calculateGiftSettlement(300n,host,split,currency,0n,{receiverDiamonds:21n,quantity:3});
+ expect(result.receivedDiamonds).toBe(host?63n:31n);
+});
+it("supports explicit zero and leaves Lucky pool and accounting unchanged",()=>{
+ const options={luckyPoolBps:3000};
+ const original=calculateGiftSettlement(100n,true,split,currency,0n,options);
+ const updated=calculateGiftSettlement(100n,true,split,currency,0n,{...options,receiverDiamonds:0n,quantity:1});
+ expect(updated).toEqual({...original,receivedDiamonds:0n});
+});
+it("allows an explicit reward above the gift coin price",()=>{
+ expect(calculateGiftSettlement(100n,true,split,currency,0n,{receiverDiamonds:200n}).receivedDiamonds).toBe(200n);
+});
+it.each([-1n,1000000000001n])("rejects invalid receiver amount %s",receiverDiamonds=>{
+ expect(()=>calculateGiftSettlement(100n,true,split,currency,0n,{receiverDiamonds})).toThrow();
+});

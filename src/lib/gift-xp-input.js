@@ -16,3 +16,10 @@ export function hostDiamondsInput(value) {
     throw Object.assign(new Error("Host Diamonds must be blank or a whole number from 0 to 1000000000000."), { code: "VALIDATION_ERROR", status: 422 });
   return BigInt(text);
 }
+
+export function receiverDiamondsInput(value) {
+  if (value == null || value === "") return null;
+  if ((typeof value !== "string" && typeof value !== "number") || !/^\d+$/.test(String(value)) || BigInt(value) > 1000000000000n)
+    throw Object.assign(new Error("Receiver Diamonds must be blank or a whole number from 0 to 1000000000000."), { code: "VALIDATION_ERROR", status: 422 });
+  return BigInt(value);
+}

@@ -82,7 +82,7 @@ export async function POST(request) {
           mediaVersion: true,
           posterMediaVersion: true,
           coinPrice: true,
-          hostDiamonds: true,
+          receiverDiamonds: true,
         },
       }),
       prisma.user.findFirst({
@@ -164,7 +164,7 @@ export async function POST(request) {
       const currency = await currencyPolicy(tx);
       const lucky = giftAsset.giftTier === "LUCKY" ? await luckyPolicy(tx) : null;
       const { hostSalaryCoins, agencyCoins, reusableCoins, companyCoins, luckyPoolCoins, receivedDiamonds } =
-        calculateGiftSettlement(grossCoins, isHost, policy, currency, 0n, { luckyPoolBps: lucky?.poolContributionBps ?? null });
+        calculateGiftSettlement(grossCoins, isHost, policy, currency, 0n, { luckyPoolBps: lucky?.poolContributionBps ?? null, receiverDiamonds: giftAsset.receiverDiamonds, quantity });
       const gift = await tx.giftTransaction.create({
         data: {
           senderId: sessionUser.id,

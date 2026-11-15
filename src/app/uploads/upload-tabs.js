@@ -360,7 +360,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
   const [giftTier, setGiftTier] = useState(asset.giftTier ?? "CLASSIC");
   const [senderXp,setSenderXp]=useState(asset.senderXp ?? "0");
   const [receiverXp,setReceiverXp]=useState(asset.receiverXp ?? "0");
-  const [hostDiamonds,setHostDiamonds]=useState(asset.hostDiamonds ?? "");
+  const [receiverDiamonds,setReceiverDiamonds]=useState(asset.receiverDiamonds ?? "");
   const [minimumVipLevel, setMinimumVipLevel] = useState(
     asset.minimumVipLevel ?? 1,
   );
@@ -406,7 +406,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
       ...(isBanner
         ? { actionUrl: actionUrl.trim(), placement, sortOrder: Number(sortOrder) }
         : isGift
-          ? { giftCategory, giftTier, coinPrice, senderXp, receiverXp, hostDiamonds, distribution: "STORE", storeVisible: false }
+          ? { giftCategory, giftTier, coinPrice, senderXp, receiverXp, receiverDiamonds, distribution: "STORE", storeVisible: false }
         : isMusic
           ? { distribution: "FREE", storeVisible: false, isRoomBackground: false }
         : {
@@ -512,7 +512,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
             )}
           </div>
           {isGift && (
-            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp} hostDiamonds={hostDiamonds} onHostDiamonds={setHostDiamonds}
+            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp} receiverDiamonds={receiverDiamonds} onReceiverDiamonds={setReceiverDiamonds}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
@@ -718,7 +718,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
   const [giftTier, setGiftTier] = useState("CLASSIC");
   const [senderXp,setSenderXp]=useState("");
   const [receiverXp,setReceiverXp]=useState("");
-  const [hostDiamonds,setHostDiamonds]=useState("");
+  const [receiverDiamonds,setReceiverDiamonds]=useState("");
   const [minimumVipLevel, setMinimumVipLevel] = useState(1);
   const [minimumRecharge, setMinimumRecharge] = useState("1");
   const [defaultGrantDuration, setDefaultGrantDuration] = useState(null);
@@ -783,7 +783,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
       form.set("giftCategory", giftCategory);
       form.set("senderXp",senderXp);
       form.set("receiverXp",receiverXp);
-      form.set("hostDiamonds", hostDiamonds);
+      form.set("receiverDiamonds", receiverDiamonds);
       form.set("coinPrice", String(coinPrice));
       form.set("distribution", "STORE");
       form.set("storeVisible", "false");
@@ -940,7 +940,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
             </Field>
           )}
           {isGift && (
-            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp} hostDiamonds={hostDiamonds} onHostDiamonds={setHostDiamonds}
+            <GiftCatalogSettings giftCategory={giftCategory} onGiftCategory={setGiftCategory} senderXp={senderXp} onSenderXp={setSenderXp} receiverXp={receiverXp} onReceiverXp={setReceiverXp} receiverDiamonds={receiverDiamonds} onReceiverDiamonds={setReceiverDiamonds}
               giftTier={giftTier}
               onGiftTier={setGiftTier}
               coinPrice={coinPrice}
@@ -1115,7 +1115,7 @@ function AssignmentPeriod({ value, onChange }) {
   );
 }
 
-function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderXp, receiverXp, onReceiverXp, hostDiamonds, onHostDiamonds, giftTier, onGiftTier, coinPrice, onCoinPrice }) {
+function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderXp, receiverXp, onReceiverXp, receiverDiamonds, onReceiverDiamonds, giftTier, onGiftTier, coinPrice, onCoinPrice }) {
   return (
     <fieldset className="rounded-xl border border-[#cadbd7] bg-[#f8fbfa] p-4">
       <legend className="px-2 text-xs font-bold text-[#294a45]">
@@ -1149,7 +1149,8 @@ function GiftCatalogSettings({ giftCategory, onGiftCategory, senderXp, onSenderX
           />
         </Field>
       </div>
-      <p className="mt-4 text-xs">Hosts receive one diamond per gift coin. Other recipients receive one diamond per two gift coins.</p>
+      <div className="mt-4"><Field label="Receiver Diamonds per gift (host amount)"><input type="number" min="0" max="1000000000000" step="1" value={receiverDiamonds} onChange={e=>onReceiverDiamonds(e.target.value)} placeholder="Default: gift coin price" className={inputClass}/></Field></div>
+      <p className="mt-2 text-xs">Blank keeps the current rule: hosts receive the gift coin price in Diamonds. Enter 0 to give no Diamonds. The configured amount is multiplied by gift quantity; normal users receive 50% (rounded down). Applies to every gift behavior, including Lucky and backpack gifts. Sender XP, receiver XP and Lucky sender returns are configured separately.</p>
       {giftTier === "LUCKY" && <p className="mt-3 rounded-lg bg-[#fff6e5] px-3 py-2 text-[11px] leading-4 text-[#7a5a12]">Sender returns for Lucky Gifts come from the Lucky pool and multiplier table in Platform Rules → Lucky Gifts.</p>}
       <p className="mt-3 text-[10px] leading-4 text-[#748681]">
         Gifts are consumable. Users spend this price each time they send one;
