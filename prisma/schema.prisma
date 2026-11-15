@@ -2477,6 +2477,7 @@ model AudioRoom {
   ownerId               String
   title                 String
   country               String?
+  pinScope              String                       @default("NONE")
   status                String                       @default("LIVE")
   liveAudioUrl          String?
   recordingUrl          String?

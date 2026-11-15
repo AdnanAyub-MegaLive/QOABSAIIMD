@@ -368,6 +368,7 @@ function serializeRoom(room, perks, origin) {
     roomId: room.roomId,
     title: room.title,
     country: room.country ?? null,
+    pinScope: room.pinScope,
     status: room.status,
     liveAudioUrl: room.liveAudioUrl,
     recordingUrl: room.recordingUrl,

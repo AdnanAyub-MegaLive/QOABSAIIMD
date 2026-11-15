@@ -1,3 +1,4 @@
+import { findPinnedRooms } from "@/lib/room-pinning";
 import { roomCardActivity, roomCardActivityDto } from "@/lib/room-card-activity";
 import {roomFrameInclude} from "@/lib/room-frame";
 import { roomCoverDto } from "@/lib/room-cover";
@@ -43,14 +44,14 @@ export async function GET(request) {
     // Clear restrictions whose allotted time has passed before discovering rooms.
     await reconcileExpiredAudioRoomRestrictions();
 
-    const rooms = await prisma.audioRoom.findMany({
+    const rooms = await findPinnedRooms(prisma.audioRoom, requestedCountry, {
       where: {
         ownerId: { not: user.id },
         status: includeIdle ? { in: ["LIVE", "IDLE"] } : "LIVE",
         isBlocked: false,
         joiningDisabled: false,
         privacyMode: { not: "HIDDEN" },
-        ...(requestedCountry ? { country: requestedCountry } : {}),
+        ...(requestedCountry ? { OR: [{ country: requestedCountry }, { pinScope: "GLOBAL" }] } : {}),
         owner: {
           deletedAt: null,
           status: "ACTIVE",
@@ -68,6 +69,7 @@ export async function GET(request) {
         revision: true,
         title: true,
         country: true,
+        pinScope: true,
         coverImageUrl: true, coverRevision: true,
         participantCount: true,
         passwordHash: true,
@@ -92,7 +94,7 @@ export async function GET(request) {
           },
         },
       },
-      orderBy: [{ participantCount: "desc" }, { startedAt: "desc" }],
+      orderBy: [{ participantCount: "desc" }, { startedAt: "desc" }, { id: "asc" }],
       take: 50,
     });
     const origin = requestOrigin(request);
@@ -110,6 +112,7 @@ export async function GET(request) {
           roomId: room.roomId,
           title: room.title,
           country: room.country ?? null,
+          pinScope: room.pinScope,
           ...roomCoverDto(room, origin),
           ...roomCardActivityDto(activity, room.roomId),
           participantCount: room.participantCount,
