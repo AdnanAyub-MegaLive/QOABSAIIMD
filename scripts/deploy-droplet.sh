@@ -66,6 +66,7 @@ NODE
 if [ -f /etc/megalive/backup-retention.json ]; then bash scripts/privacy/create-backup.sh; fi
 # Live deployments require backward-compatible migrations. No database rollback is attempted.
 npx prisma migrate deploy
+node scripts/check-ranking-markers.mjs
 node scripts/seed-help-center.mjs --bundled
 node scripts/align-business-schedules.mjs
 node scripts/prepare-business-timezone.mjs "$repo"
