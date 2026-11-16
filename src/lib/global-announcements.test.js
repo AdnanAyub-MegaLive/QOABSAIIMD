@@ -218,3 +218,14 @@ it("queues public Rocket launches by launch ID and dispatches the actor-only ban
   expect(f.sockets[3].emit).not.toHaveBeenCalled();
   expect(f.db.giftTransaction.count).not.toHaveBeenCalled();
 });
+
+it('computes lifetime winnings only for a new qualifying game candidate and persists the snapshot',async()=>{
+ const f=fixture();
+ const candidate={id:'win',actorId:'actor',type:'GAME_WIN',amount:'500',roomId:'ROOM-1',sourceIds:['entry'],confirmed:f.now,details:{gameId:'roulette'}};
+ f.db.$queryRaw.mockReset().mockResolvedValueOnce([{locked:true}]).mockResolvedValueOnce([candidate]).mockResolvedValueOnce([{total:'9007199254740993'}]);
+ await collectAnnouncements(f.db,f.now);
+ expect(f.db.globalAnnouncement.create.mock.calls[0][0].data.payload.details.totalWinningsCoins).toBe('9007199254740993');
+ expect(f.db.$queryRaw).toHaveBeenCalledTimes(3);
+ const ignored=fixture();ignored.db.$queryRaw.mockReset().mockResolvedValueOnce([{locked:true}]).mockResolvedValueOnce([{...candidate,amount:'1'}]);
+ await collectAnnouncements(ignored.db,ignored.now);expect(ignored.db.$queryRaw).toHaveBeenCalledTimes(2);
+});

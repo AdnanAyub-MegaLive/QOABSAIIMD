@@ -1,3 +1,4 @@
+import { refreshReactionDelivery } from "./message-reaction-delivery.js";
 import { prisma } from "./prisma.js";
 import { versionMediaPayload } from "./media-payload.js";
 import { refreshActivityEventMedia } from "./activity-event-media.js";
@@ -48,6 +49,11 @@ async function deliver(rows, io, db) {
             const key = JSON.stringify([roomId, origin]);
             if (!leaderboards.has(key)) leaderboards.set(key, getRoomGiftLeaderboard(roomId, origin, db));
             payload = { ...payload, data: { roomId, ...await leaderboards.get(key), eventId: row.id } };
+          }
+          if (row.event === "message:updated" && row.payload.message?.reactions && row.channel.startsWith("user:")) {
+            const current = await refreshReactionDelivery(db,row);
+            if (!current) { delivered.push(row.id); continue; }
+            payload = { ...current, data: { eventId } };
           }
           if (row.event === "activity-progression:updated") payload = await refreshActivityEventMedia(payload, db);
           payload = await versionMediaPayload(payload, db);

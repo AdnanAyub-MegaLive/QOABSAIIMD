@@ -182,7 +182,7 @@ export async function purgeAccountData(db, requestId) {
     if (remaining.length) throw fail('DEPENDENCY_REVIEW', 'An associated record requires review.');
     await tx.uploadAsset.deleteMany({ where: { id: { in: personalAssetIds } } });
     // Known ownership records without declared User foreign keys.
-    const loose = { TaskTimerCursor: ['userId'], GroupChangeRequest: ['actorId'], ResellerRechargeRequest: ['actorId'], PropGift: ['senderUserId','recipientUserId'], SpecialIdPurchase: ['userId'], ActivityLevelAward: ['subjectId'], RoomRecipientGiftTotal: ['userId'], RoomRocketContribution: ['userId'], HostSalaryAward: ['userId'], VideoLiveInvite: ['userId'], VideoLiveAlertCooldown: ['hostId'], AudioRoomPkSearch: ['ownerId'], ConfirmedRealtimeEvent: ['userId'] };
+    const loose = { TaskTimerCursor: ['userId'], GroupChangeRequest: ['actorId'], ResellerRechargeRequest: ['actorId'], PropGift: ['senderUserId','recipientUserId'], SpecialIdPurchase: ['userId'], ActivityLevelAward: ['subjectId'], RoomRecipientGiftTotal: ['userId'], RoomGiftDiamondCredit: ['userId'], RoomRocketContribution: ['userId'], HostSalaryAward: ['userId'], VideoLiveInvite: ['userId'], VideoLiveAlertCooldown: ['hostId'], AudioRoomPkSearch: ['ownerId'], ConfirmedRealtimeEvent: ['userId'] };
     for (const [table, fields] of Object.entries(loose)) await tx.$executeRawUnsafe(`DELETE FROM ${quote(table)} WHERE ${fields.map(f => `${quote(f)}=ANY($1::text[])`).join(' OR ')}`, [...identities]);
     await tx.apiRequestLog.deleteMany({ where: { userPublicId: { in: [...identities] } } });
     await tx.legacyIdMapping.deleteMany({ where: { userId } });

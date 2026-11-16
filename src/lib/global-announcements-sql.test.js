@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { it, expect } from "vitest";
-import { announcementCandidatesSql } from "./global-announcements.js";
+import { announcementCandidatesSql, totalWinningProfitSql } from "./global-announcements.js";
 
 it("isolated PostgreSQL: complete-round net profit, paid gifts, reversals, expiry and durable dedup", async () => {
   const db = new PGlite(); // In memory only. Never opens the configured database.
@@ -46,6 +46,14 @@ it("isolated PostgreSQL: complete-round net profit, paid gifts, reversals, expir
     await db.query(`INSERT INTO "GlobalAnnouncement" (id,"actorId",type,"roomId","sourceIds","expiresAt") VALUES ($1,'player','GAME_WIN','ROOM-1',ARRAY['e1','e2'],$2)`, [game.id, now]);
     rows = (await db.query(query.text, query.values)).rows;
     expect(rows.some(r => r.type === "GAME_WIN")).toBe(false);
+    await db.exec(`INSERT INTO "SharedGameEntry" VALUES
+      ('loss','day','ROOM-1',3,'player','{"currency":"COINS"}','{"payout":"0"}',900,'SETTLED','2026-10-28','2026-10-28'),
+      ('oldwin','day','ROOM-1',4,'player','{"currency":"COINS"}','{"payout":"9007199254740993"}',100,'SETTLED','2026-10-28','2026-10-28'),
+      ('practice','day','ROOM-1',5,'player','{"currency":"PLAY_POINTS"}','{"payout":"999999"}',100,'SETTLED','2026-10-28','2026-10-28'),
+      ('unfinished','day','ROOM-1',6,'player','{"currency":"COINS"}','{"payout":"999999"}',100,'PENDING',NULL,'2026-10-28'),
+      ('earlycashout','day','ROOM-1',7,'player','{"currency":"COINS"}','{"payout":"999999"}',100,'SETTLED','2026-10-28','2026-10-30');`);
+    const lifetime=totalWinningProfitSql('player',now);
+    expect((await db.query(lifetime.text,lifetime.values)).rows[0].total).toBe('9007199254741043');
     const future = announcementCandidatesSql(now, new Date(now.getTime() + 1000));
     expect((await db.query(future.text, future.values)).rows).toHaveLength(0);
   } finally { await db.close(); }

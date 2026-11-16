@@ -9,7 +9,7 @@ export async function assertRoomModeratorPresent(db, room, actorId) {
   const member = await db.audioRoomMember.findUnique({ where: { audioRoomId_userId: { audioRoomId: room.id, userId: actorId } } });
   if (!member || member.socketCount <= 0) throw roomGuardError("JOIN_ROOM_FIRST");
 }
-export const guardedRoomEvents = new Set(["seat-kick", "seat-lock", "seat-invite", "seat-force-mute", "member-force-deafen", "seat-move-member", "seats-bulk"].map(event => `audio-room:${event}`));
+export const guardedRoomEvents = new Set(["seat-kick", "seat-lock", "seat-invite", "seat-invite-cancel", "seat-force-mute", "member-force-deafen", "seat-move-member", "seats-bulk"].map(event => `audio-room:${event}`));
 export async function guardRoomSocketAction(db, socket, actorId, event, input = {}) {
   if (!guardedRoomEvents.has(event)) return;
   const room = await db.audioRoom.findUnique({ where: { roomId: String(input?.roomId ?? "") } });

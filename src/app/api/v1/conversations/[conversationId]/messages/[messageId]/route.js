@@ -10,13 +10,13 @@ const methods = "PATCH, DELETE, OPTIONS";
 
 export function OPTIONS(request) { return v1Options(request, methods); }
 
-async function serializedMessage(record, request) {
+async function serializedMessage(record, request, viewerId) {
   const perks = await resolveUserPerks(
     record.sender ? [record.sender] : [],
     requestOrigin(request),
     ["FRAMES", "BADGES", "CHAT_BOXES"],
   );
-  return serializeMessage(record, perks.get(record.sender?.publicId));
+  return serializeMessage(record, perks.get(record.sender?.publicId), viewerId);
 }
 
 export async function PATCH(request, { params }) {
@@ -33,7 +33,7 @@ export async function PATCH(request, { params }) {
       );
       const data = {
         conversationId: decodeURIComponent(conversationId),
-        message: await serializedMessage(record, request),
+        message: await serializedMessage(record, request, user.id),
       };
       await emitConversationEvent(globalThis.portalIo, data.conversationId, "message:updated", data);
       return v1Json(request, requestId, { success: true, data }, 200, methods);
@@ -55,7 +55,7 @@ export async function DELETE(request, { params }) {
       );
       const data = {
         conversationId: decodeURIComponent(conversationId),
-        message: await serializedMessage(record, request),
+        message: await serializedMessage(record, request, user.id),
       };
       await emitConversationEvent(globalThis.portalIo, data.conversationId, "message:deleted", data);
       return v1Json(request, requestId, { success: true, data }, 200, methods);

@@ -31,6 +31,7 @@ const handle=app.getRequestHandler();
 
 app.prepare().then(async()=>{
   // Keep the entry point CommonJS; load ESM helpers after Next prepares the environment.
+  const {cancelSeatInvitation}=await import("./src/lib/seat-invitation-cancellation.js");
   const {persistRoomMessage,plainRoomMessage}=await import("./src/lib/room-message-delivery.js");
   // Next environment reloads must not switch internal redirects back to HTTPS.
   process.env.__NEXT_PRIVATE_ORIGIN=internalOrigin;
@@ -458,7 +459,7 @@ app.prepare().then(async()=>{
         const id=String(conversationId??"");
         const record=await editMessage(id,String(messageId??""),user.id,body);
         const perks=await resolveUserPerks(record.sender?[record.sender]:[],connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]);
-        const data={conversationId:id,message:serializeMessage(record,perks.get(record.sender?.publicId))};
+        const data={conversationId:id,message:serializeMessage(record,perks.get(record.sender?.publicId),user.id)};
         await emitConversationEvent(io,id,"message:updated",data);
         ack({success:true,data});
       }catch(error){
@@ -474,7 +475,7 @@ app.prepare().then(async()=>{
         const id=String(conversationId??"");
         const record=await deleteMessage(id,String(messageId??""),user.id);
         const perks=await resolveUserPerks(record.sender?[record.sender]:[],connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]);
-        const data={conversationId:id,message:serializeMessage(record,perks.get(record.sender?.publicId))};
+        const data={conversationId:id,message:serializeMessage(record,perks.get(record.sender?.publicId),user.id)};
         await emitConversationEvent(io,id,"message:deleted",data);
         ack({success:true,data});
       }catch(error){
@@ -525,7 +526,7 @@ app.prepare().then(async()=>{
         result.records=await hydratePostMessages(prisma,result.records,connectionOrigin);
         const perks=await resolveUserPerks(result.records.map((message)=>message.sender).filter(Boolean),connectionOrigin,["FRAMES","BADGES","CHAT_BOXES"]);
         ack({success:true,data:{
-          messages:result.records.map((message)=>({conversationId:message.conversation.publicId,message:serializeMessage(message,perks.get(message.sender?.publicId))})),
+          messages:result.records.map((message)=>({conversationId:message.conversation.publicId,message:serializeMessage(message,perks.get(message.sender?.publicId),user.id)})),
           nextCursor:result.nextCursor,
           hasMore:result.hasMore,
         }});
@@ -948,6 +949,17 @@ app.prepare().then(async()=>{
         setTimeout(async()=>{try{const expired=await prisma.audioRoomSeatInvitation.updateMany({where:{id:invitation.id,status:"PENDING",expiresAt:{lte:new Date()}},data:{status:"EXPIRED",respondedAt:new Date()}});if(expired.count){const payload={success:false,error:{code:"SEAT_INVITATION_EXPIRED",message:"This seat invitation expired."},data:{invitationId:invitation.id,roomId:id,seatId:targetSeatId,status:"EXPIRED"}};io.to(`user:${target.publicId}`).emit("audio-room:seat-invite-result",payload);io.to(`user:${user.publicId}`).emit("audio-room:seat-invite-result",payload)}}catch(error){console.error("Seat invitation expiry failed",error)}},60050);
         const data={invitationId:invitation.id,requestId:clientRequestId||null,roomId:id,seatId:targetSeatId,status:"PENDING",expiresAt:expiresAt.toISOString(),inviter:{publicId:user.publicId,name:user.name,profileImage:user.profileImage??null}};io.to(`user:${target.publicId}`).emit("audio-room:seat-invited",{success:true,data});ack({success:true,data});
       }catch(error){console.error("Audio room seat invite failed",error);ack({success:false,error:{code:error?.code==="P2002"?"DUPLICATE_REQUEST":"SEAT_INVITE_FAILED",message:"Unable to invite this member."}})}
+    });
+    socket.on("audio-room:seat-invite-cancel", async ({roomId, invitationId} = {}, ack = () => {}) => {
+      try {
+        const room = await prisma.audioRoom.findUnique({where:{roomId:String(roomId ?? "")}});
+        if (!room || room.status !== "LIVE") return ack({success:false,error:{code:"ROOM_UNAVAILABLE"}});
+        if (!(await resolveRoomAccess(room,user.id)).permissions.canManageSeats) return ack({success:false,error:{code:"ROOM_PERMISSION_DENIED"}});
+        const {invitation,data} = await cancelSeatInvitation(prisma,room,String(invitationId ?? ""));
+        io.to(`user:${invitation.target.publicId}`).to(`user:${invitation.inviter.publicId}`)
+          .emit("audio-room:seat-invite-cancelled",{success:true,data});
+        ack({success:true,data});
+      } catch(error) { ack({success:false,error:{code:error.code ?? "SEAT_INVITE_CANCEL_FAILED"}}); }
     });
     socket.on("audio-room:seat-invite-respond",async({roomId,invitationId,accept}={},ack=()=>{})=>{
       try{

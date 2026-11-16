@@ -412,6 +412,7 @@ model User {
   createdConversations       Conversation[]                @relation("ConversationCreator")
   conversationParticipants   ConversationParticipant[]
   sentMessages               Message[]
+  messageReactions           MessageReaction[]
   messageReceipts            MessageReceipt[]
   blockedUsers               UserBlock[]                   @relation("UserBlocksCreated")
   blockedByUsers             UserBlock[]                   @relation("UserBlocksReceived")
@@ -506,6 +507,7 @@ model SharedGameEntry {
   resolveAt DateTime
   createdAt DateTime @default(now())
   @@index([dayId,roomId,slot,userId])
+  @@index([userId,dayId,roomId,slot])
   @@index([status,resolveAt])
   @@index([roomId,settledAt])
   @@index([settledAt])
@@ -662,6 +664,7 @@ model RoomGiftDelta {
   roomId String
   coins BigInt @default(0)
   recipients Json @default("{}")
+  diamondRecipients Json @default("{}")
   createdAt DateTime @default(now())
   processedAt DateTime?
   @@index([processedAt, roomId])
@@ -671,6 +674,7 @@ model RoomRecipientGiftTotal {
   roomId String
   userId String
   coins BigInt @default(0)
+  diamonds BigInt @default(0)
   @@id([roomId, userId])
 }
 
@@ -1278,6 +1282,7 @@ model Message {
   conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User?            @relation(fields: [senderId], references: [id], onDelete: SetNull)
   receipts       MessageReceipt[]
+  reactions      MessageReaction[]
 
   @@index([conversationId, createdAt])
   @@index([conversationId, senderCountry, createdAt, id])
@@ -3316,4 +3321,24 @@ model AccountDeletionObject {
   completedAt DateTime?
   @@unique([requestId, kind, key])
   @@index([requestId, completedAt])
+}
+
+model MessageReaction {
+  messageId String
+  userId String
+  emoji String @db.VarChar(64)
+  createdAt DateTime @default(now())
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([messageId, userId, emoji])
+  @@index([userId])
+}
+
+// Source projection used solely for idempotent room presentation deltas.
+model RoomGiftDiamondCredit {
+  giftId String @id
+  roomId String
+  userId String
+  diamonds BigInt
+  @@index([userId])
 }

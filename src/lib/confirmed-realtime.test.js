@@ -32,7 +32,7 @@ test('room event contains public recipient IDs and independently comparable revi
   expect(io.to).toHaveBeenCalledWith('audio-room:R');
   const data=emit.mock.calls[0][1].data;
   expect(data.changedRecipients).toBeUndefined();
-  expect(data.recipients).toEqual([{userId:'USR-QA',receivedGiftCoins:'75',revision:'12'}]);
+  expect(data.recipients).toEqual([{userId:'USR-QA',receivedGiftCoins:'75',receivedGiftDiamonds:'0',revision:'12'}]);
 });
 test('a wake during dispatch schedules a further pass', async()=>{
   const {db,io}=fixture(); let release;
@@ -41,4 +41,13 @@ test('a wake during dispatch schedules a further pass', async()=>{
   const second=flushConfirmedRealtime(db,io);
   release([]); await Promise.all([first,second]);
   expect(db.confirmedRealtimeEvent.findMany).toHaveBeenCalledTimes(2);
+});
+
+test('room Diamond credit is emitted alongside Coins without exposing internal recipient maps',async()=>{
+ const {db,io,emit,rows}=fixture();
+ rows[0]={...rows[0],userId:null,roomId:'R',event:'audio-room:gift-totals',payload:{roomTotalsRevision:'13',roomTotalCoins:'100',changedRecipients:{internal:'100'},changedRecipientDiamonds:{internal:'20'}}};
+ await flushConfirmedRealtime(db,io);
+ const data=emit.mock.calls[0][1].data;
+ expect(data.recipients).toEqual([{userId:'USR-QA',receivedGiftCoins:'100',receivedGiftDiamonds:'20',revision:'13'}]);
+ expect(data.changedRecipientDiamonds).toBeUndefined();
 });

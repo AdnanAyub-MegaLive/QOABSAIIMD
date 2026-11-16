@@ -1,3 +1,4 @@
+import { summarizeReactions } from "./message-reaction-summary.js";
 import { claimChatPost, hydratePostMessages } from "./chat-posts.js";
 import { prisma } from "./prisma.js";
 import { createHash } from "node:crypto";
@@ -169,8 +170,9 @@ export async function requireConversationParticipant(publicId, userId) {
   return participant;
 }
 
-export function serializeMessage(message, senderPerks) {
+export function serializeMessage(message, senderPerks, viewerId) {
   return {
+    ...(message.reactions || message.deletedAt ? {reactions: message.deletedAt ? [] : summarizeReactions(message.reactions,viewerId)} : {}),
     senderCountry: message.senderCountry ?? null,
     id: message.publicId,
     clientMessageId: message.clientMessageId ?? null,
@@ -213,7 +215,7 @@ export async function createMessage(
   const isPost = options.postId !== undefined && options.postId !== null;
   if (isPost && (typeof options.postId !== "string" || !options.postId.trim() || options.postId.length > 128 || !clientMessageId || options.mediaId || options.voice || String(rawBody ?? "").trim() || conversation.kind !== "DIRECT"))
     throw chatError("VALIDATION_ERROR", "Provide postId and clientMessageId with an empty body in a direct chat.");
-  const present = async record => serializeMessage((await hydratePostMessages(prisma, [record], options.origin))[0], senderPerks);
+  const present = async record => serializeMessage((await hydratePostMessages(prisma, [record], options.origin))[0], senderPerks, sender.id);
   const body = isPost ? "Shared a post" : options.mediaId ? "Sent media" : options.voice ? "Voice message" : String(rawBody ?? "").trim();
   if(conversation.kind==="WORLD")assertNoCountryLinks(body);
   const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null,...(options.mediaId?{mediaId:options.mediaId}:{}),...(isPost?{postId:options.postId}:{})})).digest("hex");
@@ -311,6 +313,7 @@ function validatedMessageBody(rawBody) {
 }
 
 const messageSenderInclude = {
+  reactions: {select:{userId:true,emoji:true}},
   sender: {
     select: {
       publicId: true,
@@ -469,6 +472,12 @@ export async function emitConversationEvent(io, conversationId, event, payload) 
     await refreshCountryChatRooms(prisma,io);
     io.to(`conversation:${conversationId}:${country}`).emit(event,payload);return;
   }
+  if (payload.message?.reactions && !payload.message.deletedAt) {
+    const record = await prisma.message.findUnique({where:{publicId:payload.message.id},select:{reactions:{select:{userId:true,emoji:true}}}});
+    const members = await prisma.conversationParticipant.findMany({where:{conversation:{publicId:conversationId}},select:{userId:true,user:{select:{publicId:true}}}});
+    for (const member of members) io.to(`user:${member.user.publicId}`).emit(event,{...payload,message:{...payload.message,reactions:summarizeReactions(record?.reactions,member.userId)}});
+    return;
+  }
   const conversation=await prisma.conversation.findUnique({where:{publicId:conversationId},select:{kind:true}});
   if(conversation?.kind==="GROUP"){io.to(`conversation:${conversationId}`).emit(event,payload);return;}
   const participants = await prisma.conversationParticipant.findMany({
@@ -521,6 +530,7 @@ export async function syncMessagesForUser(userId, { cursor = null, limit = 50 } 
         : {}),
     },
     include: {
+      reactions: {select:{userId:true,emoji:true}},
       sender: {
         select: {
           publicId: true,

@@ -31,7 +31,7 @@ export async function GET(request) {
         data: {
           messages: result.records.map((message) => ({
             conversationId: message.conversation.publicId,
-            message: serializeMessage(message, perks.get(message.sender?.publicId)),
+            message: serializeMessage(message, perks.get(message.sender?.publicId), user.id),
           })),
           nextCursor: result.nextCursor,
           hasMore: result.hasMore,

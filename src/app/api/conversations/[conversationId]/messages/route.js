@@ -44,6 +44,7 @@ export async function GET(request, { params }) {
     const records = await prisma.message.findMany({
       where: visibility,
       include: {
+        reactions: {select:{userId:true,emoji:true}},
         sender: {
           select: {
             id: true,
@@ -80,6 +81,7 @@ export async function GET(request, { params }) {
             serializeMessage(
               message,
               perks.get(message.sender?.publicId),
+              user.id,
             ),
           ),
         nextCursor,

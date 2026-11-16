@@ -32,8 +32,9 @@ export function flushConfirmedRealtime(db, io, telemetry = () => {}, trigger = '
               data.userId = publicId; channel = `user:${publicId}`;
             } else if (row.event === 'audio-room:gift-totals') {
               data.recipients = Object.entries(data.changedRecipients ?? {}).filter(([id]) => byId.has(id))
-                .map(([id, coins]) => ({ userId: byId.get(id), receivedGiftCoins: coins, revision: data.roomTotalsRevision }));
+                .map(([id, coins]) => ({ userId: byId.get(id), receivedGiftCoins: coins, receivedGiftDiamonds: String(data.changedRecipientDiamonds?.[id] ?? 0), revision: data.roomTotalsRevision }));
               delete data.changedRecipients;
+              delete data.changedRecipientDiamonds;
               data.recipientScope = 'CHANGED'; data.scope = 'ALL_TIME_RECORDED_GIFT_COINS';
               channel = `audio-room:${row.roomId}`;
             } else throw new Error('Unsupported confirmed event');
@@ -61,11 +62,11 @@ export async function roomGiftTotalsSnapshot(db, roomId) {
   await db.$queryRaw`SELECT portal_fold_room_gift_deltas(${roomId}) AS folded`;
   return db.$transaction(async tx => {
     const total = await tx.roomGiftTotal.findUnique({ where: { roomId } });
-    const recipients = await tx.roomRecipientGiftTotal.findMany({ where: { roomId, coins: { not: 0n } } });
+    const recipients = await tx.roomRecipientGiftTotal.findMany({ where: { roomId, OR: [{coins: { not: 0n }},{diamonds: {not: 0n}}] } });
     const users = recipients.length ? await tx.user.findMany({ where: { id: { in: recipients.map(r => r.userId) }, status: 'ACTIVE', deletedAt: null }, select: { id: true, publicId: true } }) : [];
     const ids = new Map(users.map(u => [u.id, u.publicId]));
     const pending = await tx.roomGiftDelta.findFirst({ where: { roomId, processedAt: null }, select: { id: true } });
     return { roomId, pendingUpdates: Boolean(pending), scope: 'ALL_TIME_RECORDED_GIFT_COINS', recipientScope: 'ALL', roomTotalsRevision: String(total?.revision ?? 0n), roomTotalCoins: String(total?.coins ?? 0n),
-      recipients: recipients.filter(r => ids.has(r.userId)).map(r => ({ userId: ids.get(r.userId), receivedGiftCoins: String(r.coins), revision: String(total?.revision ?? 0n) })), serverTime: new Date().toISOString() };
+      recipients: recipients.filter(r => ids.has(r.userId)).map(r => ({ userId: ids.get(r.userId), receivedGiftCoins: String(r.coins), receivedGiftDiamonds: String(r.diamonds ?? 0n), revision: String(total?.revision ?? 0n) })), serverTime: new Date().toISOString() };
   }, { isolationLevel: 'RepeatableRead' });
 }
