@@ -10,6 +10,7 @@ import {
   createSpecialIdDefinition,
   deleteSpecialIdDefinition,
   revokeSpecialId,
+  manageSpecialIdHistory,
 } from "../database-actions";
 import usePortalData from "../hooks/use-portal-data";
 import DurationPicker from "../components/duration-picker";
@@ -19,6 +20,7 @@ import SpecialIdStoreSettings from "../vip-management/special-id-store-settings"
 export default function SpecialIdAssignments({ initialAssignments, canManage = true, onChanged = () => {} }) {
   const [rows, setRows] = usePortalData(initialAssignments);
   const [selected, setSelected] = useState(null);
+  const [historyAction, setHistoryAction] = useState(null);
   const active = rows.filter((row) => row.status === "ACTIVE").length;
   return (
     <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
@@ -48,7 +50,7 @@ export default function SpecialIdAssignments({ initialAssignments, canManage = t
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf2f1]">
-            {rows.map((row) => (
+            {rows.filter(row => row.status !== "REMOVED").map((row) => (
               <tr key={row.id}>
                 <td className="px-5 py-4 font-mono font-bold text-[#087f74]">
                   {row.specialId}
@@ -93,12 +95,17 @@ export default function SpecialIdAssignments({ initialAssignments, canManage = t
                       Revoke
                     </button>
                   )}
+                  {canManage && ["EXPIRED", "REVOKED", "REPLACED"].includes(row.status) && <div className="flex justify-end gap-2">
+                    <button className="rounded-lg border border-purple-200 px-3 py-2 text-purple-700" onClick={() => setHistoryAction({ row, action: "REASSIGN" })}>Reassign</button>
+                    <button className="rounded-lg border border-red-200 px-3 py-2 text-red-600" onClick={() => setHistoryAction({ row, action: "DELETE" })}>Delete</button>
+                  </div>}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {historyAction && <HistoryModal {...historyAction} onClose={() => setHistoryAction(null)} onDone={() => { if (historyAction.action === "DELETE") setRows(current => current.filter(row => row.id !== historyAction.row.id)); setHistoryAction(null); onChanged(); }} />}
       {selected && (
         <ReasonModal
           title="Revoke Special ID"
@@ -235,6 +242,30 @@ export function SpecialIdCatalog({ initialCatalog, canManage = true, onAssign, o
       )}
     </section>
   );
+}
+
+function HistoryModal({ row, action, onClose, onDone }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const deleting = action === "DELETE";
+  return <Modal title={`${deleting ? "Delete" : "Reassign"} Special ID ${row.specialId}`} subtitle="Historical assignment" onClose={() => { if (!pending) onClose(); }}>
+    <form className="space-y-4" onSubmit={async event => {
+      event.preventDefault(); if (pending) return;
+      const form = new FormData(event.currentTarget); setPending(true); setError("");
+      try { const result = await manageSpecialIdHistory({ assignmentId: row.id, action, publicId: form.get("publicId"), durationMinutes: Number(form.get("durationMinutes")), reason: form.get("reason") }); if (!result.success) { setError(result.message); return; } onDone(); }
+      catch (failure) { setError(failure.message || "Unable to update this ID."); }
+      finally { setPending(false); }
+    }}>
+      {deleting ? <p className="text-sm text-slate-600">Remove this historical entry and archive its unused catalogue ID. Audit and purchase records are retained. Any current owner&apos;s assignment stays unchanged. You can create this ID again later.</p> : <>
+        <Field label="New user's normal public ID"><input name="publicId" required placeholder="USR-123456 or TLN-123456" className={input}/></Field>
+        <DurationPicker defaultMinutes={row.durationMinutes || 10080}/>
+        <p className="text-xs text-slate-600">Creates a new timed assignment. An ID still owned by another user cannot be reassigned.</p>
+      </>}
+      <Field label="Admin reason"><textarea name="reason" required maxLength={500} className={input}/></Field>
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2"><button type="button" onClick={onClose} disabled={pending} className="rounded-lg border px-4 py-2">Cancel</button><button disabled={pending} className={`rounded-lg px-4 py-2 text-white ${deleting ? "bg-red-600" : "bg-purple-600"}`}>{pending ? "Saving…" : deleting ? "Delete ID" : "Reassign ID"}</button></div>
+    </form>
+  </Modal>;
 }
 
 function DeleteDefinitionModal({ item, onClose, onDeleted }) {

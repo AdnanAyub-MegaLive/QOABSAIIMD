@@ -1023,6 +1023,20 @@ export async function controlAudioRoom(
   return payload.data;
 }
 
+export async function manageSpecialIdHistory(values) {
+  const admin = await requirePermission("users.specialIds");
+  const { manageHistoricalSpecialId } = await import("@/lib/special-id-admin");
+  let result;
+  try { result = await manageHistoricalSpecialId(prisma, admin, values); }
+  catch (error) {
+    if (error.name === "SpecialIdAdminError") return { success: false, message: error.message };
+    throw error;
+  }
+  revalidatePath("/users");
+  revalidatePath("/vip-management");
+  return result;
+}
+
 export async function createSpecialIdDefinition(values) {
   const admin = await requirePermission("users.specialIds");
   const code = normalizeSpecialId(values.code);
@@ -1034,9 +1048,9 @@ export async function createSpecialIdDefinition(values) {
     throw new Error("INVALID_SPECIAL_ID_DURATION");
   const duplicate = await prisma.specialIdDefinition.findUnique({
     where: { code },
-    select: { id: true },
+    select: { id: true, active: true },
   });
-  if (duplicate)
+  if (duplicate?.active)
     return {
       success: false,
       error: {
@@ -1047,8 +1061,14 @@ export async function createSpecialIdDefinition(values) {
     };
   let definition;
   try {
-    definition = await prisma.specialIdDefinition.create({
-      data: {
+    definition = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(2030140)::text AS locked`;
+      const existing = await tx.specialIdDefinition.findUnique({ where: { code } });
+      if (existing?.active || await tx.specialIdAssignment.findFirst({ where: { specialId: { equals: code, mode: "insensitive" }, ...occupiedSpecialId(new Date()) } })) throw Object.assign(new Error("SPECIAL_ID_ALREADY_EXISTS"), { code: "P2002" });
+    return tx.specialIdDefinition.upsert({
+      where: { code },
+      update: { active: true, category, defaultDurationMinutes: duration, storeVisible: false, coinPrice: null, minimumVipLevel: values.minimumVipLevel ? Number(values.minimumVipLevel) : null, minimumTopUpAmount: values.minimumTopUpAmount ? BigInt(values.minimumTopUpAmount) : null },
+      create: {
         code,
         category,
         minimumVipLevel: values.minimumVipLevel
@@ -1059,6 +1079,7 @@ export async function createSpecialIdDefinition(values) {
           : null,
         defaultDurationMinutes: duration,
       },
+    });
     });
   } catch (error) {
     if (error?.code === "P2002")
