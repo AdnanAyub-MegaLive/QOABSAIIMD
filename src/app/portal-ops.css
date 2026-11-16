@@ -145,3 +145,361 @@ main.portal-ui {background:var(--ops-canvas);}
 .portal-ui.mega-portal .chart-legend i.payout {background:#a78bfa;}
 .portal-ui.mega-portal :is(.notice,.info-strip) {background:#f3eef9;color:#6b4688;border-color:#e8e0ef;}
 .portal-ui.mega-portal :is(.notice button,.text-button) {color:#6d28d9;}
+
+/* All portal statuses and controls use the brand palette; player pages are separate. */
+.portal-ui {
+ --color-green-50:var(--color-purple-50);
+ --color-green-100:var(--color-purple-100);
+ --color-green-200:var(--color-purple-200);
+ --color-green-300:var(--color-purple-300);
+ --color-green-400:var(--color-purple-400);
+ --color-green-500:var(--color-purple-500);
+ --color-green-600:var(--color-purple-600);
+ --color-green-700:var(--color-purple-700);
+ --color-green-800:var(--color-purple-800);
+ --color-green-900:var(--color-purple-900);
+ --color-green-950:var(--color-purple-950);
+ --color-emerald-50:var(--color-purple-50);
+ --color-emerald-100:var(--color-purple-100);
+ --color-emerald-200:var(--color-purple-200);
+ --color-emerald-300:var(--color-purple-300);
+ --color-emerald-400:var(--color-purple-400);
+ --color-emerald-500:var(--color-purple-500);
+ --color-emerald-600:var(--color-purple-600);
+ --color-emerald-700:var(--color-purple-700);
+ --color-emerald-800:var(--color-purple-800);
+ --color-emerald-900:var(--color-purple-900);
+ --color-emerald-950:var(--color-purple-950);
+ --color-teal-50:var(--color-purple-50);
+ --color-teal-100:var(--color-purple-100);
+ --color-teal-200:var(--color-purple-200);
+ --color-teal-300:var(--color-purple-300);
+ --color-teal-400:var(--color-purple-400);
+ --color-teal-500:var(--color-purple-500);
+ --color-teal-600:var(--color-purple-600);
+ --color-teal-700:var(--color-purple-700);
+ --color-teal-800:var(--color-purple-800);
+ --color-teal-900:var(--color-purple-900);
+ --color-teal-950:var(--color-purple-950);
+ --color-lime-50:var(--color-purple-50);
+ --color-lime-100:var(--color-purple-100);
+ --color-lime-200:var(--color-purple-200);
+ --color-lime-300:var(--color-purple-300);
+ --color-lime-400:var(--color-purple-400);
+ --color-lime-500:var(--color-purple-500);
+ --color-lime-600:var(--color-purple-600);
+ --color-lime-700:var(--color-purple-700);
+ --color-lime-800:var(--color-purple-800);
+ --color-lime-900:var(--color-purple-900);
+ --color-lime-950:var(--color-purple-950);
+ accent-color:#7c3aed;
+}
+.portal-ui [class~="ring-[#16877d]"] {--tw-ring-color:#4e1687;}
+.portal-ui [class~="ring-[#2ca89c]"] {--tw-ring-color:#6a2ca8;}
+.portal-ui [class~="accent-[#087f74]"] {accent-color:#431176;}
+.portal-ui [class~="accent-[#16877d]"] {accent-color:#4e1687;}
+.portal-ui [class~="bg-[#061c1a]"] {background-color:#11061c;}
+.portal-ui [class~="bg-[#061f1d]"] {background-color:#12061f;}
+.portal-ui [class~="bg-[#071f1d]"] {background-color:#13071f;}
+.portal-ui [class~="bg-[#092f2d]"] {background-color:#1c092f;}
+.portal-ui [class~="bg-[#102f2c]"] {background-color:#1f102f;}
+.portal-ui [class~="bg-[#073a30]"] {background-color:#200839;}
+.portal-ui [class~="bg-[#183f3b]"] {background-color:#2b183f;}
+.portal-ui [class~="bg-[#124a42]"] {background-color:#2e124a;}
+.portal-ui [class~="bg-[#075e56]"] {background-color:#320d58;}
+.portal-ui [class~="bg-[#066c63]"] {background-color:#390e64;}
+.portal-ui [class~="bg-[#076f66]"] {background-color:#3b0f67;}
+.portal-ui [class~="bg-[#0c796b]"],
+.portal-ui [class~="bg-[#0f766e]"] {background-color:#421174;}
+.portal-ui [class~="bg-[#087f74]"] {background-color:#431176;}
+.portal-ui [class~="bg-[#16877d]"] {background-color:#4e1687;}
+.portal-ui [class~="bg-[#1fbaa8]"] {background-color:#6c1fba;}
+.portal-ui [class~="bg-[#38ad9f]"] {background-color:#7238ad;}
+.portal-ui [class~="bg-[#25c6b4]"] {background-color:#7525c6;}
+.portal-ui [class~="bg-[#28c9b8]"] {background-color:#7828c9;}
+.portal-ui [class~="bg-[#45e2c7]"] {background-color:#9345e2;}
+.portal-ui [class~="bg-[#54e2cf]"] {background-color:#9b54e2;}
+.portal-ui [class~="bg-[#cfece7]"] {background-color:#decfec;}
+.portal-ui [class~="bg-[#d4ece8]"] {background-color:#e0d4ec;}
+.portal-ui [class~="bg-[#d6eeea]"] {background-color:#e2d6ee;}
+.portal-ui [class~="bg-[#d8eeea]"] {background-color:#e3d8ee;}
+.portal-ui [class~="bg-[#d9f6ed]"] {background-color:#e8d9f6;}
+.portal-ui [class~="bg-[#dff3ef]"] {background-color:#e9dff3;}
+.portal-ui [class~="bg-[#dff5f1]"] {background-color:#eadff5;}
+.portal-ui [class~="bg-[#e1f3f0]"] {background-color:#eae1f3;}
+.portal-ui [class~="bg-[#e2f7ef]"] {background-color:#ece2f7;}
+.portal-ui [class~="bg-[#e4f5f2]"] {background-color:#ece4f5;}
+.portal-ui [class~="bg-[#e5f4f1]"] {background-color:#ece5f4;}
+.portal-ui [class~="bg-[#e6f3f1]"] {background-color:#ece6f3;}
+.portal-ui [class~="bg-[#e4f6f3]"] {background-color:#ede4f6;}
+.portal-ui [class~="bg-[#e5f5f2]"] {background-color:#ede5f5;}
+.portal-ui [class~="bg-[#e6f4f1]"] {background-color:#ede6f4;}
+.portal-ui [class~="bg-[#e6f5f2]"] {background-color:#eee6f5;}
+.portal-ui [class~="bg-[#e7f5f2]"] {background-color:#eee7f5;}
+.portal-ui [class~="bg-[#e8f5f1]"],
+.portal-ui [class~="bg-[#e8f5f2]"] {background-color:#eee8f5;}
+.portal-ui [class~="bg-[#e8f6f3]"] {background-color:#efe8f6;}
+.portal-ui [class~="bg-[#e9f7f1]"] {background-color:#f0e9f7;}
+.portal-ui [class~="bg-[#eaf5f3]"] {background-color:#f0eaf5;}
+.portal-ui [class~="bg-[#eaf7f4]"] {background-color:#f0eaf7;}
+.portal-ui [class~="bg-[#edf4f2]"] {background-color:#f0edf4;}
+.portal-ui [class~="bg-[#eef3f2]"] {background-color:#f0eef3;}
+.portal-ui [class~="bg-[#edf5f2]"] {background-color:#f1edf5;}
+.portal-ui [class~="bg-[#eef4f2]"] {background-color:#f1eef4;}
+.portal-ui [class~="bg-[#edf7f5]"] {background-color:#f2edf7;}
+.portal-ui [class~="bg-[#edf8f6]"] {background-color:#f2edf8;}
+.portal-ui [class~="bg-[#eef5f3]"] {background-color:#f2eef5;}
+.portal-ui [class~="bg-[#eef6f3]"] {background-color:#f2eef6;}
+.portal-ui [class~="bg-[#eef7f4]"],
+.portal-ui [class~="bg-[#eef7f5]"] {background-color:#f2eef7;}
+.portal-ui [class~="bg-[#f0f5f4]"] {background-color:#f2f0f5;}
+.portal-ui [class~="bg-[#eef8f6]"] {background-color:#f3eef8;}
+.portal-ui [class~="bg-[#f1f5f4]"] {background-color:#f3f1f5;}
+.portal-ui [class~="bg-[#f1f6f5]"] {background-color:#f3f1f6;}
+.portal-ui [class~="bg-[#ecfdf3]"] {background-color:#f4edfc;}
+.portal-ui [class~="bg-[#eff9f7]"] {background-color:#f4eff9;}
+.portal-ui [class~="bg-[#f1f7f5]"] {background-color:#f4f1f7;}
+.portal-ui [class~="bg-[#f2f7f6]"] {background-color:#f4f2f7;}
+.portal-ui [class~="bg-[#f3f6f5]"] {background-color:#f4f3f6;}
+.portal-ui [class~="bg-[#f0faf7]"] {background-color:#f5f0fa;}
+.portal-ui [class~="bg-[#f3f8f6]"],
+.portal-ui [class~="bg-[#f3f8f7]"] {background-color:#f5f3f8;}
+.portal-ui [class~="bg-[#f1fbf9]"] {background-color:#f6f1fb;}
+.portal-ui [class~="bg-[#f4f8f7]"] {background-color:#f6f4f8;}
+.portal-ui [class~="bg-[#f4f9f8]"] {background-color:#f6f4f9;}
+.portal-ui [class~="bg-[#f5f8f7]"] {background-color:#f6f5f8;}
+.portal-ui [class~="bg-[#f5f9f8]"] {background-color:#f7f5f9;}
+.portal-ui [class~="bg-[#f6f9f8]"] {background-color:#f8f6f9;}
+.portal-ui [class~="bg-[#f6faf8]"] {background-color:#f8f6fa;}
+.portal-ui [class~="bg-[#f6fbfa]"] {background-color:#f8f6fb;}
+.portal-ui [class~="bg-[#f7faf9]"] {background-color:#f8f7fa;}
+.portal-ui [class~="bg-[#f7fbfa]"] {background-color:#f9f7fb;}
+.portal-ui [class~="bg-[#f8fbfa]"] {background-color:#faf8fb;}
+.portal-ui [class~="bg-[#f9fbfb]"] {background-color:#faf9fb;}
+.portal-ui [class~="bg-[#f9fcfb]"] {background-color:#fbf9fc;}
+.portal-ui [class~="bg-[#fafcfc]"] {background-color:#fbfafc;}
+.portal-ui [class~="bg-[#fbfdfd]"] {background-color:#fcfbfd;}
+.portal-ui [class~="border-[#0c796b]"],
+.portal-ui [class~="border-[#0f766e]"] {border-color:#421174;}
+.portal-ui [class~="border-[#087f74]"] {border-color:#431176;}
+.portal-ui [class~="border-[#16877d]"] {border-color:#4e1687;}
+.portal-ui [class~="border-[#2ca89c]"] {border-color:#6a2ca8;}
+.portal-ui [class~="border-[#8eb9b3]"] {border-color:#a38eb9;}
+.portal-ui [class~="border-[#add3cd]"] {border-color:#c0add3;}
+.portal-ui [class~="border-[#aed4cf]"] {border-color:#c1aed4;}
+.portal-ui [class~="border-[#b5d4cb]"] {border-color:#c4b5d4;}
+.portal-ui [class~="border-[#bfd5cf]"] {border-color:#cabfd5;}
+.portal-ui [class~="border-[#bddbd6]"] {border-color:#ccbddb;}
+.portal-ui [class~="border-[#bcded9]"] {border-color:#cdbcde;}
+.portal-ui [class~="border-[#bce9e2]"] {border-color:#d2bce9;}
+.portal-ui [class~="border-[#cadbd7]"] {border-color:#d2cadb;}
+.portal-ui [class~="border-[#cbdad7]"] {border-color:#d2cbda;}
+.portal-ui [class~="border-[#c9ddd8]"] {border-color:#d3c9dd;}
+.portal-ui [class~="border-[#cbded8]"],
+.portal-ui [class~="border-[#cbded9]"] {border-color:#d4cbde;}
+.portal-ui [class~="border-[#cededb]"] {border-color:#d6cede;}
+.portal-ui [class~="border-[#cfe1de]"] {border-color:#d8cfe1;}
+.portal-ui [class~="border-[#cfe4e0]"] {border-color:#dacfe4;}
+.portal-ui [class~="border-[#d3e0dd]"] {border-color:#dad3e0;}
+.portal-ui [class~="border-[#d4e0de]"] {border-color:#dad4e0;}
+.portal-ui [class~="border-[#d4e3e0]"] {border-color:#dcd4e3;}
+.portal-ui [class~="border-[#d5e2df]"] {border-color:#dcd5e2;}
+.portal-ui [class~="border-[#d6e4e1]"] {border-color:#ddd6e4;}
+.portal-ui [class~="border-[#d7e3e0]"] {border-color:#ddd7e3;}
+.portal-ui [class~="border-[#d8e2e0]"] {border-color:#ddd8e2;}
+.portal-ui [class~="border-[#d7e4e1]"] {border-color:#ded7e4;}
+.portal-ui [class~="border-[#d7e5e2]"] {border-color:#ded7e5;}
+.portal-ui [class~="border-[#d9e5e2]"] {border-color:#dfd9e5;}
+.portal-ui [class~="border-[#d9e8e5]"] {border-color:#e0d9e8;}
+.portal-ui [class~="border-[#dce6e4]"] {border-color:#e1dce6;}
+.portal-ui [class~="border-[#dbe8e5]"] {border-color:#e2dbe8;}
+.portal-ui [class~="border-[#dce7e4]"] {border-color:#e2dce7;}
+.portal-ui [class~="border-[#dce8e5]"] {border-color:#e2dce8;}
+.portal-ui [class~="border-[#dfe9e7]"] {border-color:#e4dfe9;}
+.portal-ui [class~="border-[#e0eae7]"],
+.portal-ui [class~="border-[#e0eae8]"] {border-color:#e5e0ea;}
+.portal-ui [class~="border-[#e1eae8]"] {border-color:#e5e1ea;}
+.portal-ui [class~="border-[#e1ebe8]"],
+.portal-ui [class~="border-[#e1ebe9]"] {border-color:#e6e1eb;}
+.portal-ui [class~="border-[#e3ebe9]"] {border-color:#e7e3eb;}
+.portal-ui [class~="border-[#e3ece9]"],
+.portal-ui [class~="border-[#e3ecea]"] {border-color:#e8e3ec;}
+.portal-ui [class~="border-[#e4eeeb]"] {border-color:#e9e4ee;}
+.portal-ui [class~="border-[#e5ecea]"] {border-color:#e9e5ec;}
+.portal-ui [class~="border-[#e5edeb]"] {border-color:#e9e5ed;}
+.portal-ui [class~="border-[#e6eeec]"] {border-color:#eae6ee;}
+.portal-ui [class~="border-[#e8efed]"] {border-color:#ece8ef;}
+.portal-ui [class~="border-[#edf2f0]"],
+.portal-ui [class~="border-[#edf2f1]"] {border-color:#f0edf2;}
+.portal-ui [class~="border-[#eef3f2]"] {border-color:#f0eef3;}
+.portal-ui [class~="text-[#062522]"] {color:#150625;}
+.portal-ui [class~="text-[#142c2a]"] {color:#20142c;}
+.portal-ui [class~="text-[#172f2b]"] {color:#23172f;}
+.portal-ui [class~="text-[#173b37]"] {color:#29173b;}
+.portal-ui [class~="text-[#183b37]"] {color:#29183b;}
+.portal-ui [class~="text-[#183f3b]"] {color:#2b183f;}
+.portal-ui [class~="text-[#203b37]"] {color:#2d203b;}
+.portal-ui [class~="text-[#0b5148]"] {color:#2e0c50;}
+.portal-ui [class~="text-[#05603a]"] {color:#320d58;}
+.portal-ui [class~="text-[#263e3a]"] {color:#32263e;}
+.portal-ui [class~="text-[#29423d]"] {color:#352942;}
+.portal-ui [class~="text-[#294a45]"] {color:#39294a;}
+.portal-ui [class~="text-[#304944]"] {color:#3c3049;}
+.portal-ui [class~="text-[#334d49]"] {color:#40334d;}
+.portal-ui [class~="text-[#0c796b]"],
+.portal-ui [class~="text-[#0f766e]"] {color:#421174;}
+.portal-ui [class~="text-[#176e65]"] {color:#42176e;}
+.portal-ui [class~="text-[#087f74]"] {color:#431176;}
+.portal-ui [class~="text-[#176f67]"] {color:#43176f;}
+.portal-ui [class~="text-[#27635c]"] {color:#452763;}
+.portal-ui [class~="text-[#3f5752]"] {color:#4b3f57;}
+.portal-ui [class~="text-[#405853]"] {color:#4c4058;}
+.portal-ui [class~="text-[#16877d]"] {color:#4e1687;}
+.portal-ui [class~="text-[#435e57]"] {color:#50435e;}
+.portal-ui [class~="text-[#445d57]"] {color:#50445d;}
+.portal-ui [class~="text-[#28877e]"] {color:#572887;}
+.portal-ui [class~="text-[#526561]"] {color:#5b5265;}
+.portal-ui [class~="text-[#4d6c67]"] {color:#5c4d6c;}
+.portal-ui [class~="text-[#526863]"] {color:#5d5268;}
+.portal-ui [class~="text-[#526963]"] {color:#5e5269;}
+.portal-ui [class~="text-[#526a65]"] {color:#5e526a;}
+.portal-ui [class~="text-[#526b67]"] {color:#5e526b;}
+.portal-ui [class~="text-[#536863]"] {color:#5e5368;}
+.portal-ui [class~="text-[#4f726c]"] {color:#604f72;}
+.portal-ui [class~="text-[#526e68]"] {color:#60526e;}
+.portal-ui [class~="text-[#566d67]"] {color:#61566d;}
+.portal-ui [class~="text-[#57716a]"] {color:#645771;}
+.portal-ui [class~="text-[#5c716c]"] {color:#665c71;}
+.portal-ui [class~="text-[#5d716c]"] {color:#675d71;}
+.portal-ui [class~="text-[#5e756f]"] {color:#695e75;}
+.portal-ui [class~="text-[#60736f]"] {color:#696073;}
+.portal-ui [class~="text-[#429387]"] {color:#6a4293;}
+.portal-ui [class~="text-[#60756f]"] {color:#6a6075;}
+.portal-ui [class~="text-[#5f7772]"] {color:#6b5f77;}
+.portal-ui [class~="text-[#627470]"] {color:#6b6274;}
+.portal-ui [class~="text-[#657772]"] {color:#6e6577;}
+.portal-ui [class~="text-[#637b75]"] {color:#6f637b;}
+.portal-ui [class~="text-[#647b76]"] {color:#6f647b;}
+.portal-ui [class~="text-[#657a75]"] {color:#6f657a;}
+.portal-ui [class~="text-[#667875]"] {color:#6f6678;}
+.portal-ui [class~="text-[#667975]"] {color:#706679;}
+.portal-ui [class~="text-[#687c77]"] {color:#72687c;}
+.portal-ui [class~="text-[#697d78]"] {color:#73697d;}
+.portal-ui [class~="text-[#68807b]"] {color:#746880;}
+.portal-ui [class~="text-[#6e817c]"] {color:#776e81;}
+.portal-ui [class~="text-[#6f827d]"] {color:#786f82;}
+.portal-ui [class~="text-[#6f837e]"] {color:#796f83;}
+.portal-ui [class~="text-[#70827e]"] {color:#797082;}
+.portal-ui [class~="text-[#71847f]"] {color:#7a7184;}
+.portal-ui [class~="text-[#718580]"] {color:#7b7185;}
+.portal-ui [class~="text-[#738681]"] {color:#7c7386;}
+.portal-ui [class~="text-[#748681]"] {color:#7d7486;}
+.portal-ui [class~="text-[#748782]"] {color:#7e7487;}
+.portal-ui [class~="text-[#748883]"] {color:#7e7488;}
+.portal-ui [class~="text-[#758883]"] {color:#7e7588;}
+.portal-ui [class~="text-[#768984]"] {color:#7f7689;}
+.portal-ui [class~="text-[#788b86]"],
+.portal-ui [class~="text-[#788b87]"] {color:#82788b;}
+.portal-ui [class~="text-[#78908a]"] {color:#847890;}
+.portal-ui [class~="text-[#7a8d88]"] {color:#847a8d;}
+.portal-ui [class~="text-[#7b8e89]"] {color:#847b8e;}
+.portal-ui [class~="text-[#77938f]"] {color:#857793;}
+.portal-ui [class~="text-[#7c8f8a]"] {color:#867c8f;}
+.portal-ui [class~="text-[#7d908b]"] {color:#867d90;}
+.portal-ui [class~="text-[#7e918c]"] {color:#887e91;}
+.portal-ui [class~="text-[#7f928d]"] {color:#887f92;}
+.portal-ui [class~="text-[#80918d]"] {color:#888091;}
+.portal-ui [class~="text-[#81928e]"] {color:#8a8192;}
+.portal-ui [class~="text-[#81938e]"] {color:#8a8193;}
+.portal-ui [class~="text-[#82938f]"] {color:#8a8293;}
+.portal-ui [class~="text-[#819491]"] {color:#8b8194;}
+.portal-ui [class~="text-[#829792]"] {color:#8c8297;}
+.portal-ui [class~="text-[#83948f]"] {color:#8c8394;}
+.portal-ui [class~="text-[#849590]"] {color:#8c8495;}
+.portal-ui [class~="text-[#849691]"] {color:#8d8496;}
+.portal-ui [class~="text-[#879792]"] {color:#8f8797;}
+.portal-ui [class~="text-[#879894]"] {color:#908798;}
+.portal-ui [class~="text-[#899994]"],
+.portal-ui [class~="text-[#899995]"] {color:#918999;}
+.portal-ui [class~="text-[#8a9a96]"] {color:#928a9a;}
+.portal-ui [class~="text-[#8a9d98]"] {color:#938a9d;}
+.portal-ui [class~="text-[#8b9b97]"] {color:#938b9b;}
+.portal-ui [class~="text-[#4fdac8]"] {color:#944fda;}
+.portal-ui [class~="text-[#82a6a1]"] {color:#9482a6;}
+.portal-ui [class~="text-[#53d7c7]"] {color:#9553d7;}
+.portal-ui [class~="text-[#8ca09b]"] {color:#968ca0;}
+.portal-ui [class~="text-[#8fa09c]"] {color:#988fa0;}
+.portal-ui [class~="text-[#91a09d]"] {color:#9891a0;}
+.portal-ui [class~="text-[#93a19e]"] {color:#9a93a1;}
+.portal-ui [class~="text-[#94a39f]"] {color:#9c94a3;}
+.portal-ui [class~="text-[#91aaa6]"] {color:#9e91aa;}
+.portal-ui [class~="text-[#62ddce]"] {color:#9f62dd;}
+.portal-ui [class~="text-[#98a7a4]"] {color:#a098a7;}
+.portal-ui [class~="text-[#62e0d0]"] {color:#a162e0;}
+.portal-ui [class~="text-[#88bbb5]"] {color:#a188bb;}
+.portal-ui [class~="text-[#9aa8a5]"] {color:#a19aa8;}
+.portal-ui [class~="text-[#9aa9a6]"] {color:#a29aa9;}
+.portal-ui [class~="text-[#9aaba7]"],
+.portal-ui [class~="text-[#9aaba8]"] {color:#a29aab;}
+.portal-ui [class~="text-[#9ba9a6]"] {color:#a29ba9;}
+.portal-ui [class~="text-[#68dfd1]"] {color:#a368df;}
+.portal-ui [class~="text-[#a1aeaa]"] {color:#a8a1ae;}
+.portal-ui [class~="text-[#a1afac]"] {color:#a8a1af;}
+.portal-ui [class~="text-[#a6b3b1]"] {color:#aca6b3;}
+.portal-ui [class~="text-[#78e5d7]"] {color:#ae78e5;}
+.portal-ui [class~="text-[#a9c5c1]"] {color:#b7a9c5;}
+.portal-ui [class~="text-[#a8ceca]"] {color:#bba8ce;}
+.portal-ui [class~="text-[#bad0cd]"] {color:#c5bad0;}
+.portal-ui [class~="text-[#a9eee5]"] {color:#cba9ee;}
+.portal-ui [class~="text-[#bce8e1]"] {color:#d2bce8;}
+.portal-ui [class~="text-[#bceee8]"] {color:#d5bcee;}
+.portal-ui [class~="text-[#e6f2f0]"] {color:#ece6f2;}
+.portal-ui [class~="outline-[#16877d]"] {outline-color:#4e1687;}
+.portal-ui [class~="outline-[#62e0d0]"] {outline-color:#a162e0;}
+.portal-ui [class~="stroke-[#2d948a]"] {stroke:#602d94;}
+.portal-ui [class~="stroke-[#7d918c]"] {stroke:#877d91;}
+.portal-ui [class~="stroke-[#80938f]"] {stroke:#8a8093;}
+.portal-ui [class~="stroke-[#8da19e]"] {stroke:#978da1;}
+
+/* Preserve interactive states for legacy arbitrary-color utilities. */
+.portal-ui [class~="disabled:bg-[#f3f6f5]"]:disabled {background-color:#f4f3f6;}
+.portal-ui [class~="disabled:bg-[#f4f8f7]"]:disabled {background-color:#f6f4f8;}
+.portal-ui [class~="disabled:border-[#dce6e4]"]:disabled {border-color:#e1dce6;}
+.portal-ui [class~="disabled:text-[#71847f]"]:disabled {color:#7a7184;}
+.portal-ui [class~="disabled:text-[#8fa09c]"]:disabled {color:#988fa0;}
+.portal-ui [class~="focus-visible:ring-[#16877d]"]:focus-visible {--tw-ring-color:#4e1687;}
+.portal-ui [class~="focus:border-[#0c796b]"]:focus {border-color:#421174;}
+.portal-ui [class~="focus:border-[#0f766e]"]:focus {border-color:#421174;}
+.portal-ui [class~="focus:border-[#16877d]"]:focus {border-color:#4e1687;}
+.portal-ui [class~="focus:border-[#2ca89c]"]:focus {border-color:#6a2ca8;}
+.portal-ui [class~="focus:ring-[#16877d]"]:focus {--tw-ring-color:#4e1687;}
+.portal-ui [class~="focus:ring-[#2ca89c]"]:focus {--tw-ring-color:#6a2ca8;}
+.portal-ui [class~="hover:bg-[#066c63]"]:hover {background-color:#390e64;}
+.portal-ui [class~="hover:bg-[#076f66]"]:hover {background-color:#3b0f67;}
+.portal-ui [class~="hover:bg-[#cfece7]"]:hover {background-color:#decfec;}
+.portal-ui [class~="hover:bg-[#d4ece8]"]:hover {background-color:#e0d4ec;}
+.portal-ui [class~="hover:bg-[#d6eeea]"]:hover {background-color:#e2d6ee;}
+.portal-ui [class~="hover:bg-[#d8eeea]"]:hover {background-color:#e3d8ee;}
+.portal-ui [class~="hover:bg-[#dff3ef]"]:hover {background-color:#e9dff3;}
+.portal-ui [class~="hover:bg-[#edf7f5]"]:hover {background-color:#f2edf7;}
+.portal-ui [class~="hover:bg-[#eef6f3]"]:hover {background-color:#f2eef6;}
+.portal-ui [class~="hover:bg-[#eef8f6]"]:hover {background-color:#f3eef8;}
+.portal-ui [class~="hover:bg-[#f0f5f4]"]:hover {background-color:#f2f0f5;}
+.portal-ui [class~="hover:bg-[#f1f6f5]"]:hover {background-color:#f3f1f6;}
+.portal-ui [class~="hover:bg-[#f1f7f5]"]:hover {background-color:#f4f1f7;}
+.portal-ui [class~="hover:bg-[#f2f7f6]"]:hover {background-color:#f4f2f7;}
+.portal-ui [class~="hover:bg-[#f3f8f7]"]:hover {background-color:#f5f3f8;}
+.portal-ui [class~="hover:bg-[#f4f8f7]"]:hover {background-color:#f6f4f8;}
+.portal-ui [class~="hover:bg-[#f4f9f8]"]:hover {background-color:#f6f4f9;}
+.portal-ui [class~="hover:bg-[#f5f8f7]"]:hover {background-color:#f6f5f8;}
+.portal-ui [class~="hover:bg-[#f5f9f8]"]:hover {background-color:#f7f5f9;}
+.portal-ui [class~="hover:bg-[#f6f9f8]"]:hover {background-color:#f8f6f9;}
+.portal-ui [class~="hover:bg-[#f7faf9]"]:hover {background-color:#f8f7fa;}
+.portal-ui [class~="hover:bg-[#f8fbfa]"]:hover {background-color:#faf8fb;}
+.portal-ui [class~="hover:bg-[#f9fcfb]"]:hover {background-color:#fbf9fc;}
+.portal-ui [class~="hover:border-[#8eb9b3]"]:hover {border-color:#a38eb9;}
+.portal-ui [class~="hover:border-[#add3cd]"]:hover {border-color:#c0add3;}
+.portal-ui [class~="hover:border-[#aed4cf]"]:hover {border-color:#c1aed4;}
+.portal-ui [class~="hover:border-[#b5d4cb]"]:hover {border-color:#c4b5d4;}
+.portal-ui [class~="hover:text-[#087f74]"]:hover {color:#431176;}
+.portal-ui [class~="hover:text-[#294a45]"]:hover {color:#39294a;}
