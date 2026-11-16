@@ -32,7 +32,7 @@ export default function RoomManagementTabs() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`relative px-4 py-3 text-xs font-semibold transition ${active ? "text-[#087f74] after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[#087f74]" : "text-[#71847f] hover:text-[#294a45]"}`}
+              className={`relative px-4 py-3 text-xs font-semibold transition ${active ? "text-[#7c3aed] after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[#7c3aed]" : "text-[#71847f] hover:text-[#294a45]"}`}
             >
               {label}
             </Link>
