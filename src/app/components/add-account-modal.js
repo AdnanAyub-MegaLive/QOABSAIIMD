@@ -1,4 +1,5 @@
 "use client";
+import PortalDialog from "./portal-dialog";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -49,13 +50,13 @@ export default function AddAccountModal({ type, agencies = [] }) {
         {isTalent ? "Add host" : "Add user"}
       </button>
       {open && (
-        <div
+        <PortalDialog onClose={() => setOpen(false)} busy={pending}
           className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#061c1a]/60 p-4 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-account-title"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setOpen(false);
+            if (!pending && event.target === event.currentTarget) setOpen(false);
           }}
         >
           <div className="my-auto w-full max-w-[560px] rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,.25)]">
@@ -80,7 +81,7 @@ export default function AddAccountModal({ type, agencies = [] }) {
                 onClick={() => setOpen(false)}
                 className="grid h-8 w-8 place-items-center rounded-lg text-xl text-[#7c8f8a] hover:bg-[#f0f5f4]"
                 type="button"
-                aria-label="Close modal"
+                aria-label="Close modal" disabled={pending}
               >
                 ×
               </button>
@@ -309,7 +310,7 @@ export default function AddAccountModal({ type, agencies = [] }) {
               </div>
             </form>
           </div>
-        </div>
+        </PortalDialog>
       )}
     </>
   );

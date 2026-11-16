@@ -23,9 +23,9 @@ export default async function DashboardHome({ searchParams }) {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
+    <main className="portal-ui min-h-screen bg-[#f4f8f7] text-[#142c2a]">
       <PortalSidebar />
-      <section className="lg:pl-64">
+      <section id="portal-content" tabIndex={-1} className="lg:pl-64">
         <header className="flex h-20 items-center gap-6 border-b border-[#dfe9e7] bg-white px-6 md:px-10">
           <div className="shrink-0">
             <p className="text-xs font-semibold tracking-widest text-[#16877d] uppercase">
@@ -123,13 +123,13 @@ export default async function DashboardHome({ searchParams }) {
               </div>
             </section>
           </div>
-          <section className="mt-6 overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+          <section className="mt-6 overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
             <div className="border-b border-[#e6eeec] px-5 py-4"><h3 className="text-sm font-bold">Requires attention</h3><p className="mt-0.5 text-[10px] text-[#849590]">Pending applications, payouts and moderation in your permitted modules</p></div>
             <div className="grid sm:grid-cols-2 xl:grid-cols-3">{data.attention.map(item => <div key={item.label} className="flex items-center gap-3 border-b border-[#edf2f1] px-5 py-4"><span className={`rounded-lg px-3 py-2 text-sm font-bold ${item.count ? "bg-amber-50 text-amber-800" : "bg-[#f1f7f5] text-[#71847f]"}`}>{item.count.toLocaleString("en-US")}</span><div><p className="text-xs font-bold">{item.label}</p><p className="mt-1 text-[10px] text-[#81928e]">{item.detail}</p>{canAccessPage(admin,item.href) && <Link href={item.href} className="mt-1 inline-block text-[10px] font-bold text-[#087f74]">Review →</Link>}</div></div>)}</div>
             {!data.attention.length && <p className="px-5 py-6 text-xs text-[#81928e]">No review queues available for your permissions.</p>}
           </section>
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
-            <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+            <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
               <div className="border-b border-[#e6eeec] px-5 py-4">
                 <h3 className="text-sm font-bold">Management</h3>
                 <p className="mt-0.5 text-[10px] text-[#849590]">
@@ -177,7 +177,7 @@ export default async function DashboardHome({ searchParams }) {
                 />
               </div>
             </section>
-            <section className="rounded-2xl border border-[#dce8e5] bg-white">
+            <section className="portal-panel rounded-2xl border border-[#dce8e5] bg-white">
               <div className="flex justify-between border-b border-[#e6eeec] px-5 py-4">
                 <div>
                   <h3 className="text-sm font-bold">Recent activity</h3>

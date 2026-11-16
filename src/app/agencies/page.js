@@ -71,9 +71,9 @@ export default async function AgenciesPage() {
   const overview={rankings,topHosts,totalAgencies:agencyRecords.length,activeAgencies:agencyRecords.filter((agency)=>agency.status==="ACTIVE").length,totalHosts:new Set([...userHosts,...talentHosts].map(host=>host.publicId)).size,totalRecharge:[...rechargeByAgency.values()].reduce((sum,value)=>sum+value,0n).toString(),monthlyGifts:settlementTotals.reduce((sum,item)=>sum+(item._sum.grossCoins??0n),0n).toString(),pendingApplications:applications.filter((item)=>item.status==="PENDING").length,pendingJoinRequests:joinRequests.filter((item)=>item.status==="PENDING").length};
 
   return (
-    <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
+    <main className="portal-ui min-h-screen bg-[#f4f8f7] text-[#142c2a]">
       <PortalSidebar />
-      <section className="lg:pl-64">
+      <section id="portal-content" tabIndex={-1} className="lg:pl-64">
         <header className="flex h-20 items-center gap-6 border-b border-[#dfe9e7] bg-white px-6 md:px-10">
           <div className="shrink-0">
             <p className="text-xs font-semibold tracking-widest text-[#16877d] uppercase">

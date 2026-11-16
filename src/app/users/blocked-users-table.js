@@ -101,7 +101,7 @@ export default function BlockedUsersTable({ initialUsers, initialDevices }) {
 
   return (
     <>
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#dce8e5] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-5 flex flex-col gap-3 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-bold">Blocked and Banned User</h3>
           <p className="mt-1 text-xs text-[#748782]">
@@ -116,7 +116,7 @@ export default function BlockedUsersTable({ initialUsers, initialDevices }) {
         />
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+      <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
         <div className="border-b border-[#e5ecea] px-5 py-4">
           <h4 className="text-sm font-bold">User account access</h4>
           <p className="mt-1 text-[10px] text-[#80918d]">
@@ -187,7 +187,7 @@ export default function BlockedUsersTable({ initialUsers, initialDevices }) {
         </div>
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+      <section className="mt-5 overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
         <div className="border-b border-[#e5ecea] px-5 py-4">
           <h4 className="text-sm font-bold">Banned devices</h4>
           <p className="mt-1 text-[10px] text-[#80918d]">

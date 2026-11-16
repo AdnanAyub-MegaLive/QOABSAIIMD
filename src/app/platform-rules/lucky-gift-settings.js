@@ -31,12 +31,12 @@ export default function LuckyGiftSettings({ canManage }) {
       apply(j.data); done?.(); setMessage("Saved.");
     } catch (e) { setMessage(e.message); } finally { setBusy(false); }
   };
-  if (!form) return <section className="mt-6 rounded-2xl border border-[#dce8e5] bg-white p-6"><h3 className="text-lg font-bold">Lucky Gifts</h3><p className="mt-3 text-sm text-[#71847f]">{message || "Loading…"}</p></section>;
+  if (!form) return <section className="mt-6 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6"><h3 className="text-lg font-bold">Lucky Gifts</h3><p className="mt-3 text-sm text-[#71847f]">{message || "Loading…"}</p></section>;
   const rtp = expected(form.multipliers);
   const pool = Number(form.poolContributionPercent);
   const setRow = (index, key, value) => setForm({ ...form, multipliers: form.multipliers.map((row, i) => (i === index ? { ...row, [key]: value } : row)) });
   const totalWeight = form.multipliers.reduce((sum, row) => sum + (Number(row.weight) || 0), 0);
-  return <section className="mt-6 rounded-2xl border border-[#dce8e5] bg-white p-6">
+  return <section className="mt-6 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6">
     <h3 className="text-lg font-bold">Lucky Gifts</h3>
     <p className="my-3 text-sm text-[#71847f]">Every Lucky Gift send rolls one multiplier from this table. The sender gets gift value × multiplier back, paid only from the Lucky pool. If the pool cannot cover the rolled multiplier, a smaller affordable one is rolled instead. Host Diamonds for each gift are set in the gift upload/edit form.</p>
     <div className="mb-5 grid gap-3 sm:grid-cols-3">

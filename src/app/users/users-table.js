@@ -58,7 +58,7 @@ export default function UsersTable({ initialData, specialIdCatalog, canAdjustCoi
       current.map((user) => (user.id === id ? { ...user, ...changes } : user)),
     );
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+    <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
       <div className="space-y-4 border-b border-[#e5ecea] p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative min-w-0 flex-1">

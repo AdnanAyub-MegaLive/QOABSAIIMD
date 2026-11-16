@@ -30,13 +30,13 @@ export default function EventsLoginForm() {
   return (
     <form className="mt-8 space-y-5" onSubmit={submit}>
       <label className="block text-sm font-semibold">Email
-        <input name="email" type="email" required autoComplete="username" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#0c796b] focus:ring-4 focus:ring-emerald-100" />
+        <input name="email" type="email" required autoComplete="username" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#7c3aed] focus:ring-4 focus:ring-purple-100" />
       </label>
       <label className="block text-sm font-semibold">Password
-        <input name="password" type="password" minLength={8} required autoComplete="current-password" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#0c796b] focus:ring-4 focus:ring-emerald-100" />
+        <input name="password" type="password" minLength={8} required autoComplete="current-password" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#7c3aed] focus:ring-4 focus:ring-purple-100" />
       </label>
       {error && <p className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-700">{error}</p>}
-      <button disabled={busy} className="w-full rounded-xl bg-[#0c796b] px-5 py-3.5 font-bold text-white transition hover:bg-[#095f54] disabled:opacity-60">{busy ? "Signing in…" : "Sign in to Events"}</button>
+      <button disabled={busy} className="w-full rounded-xl bg-[#7c3aed] px-5 py-3.5 font-bold text-white transition hover:bg-[#6d28d9] disabled:opacity-60">{busy ? "Signing in…" : "Sign in to Events"}</button>
     </form>
   );
 }

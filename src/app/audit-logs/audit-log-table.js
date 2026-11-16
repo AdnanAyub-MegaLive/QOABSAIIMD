@@ -24,7 +24,7 @@ export default function AuditLogTable({ logs, query, category, page, pageSize, t
   );
   const exportHref=pageHref(1).replace('/audit-logs?','/api/admin/audit-logs?')+'&export=all';
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
+    <div className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
       <form method="GET" className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:justify-between">
         <div className="relative w-full sm:max-w-md">
           <svg

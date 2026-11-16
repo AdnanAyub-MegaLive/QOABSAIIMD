@@ -8,5 +8,5 @@ export const metadata = { title: "Games Management | Mega Live Portal" };
 export default async function GamesManagement() {
   await requirePagePermission("games.view");
   if (!(await auth())?.user) redirect("/");
-  return <div className={`mega-portal ${gameUtilities}`}><Store><Portal /></Store></div>;
+  return <div className={`portal-ui mega-portal ${gameUtilities}`}><Store><Portal /></Store></div>;
 }

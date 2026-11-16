@@ -1,4 +1,5 @@
 "use client";
+import PortalDialog from "./portal-dialog";
 
 import { unwrapAction } from "@/lib/action-validation";
 
@@ -62,7 +63,7 @@ export default function ProfileManager({ profile, type }) {
         ))}
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_.7fr]">
-        <section className="rounded-2xl border border-[#dce8e5] bg-white p-6">
+        <section className="portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6">
           <div className="flex items-center justify-between border-b border-[#edf2f1] pb-4">
             <h2 className="text-base font-bold">Account information</h2>
             <button
@@ -113,7 +114,7 @@ export default function ProfileManager({ profile, type }) {
             ))}
           </dl>
         </section>
-        <section className="rounded-2xl border border-[#dce8e5] bg-white p-6">
+        <section className="portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6">
           <h2 className="border-b border-[#edf2f1] pb-4 text-base font-bold">
             Management actions
           </h2>
@@ -221,7 +222,7 @@ export default function ProfileManager({ profile, type }) {
           </div>
         </section>
       </div>
-      <section className="mt-6 rounded-2xl border border-[#dce8e5] bg-white p-6">
+      <section className="mt-6 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6">
         <h2 className="text-base font-bold">Device and login information</h2>
         <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {[
@@ -396,7 +397,7 @@ function ProfileActionModal({ type, profile, onClose, onChanged }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#061c1a]/60 p-4" role="dialog" aria-modal="true">
+    <PortalDialog onClose={onClose} busy={pending} aria-label={titles[type]} className="fixed inset-0 z-50 grid place-items-center bg-[#061c1a]/60 p-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-[500px] rounded-2xl bg-white shadow-2xl">
         <div className="flex justify-between border-b border-[#e5ecea] px-6 py-5">
           <div>
@@ -469,7 +470,7 @@ function ProfileActionModal({ type, profile, onClose, onChanged }) {
           </form>
         )}
       </div>
-    </div>
+    </PortalDialog>
   );
 }
 
@@ -519,7 +520,7 @@ function AssetGrantModal({ profile, onClose, onChanged }) {
   }
 
   return (
-    <div
+    <PortalDialog onClose={onClose} busy={pending} aria-label={"Manage user props and uploads"}
       className="fixed inset-0 z-50 grid place-items-center bg-[#061c1a]/60 p-4"
       role="dialog"
       aria-modal="true"
@@ -671,7 +672,7 @@ function AssetGrantModal({ profile, onClose, onChanged }) {
           </section>
         </div>
       </div>
-    </div>
+    </PortalDialog>
   );
 }
 
@@ -690,7 +691,7 @@ function formatDuration(minutes) {
 
 function AssignedAssets({ assets, onManage }) {
   return (
-    <section className="mt-6 rounded-2xl border border-[#dce8e5] bg-white p-6">
+    <section className="mt-6 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6">
       <div className="flex flex-col gap-2 border-b border-[#edf2f1] pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-base font-bold">Assigned assets</h2>
@@ -885,7 +886,7 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
     salary: "Adjust salary",
   };
   return (
-    <div
+    <PortalDialog onClose={onClose} busy={pending} aria-label={titles[type]}
       className="fixed inset-0 z-50 grid place-items-center bg-[#061c1a]/60 p-4"
       role="dialog"
       aria-modal="true"
@@ -998,7 +999,7 @@ function ManageModal({ type, profile, isTalent, onClose, onSave }) {
           </div>
         </form>
       </div>
-    </div>
+    </PortalDialog>
   );
 }
 function Input({ label, name, value, type = "text" }) {

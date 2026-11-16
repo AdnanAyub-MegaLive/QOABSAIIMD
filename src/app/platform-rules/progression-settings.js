@@ -38,7 +38,7 @@ export default function ProgressionSettings({ initial, canManage }) {
     }catch{setMessage("The page may be out of date or the connection was interrupted. Copy your unsaved changes, reload the page, and check the saved rules before trying again.");}
     finally{setBusy(false);}
   }
-  return <><section className="mb-6 rounded-2xl border border-[#dce8e5] bg-white p-6">
+  return <><section className="mb-6 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6">
     <h3 className="text-lg font-bold">Wealth & Charm XP levels</h3>
     {initial.configured===false&&<p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Account levels have not been configured. This is an unsaved draft; XP awards remain disabled. Add thresholds and save to create the first configuration.</p>}
     <p className="my-3 text-sm text-[#71847f]">Enter total lifetime XP required for each level, not XP earned since the previous level. Every threshold must be greater than the previous one. Example: Level 0 = 0, Level 1 = 900, Level 2 = 1800. Saving recalculates account levels but preserves earned XP and wallet balances.</p>

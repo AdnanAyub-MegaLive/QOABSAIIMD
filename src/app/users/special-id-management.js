@@ -21,7 +21,7 @@ export default function SpecialIdAssignments({ initialAssignments, canManage = t
   const [selected, setSelected] = useState(null);
   const active = rows.filter((row) => row.status === "ACTIVE").length;
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+    <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
       <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-bold">Special ID assignments</h2>
@@ -126,7 +126,7 @@ export function SpecialIdCatalog({ initialCatalog, canManage = true, onAssign, o
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(null);
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+    <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
       <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-bold">Standard, VIP &amp; SVIP IDs</h2>

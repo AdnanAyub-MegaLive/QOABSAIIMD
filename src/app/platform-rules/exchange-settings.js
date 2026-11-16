@@ -18,7 +18,7 @@ export default function ExchangeSettings({ settings, canManage }) {
       } catch { setNotice({ ok: false, text: "Unable to save. Check the values, user ID and your permissions." }); }
     });
   }
-  return <section className="mb-6 overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+  return <section className="mb-6 overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
     <div className="border-b border-[#e6eeec] p-5"><p className="text-xs font-semibold uppercase tracking-widest text-[#16877d]">Wallet policy</p><h3 className="mt-1 text-lg font-bold">Diamonds → Coins</h3><p className="mt-1 text-sm text-[#71847f]">Set the conversion rate and minimum. Fractional coins are rounded down; unused diamonds stay in the wallet.</p></div>
     <div className="grid gap-8 p-5 md:grid-cols-2">
       <form onSubmit={event => submit(event, false)}><fieldset disabled={!canManage || pending} className="space-y-4">

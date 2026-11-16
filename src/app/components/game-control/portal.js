@@ -3,6 +3,7 @@ import PercentageBar from "../percentage-bar";
 import CoinButtonFields from "./coin-button-fields";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import OutcomeWeightFields from "./outcome-weight-fields";
 import { configurableRules, outcomeOddsText } from "@/lib/game-control/outcome-weights.mjs";
 import GameLevelFields from "./game-level-fields";
@@ -38,6 +39,8 @@ import {
   Pause,
   Play,
   CircleDot,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { formatCoins as fmt } from "@/lib/game-control/demo";
 import { markets, resultColor } from "@/lib/game-control/roulette/engine.mjs";
@@ -126,6 +129,7 @@ function Login() { return <div className="boot-screen"><Link href="/">Sign in to
 export default function Portal() {
   const { isDemo, data, authenticated, loading, error, refresh, saveGame, loadOlder } =
     useStore();
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const [tab, setTab] = useState("Overview"),
     [period, setPeriod] = useState("24"),
     [editing, setEditing] = useState(null),
@@ -239,13 +243,8 @@ export default function Portal() {
   if (!authenticated) return <Login />;
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <Link className="brand" href="/games-management">
-          <span className="brand-mark">M</span>
-          <span>
-            mega<span className="brand-live">live</span>
-          </span>
-        </Link>
+      <aside className="sidebar" data-collapsed={railCollapsed}>
+        <div className="ops-brand-row"><Link className="ops-brand" href="/games-management"><Image className="ops-brand-mark" src="/mega-portal-logo.png" alt="Mega Live" width={34} height={34} priority /><span className="ops-brand-copy">Mega Live<small>Game Control</small></span></Link><button type="button" className="ops-rail-toggle" aria-label={railCollapsed ? "Expand navigation" : "Collapse navigation"} aria-expanded={!railCollapsed} onClick={() => setRailCollapsed(v => !v)}>{railCollapsed ? <PanelLeftOpen size={17}/> : <PanelLeftClose size={17}/>}</button></div>
         <div className="workspace">
           <span className="workspace-icon">
             <Gamepad2 size={18} />
@@ -261,12 +260,13 @@ export default function Portal() {
           {menu.map(([name, Icon]) => (
             <button
               key={name}
+              title={name}
               className={tab === name ? "nav-item selected" : "nav-item"}
               aria-current={tab === name ? "page" : undefined}
               onClick={() => setTab(name)}
             >
               <Icon size={19} />
-              {name}
+              <span className="ops-nav-label">{name}</span>
               {name === "Games" && (
                 <span className="nav-count">{data.games.length}</span>
               )}

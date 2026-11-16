@@ -26,7 +26,7 @@ export default function RankingsView({ type, period, generatedAt, podium, rankin
     `/rankings?type=${encodeURIComponent(nextType)}&period=${encodeURIComponent(nextPeriod)}&page=${nextPage}`;
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+      <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
         <div className="overflow-x-auto border-b border-[#e5ecea] px-4">
           <div className="flex min-w-max gap-1">
             {types.map(([value, label]) => (
@@ -77,7 +77,7 @@ export default function RankingsView({ type, period, generatedAt, podium, rankin
         {!podium.length && <p className="col-span-full rounded-2xl border border-dashed border-[#cbded9] bg-white p-10 text-center text-sm text-[#71847f]">No qualifying activity exists for this ranking period.</p>}
       </section>
 
-      <section className="mt-6 overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+      <section className="mt-6 overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
         <div className="flex items-center justify-between border-b border-[#e5ecea] px-5 py-4">
           <div><h3 className="text-sm font-bold">Leaderboard</h3><p className="mt-1 text-[10px] text-[#80918d]">{totalRanked.toLocaleString()} ranked users</p></div>
           <p className="text-[10px] font-semibold text-[#71847f]">Page {page} of {totalPages}</p>

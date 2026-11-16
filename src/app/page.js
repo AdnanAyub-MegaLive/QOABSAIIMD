@@ -12,9 +12,9 @@ export default async function Home() {
   if (session?.user) redirect("/portal");
 
   return (
-    <main className="grid min-h-screen grid-cols-[minmax(420px,1.05fr)_minmax(540px,.95fr)] max-[900px]:block">
+    <main className="portal-ui grid min-h-screen grid-cols-[minmax(420px,1.05fr)_minmax(540px,.95fr)] max-[900px]:block">
       <section
-        className="relative flex min-h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_78%_20%,#176e68_0,transparent_35%),linear-gradient(145deg,#092d2c_0%,#0b4b47_55%,#0b6159_100%)] px-[7vw] py-12 text-white max-[900px]:hidden"
+        className="relative flex min-h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_78%_20%,#6b21a8_0,transparent_35%),linear-gradient(145deg,#210735_0%,#4c1d75_55%,#581c87_100%)] px-[7vw] py-12 text-white max-[900px]:hidden"
         aria-label="Mega Live Portal platform introduction"
       >
         <div className="pointer-events-none absolute top-[28%] -right-[280px] h-[450px] w-[450px] rounded-full border border-[#52decd26] shadow-[inset_0_0_90px_rgba(36,205,185,.08)]" />
@@ -23,31 +23,31 @@ export default async function Home() {
         <Brand />
 
         <div className="relative z-10 my-auto max-w-[650px]">
-          <div className="flex items-center gap-2.5 text-[11px] font-bold tracking-[2.2px] text-[#8aeadf] uppercase">
-            <span className="h-px w-[30px] bg-[#52d9c8]" /> Unified streaming
+          <div className="flex items-center gap-2.5 text-[11px] font-bold tracking-[2.2px] text-[#fde68a] uppercase">
+            <span className="h-px w-[30px] bg-[#fbbf24]" /> Unified streaming
             control
           </div>
           <h1 className="my-6 text-[clamp(48px,5vw,75px)] leading-[1.04] font-semibold tracking-[-4px]">
             Every stream.
             <br />
             One{" "}
-            <em className="font-inherit not-italic text-[#55ddcc]">
+            <em className="font-inherit not-italic text-[#e9d5ff]">
               command center.
             </em>
           </h1>
-          <p className="max-w-[540px] text-[17px] leading-[1.75] text-[#b9d3d0]">
+          <p className="max-w-[540px] text-[17px] leading-[1.75] text-[#d8c9e8]">
             Manage live video, audio rooms, creators, and your community from
             one beautifully simple workspace.
           </p>
 
           <div
-            className="mt-11 max-w-[570px] rounded-[18px] border border-[#92ece02e] bg-[#04232170] px-6 pt-[22px] pb-[18px] shadow-[0_25px_60px_rgba(0,0,0,.15)] backdrop-blur-[10px]"
+            className="mt-11 max-w-[570px] rounded-[18px] border border-[#92ece02e] bg-[#21073570] px-6 pt-[22px] pb-[18px] shadow-[0_25px_60px_rgba(0,0,0,.15)] backdrop-blur-[10px]"
             aria-hidden="true"
           >
             <div className="flex items-center gap-[9px] text-xs">
               <span className="h-2 w-2 rounded-full bg-[#45e2c7] shadow-[0_0_0_5px_rgba(69,226,199,.12)]" />
               <strong>Live network</strong>
-              <span className="ml-auto text-[10px] text-[#8cb9b3]">
+              <span className="ml-auto text-[10px] text-[#bca4d0]">
                 All systems operational
               </span>
             </div>
@@ -57,36 +57,36 @@ export default async function Home() {
               ].map((height, index) => (
                 <i
                   key={index}
-                  className={`max-w-[7px] min-w-[3px] flex-1 rounded-[5px] bg-linear-to-t from-[#158e82] to-[#56e3d0] opacity-80 ${height}`}
+                  className={`max-w-[7px] min-w-[3px] flex-1 rounded-[5px] bg-linear-to-t from-[#7c3aed] to-[#d8b4fe] opacity-80 ${height}`}
                 />
               ))}
             </div>
-            <div className="flex justify-between border-t border-white/8 pt-3.5 text-[10px] text-[#7faaa5]">
+            <div className="flex justify-between border-t border-white/8 pt-3.5 text-[10px] text-[#bca4d0]">
               <span>
-                <strong className="mr-1 text-[#d5ebe8]">2,847</strong> live
+                <strong className="mr-1 text-[#f3e8ff]">2,847</strong> live
                 listeners
               </span>
               <span>
-                <strong className="mr-1 text-[#d5ebe8]">156</strong> active
+                <strong className="mr-1 text-[#f3e8ff]">156</strong> active
                 rooms
               </span>
               <span>
-                <strong className="mr-1 text-[#d5ebe8]">99.9%</strong> uptime
+                <strong className="mr-1 text-[#f3e8ff]">99.9%</strong> uptime
               </span>
             </div>
           </div>
         </div>
-        <p className="relative z-10 m-0 text-[11px] text-[#769f9b]">
+        <p className="relative z-10 m-0 text-[11px] text-[#bca4d0]">
           Built for the people behind the stream.
         </p>
       </section>
 
-      <section className="relative flex min-h-screen items-center justify-center bg-[#f8fbfa] px-[9vw] py-[60px] max-[900px]:px-6 max-[900px]:pt-[110px] max-[900px]:pb-[75px] max-[480px]:items-start max-[480px]:pt-[125px]">
+      <section className="relative flex min-h-screen items-center justify-center bg-[#faf8fd] px-[9vw] py-[60px] max-[900px]:px-6 max-[900px]:pt-[110px] max-[900px]:pb-[75px] max-[480px]:items-start max-[480px]:pt-[125px]">
         <div className="absolute top-[30px] left-7 hidden max-[900px]:block">
           <Brand mobile />
         </div>
         <div className="w-full max-w-[430px]">
-          <div className="flex w-fit items-center gap-[7px] rounded-lg bg-[#e7f5f2] px-2.5 py-[7px] text-[9px] font-extrabold tracking-[1.35px] text-[#14766d] uppercase">
+          <div className="flex w-fit items-center gap-[7px] rounded-lg bg-[#f3e8ff] px-2.5 py-[7px] text-[9px] font-extrabold tracking-[1.35px] text-[#7c3aed] uppercase">
             <svg
               className="h-3.5 w-3.5 fill-none stroke-current stroke-[1.8]"
               viewBox="0 0 24 24"
@@ -106,7 +106,7 @@ export default async function Home() {
           <LoginForm />
           <div className="mt-[31px] flex items-center gap-3 border-t border-[#e3ebe9] pt-6 text-[9px] leading-[1.6] text-[#91a09d]">
             <svg
-              className="h-[29px] w-[29px] rounded-full bg-[#e9f5f2] p-[7px] fill-none stroke-[#438c84] stroke-[1.5]"
+              className="h-[29px] w-[29px] rounded-full bg-[#f3e8ff] p-[7px] fill-none stroke-[#7c3aed] stroke-[1.5]"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >

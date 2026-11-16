@@ -39,7 +39,7 @@ export default function RulesManager({ rule, agencies, hosts }) {
           const values = Object.fromEntries(new FormData(event.currentTarget));
           run(() => updateProfitSplit(values), "Profit split updated. New gifts will use the new policy version.");
         }}
-        className="rounded-2xl border border-[#dce8e5] bg-white p-6"
+        className="portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6"
       >
         <p className="text-[10px] font-bold tracking-widest text-[#16877d] uppercase">Gift settlement</p>
         <h3 className="mt-1 text-lg font-bold">Profit split</h3>
@@ -65,7 +65,7 @@ export default function RulesManager({ rule, agencies, hosts }) {
           const values = Object.fromEntries(new FormData(event.currentTarget));
           run(() => assignHostToAgency(values), "Agency membership updated.");
         }}
-        className="rounded-2xl border border-[#dce8e5] bg-white p-6"
+        className="portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6"
       >
         <p className="text-[10px] font-bold tracking-widest text-[#16877d] uppercase">Host eligibility</p>
         <h3 className="mt-1 text-lg font-bold">Agency membership</h3>

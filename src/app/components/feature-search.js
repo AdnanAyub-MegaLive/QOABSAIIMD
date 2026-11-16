@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { m } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { usePortalAccess } from "./portal-access";
 import { canAccessPage } from "@/lib/portal-permissions";
@@ -128,6 +129,8 @@ export default function FeatureSearch() {
   const admin = usePortalAccess();
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listId = useId();
   const results = useMemo(() => {
     const value = query.trim().toLowerCase();
     return (
@@ -157,33 +160,38 @@ export default function FeatureSearch() {
       </svg>
       <input
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); setFocused(true); }}
         onFocus={() => setFocused(true)}
         onBlur={() => setTimeout(() => setFocused(false), 150)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && results[0]) navigate(results[0].href);
+          if (event.key === "ArrowDown") { event.preventDefault(); setFocused(true); setActiveIndex(i => Math.min(i + 1, results.length - 1)); }
+          if (event.key === "ArrowUp") { event.preventDefault(); setActiveIndex(i => Math.max(0, i - 1)); }
+          if (event.key === "Enter" && focused && results[activeIndex]) { event.preventDefault(); navigate(results[activeIndex].href); }
           if (event.key === "Escape") setFocused(false);
         }}
         className="h-10 w-full rounded-xl border border-[#dce6e4] bg-[#f7faf9] pr-10 pl-10 text-xs text-[#29423d] outline-none placeholder:text-[#94a39f] focus:border-[#2ca89c] focus:bg-white focus:ring-3 focus:ring-[#2ca89c]/10"
         placeholder="Search all features..."
         aria-label="Search all portal features"
+        role="combobox" aria-autocomplete="list" aria-expanded={focused} aria-controls={listId}
+        aria-activedescendant={focused && results[activeIndex] ? `${listId}-${activeIndex}` : undefined}
       />
       <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-[#d8e2e0] bg-white px-1.5 py-0.5 text-[8px] font-bold text-[#8a9a96]">
         ↵
       </span>
       {focused && (
-        <div className="absolute top-[calc(100%+8px)] left-0 z-50 w-full overflow-hidden rounded-xl border border-[#dce7e4] bg-white shadow-[0_18px_45px_rgba(11,52,48,.16)]">
+        <m.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} id={listId} role="listbox" aria-label="Portal features" className="absolute top-[calc(100%+8px)] left-0 z-50 w-full overflow-hidden rounded-xl border border-[#dce7e4] bg-white shadow-[0_18px_45px_rgba(11,52,48,.16)]">
           <p className="border-b border-[#edf2f1] px-4 py-2.5 text-[9px] font-bold tracking-wider text-[#8a9a96] uppercase">
             {query ? "Search results" : "Quick access"}
           </p>
           {results.length ? (
-            results.map((item) => (
+            results.map((item, index) => (
               <button
                 key={`${item.label}-${item.href}`}
+                id={`${listId}-${index}`} role="option" aria-selected={activeIndex === index} tabIndex={-1}
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => navigate(item.href)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#f3f8f7]"
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#f3f8f7] ${activeIndex === index ? "bg-[#eef7f4]" : ""}`}
               >
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e6f4f1] text-sm font-bold text-[#087f74]">
                   {item.label[0]}
@@ -204,7 +212,7 @@ export default function FeatureSearch() {
               No matching features found.
             </p>
           )}
-        </div>
+        </m.div>
       )}
     </div>
   );

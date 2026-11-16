@@ -52,7 +52,7 @@ export default function AudioRoomTable({ initialRooms }) {
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+      <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
         <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-bold">Audio Room Records</h3>

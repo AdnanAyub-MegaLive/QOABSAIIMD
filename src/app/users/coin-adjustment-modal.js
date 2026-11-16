@@ -1,4 +1,5 @@
 "use client";
+import PortalDialog from "../components/portal-dialog";
 
 import { useRef, useState } from "react";
 import { adjustUserCoins } from "../database-actions";
@@ -32,7 +33,7 @@ export default function CoinAdjustmentModal({ user, operation, onClose, onSaved 
       setError("Adjustment could not be confirmed. Retry these same details safely. Before closing or starting another adjustment, check the account's adjustment history.");
     } finally { running.current = false; setBusy(false); }
   }
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="adjust-coins-title">
+  return <PortalDialog onClose={onClose} busy={busy} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="adjust-coins-title">
     <form onSubmit={submit} className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
       <h2 id="adjust-coins-title" className="text-lg font-bold">{title}</h2>
       <p className="text-sm">{user.name} · {user.id}</p>
@@ -42,5 +43,5 @@ export default function CoinAdjustmentModal({ user, operation, onClose, onSaved 
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" disabled={busy} onClick={onClose} className="rounded-lg border px-4 py-2 disabled:opacity-50">Close</button><button disabled={busy} className="rounded-lg bg-teal-800 px-4 py-2 text-white disabled:opacity-50">{busy ? "Saving…" : locked ? "Retry same adjustment" : title}</button></div>
     </form>
-  </div>;
+  </PortalDialog>;
 }

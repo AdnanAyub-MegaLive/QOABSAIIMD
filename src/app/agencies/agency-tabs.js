@@ -1,4 +1,5 @@
 "use client";
+import PortalDialog from "../components/portal-dialog";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -202,7 +203,7 @@ function AgencyJoinRequests({ initialRequests }) {
     } catch (reviewError) { setError(reviewError.message); } finally { setSaving(false); }
   }
   return (
-    <div className="rounded-2xl border border-[#dce8e5] bg-white">
+    <div className="portal-panel rounded-2xl border border-[#dce8e5] bg-white">
       <div className="border-b px-5 py-4"><h3 className="font-bold">Agency join requests</h3><p className="mt-1 text-xs text-[#71847f]">Approve a request to link the user and grant the Host role.</p></div>
       <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-[#f8fbfa] text-[10px] uppercase text-[#7b8e89]"><tr><th className="px-5 py-3">Applicant</th><th>Agency</th><th>Requested</th><th>Status</th><th className="pr-5 text-right">Action</th></tr></thead><tbody className="divide-y divide-[#edf2f1]">{requests.map((item)=><tr key={item.id}><td className="px-5 py-4"><Link href={`/users/${encodeURIComponent(item.applicant.id)}`} target="_blank" className="font-bold text-[#087f74]">{item.applicant.name}</Link><p className="mt-1 font-mono text-[9px]">{item.applicant.id} · {item.applicant.phone}</p></td><td><strong>{item.agency.name}</strong><p className="mt-1 font-mono text-[9px]">{item.agency.id}</p></td><td>{formatDate(item.submittedAt)}</td><td><ApplicationStatus value={item.status}/></td><td className="pr-5 text-right"><button type="button" onClick={()=>{setSelected(item);setDecision("");setNote("");setError("");}} className="rounded-lg border border-[#bddbd6] px-3 py-2 font-bold text-[#087f74]">{item.status === "PENDING" ? "Review" : "View"}</button></td></tr>)}</tbody></table>{!requests.length&&<p className="py-12 text-center text-xs text-[#81938e]">No agency join requests yet.</p>}</div>
       {selected&&<div className="fixed inset-0 z-50 grid place-items-center bg-[#071f1d]/60 p-4"><form onSubmit={review} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><h3 className="text-lg font-bold">{selected.applicant.name}</h3><p className="mt-1 text-xs text-[#71847f]">Request to join {selected.agency.name}</p>{selected.status === "PENDING"?<><div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={()=>setDecision("APPROVED")} className={`rounded-lg border p-3 text-xs font-bold ${decision==="APPROVED"?"border-emerald-600 bg-emerald-50 text-emerald-700":""}`}>Approve</button><button type="button" onClick={()=>setDecision("REJECTED")} className={`rounded-lg border p-3 text-xs font-bold ${decision==="REJECTED"?"border-rose-600 bg-rose-50 text-rose-700":""}`}>Reject</button></div><textarea value={note} onChange={(event)=>setNote(event.target.value)} required={decision==="REJECTED"} placeholder={decision==="REJECTED"?"Rejection reason (required)":"Optional review note"} rows={3} className="mt-4 w-full rounded-lg border border-[#dce8e5] p-3 text-xs"/>{error&&<p className="mt-3 text-xs font-semibold text-rose-600">{error}</p>}<div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setSelected(null)} className="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button disabled={!decision||saving} className="rounded-lg bg-[#087f74] px-5 py-2 text-xs font-bold text-white disabled:opacity-40">{saving?"Saving…":"Confirm"}</button></div></>:<><p className="mt-5 rounded-lg bg-[#f7faf9] p-3 text-xs">{selected.reviewNote||"No review note."}</p><button type="button" onClick={()=>setSelected(null)} className="mt-5 w-full rounded-lg border px-4 py-2 text-xs font-bold">Close</button></>}</form></div>}
@@ -264,7 +265,7 @@ function AgencyApplications({ applications }) {
           </div>
         ))}
       </div>
-      <section className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+      <section className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
         <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h3 className="text-base font-bold">Agency applications</h3>
@@ -439,7 +440,7 @@ function ApplicationReviewModal({ application, onClose, onReviewed }) {
   }
   const decided = application.status !== "PENDING";
   return (
-    <div
+    <PortalDialog onClose={onClose} busy={saving} aria-label={"Review agency application"}
       className="fixed inset-0 z-50 overflow-y-auto bg-[#071f1d]/65 p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
@@ -630,7 +631,7 @@ function ApplicationReviewModal({ application, onClose, onReviewed }) {
           </div>
         )}
       </div>
-    </div>
+    </PortalDialog>
   );
 }
 
@@ -741,7 +742,7 @@ function display(value) {
 
 function Card({ title, description, children }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+    <div className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
       <div className="border-b border-[#e6eeec] px-5 py-4">
         <h3 className="text-sm font-bold">{title}</h3>
         <p className="mt-0.5 text-[10px] text-[#849590]">{description}</p>

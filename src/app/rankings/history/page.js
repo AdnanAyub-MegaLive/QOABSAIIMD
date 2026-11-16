@@ -14,7 +14,7 @@ export default async function History({searchParams}){
  const users=await prisma.user.findMany({where:{id:{in:[...new Set(visible.flatMap(r=>(Array.isArray(r.winners)?r.winners:[]).flatMap(w=>w.recipients||[])))]}},select:{id:true,publicId:true,name:true}});
  const byUser=new Map(users.map(u=>[u.id,u])),byPolicy=new Map(policies.map(p=>[p.id,p]));
  const url=p=>`/rankings/history?${new URLSearchParams({track,period,status,page:String(p)})}`;
- return <main className="min-h-screen bg-slate-50"><PortalSidebar/><section className="p-6 lg:ml-64">
+ return <main className="portal-ui min-h-screen bg-slate-50"><PortalSidebar/><section className="p-6 lg:ml-64">
  <Link href="/rankings">← Current rankings</Link><h1 className="my-4 text-2xl font-bold">Event winners & reward history</h1>
  <p>Read-only saved closing snapshots, not reconstructed rankings. AWARDED confirms the round transaction committed; REVIEW and PENDING are not paid. Names below are current account labels. Only stored reward-eligible positions are available.</p>
  <div className="my-4 flex flex-wrap gap-4">{tracks.map(t=><a key={t} href={`/event/ranking-${t}/index.html`}>{t.toUpperCase()} event ↗</a>)}</div>

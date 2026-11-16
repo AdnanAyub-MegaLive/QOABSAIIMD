@@ -1,5 +1,7 @@
 "use client";
 
+import { m } from "framer-motion";
+import { SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export default function RecordTable({
@@ -21,7 +23,7 @@ export default function RecordTable({
     [rows, query],
   );
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="portal-panel overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
       <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-bold text-[#142c2a]">{title}</h3>
@@ -35,12 +37,12 @@ export default function RecordTable({
           aria-label={`Search ${title}`}
         />
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" role="region" aria-label={`${title} table`} tabIndex={0}>
         <table className="w-full min-w-[760px] text-left">
           <thead>
             <tr className="bg-[#f8fbfa] text-[10px] tracking-wider text-[#748883] uppercase">
               {columns.map((column) => (
-                <th key={column.key} className="px-5 py-3.5">
+                <th scope="col" key={column.key} className={`px-5 py-3.5 ${column.numeric || /^(coins|diamonds|amount|balance|payout|revenue|total)$/i.test(column.key) ? "text-right" : ""}`}>
                   {column.label}
                 </th>
               ))}
@@ -50,7 +52,7 @@ export default function RecordTable({
             {filtered.map((row, index) => (
               <tr key={row.id ?? index} className="text-xs hover:bg-[#f9fcfb]">
                 {columns.map((column) => (
-                  <td key={column.key} className="px-5 py-4 text-[#526963]">
+                  <td key={column.key} className={`px-5 py-4 text-[#526963] ${column.numeric || /^(coins|diamonds|amount|balance|payout|revenue|total)$/i.test(column.key) ? "text-right tabular-nums" : ""}`}>
                     {column.badge ? (
                       <span
                         className={`rounded-full px-2.5 py-1 text-[9px] font-bold ${badgeStyle(row[column.key])}`}
@@ -72,19 +74,22 @@ export default function RecordTable({
         </table>
         {!filtered.length && (
           <div className="py-16 text-center text-sm text-[#788b87]">
-            {empty}
+            <SearchX className="mx-auto mb-3" size={28} strokeWidth={1.5}/>
+            <p>{query ? "No records match your search." : empty}</p>
+            {query && <button type="button" className="portal-button mt-4" onClick={() => setQuery("")}>Clear search</button>}
           </div>
         )}
       </div>
       <div className="border-t border-[#e8efed] px-5 py-4 text-[10px] text-[#849691]">
         Showing {filtered.length} of {rows.length} records
       </div>
-    </div>
+    </m.div>
   );
 }
 
 function badgeStyle(value) {
   const text = String(value).toLowerCase();
+  if (["inactive", "unverified", "unpaid", "disabled"].includes(text)) return "bg-slate-100 text-slate-700";
   if (
     [
       "active",

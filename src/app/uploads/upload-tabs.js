@@ -1,4 +1,6 @@
 "use client";
+import PortalDialog from "../components/portal-dialog";
+import MediaPreview from "../components/media-preview";
 import { ROLE_DISTRIBUTIONS, roleArtworkLabel } from "@/lib/role-artwork";
 import { SVGA_CATEGORIES, SVGA_MIME, SVGA_MAX_BYTES, isSvgaFile, uploadMimeType } from "@/lib/svga-policy";
 
@@ -220,8 +222,8 @@ function PreviewCard({ item, eager, onManage, onDelete, onPermanentDelete }) {
   const activeGrants = item.assignedUsers.filter((user) => !user.isExpired);
   const isBanner = item.category === "BANNERS";
   return (
-    <article className="group overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_7px_22px_rgba(15,65,60,.04)]">
-      <div className="aspect-video bg-[#edf4f2]">
+    <article className="group overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white shadow-[0_7px_22px_rgba(15,65,60,.04)]">
+      <div className="aspect-video overflow-hidden bg-[#edf4f2]">
         <MediaPreview
           url={item.url}
           type={item.mimeType}
@@ -312,7 +314,7 @@ function PreviewCard({ item, eager, onManage, onDelete, onPermanentDelete }) {
 
 function DeleteAssetModal({asset,deleting,error,onClose,onDelete}) {
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-[#071f1d]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-asset-title">
+    <PortalDialog onClose={onClose} busy={deleting} className="fixed inset-0 z-[60] grid place-items-center bg-[#071f1d]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-asset-title">
       <form
         onSubmit={(event)=>{
           event.preventDefault();
@@ -337,7 +339,7 @@ function DeleteAssetModal({asset,deleting,error,onClose,onDelete}) {
           <button type="submit" disabled={deleting} className="rounded-lg bg-rose-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50">{deleting?"Archiving…":"Archive item"}</button>
         </div>
       </form>
-    </div>
+    </PortalDialog>
   );
 }
 
@@ -423,7 +425,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
   }
 
   return (
-    <div
+    <PortalDialog onClose={onClose} busy={saving}
       className="fixed inset-0 z-50 overflow-y-auto bg-[#071f1d]/60 p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
@@ -644,7 +646,7 @@ function AssetManager({ asset, users, saving, error, onClose, onSave }) {
           </button>
         </div>
       </form>
-    </div>
+    </PortalDialog>
   );
 }
 
@@ -757,6 +759,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
     setError("");
   }
   function close() {
+    if (saving) return;
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     onClose();
@@ -825,7 +828,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
       !assignedUserIds.includes(user.id) && matchesUser(user, userQuery),
   );
   return (
-    <div
+    <PortalDialog onClose={close} busy={saving}
       className="fixed inset-0 z-50 overflow-y-auto bg-[#071f1d]/60 p-4"
       role="dialog"
       aria-modal="true"
@@ -847,6 +850,8 @@ function UploadModal({ active, users, onClose, onCreated }) {
           <button
             type="button"
             onClick={close}
+            disabled={saving}
+            aria-label="Close upload form"
             className="rounded-lg p-2 text-xl leading-none text-[#71847f] hover:bg-[#f1f6f5]"
           >
             ×
@@ -1043,7 +1048,7 @@ function UploadModal({ active, users, onClose, onCreated }) {
           </button>
         </div>
       </form>
-    </div>
+    </PortalDialog>
   );
 }
 
@@ -1273,38 +1278,6 @@ function EmptyState({ active }) {
         </p>
       </div>
     </div>
-  );
-}
-function MediaPreview({ url, type, name, eager = false, posterUrl }) {
-  if (type === SVGA_MIME) return (
-    <div className="relative grid h-full w-full place-items-center p-3 text-center text-xs text-[#52756d]">
-      {posterUrl ? <Image src={posterUrl} alt={`${name} poster`} fill unoptimized className="object-contain" /> : <span>SVGA animation<br />Add an optional poster for a static preview.</span>}
-      <span className="absolute bottom-2 right-2 rounded bg-[#087f74] px-2 py-1 text-white">SVGA</span>
-    </div>
-  );
-  return type?.startsWith("audio/") ? (
-    <div className="flex h-full w-full items-center justify-center p-6">
-      <audio src={url} controls preload="metadata" className="w-full" aria-label={`${name} preview`} />
-    </div>
-  ) : type?.startsWith("video/") ? (
-    <video
-      src={url}
-      controls
-      muted
-      className="h-full w-full object-contain"
-      aria-label={`${name} preview`}
-    />
-  ) : (
-    <span className="relative block h-full w-full">
-      <Image
-        src={url}
-        alt={`${name} preview`}
-        fill
-        unoptimized
-        loading={eager ? "eager" : "lazy"}
-        className="object-contain"
-      />
-    </span>
   );
 }
 function matchesUser(user, query) {

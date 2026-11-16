@@ -270,9 +270,9 @@ export default async function TalentsPage() {
   talentModules.gifts.push(...portalHosts.flatMap(h => h.receivedGifts.filter(g => !knownGifts.has(g.id)).map(g => ({ id:g.id,talentId:h.publicId,talent:h.name,senderId:g.sender.publicId,sender:g.sender.name,gift:g.giftName,quantity:g.quantity,value:g.coinValue.toLocaleString(),received:g.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) }))));
   talentModules.salaries.push(...portalHosts.flatMap(h => h.currencyRequests.map(r => ({id:r.id,talentId:h.publicId,talent:h.name,period:r.createdAt.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),amount:`${r.diamonds.toLocaleString()} Diamonds`,status:r.status,paid:r.paidAt?.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' })??"—",notes:`${r.kind} · ${r.reviewNote??""}`}))));
   return (
-    <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
+    <main className="portal-ui min-h-screen bg-[#f4f8f7] text-[#142c2a]">
       <PortalSidebar />
-      <section className="lg:pl-64">
+      <section id="portal-content" tabIndex={-1} className="lg:pl-64">
         <header className="flex h-20 items-center gap-6 border-b border-[#dfe9e7] bg-white px-6 md:px-10">
           <div className="shrink-0">
             <p className="text-xs font-semibold tracking-widest text-[#16877d] uppercase">

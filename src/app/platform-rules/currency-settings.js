@@ -17,7 +17,7 @@ export default function CurrencySettings({initial,version,canManage,canReview}){
   const change=(key,value)=>setRules(old=>({...old,[key]:value}));
   const toggle=(key,label)=><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={rules[key]} onChange={e=>change(key,e.target.checked)} />{label}</label>;
   function save(e){e.preventDefault();start(async()=>{try{await saveCurrencyPolicy(rules);setNotice("Currency policy saved. Historical transactions remain unchanged.");}catch{setNotice("Unable to save: check required rates, limits, commission chart and permissions.");}});}
-  return <section className="rounded-2xl border border-[#dce8e5] bg-white p-6">
+  return <section className="portal-panel rounded-2xl border border-[#dce8e5] bg-white p-6">
     <p className="text-xs font-semibold uppercase tracking-widest text-[#16877d]">Version {version} · Coins / Diamonds</p><h3 className="mt-1 text-xl font-bold">Currency & Salary Rules</h3>
     <p className="mt-2 text-sm text-[#71847f]">Only future transactions use new settings. Blank financial rules cannot be enabled. Diamond balances are never automatically revalued.</p>
     <nav className="my-5 flex flex-wrap gap-2" aria-label="Currency sections">{[...Object.keys(groups),"Review Queue"].map(name=><button key={name} onClick={()=>setTab(name)} className={`rounded-lg px-4 py-2 text-sm ${tab===name?"bg-[#087f74] text-white":"bg-[#f4f8f7]"}`}>{name}</button>)}</nav>

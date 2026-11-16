@@ -76,7 +76,7 @@ export default function PortalHostManagement({ hosts, candidates, agencies }) {
         <Metric label="KYC verified" value={verifiedHosts} note="Required for live video only" />
         <Metric label="Open payouts" value={openPayouts} note="Pending or approved" />
       </div>
-      <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white">
+      <div className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white">
         <div className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 xl:flex-row xl:items-center xl:justify-between">
           <input
             value={query}

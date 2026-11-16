@@ -91,7 +91,7 @@ export default function MessageHistory({
 
   return (
     <>
-      <section className="mt-8 rounded-2xl border border-[#dce8e5] bg-white p-5 shadow-[0_8px_25px_rgba(17,61,57,.04)] md:p-7">
+      <section className="mt-8 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-5 shadow-[0_8px_25px_rgba(17,61,57,.04)] md:p-7">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-[10px] font-bold tracking-[0.18em] text-[#16877d] uppercase">

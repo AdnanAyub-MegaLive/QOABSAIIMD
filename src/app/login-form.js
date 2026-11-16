@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { authenticate } from "./login-actions";
 
 const fieldClass =
-  "flex h-[52px] items-center gap-3 rounded-[10px] border border-[#dce7e4] bg-white px-[15px] transition focus-within:border-[#24aa9d] focus-within:shadow-[0_0_0_3px_rgba(36,170,157,.1)]";
+  "flex h-[52px] items-center gap-3 rounded-[10px] border border-[#dce7e4] bg-white px-[15px] transition focus-within:border-[#a855f7] focus-within:shadow-[0_0_0_3px_rgba(124,58,237,.1)]";
 const iconClass =
   "h-[18px] w-[18px] shrink-0 fill-none stroke-[#8da19e] stroke-[1.6]";
 const inputClass =
@@ -44,7 +44,7 @@ export default function LoginForm() {
           Password
         </label>
         <a
-          className="text-[11px] font-bold text-[#087f74] no-underline"
+          className="text-[11px] font-bold text-[#7c3aed] no-underline"
           href="#"
         >
           Forgot password?
@@ -83,7 +83,7 @@ export default function LoginForm() {
       </div>
       <label className="my-[18px] flex w-fit cursor-pointer items-center gap-[9px] text-xs font-normal text-[#526561]">
         <input
-          className="h-4 w-4 accent-[#087f74]"
+          className="h-4 w-4 accent-[#7c3aed]"
           type="checkbox"
           name="remember"
         />
@@ -98,7 +98,7 @@ export default function LoginForm() {
         </p>
       )}
       <button
-        className="flex h-[53px] w-full cursor-pointer items-center justify-center gap-2.5 rounded-[10px] border-0 bg-linear-to-r from-[#087b70] to-[#0b9587] text-[13px] font-bold text-white shadow-[0_12px_25px_rgba(8,127,116,.18)] transition hover:-translate-y-px hover:shadow-[0_15px_30px_rgba(8,127,116,.27)] disabled:cursor-wait disabled:opacity-70"
+        className="flex h-[53px] w-full cursor-pointer items-center justify-center gap-2.5 rounded-[10px] border-0 bg-linear-to-r from-[#7c3aed] to-[#9333ea] text-[13px] font-bold text-white shadow-[0_12px_25px_rgba(124,58,237,.18)] transition hover:-translate-y-px hover:shadow-[0_15px_30px_rgba(124,58,237,.27)] disabled:cursor-wait disabled:opacity-70"
         type="submit"
         disabled={pending}
       >

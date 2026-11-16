@@ -51,7 +51,7 @@ export default function DeviceInformationTable({
 
   return (
     <>
-      <div className="overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
+      <div className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
         <div className="flex flex-col gap-4 border-b border-[#e5ecea] px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-lg font-bold text-[#142c2a]">{title}</h3>

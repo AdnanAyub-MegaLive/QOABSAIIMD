@@ -12,7 +12,7 @@ export default function TeamSettings({ initial, canManage }) {
   const buttonClass = "rounded-lg bg-[#16877d] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
   const change = (index, changes) => setPolicy(p => ({ ...p, limits: p.limits.map((row, i) => i === index ? { ...row, ...changes } : row) }));
   async function run(action) { setBusy(true); setMessage(""); try { await action(); setMessage("Saved successfully."); } catch (error) { setMessage(error.message || "Unable to save."); } finally { setBusy(false); } }
-  return <section className="mb-6 rounded-2xl border border-[#dce8e5] bg-white p-5 md:p-6">
+  return <section className="mb-6 portal-panel rounded-2xl border border-[#dce8e5] bg-white p-5 md:p-6">
     <h3 className="text-lg font-bold">Management hierarchy</h3>
     <p className="mt-1 text-sm text-[#71847f]">Reporting permissions and capacity are enforced by the server. Changing limits does not detach existing teams.</p>
     <fieldset disabled={!canManage || busy} className="mt-5 space-y-5">

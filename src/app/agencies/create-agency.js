@@ -1,4 +1,5 @@
 "use client";
+import PortalDialog from "../components/portal-dialog";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -29,8 +30,8 @@ export default function CreateAgency() {
     <div className="mb-6">
       <button onClick={() => { setOpen(true); setError(""); setSuccess(""); }} className="rounded-lg bg-[#087f74] px-4 py-2.5 text-sm font-semibold text-white">Create agency</button>
       {success && <p role="status" className="mt-2 text-sm text-[#087f74]">{success}</p>}
-      {open && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-        <section role="dialog" aria-modal="true" aria-labelledby="create-agency-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      {open && <PortalDialog onClose={()=>setOpen(false)} busy={busy} aria-labelledby="create-agency-title" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+        <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
           <h2 id="create-agency-title" className="text-lg font-bold">Create agency</h2>
           <p className="mt-2 text-sm text-[#71847f]">Grant an agency to an active user. Management accounts may own multiple agencies. Normal accounts may own one; a pending application must be resolved first.</p>
           <form onSubmit={submit} className="mt-5 space-y-4">
@@ -44,7 +45,7 @@ export default function CreateAgency() {
             </div>
           </form>
         </section>
-      </div>}
+      </PortalDialog>}
     </div>
   );
 }

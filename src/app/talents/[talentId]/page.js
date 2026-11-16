@@ -53,9 +53,9 @@ export default async function TalentProfilePage({ params, searchParams }) {
     location: device?.location ?? "Unknown",
   };
   return (
-    <main className="min-h-screen bg-[#f4f8f7] text-[#142c2a]">
+    <main className="portal-ui min-h-screen bg-[#f4f8f7] text-[#142c2a]">
       <PortalSidebar />
-      <section className="lg:pl-64">
+      <section id="portal-content" tabIndex={-1} className="lg:pl-64">
       <header className="border-b border-[#dfe9e7] bg-white px-6 py-5 md:px-10">
         <div className="mx-auto max-w-7xl">
           <Link href="/talents" className="text-xs font-bold text-[#087f74]">
