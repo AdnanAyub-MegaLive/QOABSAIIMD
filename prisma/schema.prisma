@@ -285,6 +285,11 @@ model AuditLog {
 }
 
 model User {
+  stories Story[]
+  storyViews StoryView[]
+  storyReports StoryReport[]
+  closeFriends StoryCloseFriend[] @relation("StoryCloseOwner")
+  closeFriendOf StoryCloseFriend[] @relation("StoryCloseMember")
   kycSubmissions TalentVerification[]
   googleRechargeReceipts GoogleRechargeReceipt[]
   prettyIdGrants PrettyIdGrant[]
@@ -3341,4 +3346,62 @@ model RoomGiftDiamondCredit {
   userId String
   diamonds BigInt
   @@index([userId])
+}
+
+model Story {
+  id String @id @default(cuid())
+  publicId String @unique
+  authorId String
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  requestId String
+  fingerprint String
+  type String
+  mediaKey String?
+  mediaMime String?
+  durationMs Int?
+  caption String @default("")
+  background String @default("#32104F")
+  audience String @default("PUBLIC")
+  status PostReviewStatus @default(PENDING)
+  reviewReason String?
+  reviewRevision Int @default(0)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  deletedAt DateTime?
+  views StoryView[]
+  reports StoryReport[]
+  @@unique([authorId, requestId])
+  @@index([authorId, expiresAt])
+  @@index([status, createdAt])
+}
+model StoryView {
+  storyId String
+  userId String
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@id([storyId, userId])
+}
+model StoryCloseFriend {
+  ownerId String
+  memberId String
+  owner User @relation("StoryCloseOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  member User @relation("StoryCloseMember", fields: [memberId], references: [id], onDelete: Cascade)
+  @@id([ownerId, memberId])
+}
+model StoryReport {
+  storyId String
+  userId String
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason String
+  status String @default("OPEN")
+  createdAt DateTime @default(now())
+  @@id([storyId, userId])
+}
+// Independent cleanup inventory survives a failed upload or deleted Story row.
+model StoryMediaObject {
+  key String @id
+  expiresAt DateTime
+  @@index([expiresAt])
 }

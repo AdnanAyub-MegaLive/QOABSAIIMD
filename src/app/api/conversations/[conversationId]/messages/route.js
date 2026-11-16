@@ -114,7 +114,7 @@ export async function POST(request, { params }) {
       user,
       body?.body,
       senderPerks,
-      { clientMessageId: body?.clientMessageId, mediaId: body?.mediaId, postId: body?.postId, origin: requestOrigin(request) },
+      { clientMessageId: body?.clientMessageId, mediaId: body?.mediaId, postId: body?.postId, roomId: body?.roomId, storyId: body?.storyId, origin: requestOrigin(request) },
     );
     timing('message_persisted');
     await emitConversationEvent(globalThis.portalIo,membership.conversation.publicId,"message:new", {

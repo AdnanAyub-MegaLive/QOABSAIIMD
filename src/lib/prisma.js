@@ -4,7 +4,7 @@ import { mediaVersionExtension } from "./media-version.js";
 import { serializePgTransactions } from "./serialized-pg-adapter.js";
 
 const globalForPrisma = globalThis;
-const prismaSchemaVersion = "2026-11-15-account-deletion";
+const prismaSchemaVersion = "2026-11-16-stories";
 const requiredUserFields = [
   "walletRevision",
   "onboardingCompletedAt", "countryChangeUsedAt", "birthdayChangeUsedAt",
@@ -134,6 +134,7 @@ const cachedClientMatchesSchema =
     "conversationParticipant",
     "message",
     "messageReceipt",
+    "story", "storyView", "storyReport", "storyCloseFriend", "storyMediaObject",
     "userBlock",
     "notification",
     "notificationRead",

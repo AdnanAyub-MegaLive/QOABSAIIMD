@@ -1,3 +1,4 @@
+import { hydrateSocialCards } from "./chat-social-cards.js";
 import { chatError } from "./chat-media.js";
 
 function approvedForMembers(userIds) {
@@ -25,6 +26,7 @@ export async function claimChatPost(tx, conversation, senderId, postId) {
 // Rebuild cards from current data; never persist a description/image snapshot.
 // Batch membership and post reads so history/sync do not fetch each card separately.
 export async function hydratePostMessages(db, messages, origin) {
+  messages = await hydrateSocialCards(db,messages,origin);
   const cards = messages.filter(m => m.kind === "post" && !m.deletedAt && typeof m.metadata?.postId === "string");
   if (!cards.length) return messages;
   const members = await db.conversationParticipant.findMany({ where: { conversationId: { in: [...new Set(cards.map(m => m.conversationId))] } }, select: { conversationId: true, userId: true } });

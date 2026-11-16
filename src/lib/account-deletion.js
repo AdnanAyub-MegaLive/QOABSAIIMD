@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { deletionOwnedModels, assertDeletionInventory, deletedUserData, redactDeletedIdentity } from './account-deletion-policy.js';
 import { privateChatObject } from './chat-media.js';
+import { deleteStoryMedia } from './stories.js';
 import { voiceObject } from './voice-storage.js';
 import { deletionObjectKey, deletePublicDeletionObject } from './account-deletion-cdn.js';
 import { recordDeletionJournal } from './account-deletion-journal.js';
@@ -98,6 +99,8 @@ export async function purgeAccountData(db, requestId) {
       await tx.device.deleteMany({ where: { talentId: talent.id } });
       await tx.talent.update({ where: { id: talent.id }, data: { publicId: anonymous, displayName: 'Deleted User', legalName: '', email: `${randomUUID()}@deleted.invalid`, phone: null, country: null, profileImage: null, identityCardImage: null, status: 'BANNED', coinBalance:0n, hostSalaryCoinBalance:0n, totalGiftsValue:0n, followers:0, liveMinutes:0 } });
     }
+    const stories = await tx.story.findMany({where:{authorId:userId},select:{mediaKey:true}});
+    for(const row of stories) if(row.mediaKey) await queueObject(tx,requestId,'STORY',row.mediaKey);
     const messages = await tx.message.findMany({ where: { senderId: userId }, select: { voiceKey: true } });
     for (const row of messages) await queueObject(tx, requestId, 'VOICE', row.voiceKey);
     const media = await tx.chatMediaObject.findMany({ where: { uploaderId: userId } });
@@ -200,6 +203,7 @@ export async function cleanDeletionObjects(db, requestId) {
   const rows = await db.accountDeletionObject.findMany({ where: { requestId, completedAt: null }, take: 2 });
   for (const row of rows) {
     if (row.kind === 'CHAT') await privateChatObject('delete', row.key);
+    else if (row.kind === 'STORY') await deleteStoryMedia(row.key);
     else if (row.kind === 'VOICE') await voiceObject('delete', row.key);
     else if (row.kind === 'BANNER') {
       if (row.key.startsWith('room-banners/')) await deletePublicDeletionObject(row.key);

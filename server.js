@@ -147,6 +147,11 @@ app.prepare().then(async()=>{
   const bannerTimer=setInterval(runBanners,5000);bannerTimer.unref();setImmediate(runBanners);
   const {startMessageRetention}=await import("./src/lib/message-retention.js");
   startMessageRetention(prisma);
+  const {expireStories}=await import('./src/lib/stories.js');
+  let pruningStories=false;
+  const pruneStories=async()=>{if(pruningStories)return;pruningStories=true;try{await expireStories(prisma);}catch(e){console.error('Story cleanup failed',e.code??e.message);}finally{pruningStories=false;}};
+  const storyCleanupTimer=setInterval(pruneStories,30000);storyCleanupTimer.unref();pruneStories();
+  httpServer.once("close",()=>clearInterval(storyCleanupTimer));
   const {flushRealtimeOutbox}=await import("./src/lib/gift-operation.js");
   const {dispatchNotifications}=await import("./src/lib/action-notifications.js");
   const notificationTimer=setInterval(()=>void dispatchNotifications(prisma,io).catch(error=>console.error("Notification delivery failed",error.message)),2000);

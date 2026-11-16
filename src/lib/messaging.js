@@ -1,3 +1,4 @@
+import { claimSocialCard } from "./chat-social-cards.js";
 import { summarizeReactions } from "./message-reaction-summary.js";
 import { claimChatPost, hydratePostMessages } from "./chat-posts.js";
 import { prisma } from "./prisma.js";
@@ -181,6 +182,8 @@ export function serializeMessage(message, senderPerks, viewerId) {
     type: message.voiceKey ? "voice" : message.kind ?? "text",
     media: message.deletedAt ? null : message.media ?? null,
     gift: message.deletedAt ? null : message.gift ?? null,
+    ...(message.kind === "room" ? {room:message.deletedAt?null:message.room??{available:false}} : {}),
+    ...(message.kind === "story_reply" ? {story:message.deletedAt?null:message.story??{available:false}} : {}),
     ...(message.kind === "post" ? { post: message.deletedAt ? null : message.post ?? { id: message.metadata?.postId, available: false } } : {}),
     voice: !message.deletedAt && message.voiceKey ? {url:`/api/v1/conversations/${message.conversation?.publicId ?? message.conversationId}/voice/${message.publicId}`,durationMs:message.voiceDurationMs,mimeType:message.voiceMimeType} : null,
     senderId: message.sender?.publicId ?? null,
@@ -212,13 +215,15 @@ export async function createMessage(
   const clientMessageId = options.clientMessageId ?? null;
   if(clientMessageId!==null&&(typeof clientMessageId!=="string"||!clientMessageId.trim()||clientMessageId.length>128))throw Object.assign(new Error("Invalid client message ID."),{code:"VALIDATION_ERROR"});
   if (options.mediaId && (typeof options.mediaId !== "string" || options.mediaId.length > 128 || options.voice || !clientMessageId)) throw chatError("VALIDATION_ERROR", "Provide mediaId and clientMessageId without voice content.");
+  const isSocial = options.roomId != null || options.storyId != null;
+  if(isSocial && (conversation.kind !== "DIRECT" || !clientMessageId || options.postId || options.mediaId || options.voice || (options.roomId && options.storyId) || typeof (options.roomId ?? options.storyId) !== "string" || !(options.roomId ?? options.storyId).trim() || (options.roomId ?? options.storyId).length > 128 || (options.roomId && String(rawBody ?? "").trim()))) throw chatError("VALIDATION_ERROR", "Invalid direct-message card.");
   const isPost = options.postId !== undefined && options.postId !== null;
   if (isPost && (typeof options.postId !== "string" || !options.postId.trim() || options.postId.length > 128 || !clientMessageId || options.mediaId || options.voice || String(rawBody ?? "").trim() || conversation.kind !== "DIRECT"))
     throw chatError("VALIDATION_ERROR", "Provide postId and clientMessageId with an empty body in a direct chat.");
   const present = async record => serializeMessage((await hydratePostMessages(prisma, [record], options.origin))[0], senderPerks, sender.id);
-  const body = isPost ? "Shared a post" : options.mediaId ? "Sent media" : options.voice ? "Voice message" : String(rawBody ?? "").trim();
+  const body = options.roomId ? "Shared a room" : isPost ? "Shared a post" : options.mediaId ? "Sent media" : options.voice ? "Voice message" : String(rawBody ?? "").trim();
   if(conversation.kind==="WORLD")assertNoCountryLinks(body);
-  const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null,...(options.mediaId?{mediaId:options.mediaId}:{}),...(isPost?{postId:options.postId}:{})})).digest("hex");
+  const requestHash=createHash("sha256").update(JSON.stringify({conversationId:conversation.id,body,voice:options.voice?.hash??null,...(options.mediaId?{mediaId:options.mediaId}:{}),...(isPost?{postId:options.postId}:{}),...(isSocial?{roomId:options.roomId,storyId:options.storyId}:{})})).digest("hex");
   const replay=async()=>{
     const prior=await prisma.message.findUnique({where:{senderId_clientMessageId:{senderId:sender.id,clientMessageId}},include:messageSenderInclude});
     if(prior&&prior.requestHash!==requestHash)throw Object.assign(new Error("Client message ID already used for different content."),{code:"IDEMPOTENCY_CONFLICT"});
@@ -241,6 +246,7 @@ export async function createMessage(
     await assertConversationMessagingAllowed(conversation,sender.id,tx,true);
     const currentCountry=conversation.kind==="WORLD"?await userChatCountry(tx,sender.id,true):null;
     if(currentCountry!==senderCountry)throw countryChatErrorForReplay();
+    const social = isSocial ? await claimSocialCard(tx,conversation,sender.id,options) : null;
     const post = isPost ? await claimChatPost(tx, conversation, sender.id, options.postId) : null;
     const media = options.mediaId ? await claimChatMedia(tx, options.mediaId, conversation, sender.id) : null;
     const record = await tx.message.create({
@@ -253,6 +259,7 @@ export async function createMessage(
         kind: options.voice ? "voice" : media?.kind ?? "text",
         ...(media ?? {}),
         ...(post ?? {}),
+        ...(social ?? {}),
         clientMessageId, requestHash,
         ...(options.voice?{voiceKey:options.voice.key,voiceDurationMs:options.voice.durationMs,voiceMimeType:options.voice.mimeType}:{}),
         createdAt,
