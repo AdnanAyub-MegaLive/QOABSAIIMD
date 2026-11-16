@@ -7,7 +7,7 @@ export default function BrandLogo({
   className="",
 }) {
   const size=compact?40:48;
-  return <span className={`flex items-center gap-3 ${light?"text-white":"text-[#142c2a]"} ${className}`}>
+  return <span className={`flex items-center gap-3 ${light?"text-white":"text-[#210735]"} ${className}`}>
     <Image
       src="/mega-portal-logo.png"
       alt="Mega Live Portal"

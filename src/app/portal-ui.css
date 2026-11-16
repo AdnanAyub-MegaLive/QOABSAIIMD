@@ -23,7 +23,7 @@ main.portal-ui { background: #f4f7f8; }
 .portal-ui :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=color]),select) { min-height: 42px; }
 .portal-ui textarea { min-height: 88px; }
 .portal-ui :is(input,select,textarea):disabled { background-color: #f1f5f4; color: #60766f; cursor: not-allowed; }
-.portal-ui input::file-selector-button { border: 0; border-radius: 7px; padding: 8px 12px; margin-right: 12px; background: #e4f2ef; color: #08665d; font-weight: 600; cursor: pointer; }
+.portal-ui input::file-selector-button { border: 0; border-radius: 7px; padding: 8px 12px; margin-right: 12px; background: #f3e8ff; color: #6d28d9; font-weight: 600; cursor: pointer; }
 .portal-ui [class~="text-[9px]"], .portal-ui [class~="text-[10px]"] { font-size: 11px; line-height: 1.5; }
 .portal-ui [class~="text-[11px]"] { font-size: 12px; line-height: 1.5; }
 .portal-ui :is([class~="text-[#82938f]"],[class~="text-[#849691]"],[class~="text-[#8a9a96]"],[class~="text-[#879792]"],[class~="text-[#94a39f]"]) { color: #60766f; }

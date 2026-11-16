@@ -75,7 +75,7 @@ export function SidebarView({ pathname, navigation, workspace = "Administration"
     <div className="border-b border-white/10 bg-[#092f2d] px-6 py-3 text-white lg:hidden">
       <details key={pathname} className="group">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#62e0d0]">
-          <span>Mega Live · {workspace}</span><span className="text-[#62e0d0]">Menu <span aria-hidden="true">☰</span></span>
+          <span className="flex items-center gap-3"><NextImage src="/mega-portal-logo.png" alt="Mega Live" width={34} height={34} className="rounded-lg" /><span>Mega Live · {workspace}</span></span><span className="text-[#62e0d0]">Menu <span aria-hidden="true">☰</span></span>
         </summary>
         <nav aria-label="Mobile portal navigation" className="grid max-h-[65vh] gap-1 overflow-y-auto pb-2 pt-3 sm:grid-cols-2">
           {navigation.map(([label, href]) => <Link key={href} href={href} aria-current={isActiveRoute(pathname, href) ? "page" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm ${isActiveRoute(pathname, href) ? "bg-[#d9f6ed] font-semibold text-[#0b5148]" : "text-[#a9c5c1] hover:bg-white/5 hover:text-white"}`}><NavigationIcon href={href}/>{label}</Link>)}

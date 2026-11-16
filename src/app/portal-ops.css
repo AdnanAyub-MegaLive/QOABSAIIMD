@@ -138,3 +138,10 @@ main.portal-ui {background:var(--ops-canvas);}
 .portal-ui :is([class~="text-[#16877d]"],[class~="text-[#0c796b]"],[class~="text-[#087f74]"]) {color:#7c3aed;}
 .portal-ui :is([class~="bg-[#e9f7f4]"],[class~="bg-[#eaf8f5]"]) {background:#f3e8ff;}
 .portal-ui.mega-portal .demo-banner,.portal-ui.mega-portal .demo-pill {background:#f3eef9;color:#6b4688;border-color:#e8e0ef;}
+
+/* Shared non-status accents, including the native upload control. */
+.portal-ui input::file-selector-button {background:#f3e8ff;color:#6d28d9;}
+.portal-ui.mega-portal .chart-legend i {background:#7c3aed;}
+.portal-ui.mega-portal .chart-legend i.payout {background:#a78bfa;}
+.portal-ui.mega-portal :is(.notice,.info-strip) {background:#f3eef9;color:#6b4688;border-color:#e8e0ef;}
+.portal-ui.mega-portal :is(.notice button,.text-button) {color:#6d28d9;}

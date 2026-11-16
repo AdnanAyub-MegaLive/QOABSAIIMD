@@ -1,7 +1,7 @@
 // Tailwind utility classes. Keep every candidate literal so the compiler can discover it.
 export const portalUtilities = [
   // base · &
-  "[--surface:#fff] [--ink:#202523] [--muted:#7c837e] [--line:#e7ebe7] [--purple:#8270ce] [--danger:#bd4f52] [--radius:13px] [background:var(--bg)] [color:var(--ink)] [--bg:#f4f8f7] [--lime:#0c796b] [--lime-dark:#075e54] m-0 [font-family:Arial,sans-serif] [font-size:16px]",
+  "[--surface:#fff] [--ink:#0f172a] [--muted:#64748b] [--line:#e8e0ef] [--purple:#a78bfa] [--danger:#bd4f52] [--radius:13px] [background:var(--bg)] [color:var(--ink)] [--bg:#faf8fd] [--lime:#7c3aed] [--lime-dark:#6d28d9] m-0 [font-family:Arial,sans-serif] [font-size:16px]",
   // base · & *
   "[&_*]:box-border",
   // base · & button
@@ -39,19 +39,19 @@ export const portalUtilities = [
   // base · & .workspace b
   "[&_.workspace_b]:font-semibold [&_.workspace_b]:block",
   // base · & .workspace small
-  "[&_.workspace_small]:[color:#b5d6d0] [&_.workspace_small]:[margin-top:4px] [&_.workspace_small]:[font-size:12px] [&_.workspace_small]:block",
+  "[&_.workspace_small]:[color:#d3c3e4] [&_.workspace_small]:[margin-top:4px] [&_.workspace_small]:[font-size:12px] [&_.workspace_small]:block",
   // base · & .workspace-icon
   "[&_.workspace-icon]:[color:#fff] [&_.workspace-icon]:[background:#ffffff0d] [&_.workspace-icon]:[border-color:#ffffff20] [&_.workspace-icon]:[border-radius:8px] [&_.workspace-icon]:[place-items:center] [&_.workspace-icon]:[padding:9px] [&_.workspace-icon]:grid",
   // base · & .workspace>svg
   "[&_.workspace>svg]:[margin-left:auto]",
   // base · & .nav-label
-  "[&_.nav-label]:[letter-spacing:1.3px] [&_.nav-label]:[color:#b5d6d0] [&_.nav-label]:[margin-bottom:13px] [&_.nav-label]:[padding:0_13px] [&_.nav-label]:[font-size:12px]",
+  "[&_.nav-label]:[letter-spacing:1.3px] [&_.nav-label]:[color:#d3c3e4] [&_.nav-label]:[margin-bottom:13px] [&_.nav-label]:[padding:0_13px] [&_.nav-label]:[font-size:12px]",
   // base · & .nav-item
-  "[&_.nav-item]:text-left [&_.nav-item]:[color:#b5d6d0] [&_.nav-item]:[background:0_0] [&_.nav-item]:[border:0] [&_.nav-item]:[border-radius:8px] [&_.nav-item]:items-center [&_.nav-item]:[gap:12px] [&_.nav-item]:w-full [&_.nav-item]:[margin:3px_0] [&_.nav-item]:[padding:13px_12px] [&_.nav-item]:[font-size:14px] [&_.nav-item]:font-medium [&_.nav-item]:flex",
+  "[&_.nav-item]:text-left [&_.nav-item]:[color:#d3c3e4] [&_.nav-item]:[background:0_0] [&_.nav-item]:[border:0] [&_.nav-item]:[border-radius:8px] [&_.nav-item]:items-center [&_.nav-item]:[gap:12px] [&_.nav-item]:w-full [&_.nav-item]:[margin:3px_0] [&_.nav-item]:[padding:13px_12px] [&_.nav-item]:[font-size:14px] [&_.nav-item]:font-medium [&_.nav-item]:flex",
   // base · & .nav-item.selected
-  "[&_.nav-item.selected]:[color:#62e0d0] [&_.nav-item.selected]:[background:#ffffff18]",
+  "[&_.nav-item.selected]:[color:#fde68a] [&_.nav-item.selected]:[background:#ffffff18]",
   // base · & .nav-item:hover
-  "[&_.nav-item:hover]:[color:#62e0d0] [&_.nav-item:hover]:[background:#ffffff18]",
+  "[&_.nav-item:hover]:[color:#fde68a] [&_.nav-item:hover]:[background:#ffffff18]",
   // base · & .nav-count
   "[&_.nav-count]:[background:#e8ebe5] [&_.nav-count]:[border-radius:4px] [&_.nav-count]:[margin-left:auto] [&_.nav-count]:[padding:2px_6px] [&_.nav-count]:[font-size:12px]",
   // base · & .sidebar-bottom
@@ -61,7 +61,7 @@ export const portalUtilities = [
   // base · & .sandbox-card>b
   "[&_.sandbox-card>b]:[margin:13px_0_7px] [&_.sandbox-card>b]:[font-size:14px] [&_.sandbox-card>b]:block",
   // base · & .sandbox-card p
-  "[&_.sandbox-card_p]:[color:#b5d6d0] [&_.sandbox-card_p]:[font-size:14px] [&_.sandbox-card_p]:[line-height:1.6]",
+  "[&_.sandbox-card_p]:[color:#d3c3e4] [&_.sandbox-card_p]:[font-size:14px] [&_.sandbox-card_p]:[line-height:1.6]",
   // base · & .sandbox-card a
   "[&_.sandbox-card_a]:justify-between [&_.sandbox-card_a]:items-center [&_.sandbox-card_a]:[margin-top:15px] [&_.sandbox-card_a]:[font-size:14px] [&_.sandbox-card_a]:font-semibold [&_.sandbox-card_a]:flex",
   // base · & .admin-profile
@@ -71,7 +71,7 @@ export const portalUtilities = [
   // base · & .top-avatar
   "[&_.top-avatar]:[color:#78658c] [&_.top-avatar]:[background:#ece9f3] [&_.top-avatar]:[border:3px_solid_#fff] [&_.top-avatar]:rounded-full [&_.top-avatar]:[place-items:center] [&_.top-avatar]:[width:37px] [&_.top-avatar]:[height:37px] [&_.top-avatar]:font-semibold [&_.top-avatar]:grid",
   // base · & .admin-profile small
-  "[&_.admin-profile_small]:[color:#b5d6d0] [&_.admin-profile_small]:[margin-top:3px] [&_.admin-profile_small]:[font-size:12px] [&_.admin-profile_small]:block",
+  "[&_.admin-profile_small]:[color:#d3c3e4] [&_.admin-profile_small]:[margin-top:3px] [&_.admin-profile_small]:[font-size:12px] [&_.admin-profile_small]:block",
   // base · & main
   "[&_main]:[width:calc(100%_-_248px)] [&_main]:[margin-left:248px]",
   // base · & .topbar
@@ -101,15 +101,15 @@ export const portalUtilities = [
   // base · & .button.subtle
   "[&_.button.subtle]:[background:#fff] [&_.button.subtle]:[min-height:33px] [&_.button.subtle]:[padding:7px_11px] [&_.button.subtle]:[font-size:14px]",
   // base · & .text-button
-  "[&_.text-button]:[color:#5c6e46] [&_.text-button]:[background:0_0] [&_.text-button]:[border:0] [&_.text-button]:items-center [&_.text-button]:[gap:8px] [&_.text-button]:p-0 [&_.text-button]:[font-size:14px] [&_.text-button]:font-semibold [&_.text-button]:inline-flex",
+  "[&_.text-button]:[color:#6d28d9] [&_.text-button]:[background:0_0] [&_.text-button]:[border:0] [&_.text-button]:items-center [&_.text-button]:[gap:8px] [&_.text-button]:p-0 [&_.text-button]:[font-size:14px] [&_.text-button]:font-semibold [&_.text-button]:inline-flex",
   // base · & .notice
-  "[&_.notice]:[color:#75805f] [&_.notice]:[background:#f1f5e9] [&_.notice]:[border:1px_solid_#e6eadc] [&_.notice]:[border-radius:8px] [&_.notice]:items-center [&_.notice]:[gap:10px] [&_.notice]:[margin-bottom:25px] [&_.notice]:[padding:11px_14px] [&_.notice]:[font-size:14px] [&_.notice]:[line-height:1.6] [&_.notice]:flex",
+  "[&_.notice]:[color:#6b4688] [&_.notice]:[background:#f3eef9] [&_.notice]:[border:1px_solid_#e8e0ef] [&_.notice]:[border-radius:8px] [&_.notice]:items-center [&_.notice]:[gap:10px] [&_.notice]:[margin-bottom:25px] [&_.notice]:[padding:11px_14px] [&_.notice]:[font-size:14px] [&_.notice]:[line-height:1.6] [&_.notice]:flex",
   // base · & .notice>b
   "[&_.notice>b]:font-medium",
   // base · & .notice>svg
   "[&_.notice>svg]:[flex-shrink:0]",
   // base · & .notice button
-  "[&_.notice_button]:whitespace-nowrap [&_.notice_button]:[color:#5c6e46] [&_.notice_button]:[background:0_0] [&_.notice_button]:[border:0] [&_.notice_button]:items-center [&_.notice_button]:[gap:6px] [&_.notice_button]:[margin-left:auto] [&_.notice_button]:[font-size:14px] [&_.notice_button]:flex",
+  "[&_.notice_button]:whitespace-nowrap [&_.notice_button]:[color:#6d28d9] [&_.notice_button]:[background:0_0] [&_.notice_button]:[border:0] [&_.notice_button]:items-center [&_.notice_button]:[gap:6px] [&_.notice_button]:[margin-left:auto] [&_.notice_button]:[font-size:14px] [&_.notice_button]:flex",
   // base · & .metrics
   "[&_.metrics]:[grid-template-columns:repeat(4,1fr)] [&_.metrics]:[gap:17px] [&_.metrics]:[margin-bottom:23px] [&_.metrics]:grid",
   // base · & .metric
@@ -133,11 +133,11 @@ export const portalUtilities = [
   // base · & .panel-heading p
   "[&_.panel-heading_p]:[color:#8d958d] [&_.panel-heading_p]:[margin-top:7px] [&_.panel-heading_p]:[font-size:14px]",
   // base · & .chart-legend
-  "[&_.chart-legend]:[color:#8a9288] [&_.chart-legend]:whitespace-nowrap [&_.chart-legend]:items-center [&_.chart-legend]:[gap:5px] [&_.chart-legend]:[font-size:12px] [&_.chart-legend]:flex",
+  "[&_.chart-legend]:[color:#64748b] [&_.chart-legend]:whitespace-nowrap [&_.chart-legend]:items-center [&_.chart-legend]:[gap:5px] [&_.chart-legend]:[font-size:12px] [&_.chart-legend]:flex",
   // base · & .chart-legend i
-  "[&_.chart-legend_i]:[background:#b6db82] [&_.chart-legend_i]:[border-radius:2px] [&_.chart-legend_i]:[width:7px] [&_.chart-legend_i]:[height:7px]",
+  "[&_.chart-legend_i]:[background:#7c3aed] [&_.chart-legend_i]:[border-radius:2px] [&_.chart-legend_i]:[width:7px] [&_.chart-legend_i]:[height:7px]",
   // base · & .chart-legend i.payout
-  "[&_.chart-legend_i.payout]:[background:#dfe8d7] [&_.chart-legend_i.payout]:[margin-left:9px]",
+  "[&_.chart-legend_i.payout]:[background:#a78bfa] [&_.chart-legend_i.payout]:[margin-left:9px]",
   // base · & .bar-chart
   "[&_.bar-chart]:[background:repeating-linear-gradient(0deg,#0000_0_49px,#f1f3ef_49px_50px)] [&_.bar-chart]:[align-items:end] [&_.bar-chart]:[gap:13px] [&_.bar-chart]:[height:233px] [&_.bar-chart]:[margin:4px_25px_15px] [&_.bar-chart]:[padding-top:10px] [&_.bar-chart]:flex",
   // base · & .bar-group
@@ -145,13 +145,13 @@ export const portalUtilities = [
   // base · & .bar-pair
   "[&_.bar-pair]:[align-items:end] [&_.bar-pair]:[gap:3px] [&_.bar-pair]:h-full [&_.bar-pair]:[padding-top:5px] [&_.bar-pair]:flex",
   // base · & .bar-pair span
-  "[&_.bar-pair_span]:[background:#b6db82] [&_.bar-pair_span]:[border-radius:4px_4px_0_0] [&_.bar-pair_span]:[flex:1] [&_.bar-pair_span]:[min-height:3px] [&_.bar-pair_span]:[max-height:100%]",
+  "[&_.bar-pair_span]:[background:#7c3aed] [&_.bar-pair_span]:[border-radius:4px_4px_0_0] [&_.bar-pair_span]:[flex:1] [&_.bar-pair_span]:[min-height:3px] [&_.bar-pair_span]:[max-height:100%]",
   // base · & .bar-pair span+span
   "[&_.bar-pair_span+span]:[background:#e1e9d9]",
   // base · & .bar-group small
   "[&_.bar-group_small]:text-center [&_.bar-group_small]:[color:#9ca49a] [&_.bar-group_small]:[background:#fff] [&_.bar-group_small]:[margin-top:12px] [&_.bar-group_small]:[padding-top:4px] [&_.bar-group_small]:[font-size:12px] [&_.bar-group_small]:block",
   // base · & .tiny-label
-  "[&_.tiny-label]:[letter-spacing:1px] [&_.tiny-label]:[color:#7e896e] [&_.tiny-label]:[background:#f2f4ec] [&_.tiny-label]:[border:1px_solid_#e7ebdf] [&_.tiny-label]:[border-radius:4px] [&_.tiny-label]:[padding:4px_6px] [&_.tiny-label]:[font-size:12px]",
+  "[&_.tiny-label]:[letter-spacing:1px] [&_.tiny-label]:[color:#7e896e] [&_.tiny-label]:[background:#f2f4ec] [&_.tiny-label]:[border:1px_solid_#e8e0ef] [&_.tiny-label]:[border-radius:4px] [&_.tiny-label]:[padding:4px_6px] [&_.tiny-label]:[font-size:12px]",
   // base · & .health-panel
   "[&_.health-panel]:[padding-bottom:20px]",
   // base · & .health-number
@@ -209,7 +209,7 @@ export const portalUtilities = [
   // base · & table
   "[&_table]:[border-collapse:collapse] [&_table]:text-left [&_table]:whitespace-nowrap [&_table]:w-full",
   // base · & th
-  "[&_th]:[letter-spacing:.15px] [&_th]:[color:#899181] [&_th]:[background:#fafbf8] [&_th]:[border-block:1px_solid_#eff2e9] [&_th]:[padding:12px_20px] [&_th]:[font-size:12px] [&_th]:font-medium",
+  "[&_th]:[letter-spacing:.15px] [&_th]:[color:#899181] [&_th]:[background:#fafbf8] [&_th]:[border-block:1px_solid_#f3eef9] [&_th]:[padding:12px_20px] [&_th]:[font-size:12px] [&_th]:font-medium",
   // base · & td
   "[&_td]:[color:#657058] [&_td]:[border-bottom:1px_solid_#f0f3ed] [&_td]:[padding:15px_20px] [&_td]:[font-size:14px]",
   // base · & td b
@@ -333,9 +333,9 @@ export const portalUtilities = [
   // base · & .icon-button
   "[&_.icon-button]:[color:#859178] [&_.icon-button]:[background:0_0] [&_.icon-button]:[border:0] [&_.icon-button]:[border-radius:6px] [&_.icon-button]:justify-center [&_.icon-button]:items-center [&_.icon-button]:[padding:8px] [&_.icon-button]:inline-flex",
   // base · & .icon-button:hover
-  "[&_.icon-button:hover]:[background:#eff2e9]",
+  "[&_.icon-button:hover]:[background:#f3eef9]",
   // base · & .info-strip
-  "[&_.info-strip]:[color:#5f714b] [&_.info-strip]:[background:#f1f5e9] [&_.info-strip]:[border:1px_solid_#e4e9dc] [&_.info-strip]:[border-radius:10px] [&_.info-strip]:[gap:14px] [&_.info-strip]:[margin-bottom:23px] [&_.info-strip]:[padding:20px_23px] [&_.info-strip]:flex",
+  "[&_.info-strip]:[color:#6b4688] [&_.info-strip]:[background:#f3eef9] [&_.info-strip]:[border:1px_solid_#e8e0ef] [&_.info-strip]:[border-radius:10px] [&_.info-strip]:[gap:14px] [&_.info-strip]:[margin-bottom:23px] [&_.info-strip]:[padding:20px_23px] [&_.info-strip]:flex",
   // base · & .info-strip>svg
   "[&_.info-strip>svg]:[flex-shrink:0] [&_.info-strip>svg]:[margin-top:2px]",
   // base · & .info-strip b
@@ -455,13 +455,13 @@ export const portalUtilities = [
   // base · & .integration-row b
   "[&_.integration-row_b]:[font-size:15px]",
   // base · & .integration-row p
-  "[&_.integration-row_p]:[color:#98a18d] [&_.integration-row_p]:[margin-top:6px] [&_.integration-row_p]:[font-size:14px] [&_.integration-row_p]:[line-height:1.6]",
+  "[&_.integration-row_p]:[color:#64748b] [&_.integration-row_p]:[margin-top:6px] [&_.integration-row_p]:[font-size:14px] [&_.integration-row_p]:[line-height:1.6]",
   // base · & .setup-panel
   "[&_.setup-panel]:[padding:26px]",
   // base · & .setup-panel h2
   "[&_.setup-panel_h2]:[font-size:18px]",
   // base · & .setup-panel>p
-  "[&_.setup-panel>p]:[color:#98a18d] [&_.setup-panel>p]:[margin:10px_0_20px] [&_.setup-panel>p]:[font-size:14px] [&_.setup-panel>p]:[line-height:1.7]",
+  "[&_.setup-panel>p]:[color:#64748b] [&_.setup-panel>p]:[margin:10px_0_20px] [&_.setup-panel>p]:[font-size:14px] [&_.setup-panel>p]:[line-height:1.7]",
   // base · & .url-box
   "[&_.url-box]:[background:#f5f7f0] [&_.url-box]:[border:1px_solid_#e6ebdc] [&_.url-box]:[border-radius:8px] [&_.url-box]:justify-between [&_.url-box]:items-center [&_.url-box]:[gap:12px] [&_.url-box]:[margin:15px_0] [&_.url-box]:[padding:13px_14px] [&_.url-box]:flex",
   // base · & .url-box code
@@ -863,7 +863,7 @@ export const portalUtilities = [
   // base · & .market-odds
   "[&_.market-odds]:[grid-template-columns:1fr_1fr] [&_.market-odds]:[gap:12px] [&_.market-odds]:[margin-bottom:22px] [&_.market-odds]:grid",
   // base · & .market-odds>div
-  "[&_.market-odds>div]:[border:1px_solid_#e7ebdf] [&_.market-odds>div]:[border-radius:7px] [&_.market-odds>div]:[flex-wrap:wrap] [&_.market-odds>div]:justify-between [&_.market-odds>div]:[gap:8px] [&_.market-odds>div]:[padding:12px] [&_.market-odds>div]:[font-size:14px] [&_.market-odds>div]:flex",
+  "[&_.market-odds>div]:[border:1px_solid_#e8e0ef] [&_.market-odds>div]:[border-radius:7px] [&_.market-odds>div]:[flex-wrap:wrap] [&_.market-odds>div]:justify-between [&_.market-odds>div]:[gap:8px] [&_.market-odds>div]:[padding:12px] [&_.market-odds>div]:[font-size:14px] [&_.market-odds>div]:flex",
   // base · & .market-odds span
   "[&_.market-odds_span]:[color:#849b6e]",
   // base · & .market-odds small
