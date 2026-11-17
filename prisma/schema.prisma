@@ -3466,9 +3466,31 @@ model CsRoomSeat {
 }
 
 model CsRoomPresence {
-  userId     String   @id
+  userId     String    @id
   country    String
-  lastSeenAt DateTime @default(now())
+  lastSeenAt DateTime  @default(now())
+  removedAt  DateTime?
 
   @@index([country, lastSeenAt])
+}
+
+model CsRoomBan {
+  id         String   @id @default(cuid())
+  country    String
+  userId     String
+  bannedById String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([country, userId])
+  @@index([expiresAt])
+}
+
+model CsRoomMute {
+  country   String
+  userId    String
+  mutedById String
+  createdAt DateTime @default(now())
+
+  @@id([country, userId])
 }

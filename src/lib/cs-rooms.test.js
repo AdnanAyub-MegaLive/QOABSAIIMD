@@ -37,7 +37,7 @@ describe("cs rooms heartbeat", () => {
     const { heartbeatCsRoom } = await import("./cs-rooms.js");
     const cleared = [];
     const db = {
-      csRoomPresence: { updateMany: async () => ({ count: 1 }) },
+      csRoomPresence: { findUnique: async () => ({ country: "PK", removedAt: null }), updateMany: async () => ({ count: 1 }) },
       csRoomSeat: { findFirst: async () => ({ country: "PK", seatIndex: 0 }), updateMany: async (q) => { cleared.push(q.where.occupantUserId); return { count: 1 }; } },
     };
     await heartbeatCsRoom(db, { id: "u1", appRoles: ["LISTENER"], country: "PK" }, "PK");
@@ -47,7 +47,7 @@ describe("cs rooms heartbeat", () => {
     const { heartbeatCsRoom } = await import("./cs-rooms.js");
     const cleared = [];
     const db = {
-      csRoomPresence: { updateMany: async () => ({ count: 1 }) },
+      csRoomPresence: { findUnique: async () => ({ country: "PK", removedAt: null }), updateMany: async () => ({ count: 1 }) },
       csRoomSeat: { findFirst: async () => ({ country: "PK", seatIndex: 0 }), updateMany: async () => { cleared.push(1); return { count: 1 }; } },
     };
     await heartbeatCsRoom(db, { id: "u2", appRoles: ["CS"], country: "PK" }, "PK");
@@ -63,5 +63,31 @@ describe("cs rooms own-country seats", () => {
   it("lets users from other countries sit anywhere", () => {
     expect(() => assertCsSeat({ appRoles: ["LISTENER"], country: "FR" }, "IN", 2)).not.toThrow();
     expect(() => assertCsSeat({ appRoles: ["LISTENER"], country: null }, "US", 3)).not.toThrow();
+  });
+});
+
+describe("cs room moderation guards", () => {
+  const db = (target, presence = { country: "PK", removedAt: null }) => ({
+    csRoomPresence: { findUnique: async () => presence },
+    user: { findUnique: async () => target },
+  });
+  it("only own-country staff can moderate", async () => {
+    const { moderateCsRoom } = await import("./cs-rooms.js");
+    await expect(moderateCsRoom(db({ id: "t", appRoles: ["LISTENER"] }), { id: "a", appRoles: ["LISTENER"], country: "PK" }, "PK", { action: "mute", targetId: "T" })).rejects.toMatchObject({ code: "CS_ADMIN_ONLY" });
+    await expect(moderateCsRoom(db({ id: "t", appRoles: ["LISTENER"] }), { id: "a", appRoles: ["CS"], country: "IN" }, "PK", { action: "mute", targetId: "T" })).rejects.toMatchObject({ code: "CS_ADMIN_ONLY" });
+  });
+  it("staff must be in the room", async () => {
+    const { moderateCsRoom } = await import("./cs-rooms.js");
+    await expect(moderateCsRoom(db({ id: "t", appRoles: ["LISTENER"] }, null), { id: "a", appRoles: ["CS"], country: "PK" }, "PK", { action: "mute", targetId: "T" })).rejects.toMatchObject({ code: "CS_ROOM_NOT_JOINED" });
+  });
+  it("cannot act on other staff", async () => {
+    const { moderateCsRoom } = await import("./cs-rooms.js");
+    await expect(moderateCsRoom(db({ id: "t", appRoles: ["CS_LEADER"], country: "PK" }), { id: "a", appRoles: ["CS"], country: "PK" }, "PK", { action: "ban", targetId: "T", minutes: 10 })).rejects.toMatchObject({ code: "CS_TARGET_STAFF" });
+  });
+  it("rejects unknown ban lengths and actions", async () => {
+    const { moderateCsRoom } = await import("./cs-rooms.js");
+    const d = db({ id: "t", appRoles: ["LISTENER"], country: "PK" });
+    await expect(moderateCsRoom(d, { id: "a", appRoles: ["CS"], country: "PK" }, "PK", { action: "ban", targetId: "T", minutes: 5 })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(moderateCsRoom(d, { id: "a", appRoles: ["CS"], country: "PK" }, "PK", { action: "nuke", targetId: "T" })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 });

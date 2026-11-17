@@ -15,7 +15,7 @@ export function csRoomRequest(request, path, methods, work) {
       if (isRateLimited(`cs-room:${user.id}`, { limit: 90, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Please wait before trying again." } }, 429);
       return mobileJson({ success: true, data: await work(user) });
     } catch (error) {
-      if ((error.code?.startsWith("CS_") || error.code === "VALIDATION_ERROR") && error.status) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
+      if ((error.code?.startsWith("CS_") || error.code === "VALIDATION_ERROR") && error.status) return mobileJson({ success: false, error: { code: error.code, message: error.message, ...(error.until ? { until: error.until } : {}) } }, error.status);
       if (error instanceof SyntaxError) return mobileJson({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid JSON request." } }, 422);
       return mobileApiError(error, "CS_ROOM_FAILED");
     }
@@ -25,7 +25,7 @@ export function csRoomRequest(request, path, methods, work) {
 const FRAME_CACHE_MS = 15_000;
 
 async function seatFrames(snapshot, origin) {
-  const ids = [...new Set(snapshot.rooms.flatMap((room) => room.seats.map((seat) => seat.occupant?.publicId).filter(Boolean)))].sort();
+  const ids = [...new Set(snapshot.rooms.map((room) => room.seats.find((seat) => seat.agentSeat)?.occupant?.publicId).filter(Boolean))].sort();
   if (!ids.length) return new Map();
   globalThis.portalCsFrameCache ??= new Map();
   const cache = globalThis.portalCsFrameCache;
@@ -56,7 +56,7 @@ export async function csRoomState(request, user, country = null, withRtc = false
   if (!withRtc || !country) return snapshot;
   let trtc = null;
   try {
-    if (rtcProvider() === "TRTC") trtc = issueTrtcAccess(user, csRtcRoomId(country), snapshot.mySeat?.country === country);
+    if (rtcProvider() === "TRTC") trtc = issueTrtcAccess(user, csRtcRoomId(country), snapshot.mySeat?.country === country && !snapshot.myMuted);
   } catch {
     trtc = null;
   }
