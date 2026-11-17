@@ -6,6 +6,8 @@ import { ledgerData, walletPublicId } from "./wallet.js";
 import { luckyShare, parseRedEnvelopeInput } from "./red-envelope-contract.js";
 
 export { luckyShare, parseRedEnvelopeInput } from "./red-envelope-contract.js";
+export { expireRedEnvelopes } from "./red-envelope-expiry.js";
+import { expireRedEnvelopes } from "./red-envelope-expiry.js";
 
 function redEnvelopeError(code, message = code) {
   const error = new Error(message);
@@ -90,41 +92,38 @@ export async function requireRoomParticipant(roomId, userPublicId) {
   return room;
 }
 
-export async function expireRedEnvelopes(roomId = null, now = new Date()) {
-  const expired = await prisma.redEnvelope.findMany({
-    where: { status: "ACTIVE", expiresAt: { lte: now }, ...(roomId ? { audioRoom: { roomId } } : {}) },
-    select: { id: true, senderId: true, remainingCoins: true, audioRoom: { select: { roomId: true } } },
-  });
-  for (const item of expired) {
-    const refunded = await prisma.$transaction(async (tx) => {
-      const changed = await tx.redEnvelope.updateMany({ where: { id: item.id, status: "ACTIVE" }, data: { status: "EXPIRED", remainingCoins: 0n, remainingShares: 0 } });
-      if (!changed.count) return false;
-      if (item.remainingCoins > 0n) {
-        await tx.user.update({ where: { id: item.senderId }, data: { coinBalance: { increment: item.remainingCoins } } });
-        await tx.walletTransaction.create({ data: ledgerData({ userId: item.senderId, type: "RED_ENVELOPE_REFUND", direction: "CREDIT", title: "Expired red envelope refund", coins: item.remainingCoins, referenceId: item.id, metadata: { roomId: item.audioRoom.roomId } }) });
-      }
-      return true;
-    });
-    if (refunded) emitToAudioRoom(item.audioRoom.roomId, "audio-room:red-envelope", { success: true, data: { action: "EXPIRED", envelopeId: item.id, roomId: item.audioRoom.roomId, remainingShares: 0 } });
-  }
+async function priorRedEnvelope(user, requestId) {
+  const found = await prisma.redEnvelope.findUnique({ where: { senderId_requestId: { senderId: user.id, requestId } }, include: envelopeInclude });
+  return found ? serializeRedEnvelope(found, user.id) : null;
 }
 
 export async function createRedEnvelope(user, input, now = new Date()) {
   const configuration = await getRedEnvelopeConfiguration();
   if (!configuration.settings.enabled) throw redEnvelopeError("RED_ENVELOPE_DISABLED");
+  const prior = input.requestId ? await priorRedEnvelope(user, input.requestId) : null;
+  if (prior) return prior;
   const room = await requireRoomParticipant(input.roomId, user.publicId);
   await expireRedEnvelopes(input.roomId, now);
   const claimableAt = new Date(now.getTime() + input.delaySeconds * 1000);
   const lifetimeSeconds = configuration.settings.claimWindowSeconds;
   const expiresAt = new Date(claimableAt.getTime() + lifetimeSeconds * 1000);
   const id = walletPublicId("RED");
-  const envelope = await prisma.$transaction(async (tx) => {
+  let envelope;
+  try {
+    envelope = await prisma.$transaction(async (tx) => {
     const debit = await tx.user.updateMany({ where: { id: user.id, coinBalance: { gte: input.totalCoins } }, data: { coinBalance: { decrement: input.totalCoins } } });
     if (!debit.count) throw redEnvelopeError("INSUFFICIENT_COINS");
-    const created = await tx.redEnvelope.create({ data: { id, audioRoomId: room.id, senderId: user.id, totalCoins: input.totalCoins, remainingCoins: input.totalCoins, shareCount: input.shareCount, remainingShares: input.shareCount, delaySeconds: input.delaySeconds, claimableAt, expiresAt }, include: envelopeInclude });
+    const created = await tx.redEnvelope.create({ data: { id, audioRoomId: room.id, senderId: user.id, totalCoins: input.totalCoins, remainingCoins: input.totalCoins, shareCount: input.shareCount, remainingShares: input.shareCount, delaySeconds: input.delaySeconds, claimableAt, expiresAt, ...(input.requestId ? { requestId: input.requestId } : {}) }, include: envelopeInclude });
     await tx.walletTransaction.create({ data: ledgerData({ userId: user.id, type: "RED_ENVELOPE_SENT", direction: "DEBIT", title: "Red envelope sent", coins: input.totalCoins, referenceId: id, metadata: { roomId: input.roomId, shareCount: input.shareCount } }) });
     return created;
-  });
+    });
+  } catch (error) {
+    if (input.requestId && error?.code === "P2002") {
+      const replay = await priorRedEnvelope(user, input.requestId);
+      if (replay) return replay;
+    }
+    throw error;
+  }
   const data = serializeRedEnvelope(envelope, user.id);
   emitToAudioRoom(input.roomId, "audio-room:red-envelope", { success: true, data: { action: "CREATED", ...data } });
   return data;

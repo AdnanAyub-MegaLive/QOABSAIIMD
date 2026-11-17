@@ -13,6 +13,7 @@ import { ledgerData } from '@/lib/wallet';
 import { giftMedia } from '@/lib/gift-media';
 import { requestOrigin } from '@/lib/user-perks';
 import { resolveGiftSender, settledGiftSender } from '@/lib/gift-sender';
+import { lateGiftSender } from '@/lib/gift-leave-grace';
 import { luckyPolicy, settleLuckyRewards, flushLuckyPoolSession, multiplierLabel } from '@/lib/lucky-gifts';
 
 // Shared by individual multi-recipient sends and bounded combo tap batches.
@@ -30,7 +31,9 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
     ]);
     if (!room) throw Object.assign(new Error('Room unavailable.'), { code: 'ROOM_NOT_LIVE' });
     if (!gift) throw Object.assign(new Error('Gift unavailable.'), { code: 'GIFT_NOT_FOUND' });
-    if (rows.length !== ids.length || !participants.has(sender.publicId) || ids.some(id => !participants.has(id)))
+    const lateGift = rows.length === ids.length && ids.every(id => participants.has(id)) && !participants.has(sender.publicId)
+      && await lateGiftSender(prisma, { senderId: sender.publicId, roomId, tappedAt: body.tappedAt, participants });
+    if (!lateGift && (rows.length !== ids.length || !participants.has(sender.publicId) || ids.some(id => !participants.has(id))))
       throw Object.assign(new Error('Every sender and recipient must be in the room.'), { code: 'ROOM_PARTICIPANT_REQUIRED' });
     const byId = new Map(rows.map(row => [row.publicId, row])), recipients = ids.map(id => byId.get(id));
     const each = gift.coinPrice * BigInt(quantity), total = each * BigInt(ids.length), itemCount = quantity * ids.length;
@@ -91,7 +94,7 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
       await tx.auditLog.create({ data: { action: backpack ? 'BACKPACK_GIFT_SENT' : 'MULTI_GIFT_SENT', category: 'FINANCE', entityType: 'GiftTransaction', entityId: operation.key, description: `${sender.publicId} sent an atomic gift to ${ids.length} recipients.`, metadata: data } });
       const giftSender = settledGiftSender(senderArtwork, tx);
       const media = { id: gift.publicId, name: gift.name, category: gift.giftTier, ...giftMedia(gift, origin), unitPrice: gift.coinPrice.toString(), quantity, totalCoins: each.toString() };
-      for (const result of results) await appendOutbox(tx, `audio-room:${roomId}`, 'gift:received', { ...result, requestId: operation.key, roomId, giftId, giftBatchId, comboId, source: data.source, giftTier: gift.giftTier, catalogCategory: gift.giftCategory, quantity, totalCoins: each.toString(), recipientIds: [result.recipientId], recipients: [{publicId:result.publicId,name:result.name,recipientId:result.recipientId}], transactionIds: [result.transactionId], sender: giftSender, gift: media });
-      return { ...data, gift: media, progression };
+      if (!lateGift) for (const result of results) await appendOutbox(tx, `audio-room:${roomId}`, 'gift:received', { ...result, requestId: operation.key, roomId, giftId, giftBatchId, comboId, source: data.source, giftTier: gift.giftTier, catalogCategory: gift.giftCategory, quantity, totalCoins: each.toString(), recipientIds: [result.recipientId], recipients: [{publicId:result.publicId,name:result.name,recipientId:result.recipientId}], transactionIds: [result.transactionId], sender: giftSender, gift: media });
+      return { ...data, gift: media, progression, ...(lateGift ? { late: true } : {}) };
     } };
 }

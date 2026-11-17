@@ -2792,14 +2792,23 @@ model RedEnvelope {
   claimableAt     DateTime
   expiresAt       DateTime
   status          RedEnvelopeStatus  @default(ACTIVE)
+  requestId       String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   audioRoom       AudioRoom          @relation(fields: [audioRoomId], references: [id], onDelete: Cascade)
   sender          User               @relation("RedEnvelopeSender", fields: [senderId], references: [id], onDelete: Restrict)
   claims          RedEnvelopeClaim[]
 
+  @@unique([senderId, requestId])
   @@index([audioRoomId, status, expiresAt])
   @@index([senderId, createdAt])
+}
+
+model GiftLeaveGraceSettings {
+  id               String   @id @default("DEFAULT")
+  enabled          Boolean  @default(false)
+  updatedByAdminId String?
+  updatedAt        DateTime @default(now()) @updatedAt
 }
 
 model RedEnvelopeClaim {
@@ -3443,4 +3452,23 @@ model StoryMediaObject {
   key String @id
   expiresAt DateTime
   @@index([expiresAt])
+}
+
+model CsRoomSeat {
+  id             String    @id @default(cuid())
+  country        String
+  seatIndex      Int
+  occupantUserId String?   @unique
+  occupiedAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([country, seatIndex])
+}
+
+model CsRoomPresence {
+  userId     String   @id
+  country    String
+  lastSeenAt DateTime @default(now())
+
+  @@index([country, lastSeenAt])
 }

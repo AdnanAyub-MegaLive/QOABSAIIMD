@@ -25,6 +25,7 @@ import { getLiveCommerceRule, applyLiveGiftReward } from "@/lib/live-commerce";
 import { parseGiftBatchId } from "@/lib/gift-batch";
 import { luckyPolicy, settleLuckyReward, multiplierLabel } from "@/lib/lucky-gifts";
 import { requireChatGiftTarget, writeChatGiftMessage } from "@/lib/chat-gifts";
+import { lateGiftSender } from "@/lib/gift-leave-grace";
 
 export function OPTIONS() {
   return mobileOptions();
@@ -114,9 +115,13 @@ export async function POST(request) {
       throw error;
     }
     if (liveId && (!live || live.host.publicId !== recipientId || (live.hostId !== sessionUser.id && !live.viewers.length))) throw Object.assign(new Error("Join this live video before sending a gift to its host."), { code: "LIVE_GIFT_FORBIDDEN" });
+    let lateGift = false;
     if (roomId) {
       const participants = await audioRoomParticipantIds(roomId);
       if (!participants.has(sessionUser.publicId) || !participants.has(recipientId)) {
+        lateGift = participants.has(recipientId) && await lateGiftSender(prisma, { senderId: sessionUser.publicId, roomId, tappedAt: body?.tappedAt, participants });
+      }
+      if (!lateGift && (!participants.has(sessionUser.publicId) || !participants.has(recipientId))) {
         const error = new Error("Both sender and recipient must be in this audio room.");
         error.code = "ROOM_PARTICIPANT_REQUIRED";
         throw error;
@@ -325,7 +330,7 @@ export async function POST(request) {
     };
     const message = chat ? await writeChatGiftMessage(tx, chat, sessionUser, body.clientMessageId, { ...realtimePayload.data, conversationId }) : null;
     if (roomId) {
-      await emitToAudioRoom(roomId, "gift:received", realtimePayload);
+      if (!lateGift) await emitToAudioRoom(roomId, "gift:received", realtimePayload);
       try {
         const pk = await tx.audioRoomPkSession.findFirst({ where: { status: "LIVE", OR: [{ leftRoomId: room.id }, { rightRoomId: room.id }] }, include: audioPkInclude });
         recoveryPk = pk;
@@ -380,6 +385,7 @@ export async function POST(request) {
           luckyMultiplier: result.luckyOutcome ? multiplierLabel(result.luckyOutcome.multiplierBps) : null,
           luckyBigWin: result.luckyOutcome?.bigWin ?? false,
           revealedGift,
+          ...(lateGift ? { late: true } : {}),
         },
       }
     );
