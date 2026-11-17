@@ -1,8 +1,10 @@
+import {greedyFoods,greedySettings,greedyResult} from "./greedy.mjs";
 import { instantGames, resolveInstant } from "./instant-games.mjs";
 import {pizzaFoods,pizzaSettings,pizzaResult} from "./pizza.mjs";
 export const miniGames = {
   rocket: { name:"Rocket", choices:["board"], icon:"🚀", fixedPayout:true, help:"Board before launch. The multiplier rises from 0× toward the configured maximum (up to 10×) and can crash anywhere in that range, including 0×. Cash out before the crash; below 1× returns less than your stake. Still aboard at the crash returns zero coins. There is no automatic cash-out at the maximum." },
   ...Object.fromEntries(Object.entries(instantGames).filter(([engine]) => engine !== "rps").map(([engine,spec]) => [engine, {name:spec.name, choices:spec.choices, icon:spec.icon, help:spec.rules, fixedPayout:true}])),
+  greedy: {name:"Greedy",choices:greedyFoods.map(f=>f.id),icon:"🐯",help:"Choose a food. Everyone across all rooms shares the same result. Admin controls food weights and returns."},
   pizza: {name:"Pizza",choices:pizzaFoods.map(f=>f.id),icon:"🍕",help:"Choose a food. Everyone in the room sees the same winning food. Returns and selection weights are configured by the admin. Uses the application coin wallet."},
   teenpatti: { name: "Teen Patti", choices: ["deal"], icon: "♠", help: "Solo three-card showdown versus the computer. Trail > pure sequence > sequence > colour > pair > high card. AKQ is the highest sequence, A23 second. Suits do not break ties. No betting streets or cash prizes." },
   rps: { name: "Rock–Paper–Scissors", choices: ["rock", "paper", "scissors"], icon: "✊", help: "Play against the computer. Rock beats scissors, scissors beats paper, paper beats rock. A draw returns your stake." },
@@ -37,7 +39,9 @@ export function resolveMini(game, bet, choice, draw, challenge, now = Date.now()
   let won = false, tie = false, result, multiplier = 2;
   const choices = miniGames[game.engine].choices;
   if (choices.length && !choices.includes(choice)) throw new Error("Choose a valid option.");
-  if (game.engine === "pizza") {
+  if (game.engine === "greedy") {
+    const settings=greedySettings(game);result=greedyResult(game,draw%settings.greedyWeights.reduce((a,b)=>a+b,0));won=choice===result;multiplier=settings.greedyReturns[greedyFoods.findIndex(f=>f.id===choice)];
+  } else if (game.engine === "pizza") {
     const settings=pizzaSettings(game);result=pizzaResult(game,draw%settings.pizzaWeights.reduce((a,b)=>a+b,0));won=choice===result;multiplier=settings.pizzaReturns[pizzaFoods.findIndex(f=>f.id===choice)];
   } else if (game.engine === "teenpatti") {
     if(!cards) throw new Error("Missing card deal.");
@@ -65,6 +69,6 @@ export function resolveMini(game, bet, choice, draw, challenge, now = Date.now()
       }
     }
   }
-  multiplier=game.engine==="pizza"?multiplier:game.pointReturnMultiplier??multiplier;
+  multiplier=["pizza","greedy"].includes(game.engine)?multiplier:game.pointReturnMultiplier??multiplier;
   return { bet, payout: tie ? bet : won ? Math.floor(bet * Math.round(multiplier*100)/100) : 0, outcome: tie ? "push" : won ? "win" : "loss", choice, result, revision: game.revision, ...(cards?{playerCards:cards.playerCards,computerCards:cards.computerCards}:{}) };
 }

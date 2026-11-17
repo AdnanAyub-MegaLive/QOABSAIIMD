@@ -1,3 +1,4 @@
+import {greedySettings,greedyResult} from "./greedy.mjs";
 import { calendarWindow } from '../business-time.js';
 import { weightedOutcomeDraw } from "./outcome-weights.mjs";
 import { roundTiming } from "./round-timing.mjs";
@@ -24,6 +25,7 @@ export function sharedOutcome(day,roomId,slot){
  const g=day.settings,random=seededRandom(day.seed,`${outcomeScope(day,roomId)}:${slot}`);
  if(instantGames[g.engine] && g.engine!=="rps"){const draw=g.outcomeWeights?weightedOutcomeDraw(g,random):random(instantGames[g.engine].drawSize);return {result:resolveInstant(g,100,instantGames[g.engine].choices[0],draw).result,draw};}
  if(g.engine==="rocket"){const crashCents=weightedOutcomeDraw(g,random);return {result:`${(crashCents/100).toFixed(2)}×`,crashCents};}
+ if(g.engine==="greedy"){const settings=greedySettings(g);return {result:greedyResult(g,random(settings.greedyWeights.reduce((a,b)=>a+b,0)))};}
  if(g.engine==="pizza"){const settings=pizzaSettings(g);return {result:pizzaResult(g,random(settings.pizzaWeights.reduce((a,b)=>a+b,0)))};}
  if(g.engine==="roulette")return {result:weightedPocket(g.pocketWeights,random(g.pocketWeights.reduce((a,b)=>a+b,0)))};
  if(g.engine==="flip")return {result:random(10000)<Math.round((g.winProbability??50)*100)?"heads":"tails"};

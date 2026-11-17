@@ -8,6 +8,7 @@ import OutcomeWeightFields from "./outcome-weight-fields";
 import { configurableRules, outcomeOddsText } from "@/lib/game-control/outcome-weights.mjs";
 import GameLevelFields from "./game-level-fields";
 import RoundTimingFields from "./round-timing-fields";
+import GreedyEditor from "./greedy-editor";
 import PizzaEditor from "./pizza-editor";
 import GameIcon from "./game-icon";
 import {
@@ -779,7 +780,7 @@ export default function Portal() {
                       <small>{`Revision ${g.revision} · ${statusLabel[g.status]}`}</small>
                     </div>
                     {miniGames[g.engine] ? (
-                      <><p className="muted">{outcomeOddsText(g) || (g.engine === "pizza" ? "Food probabilities use selection weights." : "Skill-based outcomes")}</p><button className="button" onClick={() => setEditing(g)}>Configure probabilities</button></>
+                      <><p className="muted">{outcomeOddsText(g) || (["pizza","greedy"].includes(g.engine) ? "Food probabilities use selection weights." : "Skill-based outcomes")}</p><button className="button" onClick={() => setEditing(g)}>Configure probabilities</button></>
                     ) : g.engine === "roulette" ? (
                       <>
                         <p className="muted">
@@ -1204,7 +1205,7 @@ function GameEditor(props) {
   );
 }
 function MiniEditor({ game, onClose, onSave }) {
-  return game.engine==="pizza"?<Modal title="Configure Pizza" onClose={onClose}><PizzaEditor game={game} onClose={onClose} onSave={onSave}/></Modal>:<StandardMiniEditor game={game} onClose={onClose} onSave={onSave}/>;
+  return game.engine==="greedy"?<Modal title="Configure Greedy" onClose={onClose}><GreedyEditor game={game} onClose={onClose} onSave={onSave}/></Modal>:game.engine==="pizza"?<Modal title="Configure Pizza" onClose={onClose}><PizzaEditor game={game} onClose={onClose} onSave={onSave}/></Modal>:<StandardMiniEditor game={game} onClose={onClose} onSave={onSave}/>;
 }
 function StandardMiniEditor({ game, onClose, onSave }) {
   const [form, setForm] = useState(game), [busy, setBusy] = useState(false), [error, setError] = useState("");

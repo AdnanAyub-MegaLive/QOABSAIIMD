@@ -1,0 +1,97 @@
+.panel {background:linear-gradient(#130a0880,#130a0840),url('/games/pizza/background.webp') center/cover!important;color:#fff5cb!important;border:0!important;border-radius:16px!important;padding:10px!important;gap:4px!important;max-width:440px;margin:auto;}
+.panel header {padding:0!important;border:0!important;min-height:35px;}
+.logo {width:58px;height:48px;object-fit:contain;}
+.panel header small{font-size:10px;color:#ffdf83;}
+.panel header button {background:#6e280f!important;color:#ffe0a0!important;border:1px solid #e8b454!important;}
+.panel :global(.shared-betting-contents){display:flex;flex-direction:column;gap:3px;}
+.panel :global(.shared-betting-contents)>div[aria-label='Recent results']{order:3;background:linear-gradient(90deg,#332f31,#4a324c);border:1px solid #795f40;border-radius:9px;margin:2px 0;}
+.panel :global(.shared-betting-contents)>div[role='status']{font-size:11px;min-height:16px;padding:0;color:#ffe7ac;}
+.panel :global(.shared-betting-contents)>div:last-child{background:url('/games/pizza/amounts.webp') center/100% 100%;padding:7px 15px 5px;border:0;border-radius:14px;color:#48220c;}
+.panel :global(.shared-betting-contents) button[aria-label$=' coins']{background:url('/games/pizza/card.webp') center/100% 100%!important;border:0!important;border-radius:0!important;box-shadow:none!important;display:flex;flex-direction:column;gap:0;padding:5px!important;width:60px;min-height:54px;color:#48220c!important;}
+.panel :global(.shared-betting-contents) button[aria-label$=' coins'][aria-pressed='true']{background-image:url('/games/pizza/selected.webp')!important;transform:translateY(-2px);}
+.panel :global(.shared-betting-contents) button[aria-label$=' coins'] img{content:url('/games/pizza/coin.webp');width:26px;height:26px;object-fit:contain;}
+.panel footer{border:0!important;padding:3px!important;font-size:11px;gap:6px!important;}
+.panel footer button{padding:4px 7px!important;font-size:10px;}
+.wheel{position:relative;width:min(100%,350px);aspect-ratio:1;margin:0 auto 16px;background:url('/games/pizza/wheel.webp') center/contain no-repeat;isolation:isolate;}
+.food{position:absolute;transform:translate(-50%,-50%);width:21%;height:21%;border-radius:50%;border:0;background:transparent;color:#251006;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:2px;cursor:pointer;opacity:1!important;}
+.art{width:51%;height:50%;object-fit:contain;pointer-events:none;}
+.food b{font-size:clamp(12px,3.7vw,17px);line-height:1.1;}
+.food em{font-style:normal;font-size:8px;line-height:1;color:#673a15;max-width:100%;overflow:hidden;}
+.food:focus-visible{outline:3px solid #fff;}
+.food[aria-pressed='true']{box-shadow:inset 0 0 0 2px #e98b26;}
+.lit{background:#fff6a355;box-shadow:0 0 0 3px #fff,0 0 13px 7px #ffe222,inset 0 0 10px #fff000;z-index:3;}
+.food[data-winner='true']{animation:pulse .8s ease-in-out infinite alternate;}
+.hub{position:absolute;left:35%;top:35%;width:30%;height:30%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-shadow:0 2px 3px #3a0000;}
+.hub>img{height:45%;width:55%;object-fit:contain;}.hub strong{font-size:24px;color:#fff0a8;line-height:1.1;}.hubResults{display:flex;justify-content:center;font-size:13px;}
+.hot,.winnerLabel{position:absolute;top:-4px;background:#f44a13;color:white;font-size:8px;font-weight:900;padding:2px 4px;border-radius:6px;}.hot{right:-4px;}.winnerLabel{left:0;background:#8c2000;top:-9px;}
+.chip{position:absolute;bottom:0;background:#623510;color:#ffe465;font-size:10px;border-radius:8px;padding:2px;animation:chip .7s ease-out forwards;pointer-events:none;}
+.bonusIndicators{position:absolute;bottom:-13px;left:0;width:100%;display:flex;justify-content:space-between;pointer-events:none;}
+.bonusIndicators span{width:48px;}.bonusIndicators img{width:100%;height:40px;object-fit:contain;}.bonusIndicators small{display:none;}.bonusIndicators [data-active='true']{filter:drop-shadow(0 0 9px #fff700);}
+.feeding{position:absolute;inset:25%;z-index:8;display:flex;flex-direction:column;align-items:center;text-align:center;animation:feed 2.4s ease-in-out both;pointer-events:none;}.feeding img{width:100%;}.feeding b{color:#ffec7a;background:#5d130c;border-radius:8px;padding:4px;font-size:12px;}
+@keyframes pulse{to{box-shadow:0 0 0 3px white,0 0 20px 9px #ffdc00;}}
+@keyframes chip{from{transform:translateY(15px);opacity:0;}50%{opacity:1;}to{transform:translateY(-22px);opacity:0;}}
+@keyframes feed{0%{opacity:0;transform:scale(.3) rotate(-20deg);}25%,75%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(.4);}}
+@media(max-height:740px){.wheel{width:min(100%,300px);}.logo{height:35px;width:45px;}}
+@media(prefers-reduced-motion:reduce){.food,.feeding,.chip{animation:none;}}
+/* Keep the embedded mobile game in one column, independent of shared desktop grid. */
+.panel{display:flex!important;flex-direction:column!important;height:100dvh!important;min-height:0!important;overflow:hidden!important;justify-content:flex-start!important;}
+.panel>header{flex:0 0 auto;display:flex!important;justify-content:space-between;align-items:center;}
+.panel :global(.play-panel-stage){flex:1 1 auto!important;min-height:0!important;display:flex!important;justify-content:center;align-items:center;overflow:visible!important;}
+.wheel{height:100%;width:auto;max-height:350px;max-width:100%;flex-shrink:1;}
+.panel :global(.shared-betting-contents){flex:0 0 auto;width:100%;}
+.panel>div:not(:global(.play-panel-stage)){flex-shrink:0;}
+.panel :global(.play-panel-footer){display:flex!important;flex-wrap:wrap;justify-content:center;flex:0 0 auto;}
+.panel :global(.play-panel-actions){font-size:10px;min-height:0;}
+.panel :global(.play-panel-actions) b{display:block;}
+
+.panel :global(.food-game-activity){background:linear-gradient(100deg,#ffc77d,#e791a4,#8874b9);border:2px solid #50250c;border-radius:12px;padding:4px;box-shadow:none;margin:0;}
+.panel :global(.food-game-activity) button{background:#fff0dc;border-color:#865333;border-radius:8px;font-size:12px;}
+.panel :global(.food-game-auto){width:100%;display:flex;justify-content:space-between;padding:4px 6px;background:#28120cbf;border-radius:10px;}
+.panel :global(.food-game-auto)>span{display:block;font-size:10px;color:#fff0d0;}
+.panel :global(.food-game-auto) button{background:linear-gradient(#ffd782,#c78630)!important;color:#48220c!important;border:2px solid #ffdf8b;border-radius:20px;box-shadow:0 2px 0 #603411;text-shadow:none;font-size:14px;min-width:98px;padding:7px 9px;}
+.panel :global(.food-game-auto) button[aria-pressed=true]{background:#842b19!important;color:#fff0d0!important;}
+/* Mobile reference proportions: large food discs and a compact control stack. */
+.panel{position:relative;padding:12px 18px!important;gap:5px!important;background:linear-gradient(#150a1599,#150a1566),url('/games/pizza/background.webp') center/cover!important;}
+.panel>header{height:42px;min-height:42px;position:relative;}
+.panel>header>div>div{display:none;}
+.logo{width:46px;height:40px;}
+.balance{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:#fff8e9;color:#32180d;border-radius:24px;padding:3px 16px 3px 5px;font-size:15px;font-weight:800;white-space:nowrap;}
+.balance img{width:25px;height:25px;object-fit:contain;}
+.panel>header>button{width:32px;height:32px;border-radius:50%;font-weight:900;background:linear-gradient(#ffde65,#f77b37)!important;color:#32180d!important;border:2px solid #663008!important;}
+.panel :global(.play-panel-stage){padding:0!important;min-height:0!important;}
+.wheel{width:min(100%,370px);height:auto;max-height:none;aspect-ratio:1; background:url('/games/pizza/wheel-base.png') center/83% 83% no-repeat;margin:8px auto 25px;}
+.food{width:27%;height:27%;background:url('/games/pizza/food-disc.png') center/118% 118% no-repeat;padding:10px 5px 9px;}
+.art{width:54%;height:51%;}
+.food b{font-size:clamp(15px,4.8vw,22px);border-top:1px solid #96662880;width:78%;text-align:center;padding-top:2px;}
+.food em{font-size:9px;}
+.hub{left:33%;top:33%;width:34%;height:34%;background:url('/games/pizza/center-disc.png') center/120% 120% no-repeat;gap:0;}
+.hub>img{height:30%;width:38%;}
+.hub small{font-size:clamp(9px,2.7vw,12px);font-weight:800;color:#fff0bd;line-height:1.2;}
+.hub strong{font-size:clamp(24px,7vw,32px);}
+.bonusIndicators{bottom:-24px;left:2%;width:96%;}
+.bonusIndicators span{width:51px;}.bonusIndicators img{height:49px;}
+.lit{background-image:url('/games/pizza/food-disc.png');box-shadow:0 0 0 3px #fff,0 0 16px 6px #ffe222;}
+.steps{display:flex;justify-content:center;gap:12px;font-size:13px;margin:1px 0 5px;}
+.panel :global(.shared-betting-contents)>div:last-child{padding:9px 17px 6px;}
+.panel :global(.shared-betting-contents) button[aria-label$=' coins']{width:66px;min-height:69px;padding:7px!important;font-size:15px;font-weight:900;}
+.panel :global(.shared-betting-contents) button[aria-label$=' coins'] img{width:33px;height:33px;}
+.panel :global(.play-panel-actions){font-size:10px;}
+.panel :global(.play-panel-actions)>span{display:flex;justify-content:space-between;width:100%;gap:8px;}
+.panel :global(.food-game-activity){border:0;border-radius:4px;padding:0;}
+.panel :global(.food-game-activity) button{min-height:33px;padding:3px 9px;font-size:11px;background:transparent;border:0;}
+.panel :global(.food-game-activity) button img{width:23px;height:23px;}
+.panel :global(.food-game-activity) button small{font-size:9px;}
+.panel :global(.food-game-auto){padding:3px 6px;}
+.panel :global(.food-game-auto) button{font-size:11px;padding:5px 9px;}
+.panel :global(.play-panel-footer)>span{display:none;}
+.panel :global(.play-panel-footer){padding:0!important;gap:4px!important;}
+@media(max-height:680px){.panel{padding:7px 15px!important;gap:3px!important;}.wheel{width:min(100%,300px);margin:0 auto 20px;}.panel :global(.shared-betting-contents) button[aria-label$=' coins']{min-height:53px;width:57px;}.panel :global(.shared-betting-contents) button[aria-label$=' coins'] img{width:25px;height:25px;}.steps{font-size:11px;}}
+
+/* Keep the wheel inside its available mobile stage, including bonus labels. */
+.panel :global(.play-panel-stage){padding:10px 0 27px!important;}
+.wheel{height:100%;width:auto;max-height:370px;max-width:100%;margin:0 auto;flex-shrink:1;}
+@media(max-height:680px){.wheel{height:100%;width:auto;max-height:300px;margin:0 auto;}}
+
+/* Anchor bonus dishes to the amount tray corners. */
+.panel :global(.shared-betting-contents)>div:last-child{position:relative;}
+.panel .bonusIndicators{top:auto;bottom:100%;left:7%;width:86%;margin-bottom:-2px;z-index:2;}

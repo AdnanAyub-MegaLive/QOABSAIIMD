@@ -9,7 +9,7 @@ import { visibleGames } from './catalog.mjs';
 it('returns absolute artwork URLs for all built-in mobile catalogue entries', () => {
   const games = Object.keys(gameIconArtwork).map(engine => ({id: engine, engine, status: 'active'}));
   const result = visibleGames(games, 'https://portal.megachat.live/');
-  expect(result).toHaveLength(14);
+  expect(result).toHaveLength(15);
   for (const game of result) {
     expect(game.iconUrl).toBe(`https://portal.megachat.live${gameIconArtwork[game.engine]}?v=${gameIconVersions[game.engine]}`);
     expect(game.imageUrl).toBe(game.iconUrl);
@@ -26,7 +26,7 @@ it('preserves external artwork and does not show paused games', () => {
 });
 
 it('bundles one optimized square icon for each game', async () => {
-  expect(Object.keys(gameIconArtwork)).toHaveLength(14);
+  expect(Object.keys(gameIconArtwork)).toHaveLength(15);
   for (const url of Object.values(gameIconArtwork)) {
     const buffer = await readFile(`public${url}`);
     const engine = Object.keys(gameIconArtwork).find(key => gameIconArtwork[key] === url);

@@ -1,3 +1,7 @@
+import {ensurePizzaRound,readPizzaOutcome,creditPizzaPool} from './pizza-pool.js';
+import {pizzaAutoBets,pizzaPayout} from './pizza.mjs';
+import {ensureGreedyRound,readGreedyOutcome,creditGreedyPool} from './greedy-pool.js';
+import {greedyFoods,greedySettings,greedyAutoBets,greedyPayout} from "./greedy.mjs";
 import { activeGameSchedule, scheduleGameSettings, utcGameDay } from "./shared-schedule.js";
 import { Prisma } from "@prisma/client";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
@@ -7,7 +11,7 @@ import { instantGames, resolveInstant } from "./instant-games.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../prisma.js";
 import { assertGameAccess, assertPlayer, GameError, serializeGame } from "./service.js";
-import { sharedClock, sharedDuration, sharedOutcome, sharedTrivia } from "./shared-engine.mjs";
+import { sharedClock, sharedDuration, sharedOutcome, sharedTrivia, seededRandom } from "./shared-engine.mjs";
 import { strictBets } from "./roulette/engine.mjs";
 import { betByLabel,isBetWinner } from "./roulette/original-rules.mjs";
 import {pizzaFoods,pizzaSettings} from "./pizza.mjs";
@@ -43,13 +47,20 @@ async function getDay(db,gameId,now,viewExisting=false,readOnly=false){
  if(settingsChangeAt===undefined)return null;
  return {...day,acceptingBets,settingsChangeAt};
 }
-export function accepted(game,input){
+export function accepted(game,input,autoRandom){
+ if(input.auto===true){
+  if(input.custom!==undefined&&typeof input.custom!=="boolean")throw new GameError("Invalid custom selection.");
+  if(!["greedy","pizza"].includes(game.engine)||!autoRandom)throw new GameError("Auto Play is unavailable.");
+  const bets=(game.engine==="pizza"?pizzaAutoBets:greedyAutoBets)(input.amount,autoRandom);
+  return {amount:input.amount*6,choice:"auto",bets,custom:input.custom===true,auto:true,perSpot:input.amount};
+ }
  const amount=input.amount;
  if(!Number.isSafeInteger(amount)||amount<1)throw new GameError("Choose a positive whole coin amount.");
  if(input.custom!==undefined&&typeof input.custom!=="boolean")throw new GameError("Invalid custom selection.");
  const choice=input.choice??null;
  const options={...Object.fromEntries(Object.entries(instantGames).map(([engine,spec])=>[engine,spec.choices])),flip:["heads","tails"],dice:["1","2","3","4","5","6"],rps:["rock","paper","scissors"],penalty:["left","centre","right"],teenpatti:["1","2","3"]};
  options.rocket=["board"];
+ options.greedy=greedyFoods.map(f=>f.id);
  options.pizza=pizzaFoods.map(f=>f.id);
  let bets=null;
  if(game.engine==="roulette"){
@@ -68,13 +79,14 @@ export async function enterSharedRound(identity,input,db=prisma){
    await assertGameAccess(tx,user,input.gameId,"play");
    const suppliedDay=await tx.sharedGameDay.findUnique({where:{id:input.dayId}});
    if(!suppliedDay||suppliedDay.gameId!==input.gameId)throw new GameError("Unknown round.",409);
-   const parsed=accepted(suppliedDay.settings,input),fingerprint=createHash("sha256").update(JSON.stringify({dayId:input.dayId,slot:input.slot,roomId:identity.roomId,...parsed})).digest("hex");
+   const parsed=accepted(suppliedDay.settings,input,seededRandom(suppliedDay.seed,`auto:${identity.userId}:${input.id}`)),fingerprint=createHash("sha256").update(JSON.stringify({dayId:input.dayId,slot:input.slot,roomId:identity.roomId,...parsed})).digest("hex");
    const existing=await tx.sharedGameEntry.findUnique({where:{id:input.id}});
    if(existing){if(existing.userId!==identity.userId||existing.requestHash!==fingerprint)throw new GameError("Request ID conflict.",409);return receipt(existing);}
    const now=Date.now(),day=await getDay(tx,input.gameId,now),clock=sharedClock(day,now);
    if(input.dayId!==day.id||input.slot!==clock.slot||clock.phase!=="open")throw new GameError("Entry closed. Wait for the next round.",409);
    if(day.settings.engine==="rocket"&&await tx.sharedGameEntry.findFirst({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId}}))throw new GameError("You are already aboard this flight.",409);
    if(Date.now()>=clock.closesAt)throw new GameError("Entry closed. Wait for the next round.",409);
+   if(["greedy","pizza"].includes(day.settings.engine))await (day.settings.engine==="pizza"?ensurePizzaRound:ensureGreedyRound)(tx,day,clock.slot);
    const debit=await tx.user.updateMany({where:{id:identity.userId,coinBalance:{gte:BigInt(parsed.amount)}},data:{coinBalance:{decrement:BigInt(parsed.amount)}}});
    if(debit.count!==1)throw new GameError("Not enough coins in your application wallet.",409);
    await tx.walletTransaction.create({data:ledgerData({userId:identity.userId,type:"GAME_WAGER",direction:"DEBIT",title:`${day.settings.name} wager`,coins:BigInt(parsed.amount),referenceId:input.id,metadata:{gameId:input.gameId,roomId:identity.roomId,dayId:day.id,slot:clock.slot}})});
@@ -125,14 +137,15 @@ export async function cashOutRocket(identity,input,db=prisma){
    return receipt({...entry,status:"SETTLED",result});
  });
 }
-export function resolveSharedEntry(entry){
- const day=entry.day,g=day.settings,input=entry.input,amount=Number(entry.amount),outcome=sharedOutcome(day,entry.roomId,entry.slot);
+export function resolveSharedEntry(entry,frozenOutcome){
+ const day=entry.day,g=day.settings,input=entry.input,amount=Number(entry.amount),outcome=frozenOutcome??sharedOutcome(day,entry.roomId,entry.slot);
  let win=false,tie=false,payout=0,detail=outcome.result;
  if(g.engine==="rocket")return {currency:input.currency==="COINS"?"COINS":"PLAY_POINTS",bet:amount,payout:0,outcome:"loss",result:`Crashed at ${outcome.result}`,cashedOut:false,crashMultiplier:outcome.crashCents/100};
  if(instantGames[g.engine]&&g.engine!=="rps"){
    const resolved=resolveInstant(g,amount,input.choice,outcome.draw);
    payout=BigInt(resolved.payout);win=resolved.outcome==="win";tie=resolved.outcome==="push";detail=resolved.result;
- }else if(g.engine==="roulette"){payout=Object.entries(input.bets).reduce((sum,[label,n])=>sum+(isBetWinner(label,outcome.result)?BigInt(n)*BigInt(betByLabel[label].multiplier):0n),0n);win=payout>BigInt(amount);tie=payout===BigInt(amount);}
+ }else if(["greedy","pizza"].includes(g.engine)){payout=(g.engine==="pizza"?pizzaPayout:greedyPayout)(g,input.bets||{[input.choice]:amount},outcome.winners||[outcome.result]);win=payout>BigInt(amount);tie=payout===BigInt(amount);}
+ else if(g.engine==="roulette"){payout=Object.entries(input.bets).reduce((sum,[label,n])=>sum+(isBetWinner(label,outcome.result)?BigInt(n)*BigInt(betByLabel[label].multiplier):0n),0n);win=payout>BigInt(amount);tie=payout===BigInt(amount);}
  else{
    if(g.engine==="teenpatti")win=outcome.winners.includes(input.choice);
    else if(g.engine==="rps"){const choices=["rock","paper","scissors"];tie=input.choice===outcome.result;win=(choices.indexOf(input.choice)-choices.indexOf(outcome.result)+3)%3===1;}
@@ -144,10 +157,10 @@ export function resolveSharedEntry(entry){
      const quiz=sharedTrivia(day,entry.roomId,entry.slot,amount,input.custom),correct=quiz.questions.filter((q,i)=>entry.answer?.value?.[i]===q.answer).length;
      win=correct===quiz.questions.length;detail=`${correct}/${quiz.questions.length} correct`;
    }else win=input.choice===outcome.result;
-   const multiplier=g.engine==="pizza"?pizzaSettings(g).pizzaReturns[pizzaFoods.findIndex(f=>f.id===input.choice)]:g.engine==="flip"?g.payoutMultiplier:g.pointReturnMultiplier??(g.engine==="dice"?6:g.engine==="teenpatti"?3:2);
+   const multiplier=g.engine==="greedy"?greedySettings(g).greedyReturns[greedyFoods.findIndex(f=>f.id===input.choice)]:g.engine==="pizza"?pizzaSettings(g).pizzaReturns[pizzaFoods.findIndex(f=>f.id===input.choice)]:g.engine==="flip"?g.payoutMultiplier:g.pointReturnMultiplier??(g.engine==="dice"?6:g.engine==="teenpatti"?3:2);
    payout=tie?BigInt(amount):win?BigInt(amount)*BigInt(Math.round(multiplier*100))/100n:0n;
  }
- return {currency:input.currency==="COINS"?"COINS":"PLAY_POINTS",bet:amount,payout:payout<=BigInt(Number.MAX_SAFE_INTEGER)?Number(payout):payout.toString(),outcome:win?"win":tie?"push":"loss",result:detail};
+ return {currency:input.currency==="COINS"?"COINS":"PLAY_POINTS",bet:amount,payout:payout<=BigInt(Number.MAX_SAFE_INTEGER)?Number(payout):payout.toString(),outcome:win?"win":tie?"push":"loss",result:detail,...(["greedy","pizza"].includes(g.engine)?{winners:outcome.winners||[outcome.result],bonus:outcome.bonus||null}:{})};
 }
 async function settleEntry(tx,entry,result){
    if(entry.input.currency==="COINS"){
@@ -164,17 +177,20 @@ async function settleEntry(tx,entry,result){
      // Existing free-point wagers must never turn into real coin payouts.
      await tx.gamePlayAccount.update({where:{userId:entry.userId},data:{points:{increment:BigInt(result.payout)}}});
    }
-   await tx.sharedGameEntry.update({where:{id:entry.id},data:{status:"SETTLED",result}});
+   if(["greedy","pizza"].includes(entry.day.settings.engine)&&entry.input.currency==="COINS")await (entry.day.settings.engine==="pizza"?creditPizzaPool:creditGreedyPool)(tx,entry,result);
+   await tx.sharedGameEntry.update({where:{id:entry.id},data:{status:"SETTLED",result,...(["greedy","pizza"].includes(entry.day.settings.engine)?{settledAt:new Date()}:{})}});
 }
 
 export async function settleSharedGames(db=prisma,now=new Date(),where={}){
- const due=await db.sharedGameEntry.findMany({where:{status:"PENDING",resolveAt:{lte:now},...where},orderBy:{resolveAt:"asc"},take:200,select:{id:true}});
+ const due=await db.sharedGameEntry.findMany({where:{status:"PENDING",resolveAt:{lte:now},...where},orderBy:{resolveAt:"asc"},take:200,select:{id:true,day:{select:{gameId:true,settings:true}}}});
  for(const item of due)await db.$transaction(async tx=>{
+   if(["greedy","pizza"].includes(item.day?.settings?.engine))await tx.$queryRaw`SELECT id FROM "GameDefinition" WHERE id=${item.day.gameId} FOR UPDATE`;
    await tx.$queryRaw`SELECT id FROM "SharedGameEntry" WHERE id=${item.id} FOR UPDATE`;
    const entry=await tx.sharedGameEntry.findUnique({where:{id:item.id},include:{day:true}});
    if(!entry||entry.status!=="PENDING")return;
    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${entry.userId} FOR UPDATE`;
-   const result=resolveSharedEntry(entry);
+   const frozen=["greedy","pizza"].includes(entry.day.settings.engine)?await (entry.day.settings.engine==="pizza"?readPizzaOutcome:readGreedyOutcome)(tx,entry.day,entry.roomId,entry.slot):undefined;
+   const result=resolveSharedEntry(entry,frozen);
    await settleEntry(tx,entry,result);
  });
 }
@@ -192,7 +208,7 @@ export async function sharedSnapshot(identity,input,db=prisma){
    }));
  }
  const clock=sharedClock(day,now);
- const entries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot},select:{userId:true,amount:true,input:true}});
+ const entries=await db.sharedGameEntry.findMany({where:{dayId:day.id,...(["greedy","pizza"].includes(day.settings.engine)?{}:{roomId:identity.roomId}),slot:clock.slot},select:{userId:true,amount:true,input:true}});
  const mineEntries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},orderBy:[{createdAt:"asc"},{id:"asc"}]});
  const mine=mineEntries.find(e=>!e.answer)||mineEntries.at(-1);
  const account=await db.user.findUnique({where:{id:identity.userId}});
@@ -204,7 +220,7 @@ export async function sharedSnapshot(identity,input,db=prisma){
      challenge={tier:quiz.tier,questions:quiz.questions.map(({id,text,options,answer})=>({id,text,options,...(clock.phase==="reveal"?{answer}:{})}))};
    }else if(day.settings.engine==="reaction")challenge={readyAt:clock.closesAt+sharedOutcome(day,identity.roomId,clock.slot).delayMs};
  }
- const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:(day.settings.scheduleRoundOffset||0)+slot+1,...sharedOutcome(day,identity.roomId,slot)});
+ const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-(["greedy","pizza"].includes(day.settings.engine)?8:5));slot--)history.push({roundNumber:(day.settings.scheduleRoundOffset||0)+slot+1,...(["greedy","pizza"].includes(day.settings.engine)?await (day.settings.engine==="pizza"?readPizzaOutcome:readGreedyOutcome)(db,day,identity.roomId,slot):sharedOutcome(day,identity.roomId,slot))});
  let winners=[],winnersPending=false;
  const publicResult=["reveal","reset"].includes(clock.phase)||(day.settings.engine==="rocket"&&now>=rocketCrashAt(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents));
  const global=day.settings.outcomeScope==="application-v1";
@@ -223,5 +239,5 @@ export async function sharedSnapshot(identity,input,db=prisma){
  }
  const totals=entryTotals(entries);
  const rocket=day.settings.engine==="rocket"?publicRocketState(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents,now):null;
- return {winners,winnersPending,winnersScope:global?"application":"room",serverTime:now,rocket,settingsChangeAt:day.settingsChangeAt,acceptingBets:day.acceptingBets,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:(["reveal","reset"].includes(clock.phase)||rocket?.crashed)?sharedOutcome(day,identity.roomId,clock.slot):null};
+ return {winners,winnersPending,winnersScope:global?"application":"room",serverTime:now,rocket,settingsChangeAt:day.settingsChangeAt,acceptingBets:day.acceptingBets,dayId:day.id,roomId:identity.roomId,game:day.settings,...clock,currency:"COINS",availableCoins:account.coinBalance.toString(),mine:receipt(mine),mineEntries:mineEntries.map(receipt),myTotal:mineEntries.reduce((n,e)=>n+e.amount,0n).toString(),myTotals:entryTotals(mineEntries),recentEntries:recentEntries.map(receipt),participants:new Set(entries.map(e=>e.userId)).size,totalPoints:entries.reduce((n,e)=>n+e.amount,0n).toString(),totals,challenge,history,outcome:(["reveal","reset"].includes(clock.phase)||rocket?.crashed)?(["greedy","pizza"].includes(day.settings.engine)?await (day.settings.engine==="pizza"?readPizzaOutcome:readGreedyOutcome)(db,day,identity.roomId,clock.slot):sharedOutcome(day,identity.roomId,clock.slot)):null};
 }

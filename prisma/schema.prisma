@@ -494,6 +494,43 @@ model SharedGameDay {
   @@unique([gameId,day])
 }
 
+// Greedy pool is server-only; never expose balances or future outcomes to players.
+model GreedyPool {
+  gameId String @id
+  balance BigInt @default(0)
+  progress BigInt @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model GreedyRound {
+  id String @id
+  gameId String
+  dayId String
+  slot Int
+  outcome Json
+  createdAt DateTime @default(now())
+  @@unique([dayId, slot])
+  @@index([gameId, createdAt])
+}
+
+model PizzaPool {
+  gameId String @id
+  balance BigInt @default(0)
+  progress BigInt @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model PizzaRound {
+  id String @id
+  gameId String
+  dayId String
+  slot Int
+  outcome Json
+  createdAt DateTime @default(now())
+  @@unique([dayId, slot])
+  @@index([gameId, createdAt])
+}
+
 model SharedGameEntry {
   settledAt DateTime?
   id String @id
@@ -513,6 +550,7 @@ model SharedGameEntry {
   createdAt DateTime @default(now())
   @@index([dayId,roomId,slot,userId])
   @@index([userId,dayId,roomId,slot])
+  @@index([userId,createdAt])
   @@index([status,resolveAt])
   @@index([roomId,settledAt])
   @@index([settledAt])

@@ -8,7 +8,14 @@ import {api} from "./store";
 import {miniGames} from "@/lib/game-control/mini-games.mjs";
 import {markets} from "@/lib/game-control/roulette/engine.mjs";
 import PointAmount from "./point-amount";
+import greedyStyles from "./greedy.module.css";
+import GreedyWheel from "./greedy-wheel";
+import GreedyScenery from "./greedy-scenery";
+import GreedyFood from "./greedy-food";
+import GreedyControls from "./greedy-controls";
 import PizzaWheel from "./pizza-wheel";
+import PizzaFood from "./pizza-food";
+import pizzaStyles from "./pizza.module.css";
 import TeenPattiTable from "./teen-patti-table";
 import MiniGameAnimation from "./mini-game-animation";
 import InstantStage from "./instant-stage";
@@ -20,7 +27,7 @@ export default function SharedPlayer({gameId,preview=false}){
  const request=useCallback(body=>preview?api("admin",{action:"preview-round",request:{...body,gameId}}):api("player",body),[preview,gameId]);
  const [state,setState]=useState(null),[error,setError]=useState(""),[now,setNow]=useState(0),[busy,setBusy]=useState(false);
  const [amount,setAmount]=useState(100),[custom,setCustom]=useState(false),[choice,setChoice]=useState(""),[bets,setBets]=useState({}),[answers,setAnswers]=useState([]),[question,setQuestion]=useState(0);
- const [wheelReady,setWheelReady]=useState(null);
+ const [wheelReady,setWheelReady]=useState(null),[greedyReady,setGreedyReady]=useState(null);
  const [pending,setPending]=useState(null),[help,setHelp]=useState(false);
  const offset=useRef(0),lastRound=useRef(""),guard=useRef(false),dialog=useRef(null),polling=useRef(false);
  const activeEntry=useRef(null);
@@ -35,18 +42,19 @@ export default function SharedPlayer({gameId,preview=false}){
  useEffect(()=>{let alive=true;const poll=()=>{if(document.hidden)return;load().catch(e=>{if(alive)setError(e.message);});};poll();const timer=setInterval(poll,2000),tick=setInterval(()=>setNow(Date.now()+offset.current),100);document.addEventListener("visibilitychange",poll);return()=>{alive=false;clearInterval(timer);clearInterval(tick);document.removeEventListener("visibilitychange",poll);};},[load]);
  useEffect(()=>{if(help)dialog.current?.showModal();else dialog.current?.close();},[help]);
  const game=state?.game,engine=game?.engine,mine=state?.mine;
+ const foodGame=["greedy","pizza"].includes(engine),Food=engine==="pizza"?PizzaFood:GreedyFood;
  const balance=state?.availableCoins??state?.availablePoints??"0";
  const currency=preview?"practice coins":"coins";
  const phase=!state?"loading":now>=state.endsAt?"reset":now>=state.revealsAt?"reveal":now>=state.closesAt?"playing":"open";
  const remaining=state?Math.max(0,Math.ceil(((phase==="open"?state.closesAt:phase==="playing"?state.revealsAt:phase==="reset"&&state.phase==="reset"?state.resetAt:state.endsAt)-now)/1000)):0;
  const total=engine==="roulette"?Object.values(bets).reduce((a,b)=>a+b,0):amount;
- const options=["pizza","teenpatti"].includes(engine)?[]:engine==="flip"?["heads","tails"]:miniGames[engine]?.choices||[];
+ const options=["pizza","greedy","teenpatti"].includes(engine)?[]:engine==="flip"?["heads","tails"]:miniGames[engine]?.choices||[];
  const timed=["reaction","trivia"].includes(engine);
  const locked=busy||!!pending||!!error||state?.acceptingBets===false||phase!=="open";
- async function enter(selectedChoice){
+ async function enter(selectedChoice,auto=false){
    if(guard.current||!state)return;guard.current=true;setBusy(true);setError("");
-   const payload=pending||{action:"shared-enter",id:crypto.randomUUID(),gameId,dayId:state.dayId,slot:state.slot,amount:total,custom,choice:typeof selectedChoice==="string"?selectedChoice:choice||(options.length===1?options[0]:""),bets:engine==="roulette"?bets:undefined};
-   try{setPending(payload);await request(payload);setPending(null);setBets({});await load();}catch(e){if(e.status&&e.status<500)setPending(null);setError(e.message);}finally{guard.current=false;setBusy(false);}
+   const payload=pending||{action:"shared-enter",id:crypto.randomUUID(),gameId,dayId:state.dayId,slot:state.slot,amount:total,custom,...(auto?{auto:true}:{}),choice:typeof selectedChoice==="string"?selectedChoice:choice||(options.length===1?options[0]:""),bets:engine==="roulette"?bets:undefined};
+   try{setPending(payload);await request(payload);setPending(null);setBets({});await load();return true;}catch(e){if(e.status&&e.status<500)setPending(null);setError(e.message);return false;}finally{guard.current=false;setBusy(false);}
  }
  async function answer(value){
    if(guard.current||!mine)return;
@@ -61,32 +69,38 @@ export default function SharedPlayer({gameId,preview=false}){
  const animationRound=outcome?{result:engine==="dice"?`Rolled ${outcome.result}`:engine==="rps"?`Computer: ${outcome.result}`:engine==="penalty"?`Keeper: ${outcome.result}`:outcome.result,choice:latest?.input.choice,outcome:summary.pending?undefined:BigInt(summary.net)>0n?"win":BigInt(summary.net)<0n?"loss":"push"}:null;
  const waiting=phase==="playing";
  const roundKey=state?`${state.dayId}:${state.slot}`:null;
+
  const visualResult=outcome?{id:`${state.dayId}:${state.slot}`,status:"settled",result:String(outcome.result),outcome:summary.pending?undefined:BigInt(summary.net)>0n?"win":BigInt(summary.net)<0n?"loss":"push"}:null;
  const quiz=state?.challenge?.questions?.[question];
  function placeChoice(value){if(locked)return;setChoice(value);void enter(value);}
- return <section className={`${styles.panel} ${engine==="roulette"?"roulette-design":""} ${engine==="teenpatti"?styles.teenPanel:""}`} aria-label="Shared room coin game">
-   <header className={styles.header}><div><h1>{game?.name||"Connecting…"}</h1><div className={styles.roundHistory} aria-label="Recent results">{state?.history?.slice(0,5).map(h=><span key={h.roundNumber} title={`Round ${h.roundNumber}`}>{engine==="reaction"?"✓":String(h.result??"✓")}</span>)}</div></div><button onClick={()=>setHelp(true)} aria-label="Game rules">?</button></header>
+ return <section className={`${styles.panel} ${engine==="pizza"?pizzaStyles.panel:engine==="greedy"?greedyStyles.panel:""} ${engine==="roulette"?"roulette-design":""} ${engine==="teenpatti"?styles.teenPanel:""}`} aria-label="Shared room coin game">
+   {engine==="greedy"&&<GreedyScenery/>}
+   <header className={styles.header}><div><h1>{engine==="pizza"?<img className={pizzaStyles.logo} src="/games/pizza/logo.webp" alt="Pizza"/>:game?.name||"Connecting…"}</h1>{foodGame&&engine!=="pizza"?<small className={greedyStyles.round}>round: {state?.roundNumber}</small>:<div className={styles.roundHistory} aria-label="Recent results">{state?.history?.slice(0,5).map(h=><span key={h.roundNumber} title={`Round ${h.roundNumber}`}>{engine==="reaction"?"✓":String(h.result??"✓")}</span>)}</div>}</div>{engine==="pizza"&&<span className={pizzaStyles.balance}><img src="/games/pizza/coin.webp" alt=""/>{BigInt(balance).toLocaleString()}</span>}<button onClick={()=>setHelp(true)} aria-label="Game rules">?</button></header>
    <div className={styles.stage}>
      {engine==="roulette"?<RouletteWheel roundKey={roundKey} playing={waiting} result={outcome?.result} onSettled={setWheelReady}/>
       :instantGames[engine]?<div className="shared-game-visuals"><InstantStage engine={engine==="highlow"?"dice":engine} busy={waiting} result={visualResult} choice={latest?.input.choice||choice||options[0]}/></div>
       :engine==="teenpatti"?<TeenPattiTable phase={phase} remaining={remaining} outcome={outcome} totals={state?.totals} myTotals={state?.myTotals} mine={mine} onPlace={placeChoice} disabled={locked} roundNumber={state?.roundNumber}/>
       :engine==="flip"?<div className="shared-game-visuals"><FlipStage busy={waiting} result={visualResult} choice={latest?.input.choice||choice||"heads"}/></div>
-      :engine==="pizza"?<PizzaWheel game={game} choice={latest?.input.choice||choice} onChoose={placeChoice} disabled={locked} result={outcome?.result} playing={waiting} elapsed={Math.max(0,now-state.closesAt)} countdown={remaining}/>
+      :engine==="greedy"?<GreedyWheel key={roundKey} duration={state.revealsAt-state.closesAt} onSettled={setGreedyReady} game={game} choice={latest?.input.choice||choice} onChoose={placeChoice} disabled={locked} result={outcome?.result} playing={waiting} elapsed={Math.max(0,now-state.closesAt)} countdown={phase==="open"||phase==="playing"?remaining:0} myTotals={state?.myTotals} totals={state?.totals} latest={latest} winners={outcome?.winners} bonus={outcome?.bonus} roundKey={roundKey}/>
+      :engine==="pizza"?<PizzaWheel roundNumber={state?.roundNumber} key={roundKey} duration={state.revealsAt-state.closesAt} onSettled={setGreedyReady} game={game} choice={latest?.input.choice||choice} onChoose={placeChoice} disabled={locked} result={outcome?.result} playing={waiting} elapsed={Math.max(0,now-state.closesAt)} countdown={phase==="open"||phase==="playing"?remaining:0} myTotals={state?.myTotals} totals={state?.totals} latest={latest} winners={outcome?.winners} bonus={outcome?.bonus} roundKey={roundKey}/>
       :engine?<MiniGameAnimation engine={engine} phase={outcome?"revealed":waiting?"playing":"idle"} round={animationRound} choice={latest?.input.choice||choice} challenge={state?.challenge?{...state.challenge,expiresAt:state.revealsAt}:null} now={now}/>:null}
    </div>
    <div className={engine==="roulette"?"roulette-betting-panel":"shared-betting-contents"}>
-   <div className={styles.status} role="status">{engine==="roulette"&&<span className="roulette-timer-icon"/>}{error||`${state?.acceptingBets===false?"Betting paused":phase==="open"?"Place your bets":phase==="playing"?"Playing":phase==="reveal"?"Results":"Next round"} · ${remaining}s`}</div>
+   {foodGame&&<div className={greedyStyles.history} aria-label="Recent results"><small>result</small>{state?.history?.slice(0,8).map((h,i)=><span key={h.roundNumber} title={`Round ${h.roundNumber}`}><span className={greedyStyles.historyFoods}>{(h.winners||[h.result]).map(id=><Food key={id} food={id}/>)}</span>{i===0&&<em>NEW</em>}</span>)}</div>}
+   <div className={styles.status} role="status">{engine==="roulette"&&<span className="roulette-timer-icon"/>}{error||`${state?.acceptingBets===false?"Betting paused":phase==="open"?"Place your bets":phase==="playing"?"Playing":phase==="reveal"?"Results":"Next round"}${foodGame?"":` · ${remaining}s`}`}</div>
    <div className={styles.table}>
+     {engine==="pizza"&&<div className={pizzaStyles.bonusIndicators} aria-label="Bonus indicators — not betting spots"><span data-active={outcome?.bonus==="salad"}><img src="/games/pizza/salad.webp" alt="Salad"/></span><span data-active={outcome?.bonus==="pizza"}><img src="/games/pizza/pizza.webp" alt="Pizza"/></span></div>}
      {latest&&<span key={latest.id} className={styles.sharedEntryChip} aria-label="Latest bet">● +{latest.amount} · Total {summary.wager}</span>}
      {engine==="trivia"&&phase==="playing"&&quiz&&mine&&!mine.answered?<><p className={styles.question}>{question+1}/{state.challenge.questions.length} · {quiz.text}</p><div className={styles.miniChoices}>{quiz.options.map((text,i)=><button key={i} disabled={busy} onClick={()=>answer(String(i))}>{text}</button>)}</div></>
       :engine==="reaction"&&phase==="playing"&&state?.challenge&&mine&&!mine.answered?<button className={`${styles.reactionPad} ${now>=state.challenge.readyAt?styles.go:""}`} disabled={busy} onClick={()=>answer("tap")}>{now>=state.challenge.readyAt?"TAP NOW!":"WAIT…"}</button>
       :engine==="roulette"?<div className={styles.markets}>{markets.map(m=><button key={m.label} disabled={locked} onClick={()=>{if(!Number.isSafeInteger(amount)||amount<1)return;if(!Number.isSafeInteger(total+amount)||BigInt(total+amount)>BigInt(balance)){setError("Not enough coins for this bet.");return;}setBets({...bets,[m.label]:(bets[m.label]||0)+amount});}}><b>{m.label}</b><small>{m.payout}</small><span>{Number(state?.myTotals?.[m.label]||0)+(bets[m.label]||0)} coins</span></button>)}</div>
       :<div className={engine==="teenpatti"?styles.sharedHands:styles.miniChoices}>{options.map((opt,i)=><button key={opt} disabled={locked} aria-pressed={choice===opt} data-winner={outcome?.winners?.includes(opt)||false} onClick={()=>setChoice(opt)}>{engine==="teenpatti"?<><small>HAND {opt}</small><span className={styles.threeCards}>{(outcome?.hands?.[i]?.cards||["?","?","?"]).map((card,j)=><i key={j}>{card}</i>)}</span><small>{outcome?.hands?.[i]?.label||"Hidden cards"}</small><small>{state?.totals?.[opt]||0} coins</small></>:opt}</button>)}</div>}
-     {phase==="open"&&<PointAmount game={game} balance={engine==="roulette"?String(BigInt(balance)-BigInt(total)):balance} value={amount} custom={custom} disabled={busy||!!pending} onChange={(n,c)=>{setAmount(n);setCustom(c);}}/>}
-     <div className={styles.actions}><span>{mine?mine.answered?"Answer saved":"Bet placed":phase==="open"?"Choose your bet":"Bets closed"}<b>{state?.myTotal||0} coins this round</b></span>{engine==="roulette"&&!locked&&<button onClick={()=>setBets({})}>Clear</button>}{(!["teenpatti","pizza"].includes(engine)||pending)&&<button className={styles.play} disabled={busy||(!pending&&(locked||phase!=="open"||!game||!Number.isSafeInteger(total)||total<1||BigInt(total)>BigInt(balance)||(!timed&&engine!=="roulette"&&options.length>1&&!choice)))} onClick={()=>enter()}>{pending?"Retry placement":"Place bet"}</button>}</div>
+     {engine==="pizza"&&<div className={pizzaStyles.steps}><b>① Select Amount</b><b>② Select Food</b></div>}{<PointAmount game={game} balance={engine==="roulette"?String(BigInt(balance)-BigInt(total)):balance} value={amount} custom={custom} disabled={busy||!!pending||(!foodGame&&phase!=="open")} onChange={(n,c)=>{setAmount(n);setCustom(c);}}/>}
+     <div className={styles.actions}><span>{mine?mine.answered?"Answer saved":"Bet placed":phase==="open"?"Choose your bet":"Bets closed"}<b>{state?.myTotal||0} coins this round</b></span>{engine==="roulette"&&!locked&&<button onClick={()=>setBets({})}>Clear</button>}{(!["teenpatti","pizza","greedy"].includes(engine)||pending)&&<button className={styles.play} disabled={busy||(!pending&&(locked||phase!=="open"||!game||!Number.isSafeInteger(total)||total<1||BigInt(total)>BigInt(balance)||(!timed&&engine!=="roulette"&&options.length>1&&!choice)))} onClick={()=>enter()}>{pending?"Retry placement":"Place bet"}</button>}</div>
    </div>
    </div>
-   <footer className={styles.footer}><span><b>{BigInt(balance).toLocaleString()}</b> {currency}</span>{preview&&<button disabled={busy||!!pending} onClick={refill}>Refill practice coins</button>}<RoundResults state={state} ready={engine!=="roulette"||wheelReady===roundKey}/>{preview&&<small>Practice coins</small>}</footer>
+   {foodGame&&state&&<GreedyControls state={state} amount={amount} phase={phase} locked={locked} onAuto={()=>enter(undefined,true)} request={request}/>}
+   <footer className={styles.footer}><span><b>{BigInt(balance).toLocaleString()}</b> {currency}</span>{preview&&<button disabled={busy||!!pending} onClick={refill}>Refill practice coins</button>}<RoundResults state={state} ready={foodGame?greedyReady===roundKey:engine!=="roulette"||wheelReady===roundKey}/>{preview&&<small>Practice coins</small>}</footer>
    <dialog ref={dialog} className={styles.help} onClose={()=>setHelp(false)}><header><h2>{game?.name} rules</h2><button onClick={()=>setHelp(false)} aria-label="Close rules">×</button></header><GameRules game={game}/></dialog>
  </section>;
 }

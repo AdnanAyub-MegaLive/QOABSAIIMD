@@ -1,3 +1,4 @@
+import {greedySettings} from "./greedy.mjs";
 import { gameAccessLevels } from "./access.mjs";
 import { validateCoinButtons } from "./coin-buttons.mjs";
 import { validateRocketSettings } from "./rocket.mjs";
@@ -96,6 +97,7 @@ export function validateGame(input) {
     category: engine === "roulette" ? "Table game" : "Instant",
     ...(miniGames[engine]?controls:{}),
     ...(engine==="pizza"?pizzaSettings(input):{}),
+    ...(engine==="greedy"?greedySettings(input):{}),
     color: engine === "roulette" ? "orange" : "purple",
     ...(engine === "roulette"
       ? { pocketWeights: validateWeights(input.pocketWeights) }

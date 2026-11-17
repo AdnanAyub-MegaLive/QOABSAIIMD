@@ -9,7 +9,7 @@ describe('coin button configuration',()=>{
  it.each([[],[10,10],[0],[1.5],['100'],[10,20,30,40,50]].map(values=>[values]))('rejects invalid buttons %j',values=>{
   expect(()=>validateCoinButtons({minBet:1,maxBet:1000,coinButtons:values})).toThrow();
  });
- it.each(['rocket','flip','roulette','pizza','trivia','teenpatti'])('persists buttons for %s',engine=>{
+ it.each(['rocket','flip','roulette','pizza','greedy','trivia','teenpatti'])('persists buttons for %s',engine=>{
   const game=validateGame({id:'test-game',name:'Test',engine,status:'paused',minBet:10,maxBet:1000,coinButtons:[25,250],winProbability:50,payoutMultiplier:2,pocketWeights:Array(37).fill(1)});
   expect(game.coinButtons).toEqual([25,250]);
   expect(validateGame(game).coinButtons).toEqual([25,250]);

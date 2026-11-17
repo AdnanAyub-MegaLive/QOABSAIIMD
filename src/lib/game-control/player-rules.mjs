@@ -1,3 +1,4 @@
+import {greedyFoods,greedySettings} from "./greedy.mjs";
 import { pizzaFoods, pizzaSettings } from './pizza.mjs';
 export function playerRules(game = {}) {
  const returns = game.pointReturnMultiplier ?? (game.engine === 'dice' ? 6 : game.engine === 'teenpatti' ? 3 : 2);
@@ -17,5 +18,9 @@ export function playerRules(game = {}) {
   rocket: [`Board before launch. One entry per flight. The multiplier starts at 0× and may crash anywhere up to ${game.rocketMaxMultiplier ?? 5}×.`, 'Cash out before the crash to receive your stake multiplied by the server-confirmed multiplier. Below 1× returns less than your stake. Staying aboard at the crash returns zero; there is no automatic cash-out at the maximum.'],
  };
  if(game.engine==='pizza')rules.pizza=['Choose a food before the spin. A matching food wins; other selections lose.',pizzaFoods.map((f,i)=>`${f.label ?? f.name ?? f.id}: ${pizzaSettings(game).pizzaReturns[i]}×`).join(' · ')];
+ if(game.engine==='greedy')rules.greedy=['Choose a food before the spin. Matching bets win; other selections lose.', 'Auto Play spends your selected amount on each of six random foods, once per round. It stops when disabled, the game is hidden or closed, betting pauses, or funds cannot cover all six spots. An accepted round cannot be cancelled.', 'HOT marks the food with the highest application-wide coin stake this round. Salad and Pizza are bonus indicators, not betting buttons. A pool-triggered bonus replaces the single result with 2 or 3 foods from its group; every matching bet pays its normal multiplier. Ranking counts gross returns over the past 24 hours.',greedyFoods.map((f,i)=>`${f.name}: ${greedySettings(game).greedyReturns[i]}×`).join(' · ')];
+ if(game.engine==='pizza')rules.pizza.splice(1,0,...rulesForFoodGame());
  return [...(rules[game.engine] || ['Place your bet before the betting timer ends.']), 'Bet any positive whole-coin amount up to your available balance. All returns include the stake; losing bets return zero. Fractional coin returns are rounded down.', 'Saved rule changes apply from the next round. Bets already accepted keep their original rules.'];
 }
+
+function rulesForFoodGame(){return ['Auto Play places the selected amount on each of six random foods once per round. It stops when disabled, the game closes or is hidden, or the balance cannot cover the entire round.', 'HOT marks the largest total stake this round. Salad and Pizza cannot be bet on. When the separate Pizza pool reaches its configured threshold, a bonus selects 2–3 foods from one group and pays each winning bet its normal multiplier.', 'My History and ranking cover the past 24 hours. Ranking counts gross coin payouts, including returned stakes.'];}

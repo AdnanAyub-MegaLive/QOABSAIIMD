@@ -1,0 +1,162 @@
+.wheel{height:100%;aspect-ratio:1;max-height:390px;max-width:100%;position:relative;container-type:size;background:#15b8d0 url('/games/greedy/board-v1.webp') center 37%/100% auto;border-radius:22px;isolation:isolate;overflow:visible}
+.hub{position:absolute;inset:33%;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:2;pointer-events:none;animation:float 3s ease-in-out infinite}
+.hub img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 5px #62290555)}
+.hub strong{position:absolute;bottom:3%;font-size:3cqw;color:#66310f;text-align:center;max-width:95%;background:#fff0bf;border-radius:20px;padding:2px 5px}
+.wheel .food{position:absolute;transform:translate(-50%,-50%);width:22%;height:25%;min-height:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;border:2px solid #d98e32;border-radius:12px;background:linear-gradient(#fff4c0,#ffdc87 65%,#bf6430);color:#48260f;box-shadow:0 3px 0 #8d4423;opacity:1;overflow:visible;font-family:inherit;transition:box-shadow .2s,background .2s}
+.art{width:90%;height:65%;background-image:url('/games/greedy/foods-v1.webp');background-size:400% 200%;background-repeat:no-repeat;display:block}
+.food b{position:absolute;right:0;top:0;background:#713f19;color:#fff2a5;padding:1px 4px;border-radius:7px;font-size:3.8cqw}
+.food small{font-size:2.7cqw;font-weight:800;line-height:1.2}.food em{font-size:2.8cqw;font-style:normal;font-weight:800;color:#fff;line-height:1.1;padding-bottom:2px}
+.wheel .food[aria-pressed=true]{outline:3px solid #fff;box-shadow:0 0 0 5px #eb7c1c}
+.wheel .lit{background:linear-gradient(#fff,#fff39a,#ff9e37);box-shadow:0 0 20px #fff6a3;outline:3px solid #fff;animation:glow .55s ease-in-out infinite alternate}
+.chip{position:absolute;left:50%;top:30%;z-index:5;background:#fcd24a;color:#71300d;border:2px solid #fff3ad;border-radius:20px;padding:2px 5px;font-size:3cqw;font-weight:900;animation:chip .8s both;pointer-events:none}
+@keyframes chip{from{opacity:0;transform:translate(-50%,70px) scale(.5)}40%{opacity:1}to{opacity:0;transform:translate(-50%,-20px) scale(1.1)}}
+@keyframes float{50%{transform:translateY(-3px)}}@keyframes glow{to{filter:brightness(1.15)}}
+@media(prefers-reduced-motion:reduce){.hub,.wheel .lit,.chip{animation:none}.chip{display:none}}
+.panel{background:linear-gradient(#17b9d3 0%,#28c6dc 57%,#cf4437 57%,#af2e29 100%)!important;color:#fff9d4!important;min-height:0!important;height:100dvh!important;overflow:hidden!important;grid-template-rows:auto minmax(0,1fr) auto auto!important;gap:6px!important}
+.panel :global(.play-panel-header){color:#fff6c5;text-shadow:0 2px 0 #97531a}
+.panel :global(.play-panel-header h1){font-size:30px!important;letter-spacing:1px}
+.panel :global(.play-panel-stage){min-height:0!important;display:flex;align-items:center;justify-content:center}
+.panel :global(.play-panel-table){background:linear-gradient(#da5742,#b83229)!important;border:2px solid #f7c976!important;border-radius:18px!important;padding:8px!important}
+.panel :global(.play-panel-status){background:#a63728!important;color:#fff8d6!important;border-radius:20px;font-size:13px!important;padding:4px!important}
+.panel :global(.play-panel-chips){flex-wrap:wrap;justify-content:center}
+.panel :global(.play-panel-chips button){background:linear-gradient(#ffe9ac,#eeb74c)!important;color:#683214!important;border-color:#fff2c0!important;font-weight:800}
+.panel :global(.play-panel-chips button[aria-pressed=true]){outline:2px solid white;box-shadow:0 0 10px #fff3b6}
+.panel :global(.play-panel-footer){background:#a32d28;border-radius:12px;padding:7px!important;color:#fff6d3!important;flex-wrap:wrap;gap:7px}
+.panel :global(.play-panel-footer button){background:#fff0c8!important;color:#713821!important;border:1px solid #e8ae45;font-size:11px!important;padding:6px!important}
+.panel :global(.play-panel-roundHistory span){background:#fff0ca!important;color:#793e1d!important;font-size:10px}
+.panel :global(dialog){background:#a9372d!important;color:#fff4d0!important;border-color:#f5ca73!important}
+@media(max-height:650px){.panel{gap:3px!important;padding:6px!important}.panel :global(.play-panel-header h1){font-size:22px!important}.panel :global(.play-panel-chips button){min-height:30px!important;padding:4px 7px!important}.panel :global(.play-panel-actions){font-size:11px!important}}
+/* Reference's wooden carnival stalls and compact red results console. */
+.panel{background:linear-gradient(#20a6c3,#12bfd3 68%,#d63e35 68%)!important;padding:10px 12px max(8px,env(safe-area-inset-bottom))!important;gap:3px!important}
+.panel :global(.play-panel-header h1){font-size:20px!important;margin:0!important}.round{color:#166c82;font-size:12px;text-shadow:none}
+.panel :global(.play-panel-header button){border-radius:50%;background:#167e97;color:#fff;border:0;width:32px;height:32px}
+.panel :global(.play-panel-stage){overflow:visible;align-items:flex-end}
+.wheel{height:100%;max-height:560px;max-width:100%;background:none;border-radius:0;aspect-ratio:1.05;overflow:hidden}
+.wheel:before{content:'';position:absolute;right:-12%;top:20%;width:38%;height:18%;border-radius:50%;background:radial-gradient(ellipse,#e4fbff 10%,#c1f2f9 55%,transparent 72%);opacity:.75}
+.support{position:absolute;inset:42% 20% 0;background:repeating-linear-gradient(35deg,#efb757 0 24px,#9d7040 24px 38px,#e7a24c 38px 60px);clip-path:polygon(42% 0,58% 0,100% 100%,76% 100%,50% 36%,24% 100%,0 100%);filter:drop-shadow(0 2px 1px #83451c)}
+.spokes{position:absolute;inset:12%;border:7px solid #b4783c;border-radius:50%;box-shadow:inset 0 0 0 3px #f2cf84,0 0 0 2px #915b32}
+.spokes i{position:absolute;left:calc(50% - 7px);top:0;height:50%;width:14px;background:linear-gradient(90deg,#9c653a,#e8bc81,#b87a46);transform-origin:50% 100%}
+.hub{inset:29%;border:7px solid #ffd776;background:radial-gradient(#b77744,#72402c);border-radius:50%;box-shadow:0 3px 0 #986038;animation:float 3s ease-in-out infinite}
+.hub img{width:115%;height:115%;max-width:none;object-fit:contain}.hub strong{bottom:-4%;width:32%;aspect-ratio:1;border:3px solid #d78c27;background:linear-gradient(#fffbd8,#ffd967);display:grid;place-items:center;padding:0;color:#b26a16;font-size:5cqw;font-style:italic;box-shadow:0 2px 0 #8a471e}.hub strong .foodIcon{width:100%;height:100%}
+.wheel .food{width:23%;height:23%;border:0;border-radius:48% 48% 4px 4px;background:linear-gradient(90deg,#9f723e 0 7%,#d8c19b 7% 93%,#9f723e 93%);box-shadow:0 3px 0 #714e29;justify-content:flex-end;isolation:isolate}
+.wheel .food:before{content:'';position:absolute;left:-5%;right:-5%;height:5%;bottom:32%;background:#b58042;box-shadow:0 2px 0 #7e512c;z-index:2}
+.food .art{position:absolute;top:-22%;left:0;width:80%;height:82%;z-index:3;filter:drop-shadow(0 2px 1px #7a4c37)}
+.food b{background:none;top:16%;right:-4%;font-size:5cqw;font-style:italic;color:#ffd24b;text-shadow:-1px -1px #654316,1px 1px #654316,2px 2px #654316;z-index:4;padding:0}
+.food em{position:absolute;bottom:35%;left:0;right:0;color:#8c3824;font-size:4cqw;font-weight:500;text-align:center;padding:0;z-index:4}
+.stallWindows{height:31%;width:88%;background:repeating-linear-gradient(90deg,#785131 0 27%,#b7894d 27% 35%);border:3px solid #bd9058;border-bottom:0;color:#ffd569;font-size:3.5cqw;line-height:1.5;text-align:center;text-shadow:0 0 3px #ff6d31}
+.wheel .food[aria-pressed=true]{outline:2px solid #ffdf8a;box-shadow:0 0 10px #ffe77a}
+.wheel .lit{background:#fff0ad;outline:3px solid #fff1a0;box-shadow:0 0 24px #fff7bb}
+.history{display:flex;align-items:center;justify-content:center;gap:3px;background:#842e25;border-radius:14px;padding:7px 8px;margin:5px 0 8px;min-height:46px;border-top:4px solid #ae382c;box-shadow:0 3px 0 #a83027}.history small{font-size:12px;color:#f5c9b1;margin-right:3px}.history>span{position:relative;display:grid;place-items:center;background:#f5deb2;border:2px solid #c59468;border-radius:50%;width:clamp(23px,6vw,42px);aspect-ratio:1}.history em{position:absolute;top:-12px;left:0;color:#ffe958;font-size:8px;font-style:normal;background:#917732;padding:0 2px}
+.foodIcon{display:inline-block;width:32px;height:32px;background:url('/games/greedy/foods-v1.webp') no-repeat;background-size:400% 200%;vertical-align:middle;flex-shrink:0}.history .foodIcon{width:100%;height:100%}.largeIcon{width:100px;height:100px}
+.panel :global(.shared-betting-contents){background:#d63e35;border-radius:20px 20px 0 0;padding:4px 8px 0;margin:0 -12px}
+.panel :global(.play-panel-table){background:none!important;border:0!important;box-shadow:none!important;padding:3px!important}
+.panel :global(.play-panel-status){font-size:11px!important;background:none!important;padding:0!important;color:#ffe2c3!important}
+.panel :global(.play-panel-chips){gap:8px!important;flex-wrap:nowrap}
+.panel :global(.play-panel-chips button){border-radius:45% 45% 6px 6px!important;min-width:0!important;padding:8px 3px!important;flex:1;font-size:11px!important;border:3px double #f1c77c!important;box-shadow:0 3px 0 #9e4b2d;background:linear-gradient(#eac46d,#ad6740)!important;color:#fff1c8!important}
+.panel :global(.play-panel-actions){font-size:10px!important;min-height:24px!important;margin:3px 0!important}.panel :global(.play-panel-actions b){display:inline;margin-left:8px}
+.panel :global(.play-panel-footer){margin:0 -12px -8px;border-radius:0;background:#d63e35!important;font-size:11px;padding:6px 12px 12px!important}.panel :global(.play-panel-footer button){border-radius:12px!important;background:#f6dfba!important}.panel :global(.play-panel-resultHero strong){background:none!important}.panel :global(.play-panel-resultTotals small){color:#ffe2c1!important}
+@media(max-height:650px){.history{margin:2px 0;padding:3px;min-height:32px}.history>span{width:25px}.panel :global(.play-panel-chips button){padding:3px!important}.panel :global(.play-panel-header h1){font-size:16px!important}}
+
+.hot{position:absolute;top:-10%;right:0;z-index:6;border:1px solid #fff879;border-radius:5px;background:#f45534;color:#fff444;font-size:3cqw;font-weight:900;padding:0 3px;box-shadow:0 1px 2px #865528}
+.panel{grid-template-rows:auto minmax(180px,1fr) auto auto auto auto auto!important}
+.panel :global(.play-panel-header){grid-row:1}.panel :global(.play-panel-stage){grid-row:2}
+.activityButtons{grid-row:3;display:flex;gap:8px;padding:7px;background:#d9503e;border:4px ridge #f8c981;border-radius:14px;margin:0 -5px}.activityButtons button{flex:1;background:#f4dfbc;color:#75482c;border:1px solid #bc8c5a;border-radius:9px;font-weight:800;padding:6px;font-size:15px}.activityButtons small{display:block;font-size:10px;font-weight:400}
+.panel :global(.shared-betting-contents){grid-row:4;display:block!important}.autoBar{grid-row:5;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px;background:#d63e35;font-size:11px}.autoBar small{display:block;font-size:10px}.autoButton{background:linear-gradient(#fff7ac,#ffb928)!important;color:#673616!important;border:3px ridge #ffe7a3;border-radius:26px;padding:8px 14px;font-size:16px;font-weight:900;white-space:nowrap;box-shadow:0 3px 0 #a33a21}.autoButton[aria-pressed=true]{background:#7d2c24!important;color:#fff0be!important}.autoNotice{grid-row:6;font-size:10px;margin:0;background:#a32d28;padding:3px}.panel :global(.play-panel-footer){grid-row:7}.activityDialog{margin:auto;width:min(95vw,500px);max-height:75dvh;overflow:auto;background:#a9372d;border:2px solid #f7cf89;border-radius:18px;padding:16px;color:#fff5d6}.activityDialog::backdrop{background:#210b0b99}.activityDialog header{display:flex;justify-content:space-between;align-items:center}.activityDialog h2{font-size:20px}.activityDialog button{padding:6px 10px;border:1px solid #f6c785;border-radius:8px;background:#f6dfba;color:#713821}.activityDialog p{font-size:12px}.activityRow{display:flex;gap:10px;justify-content:space-between;align-items:center;border-bottom:1px solid #f4be8566;padding:10px 0;font-size:12px}.activityRow small{display:block;font-size:10px;color:#f9d9ae}.activityRow strong{white-space:nowrap}.activityDialog nav{display:flex;justify-content:space-between;margin-top:12px}
+.historyFoods{display:flex;align-items:center;justify-content:center;width:100%;height:100%}.historyFoods .foodIcon{flex-shrink:1;min-width:0}.historyFoods:has(.foodIcon:nth-child(2)){width:135%;height:75%;transform:rotate(-20deg)}.hubResults{display:flex;width:100%;height:100%;align-items:center}.hubResults .foodIcon{flex-shrink:1}.bonusIndicators{position:absolute;bottom:0;left:2%;right:2%;display:flex;justify-content:space-between;pointer-events:none;z-index:5}.bonusIndicators>span{font-size:7cqw;line-height:1;text-align:center;filter:drop-shadow(0 2px 2px #5e4328)}.bonusIndicators small{display:block;font-size:3cqw;padding:3px 8px;background:#d8bd8a;color:#6e3821;border-bottom:3px solid #926333}.bonusIndicators [data-active=true]{filter:drop-shadow(0 0 10px #fff9a5)}
+.feeding{position:absolute;inset:0;pointer-events:none;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:bonusCaption 3s both}.feeding>span{font-size:16cqw;animation:feed 2s both}.feeding b{color:#fff583;text-shadow:0 2px #a14a21;font-size:6cqw}.bonusWheel .hub{animation:roar 1.5s ease-out}.bonusWheel .lit{animation:glow .55s ease-in-out infinite alternate}
+@keyframes feed{0%{transform:translate(-150%,120%) scale(.7)}65%{transform:translate(0,0) scale(1.1);opacity:1}100%{transform:translateY(-10%) scale(.1);opacity:0}}@keyframes roar{20%,60%{transform:scale(1.15) rotate(-4deg)}40%,80%{transform:scale(1.15) rotate(4deg)}100%{transform:none}}@keyframes bonusCaption{0%,75%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.feeding{animation:none;display:none}.bonusWheel .hub,.bonusWheel .lit{animation:none}}
+@media(max-height:700px){.activityButtons{padding:3px}.activityButtons button{padding:3px;font-size:12px}.history{min-height:32px;padding:3px;margin:2px 0}.history>span{width:25px}.autoButton{font-size:13px;padding:5px 8px}.panel :global(.play-panel-footer){padding:3px 8px!important}.panel :global(.play-panel-chips button){padding:4px 2px!important}.panel :global(.play-panel-actions){min-height:18px!important}}
+/* Reference-matched mobile proportions. */
+.panel{max-width:540px!important;box-sizing:border-box;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:32px minmax(0,1fr) 48px auto 68px!important;padding:10px 12px max(8px,env(safe-area-inset-bottom))!important;gap:0!important;background:linear-gradient(#1ca5c0,#14bcd1 72%,#cc3934 72%)!important;font-family:Arial,sans-serif}
+.panel :global(.play-panel-header){grid-column:1/-1;padding:0!important;min-height:0!important}
+.panel :global(.play-panel-header h1){display:none}
+.panel :global(.play-panel-stage){grid-column:1/-1;align-items:flex-end}
+.wheel{aspect-ratio:1;max-height:510px;overflow:visible}
+.support{inset:48% 17% 0;background:repeating-linear-gradient(35deg,#f8ae44 0 32px,#b7863c 32px 43px,#f6c471 43px 64px)}
+.spokes{border:0;box-shadow:none}
+.hub{inset:29% 29% 25%;border:0;background:none;box-shadow:none;animation:none;z-index:3}
+.hub img{width:100%;height:100%;object-fit:contain}
+.hub strong{bottom:7%;left:36%;width:28%;height:22%;border:0;background:none;box-shadow:none;font-size:6cqw;text-shadow:1px 1px white}
+.wheel .food{width:25%;height:26%;background:transparent;border:0;box-shadow:none;border-radius:12px;opacity:1!important}
+.wheel .food:before{display:none}
+.stallWindows{position:absolute;inset:0;width:100%;height:100%;border:0;background:url('/games/greedy/stall-v2.webp') center/100% 100% no-repeat;z-index:0}
+.food .art{top:-12%;left:3%;width:78%;height:68%}
+.food b{right:0;top:24%;font-size:5.2cqw;line-height:1;-webkit-text-stroke:.5px #754512}
+.food em{top:53%;bottom:auto;left:5%;right:5%;font-size:4.2cqw;line-height:1}
+.wheel .lit,.wheel .food[aria-pressed=true]{outline:0;box-shadow:none;background:transparent;filter:drop-shadow(0 0 6px #fff695) brightness(1.12)}
+.hot{left:66%;right:auto;top:-5%;font-size:3.5cqw}
+.bonusIndicators{left:0;right:0}.bonusIndicators>span{width:23%;position:relative}.bonusIndicators img{width:80%;height:auto;display:block;margin:auto}.bonusIndicators small{width:88%;margin:-9% auto 0;position:relative;background:linear-gradient(#c5b99d,#9b8c76);color:#682f28;padding:1px;font-size:3.5cqw;font-weight:700;border:0;box-shadow:0 2px #7b644d;clip-path:polygon(8% 0,92% 0,100% 100%,0 100%)}
+.activityButtons{grid-column:1/-1;padding:5px 6px;margin:0 -2px;border:3px solid #ffe09b;border-bottom:0;border-radius:18px 18px 0 0;background:linear-gradient(#ef7650,#c4322c);box-shadow:0 -3px 0 #c88c4f,0 3px 0 #a82c24;z-index:6}
+.activityButtons button{min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:3px 5px;font-size:14px}
+.activityButtons small{font-size:9px;margin-top:2px}.activityButtons img{width:32px;height:34px;object-fit:contain}.activityButtons button:after{content:'›';margin-left:auto;font-size:26px;color:#d2b797}
+.panel :global(.shared-betting-contents){grid-column:1/-1;background:#cc3934;border-radius:0;padding:10px 12px 0;min-width:0}
+.history{gap:3px;padding:5px 6px;margin:0;min-height:34px;border:0;background:#802a25;box-shadow:0 -3px #a9322a,0 3px #a9322a}
+.history small{font-size:11px}.history>span{flex:1;max-width:36px;min-width:0;width:auto;background:#d8b995;border:1px solid #af815c}.history em{top:-10px;font-size:7px}
+.panel :global(.play-panel-status){font-size:10px!important;line-height:1.1;margin:6px 0 1px;min-height:11px!important}
+.panel :global(.play-panel-table){padding:0!important;min-height:0!important}
+.panel :global(.play-panel-chips){padding:4px 0!important;gap:12px!important}
+.panel :global(.play-panel-chips) button{background:linear-gradient(#d4a56b,#945637)!important;border:3px ridge #eac283!important;border-radius:22px 22px 4px 4px!important;min-height:47px!important;max-height:52px;flex-direction:column;gap:1px;padding:2px!important;box-shadow:0 2px #923f28}
+.panel :global(.play-panel-chips) img{width:18px!important;height:20px!important}
+.panel :global(.play-panel-chips) button[aria-pressed=true]{background:linear-gradient(#edcd6e,#b7863e)!important;outline:1px solid #ffeab2;outline-offset:1px}
+.panel :global(.play-panel-actions){font-size:9px!important;min-height:15px!important;margin:2px 0!important;line-height:1.2}
+.autoBar{grid-row:5;grid-column:2;align-self:center;z-index:3;padding:0 0 0 8px;background:none}.autoBar>span{display:none}
+.autoButton{border:3px solid #589b07;border-radius:25px;background:linear-gradient(#9cdd13,#dcff30 42%,#82ce02 70%,#54a900)!important;box-shadow:inset 0 2px 3px #f4ffb1,0 3px 0 #8b321f,0 0 0 2px #b37135;color:white!important;text-shadow:0 2px #438c0b;font-size:19px;font-weight:900;padding:9px 12px}
+.autoButton[aria-pressed=true]{background:linear-gradient(#c66a24,#a43d20)!important;border-color:#edab5b;font-size:14px}
+.autoNotice{position:absolute;bottom:72px;left:12px;right:12px;z-index:10;border-radius:8px;padding:5px}
+.panel :global(.play-panel-footer){grid-column:1;grid-row:5;min-width:0!important;align-self:center;background:none!important;padding:0!important;margin:0!important;gap:4px!important;border:0!important;font-size:10px!important}
+.panel :global(.play-panel-footer)>span{width:100%;padding:5px 8px 5px 26px;border-radius:16px;background:#ffe4b7 url('/games/common/coins.webp') 5px center/17px 21px no-repeat;color:#81522d;font-size:12px!important;line-height:1.1}
+.panel :global(.play-panel-footer) button{border:0!important;border-radius:5px!important;background:#a83129!important;color:#ffe2c9!important;font-size:9px!important;padding:3px 5px!important}.panel :global(.play-panel-footer)>small{font-size:8px}
+.feeding img{width:30%;animation:feed 2s both}
+@media(max-height:680px){.panel{padding-top:6px!important;grid-template-rows:28px minmax(0,1fr) 42px auto 58px!important}.activityButtons button{font-size:12px}.activityButtons img{width:25px;height:28px}.history{min-height:28px}.history>span{max-width:28px}.panel :global(.play-panel-chips) button{min-height:42px!important}.autoButton{font-size:16px;padding:8px}.panel :global(.play-panel-actions){min-height:12px!important}}
+.food em{top:47%;left:12%;right:12%;padding:1px 0;background:#e4c89f;color:#7b3628;border-radius:2px;font-size:3.7cqw;line-height:1.1;z-index:5;box-shadow:0 1px #a97945}
+.panel :global(.play-panel-chips) button{position:relative;border:0!important;box-shadow:none!important;background:url('/games/greedy/plaque-v2.webp') center/100% 100% no-repeat!important;border-radius:0!important;min-height:59px!important;max-height:59px;padding:16px 2px 5px!important;gap:0}
+.panel :global(.play-panel-chips) button[aria-pressed=true]{background:url('/games/greedy/plaque-v2.webp') center/100% 100% no-repeat!important;outline:0;filter:brightness(1.2) drop-shadow(0 0 2px #ffeda4)}
+.panel :global(.play-panel-chips) img{width:15px!important;height:17px!important}.panel :global(.play-panel-chips) span{font-size:12px;line-height:1}
+@media(max-height:680px){.panel :global(.play-panel-chips) button{min-height:48px!important;max-height:48px;padding-top:12px!important}}
+/* Final mobile spacing: clear edges, balanced stalls and aligned footer. */
+.panel{grid-template-rows:36px minmax(0,1fr) 50px auto 76px!important;padding-inline:14px!important}
+.wheel{max-width:96%;margin-bottom:8px}
+.wheel .food{width:23.5%;height:24.5%}
+.hub{inset:30% 29% 26%}
+.bonusIndicators{bottom:0;left:1%;right:1%}.bonusIndicators>span{width:21%}
+.activityButtons{margin:0;gap:8px;padding:5px 6px}.activityButtons button{font-size:13px}.activityButtons img{width:29px;height:31px}
+.panel :global(.shared-betting-contents){margin-inline:-14px;padding:12px 14px 2px}
+.history{padding:6px 7px;gap:4px}.history>span{max-width:34px}
+.panel :global(.play-panel-status){margin:8px 0 3px}
+.panel :global(.play-panel-chips){gap:10px!important;padding:5px 2px!important}
+.panel :global(.play-panel-actions){margin:5px 0 3px!important;min-height:14px!important}
+.panel :global(.play-panel-footer){align-content:center;gap:5px!important;padding-right:4px!important}
+.panel :global(.play-panel-footer)>span{box-sizing:border-box;padding-block:6px;font-size:11px!important;white-space:nowrap}
+.autoBar{padding-left:10px}.autoButton{font-size:17px;padding:10px 11px;min-width:112px}
+@media(max-height:680px){.panel{grid-template-rows:28px minmax(0,1fr) 44px auto 66px!important;padding-inline:12px!important}.wheel{margin-bottom:6px}.panel :global(.shared-betting-contents){margin-inline:-12px;padding:9px 12px 0}.history{padding:4px 6px;gap:3px}.history>span{max-width:29px}.panel :global(.play-panel-status){margin:5px 0 1px}.panel :global(.play-panel-actions){margin:3px 0!important}.autoButton{font-size:16px;min-width:104px;padding:9px}.activityButtons img{width:25px;height:27px}}
+@media(max-height:680px){.panel{grid-template-rows:28px minmax(0,1fr) 44px auto 72px!important}.panel :global(.play-panel-actions){min-height:18px!important;margin:4px 0!important}.panel :global(.play-panel-footer){align-self:end;padding-bottom:3px!important}.autoBar{align-self:end;padding-bottom:10px}}
+.wheel .food.lit{outline:3px solid #fff7a0;outline-offset:2px;border-radius:12px;background:#fff2a329;box-shadow:0 0 9px 4px #ffe14b,0 0 22px #fff2a0;filter:brightness(1.28);animation:none;z-index:6}
+.wheel .food[data-winner=true]{outline:3px solid #fffbd1;box-shadow:0 0 12px 5px #ffd43b,0 0 26px #fff0a1;z-index:7}
+.winnerLabel{position:absolute;left:50%;bottom:-9%;transform:translateX(-50%);z-index:8;background:linear-gradient(#fff8ae,#ffc837);border:1px solid white;border-radius:8px;padding:2px 8px;font-size:3cqw;font-weight:900;letter-spacing:1px;color:#733d15;box-shadow:0 2px 4px #6b351b88}
+
+/* Decorative sky and flybys stay behind the interactive game. */
+.panel{position:relative;isolation:isolate;background:#08bbee url('/games/greedy/sky.png') center/cover no-repeat!important}
+.scenery{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:-1;border-radius:inherit}
+.birdFlight{position:absolute;left:-120px;width:calc(100% + 240px);height:var(--bird-size);animation:birdCross linear both;will-change:transform}
+.birdFlight img{display:block;width:var(--bird-size);height:var(--bird-size);object-fit:contain}
+.birdFlight[data-reverse=true]{animation-direction:reverse}
+.birdFlight[data-reverse=true] img{transform:scaleX(-1)}
+@keyframes birdCross{from{transform:translateX(0)}to{transform:translateX(100%)}}
+@media(prefers-reduced-motion:reduce){.scenery{display:none}}
+
+/* Result controls must remain legible over the game's decorative footer. */
+.panel :global(dialog.play-panel-resultSheet){background:linear-gradient(160deg,#fff7de,#ffe5b4)!important;color:#542719!important;border:2px solid #d99535!important;border-radius:24px!important;box-shadow:0 16px 60px #36150d88!important;padding:20px!important}
+.panel :global(.play-panel-resultSheet header){display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0!important}
+.panel :global(.play-panel-resultSheet header h2){color:#6b291b!important;font-size:21px!important;font-weight:800;line-height:1.2;margin:0!important}
+.panel :global(.play-panel-resultSheet header button){display:grid!important;place-items:center;flex:0 0 44px;width:44px!important;height:44px!important;min-height:44px!important;padding:0!important;border:2px solid #8d3525!important;border-radius:50%!important;background:#9b3326!important;color:#fff!important;font-size:30px!important;line-height:1!important;box-shadow:0 3px 0 #682317!important;opacity:1!important}
+.panel :global(.play-panel-resultSheet .play-panel-resultHero){margin:16px auto!important}
+.panel :global(.play-panel-resultSheet .play-panel-resultHero span),.panel :global(.play-panel-resultSheet .play-panel-noBet){color:#673b2a!important;font-size:14px!important}
+.panel :global(.play-panel-resultSheet .play-panel-resultTotals div){background:#fffaf0!important;border:1px solid #e8c491;border-radius:12px;padding:12px 4px!important}
+.panel :global(.play-panel-resultSheet .play-panel-resultTotals small){color:#78513c!important}
+.panel :global(.play-panel-resultSheet .play-panel-resultTotals b){color:#542719!important}
+.panel :global(.play-panel-resultSheet .play-panel-winnerList){color:#542719!important}
+.panel :global(.play-panel-resultSheet .play-panel-winnerList span){color:#873019!important;font-weight:800}
+.panel :global(.play-panel-resultSheet button.play-panel-resultDone){display:block!important;width:100%!important;min-height:48px!important;margin-top:18px!important;padding:12px 16px!important;background:linear-gradient(#b84730,#8d291e)!important;color:#fff!important;border:2px solid #77271c!important;border-radius:14px!important;font-size:16px!important;font-weight:800!important;line-height:1.3!important;box-shadow:0 3px 0 #642016!important;opacity:1!important}
+.panel :global(.play-panel-resultSheet button:focus-visible){outline:3px solid #176b96!important;outline-offset:3px}
+.panel :global(.play-panel-resultSheet button:active){transform:translateY(1px)}

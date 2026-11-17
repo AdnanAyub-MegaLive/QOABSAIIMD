@@ -40,7 +40,7 @@ describe("shared room rounds",()=>{
 });
 
 describe("application-wide round outcomes",()=>{
- it.each(["flip","dice","rps","penalty","reaction","roulette","teenpatti","rocket","pizza","highlow","wheel","dragon","slots","trivia"])("shares %s results across rooms and restarts",engine=>{
+ it.each(["flip","dice","rps","penalty","reaction","roulette","teenpatti","rocket","pizza","greedy","highlow","wheel","dragon","slots","trivia"])("shares %s results across rooms and restarts",engine=>{
   const d={...day,settings:{engine,outcomeScope:"application-v1",pocketWeights:Array(37).fill(1)}};
   for(let slot=0;slot<20;slot++){
    const expected=sharedOutcome(d,"ROOM-1",slot);

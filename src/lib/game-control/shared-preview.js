@@ -1,8 +1,10 @@
+import {pizzaBonus,pizzaBonusReady} from './pizza.mjs';
+import {greedyBonus,greedyBonusReady} from './greedy.mjs';
 import { calendarWindow } from '../business-time.js';
 import {roundSummary} from "./round-summary.mjs";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import {randomBytes} from "node:crypto";
-import {sharedClock,sharedDuration,sharedOutcome,sharedTrivia} from "./shared-engine.mjs";
+import {sharedClock,sharedDuration,sharedOutcome,sharedTrivia,seededRandom} from "./shared-engine.mjs";
 import {accepted,resolveSharedEntry,entryTotals} from "./shared-games.js";
 import {GameError,serializeGame} from "./service.js";
 // Isolated, bounded admin preview: no membership, wallet or production point writes.
@@ -15,20 +17,26 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
  if(!state||state.day.id!==`${gameRow.id}:${date}`||state.day.settings.revision!==gameRow.revision){
   if(previews.size>=200)previews.delete(previews.keys().next().value);
   const game={...serializeGame(gameRow),status:"active",outcomeScope:"application-v1"};
-  state={day:{id:`${gameRow.id}:${date}`,day:calendarWindow('day',new Date(now)).start,settings:game,durationMs:sharedDuration(game),seed:randomBytes(32).toString("hex")},entries:[],points:10000n,seen:now};previews.set(key,state);
+  state={day:{id:`${gameRow.id}:${date}`,day:calendarWindow('day',new Date(now)).start,settings:game,durationMs:sharedDuration(game),seed:randomBytes(32).toString("hex")},entries:[],pool:{balance:0n,progress:0n},outcomes:{},points:10000n,seen:now};previews.set(key,state);
  }
  state.seen=now;
  const {day}=state,clock=sharedClock(day,now),roomId="admin-preview";
- for(const e of state.entries)if(e.status==="PENDING"&&e.resolveAt<=now){e.result=resolveSharedEntry(e);state.points+=BigInt(e.result.payout);e.status="SETTLED";}
+ const outcomeFor=slot=>state.outcomes[slot]??sharedOutcome(day,roomId,slot);
+ for(const e of state.entries)if(e.status==="PENDING"&&e.resolveAt<=now){e.result=resolveSharedEntry(e,outcomeFor(e.slot));if(["greedy","pizza"].includes(day.settings.engine)){const net=BigInt(e.amount)-BigInt(e.result.payout);state.pool.balance+=net;state.pool.progress+=net;}state.points+=BigInt(e.result.payout);e.status="SETTLED";}
  if(input.action==="shared-enter"){
-  const parsed=accepted(day.settings,input),old=state.entries.find(e=>e.id===input.id);
+  const parsed=accepted(day.settings,input,seededRandom(day.seed,`auto:${owner}:${input.id}`)),old=state.entries.find(e=>e.id===input.id);
   if(old){if(old.slot!==input.slot||JSON.stringify(old.input)!==JSON.stringify(parsed))throw new GameError("Request ID conflict.",409);return view(old);}
   if(input.dayId!==day.id||input.slot!==clock.slot||clock.phase!=="open")throw new GameError("Entry closed. Wait for the next round.",409);
 
 
   if(day.settings.engine==="rocket"&&state.entries.some(e=>e.slot===clock.slot))throw new GameError("You are already aboard this flight.",409);
   if(state.points<parsed.amount)throw new GameError("Use Free refill.",409);
-  const e={id:input.id,day,roomId,slot:clock.slot,amount:parsed.amount,input:parsed,answer:null,status:"PENDING",result:null,resolveAt:day.settings.engine==="rocket"?rocketCrashAt(day,clock.slot,sharedOutcome(day,roomId,clock.slot).crashCents):clock.revealsAt};
+  if(["greedy","pizza"].includes(day.settings.engine)&&!state.outcomes[clock.slot]){
+   const bonus=(day.settings.engine==="pizza"?pizzaBonusReady:greedyBonusReady)(state.pool,day.settings);
+   state.outcomes[clock.slot]=bonus?(day.settings.engine==="pizza"?pizzaBonus:greedyBonus)(seededRandom(day.seed,`greedy-bonus:${clock.slot}`)):sharedOutcome(day,roomId,clock.slot);
+   if(bonus)state.pool.progress=0n;
+  }
+  const e={id:input.id,day,roomId,slot:clock.slot,amount:parsed.amount,createdAt:now,input:parsed,answer:null,status:"PENDING",result:null,resolveAt:day.settings.engine==="rocket"?rocketCrashAt(day,clock.slot,sharedOutcome(day,roomId,clock.slot).crashCents):clock.revealsAt};
   state.points-=BigInt(parsed.amount);state.entries.push(e);return view(e);
  }
  if(input.action==="shared-cashout"){
@@ -52,6 +60,11 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
   e.answer={value,at:now};return view(e);
  }
  if(input.action==="refill")state.points=state.points<10000n?10000n:state.points;
+ if(['greedy-history','greedy-ranking','pizza-history','pizza-ranking'].includes(input.action)){
+  const entries=state.entries.filter(e=>e.createdAt>=now-86400000),page=Math.max(0,Number.isInteger(input.page)?input.page:0);
+  const payout=entries.filter(e=>e.status==='SETTLED').reduce((n,e)=>n+BigInt(e.result.payout),0n);
+  return {page,hasMore:input.action.endsWith('-history')&&entries.length>(page+1)*50,rows:input.action.endsWith('-ranking')?(payout>0n?[{publicId:'preview',name:'You (practice)',payout:String(payout)}]:[]):entries.toReversed().slice(page*50,(page+1)*50).map(e=>({...view(e),roundNumber:e.slot+1,createdAt:new Date(e.createdAt).toISOString()}))};
+ }
  const mineEntries=state.entries.filter(e=>e.slot===clock.slot),mine=mineEntries.find(e=>!e.answer)||mineEntries.at(-1),revealed=["reveal","reset"].includes(clock.phase);
  let challenge=null;
  if(mine&&["playing","reveal"].includes(clock.phase)){
@@ -59,8 +72,8 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
   if(day.settings.engine==="trivia"){const quiz=sharedTrivia(day,roomId,clock.slot,mine.amount,mine.input.custom);challenge={tier:quiz.tier,questions:quiz.questions.map(({answer,...q})=>({...q,...(revealed?{answer}:{})}))};}
  }
  const rocket=day.settings.engine==="rocket"?publicRocketState(day,clock.slot,sharedOutcome(day,roomId,clock.slot).crashCents,now):null;
- const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-5);slot--)history.push({roundNumber:slot+1,...sharedOutcome(day,roomId,slot)});
+ const history=[];for(let slot=clock.slot-1;slot>=Math.max(0,clock.slot-(["greedy","pizza"].includes(day.settings.engine)?8:5));slot--)history.push({roundNumber:slot+1,...outcomeFor(slot)});
  const summary=roundSummary(mineEntries);
  const winners=(revealed||rocket?.crashed)&&BigInt(summary.payout)>0?[{publicId:"preview",name:"You (practice)",...summary}]:[];
- return {winners,winnersScope:"practice",winnersPending:(revealed||rocket?.crashed)&&summary.pending>0,serverTime:now,rocket,dayId:day.id,roomId,game:day.settings,...clock,availablePoints:String(state.points),mine:view(mine),mineEntries:mineEntries.map(view),myTotal:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),myTotals:entryTotals(mineEntries),recentEntries:state.entries.slice(-10).reverse().map(view),participants:mine?1:0,totalPoints:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),totals:entryTotals(mineEntries),challenge,history,outcome:(revealed||rocket?.crashed)?sharedOutcome(day,roomId,clock.slot):null};
+ return {winners,winnersScope:"practice",winnersPending:(revealed||rocket?.crashed)&&summary.pending>0,serverTime:now,rocket,dayId:day.id,roomId,game:day.settings,...clock,availablePoints:String(state.points),mine:view(mine),mineEntries:mineEntries.map(view),myTotal:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),myTotals:entryTotals(mineEntries),recentEntries:state.entries.slice(-10).reverse().map(view),participants:mine?1:0,totalPoints:String(mineEntries.reduce((n,e)=>n+BigInt(e.amount),0n)),totals:entryTotals(mineEntries),challenge,history,outcome:(revealed||rocket?.crashed)?outcomeFor(clock.slot):null};
 }
