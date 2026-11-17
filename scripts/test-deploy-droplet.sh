@@ -32,9 +32,10 @@ case "$command_name" in
     if [ "${2:-}" = --health ] && [ "$TEST_FAILURE" = health ]; then exit 1; fi ;;
   pm2)
     case "$1" in
-      stop|delete) exit 91 ;;
+      stop) exit 91 ;;
+      delete) [ "$2" = megalive-portal ] ;;
       jlist) echo '[]' ;;
-      restart)
+      start)
         if [ "$TEST_FAILURE" = restart ] && [[ "$2" = */release.ecosystem.json ]]; then exit 1; fi ;;
     esac ;;
 esac
@@ -52,9 +53,9 @@ for failure in none ci run migrate health restart; do
   else
     [ "$failure" != none ] || { cat "$fixture/$failure.output"; exit 1; }
   fi
-  if grep -Eq '^pm2 (stop|delete)' "$TEST_LOG"; then exit 1; fi
+  if grep -Eq '^pm2 stop' "$TEST_LOG"; then exit 1; fi
   case "$failure" in
-    ci|run|migrate) if grep -q '^pm2 restart' "$TEST_LOG"; then exit 1; fi ;;
+    ci|run|migrate) if grep -Eq '^pm2 (delete|start)' "$TEST_LOG"; then exit 1; fi ;;
     health|restart) grep -q 'previous.ecosystem.json' "$TEST_LOG" ;;
     none) grep -q 'release.ecosystem.json' "$TEST_LOG"; grep -q '^pm2 save' "$TEST_LOG" ;;
   esac
