@@ -1,6 +1,7 @@
 import { prisma } from "./prisma.js";
 import { ledgerData } from "./wallet.js";
 import { decorationMedia } from "./decoration-media.js";
+import { vipTagAssets } from "./vip-tag-cache.js";
 import { syncProgressionProps } from "./props-store.js";
 const fail=(code,message,status=409)=>{throw Object.assign(new Error(message),{code,status});};
 
@@ -29,7 +30,8 @@ export async function selectOwnedVip(tx,userId,owned,tier) {
 export async function vipCatalog(userId,origin,db=prisma) {
   const now=new Date();
   const [tiers,owned,selected]=await Promise.all([db.vipTier.findMany({where:{active:true,OR:[{archivedAt:null},{ownerships:{some:{userId,revokedAt:null,expiresAt:{gt:now}}}}]},include:{assets:{include:{asset:{select:{publicId:true,name:true,active:true,mimeType:true,mediaVersion:true,posterMimeType:true,posterMediaVersion:true}}}}},orderBy:{level:"asc"}}),db.vipOwnership.findMany({where:{userId}}),db.vipMembership.findUnique({where:{userId}})]);
-  return tiers.map(t=>{const o=owned.find(x=>x.tierId===t.id),valid=o&&!o.revokedAt&&o.expiresAt>now;return {id:t.id,name:t.name,level:t.level,validDays:t.validDays,coinPrice:t.coinPrice?.toString()??null,purchasable:!t.archivedAt&&t.coinPrice!=null&&t.coinPrice>0n,privileges:t.privileges,owned:Boolean(valid),expiresAt:o?.expiresAt.toISOString()??null,selected:Boolean(valid&&selected?.tierId===t.id&&!selected.revokedAt&&selected.expiresAt>now),assets:t.assets.filter(a=>a.asset.active).map(a=>({privilege:a.privilege,name:a.asset.name,...decorationMedia(a.asset,origin)}))};});
+  const tags=await vipTagAssets(db);
+  return tiers.map(t=>{const o=owned.find(x=>x.tierId===t.id),valid=o&&!o.revokedAt&&o.expiresAt>now,tag=vipTagForLevel(tags,t.level);return {id:t.id,name:t.name,level:t.level,validDays:t.validDays,coinPrice:t.coinPrice?.toString()??null,purchasable:!t.archivedAt&&t.coinPrice!=null&&t.coinPrice>0n,privileges:t.privileges,owned:Boolean(valid),expiresAt:o?.expiresAt.toISOString()??null,selected:Boolean(valid&&selected?.tierId===t.id&&!selected.revokedAt&&selected.expiresAt>now),assets:[...t.assets.filter(a=>a.asset.active).map(a=>({privilege:a.privilege,name:a.asset.name,...decorationMedia(a.asset,origin)})),...(tag?[{privilege:"VIP_TAG",name:"VIP tag",...decorationMedia(tag,origin)}]:[])]};});
 }
 
 export async function changeVip(userId,{action,tierId,requestKey},db=prisma) {
@@ -65,3 +67,5 @@ export async function changeVip(userId,{action,tierId,requestKey},db=prisma) {
     return result;
   },{isolationLevel:"Serializable"});}catch(e){if(!["P2034","P2002"].includes(e.code)||attempt===3)throw e;}
 }
+
+export function vipTagForLevel(tags,level){return tags.find(tag=>tag.minimumVipLevel!=null&&tag.minimumVipLevel<=level)??null;}
