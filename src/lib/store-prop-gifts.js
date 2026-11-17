@@ -42,7 +42,7 @@ export async function giftStoreProp(db,sessionUser,assetId,body){
    const updated=await tx.user.findUniqueOrThrow({where:{id:sender.id},select:{coinBalance:true}});
    const result={giftId,assetId,recipientPublicId:recipient.publicId,price:String(price),balance:String(updated.coinBalance),expiresAt:expiresAt?.toISOString()??null,permanent:expiresAt===null};
    await tx.propGift.create({data:{publicId:giftId,senderUserId:sender.id,recipientUserId:recipient.id,recipientPublicId:input.recipientPublicId,assetPublicId:assetId,requestId:input.requestId,price,result}});
-   await notifyAction(tx,{userId:recipient.id,key:giftId,type:'PROP_GIFT',title:'You received a prop',body:`${sender.name} gave you ${asset.name}`,action:{screen:'MY_PROPS',giftId,assetId}});
+   await notifyAction(tx,{userId:recipient.id,key:giftId,type:'PROP_GIFT',title:'You received a prop',body:`${sender.name} gave you ${asset.name}`,action:{screen:'MY_PROPS',giftId,assetId,sender:{publicId:sender.publicId,name:sender.name}}});
    await tx.realtimeOutbox.create({data:{channel:`user:${recipient.publicId}`,event:'props:granted',payload:{success:true,data:{giftId,assetId,category:asset.category,expiresAt:result.expiresAt,recipientPublicId:recipient.publicId}}}});
    await tx.auditLog.create({data:{action:'STORE_PROP_GIFTED',category:'FINANCE',entityType:'PropGift',entityId:giftId,description:'User purchased a prop for another user.',metadata:{actorPublicId:sender.publicId,actorUserId:sender.id,recipientPublicId:recipient.publicId,assetId,requestId:input.requestId,priceCoins:String(price),outcome:'SUCCESS'}}});
    return result;

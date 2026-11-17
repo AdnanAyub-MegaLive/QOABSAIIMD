@@ -39,7 +39,7 @@ export async function changeGroup(publicId, actorId, requestId, input, db = pris
       return prior.result;
     }
     if (membership.role !== "OWNER") throw chatError("GROUP_OWNER_REQUIRED", "Only the group owner can do this.");
-    const data = {}, changes = [];
+    const data = {}, changes = [], people = [{publicId:actor.publicId,name:actor.name}];
     if (Object.hasOwn(input,"name")) {
       if(typeof input.name !== "string") throw chatError("GROUP_NAME_INVALID","Group name must be text.");
       const name = normalizeGroupName(input.name); await assertChatWordsAllowed(tx,name);
@@ -59,6 +59,7 @@ export async function changeGroup(publicId, actorId, requestId, input, db = pris
         await requireActiveGroup(tx,publicId,next.userId);
         await tx.conversationParticipant.update({where:{id:membership.id},data:{role:"MEMBER"}});
         await tx.conversationParticipant.update({where:{id:next.id},data:{role:"OWNER"}});
+        people.push({publicId:next.user.publicId,name:next.user.name});
         changes.push(`made ${next.user.name} the group owner`);
       }
     }
@@ -75,7 +76,7 @@ export async function changeGroup(publicId, actorId, requestId, input, db = pris
     let updated=group;
     if(changes.length){
       updated=await tx.conversation.update({where:{id:group.id},data:{...data,revision:{increment:1},lastMessageAt:new Date()},include:groupInclude});
-      const message=await tx.message.create({data:{publicId:`MSG-${randomUUID()}`,conversationId:group.id,senderId:null,body:`${actor.name} ${changes.join(" and ")}.`,kind:"system"}});
+      const message=await tx.message.create({data:{publicId:`MSG-${randomUUID()}`,conversationId:group.id,senderId:null,body:`${actor.name} ${changes.join(" and ")}.`,kind:"system",metadata:{actor:{publicId:actor.publicId,name:actor.name},people}}});
       const members=updated.participants.map(p=>({messageId:message.id,userId:p.userId}));
       if(members.length)await tx.messageReceipt.createMany({data:members});
       await tx.realtimeOutbox.create({data:{channel:`conversation:${publicId}`,event:"message:new",payload:{conversationId:publicId,message:serializeMessage(message)}}});

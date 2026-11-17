@@ -17,6 +17,7 @@ beforeEach(() => {
   state.currentSender = { appRoles: ["RESELLER"], status: "ACTIVE", deletedAt: null };
   Object.assign(state.db, {
     user: {
+      findUnique: vi.fn(async () => null),
       findUniqueOrThrow: vi.fn(async ({ select }) => select.appRoles ? state.currentSender : { coinBalance: 5000n, resellerCoinBalance:800n }),
       findFirst: vi.fn(async () => ({ id: "recipient", publicId: "USR-R", name: "Recipient", status: "ACTIVE" })),
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -69,6 +70,9 @@ describe("Reseller coin transfers", () => {
     expect(rows.map((row) => row.coins)).toEqual([200n, 200n]);
     expect(rows.map((row) => row.direction)).toEqual(["DEBIT", "CREDIT"]);
     expect(rows[0].referenceId).toBe(rows[1].referenceId);
+    expect(rows[0].metadata).toMatchObject({recipientPublicId:"USR-R",recipientName:"Recipient"});
+    expect(rows[1].metadata).toMatchObject({senderPublicId:"USR-S",senderName:"Reseller"});
+    expect(state.db.notification.upsert.mock.calls[0][0].create.action.sender).toEqual({publicId:"USR-S",name:"Reseller"});
   });
   it("never credits the recipient when funds are insufficient", async () => {
     state.db.user.updateMany.mockResolvedValue({ count: 0 });

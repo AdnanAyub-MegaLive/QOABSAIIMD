@@ -81,7 +81,7 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
           await tx.walletTransaction.create({ data: ledgerData({ userId: sender.id, type: 'LUCKY_GIFT_REWARD', direction: 'CREDIT', title: 'Lucky Gift reward', coins: reward, referenceId: giftTx.id, metadata: { giftId, rewardBps: outcome.multiplierBps, multiplier: multiplierLabel(outcome.multiplierBps), limitedByPool: outcome.limitedByPool } }) });
         }
         progression = await awardGiftProgress(tx, { sender, recipient, gift: giftTx, settlement, source: backpack ? 'BACKPACK' : lucky ? 'LUCKY' : 'PAID', gross: each, credit: split.receivedDiamonds, reward, recipientType: host ? 'HOST' : 'NORMAL_USER', origin }) ?? progression;
-        results.push({ recipientId: recipient.publicId, transactionId: giftTx.id, createdAt: giftTx.createdAt.toISOString(), recipientDiamonds: split.receivedDiamonds.toString(), luckyRewardCoins: reward.toString(), lucky: outcome ? { rewardCoins: reward.toString(), rewardBps: outcome.multiplierBps, multiplier: multiplierLabel(outcome.multiplierBps), bigWin: outcome.bigWin } : null });
+        results.push({ publicId: recipient.publicId, name: recipient.name, recipientId: recipient.publicId, transactionId: giftTx.id, createdAt: giftTx.createdAt.toISOString(), recipientDiamonds: split.receivedDiamonds.toString(), luckyRewardCoins: reward.toString(), lucky: outcome ? { rewardCoins: reward.toString(), rewardBps: outcome.multiplierBps, multiplier: multiplierLabel(outcome.multiplierBps), bigWin: outcome.bigWin } : null });
       }
       // All draws remain independent; credit their total once in this same transaction.
       if (totalLucky > 0n) await tx.user.update({ where: { id: sender.id }, data: { coinBalance: { increment: totalLucky } } });
@@ -91,7 +91,7 @@ export async function prepareMultiGift(sender, body, request, { batch = false } 
       await tx.auditLog.create({ data: { action: backpack ? 'BACKPACK_GIFT_SENT' : 'MULTI_GIFT_SENT', category: 'FINANCE', entityType: 'GiftTransaction', entityId: operation.key, description: `${sender.publicId} sent an atomic gift to ${ids.length} recipients.`, metadata: data } });
       const giftSender = settledGiftSender(senderArtwork, tx);
       const media = { id: gift.publicId, name: gift.name, category: gift.giftTier, ...giftMedia(gift, origin), unitPrice: gift.coinPrice.toString(), quantity, totalCoins: each.toString() };
-      for (const result of results) await appendOutbox(tx, `audio-room:${roomId}`, 'gift:received', { ...result, requestId: operation.key, roomId, giftId, giftBatchId, comboId, source: data.source, giftTier: gift.giftTier, catalogCategory: gift.giftCategory, quantity, totalCoins: each.toString(), recipientIds: [result.recipientId], transactionIds: [result.transactionId], sender: giftSender, gift: media });
+      for (const result of results) await appendOutbox(tx, `audio-room:${roomId}`, 'gift:received', { ...result, requestId: operation.key, roomId, giftId, giftBatchId, comboId, source: data.source, giftTier: gift.giftTier, catalogCategory: gift.giftCategory, quantity, totalCoins: each.toString(), recipientIds: [result.recipientId], recipients: [{publicId:result.publicId,name:result.name,recipientId:result.recipientId}], transactionIds: [result.transactionId], sender: giftSender, gift: media });
       return { ...data, gift: media, progression };
     } };
 }

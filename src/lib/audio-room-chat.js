@@ -1,3 +1,4 @@
+import { messageMentions } from "./room-mentions.js";
 import { perkMediaFields } from "./decoration-media.js";
 import { prisma } from "./prisma.js";
 import { resolveUserPerks } from "./user-perks.js";
@@ -35,6 +36,7 @@ export async function serializeRoomChatMessages(messages, origin, resolvedPerks 
       roomId: message.roomPublicId,
       chatRevision: message.chatRevision,
       body: message.body,
+      mentions: messageMentions(message),
       createdAt: message.createdAt.toISOString(),
       sender: {
         ...senderPerks?.progression,

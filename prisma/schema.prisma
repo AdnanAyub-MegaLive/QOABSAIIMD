@@ -1342,6 +1342,7 @@ model UserBlock {
 }
 
 model AudioRoomMessage {
+  mentions       Json       @default("[]")
   id             String     @id @default(cuid())
   publicId       String     @unique
   audioRoomId    String?

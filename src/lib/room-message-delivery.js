@@ -1,3 +1,4 @@
+import { messageMentions } from "./room-mentions.js";
 import { serializeRoomChatMessages } from "./audio-room-chat.js";
 export function plainRoomMessage(message) {
   return {
@@ -6,6 +7,7 @@ export function plainRoomMessage(message) {
     roomId: message.roomPublicId,
     chatRevision: message.chatRevision,
     body: message.body,
+      mentions: messageMentions(message),
     createdAt: message.createdAt.toISOString(),
     sender: {
       publicId: message.senderPublicId,

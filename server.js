@@ -774,7 +774,7 @@ app.prepare().then(async()=>{
         ack({success:false,error:{code:"REACTION_SEND_FAILED",message:"Unable to send this room expression."}});
       }
     });
-    socket.on("audio-room:message",async({roomId,body,requestId}={},ack=()=>{})=>{
+    socket.on("audio-room:message",async({roomId,body,requestId,mentions}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");
         const text=typeof body==="string"?body.trim():"";
@@ -791,6 +791,9 @@ app.prepare().then(async()=>{
         }
         const { assertChatWordsAllowed } = await import("./src/lib/chat-word-policy.js");
         await assertChatWordsAllowed(prisma,text);
+        const { audioRoomParticipantIds } = await import("./src/lib/realtime.js");
+        const { resolveRoomMentions } = await import("./src/lib/room-mentions.js");
+        const resolvedMentions=await resolveRoomMentions(prisma,body,mentions,mentions?.length ? await audioRoomParticipantIds(id) : new Set());
         const messageId=`ARM-${randomUUID().replaceAll("-","").slice(0,16).toUpperCase()}`;
         const storedMessage=await persistRoomMessage(prisma,{
           data:{
@@ -802,6 +805,7 @@ app.prepare().then(async()=>{
             senderPublicId:user.publicId,
             senderName:user.name,
             body:text,
+            mentions:resolvedMentions,
             requestId:normalizedRequestId||null,
             chatRevision:room.chatRevision,
           },
@@ -815,7 +819,7 @@ app.prepare().then(async()=>{
           const duplicate=await prisma.audioRoomMessage.findFirst({where:{roomPublicId:String(roomId??""),senderId:user.id,requestId:String(requestId).trim()},include:{sender:{select:{id:true,publicId:true,name:true,profileImage:true}}}});
           if(duplicate){void flushRealtimeOutbox(io).catch(()=>{});return ack({success:true,data:{...plainRoomMessage(duplicate),duplicate:true}})}
         }
-        if(error?.code==="INAPPROPRIATE_WORD")return ack({success:false,error:{code:error.code,message:error.message}});
+        if(["INAPPROPRIATE_WORD","VALIDATION_ERROR"].includes(error?.code))return ack({success:false,error:{code:error.code,message:error.message}});
         console.error("Audio room message failed",error);
         ack({success:false,error:{code:"MESSAGE_SEND_FAILED",message:"Unable to send this message."}});
       }

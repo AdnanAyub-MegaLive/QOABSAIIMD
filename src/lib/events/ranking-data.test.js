@@ -53,3 +53,9 @@ it.each(['wealth','charm','game','agency','cp'])('only returns a private leader 
   else expect(data.viewer).not.toHaveProperty('total');
  }
 });
+
+it.each(['wealth','charm','game','cp'])('includes stable profile IDs for same-name %s people', async type=>{
+ const db={$queryRaw:async()=>[{personId:'a',partnerId:'b',rank:1n,score:100n}],user:{findMany:async()=>[{id:'a',publicId:'USR-A',name:'Ali'},{id:'b',publicId:'USR-B',name:'Ali'}]}};
+ const data=await eventRankings({type,period:'today',origin:'https://portal.example'},db);
+ expect(data.entries[0]).toMatchObject({publicId:'USR-A',person:{publicId:'USR-A',name:'Ali'},partner:{publicId:'USR-B',name:'Ali'}});
+});

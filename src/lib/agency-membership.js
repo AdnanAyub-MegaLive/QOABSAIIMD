@@ -21,7 +21,7 @@ export async function createMembership(actorId,{agencyId,userPublicId,invite=fal
   const row=await tx.agencyJoinRequest.create({data:{publicId:`AGJ-${randomUUID()}`,userId:user.id,agencyId:agency.id,direction:invite?"OWNER_INVITE":"USER_REQUEST"}});
   await tx.auditLog.create({data:{action:invite?"AGENCY_USER_INVITED":"AGENCY_JOIN_REQUESTED",category:"AGENCY_MANAGEMENT",entityType:"AgencyJoinRequest",entityId:row.publicId,description:"Agency membership offered; awaiting receiving party consent.",metadata:{actorId,userId:user.id,agencyId:agency.id,direction:row.direction}}});
   const recipientId=invite?user.id:agency.ownerUserId;
-  if(recipientId)await notifyAction(tx,{userId:recipientId,key:`agency:${row.id}:pending`,type:invite?"AGENCY_INVITATION":"AGENCY_JOIN_REQUEST",title:invite?"Agency invitation":"Agency join request",body:invite?`${agency.name} invited you to join.`:`${user.name} requested to join ${agency.name}.`,action:{screen:"AGENCY_MEMBERSHIP",requestId:row.publicId,agencyId:agency.publicId}});
+  if(recipientId)await notifyAction(tx,{userId:recipientId,key:`agency:${row.id}:pending`,type:invite?"AGENCY_INVITATION":"AGENCY_JOIN_REQUEST",title:invite?"Agency invitation":"Agency join request",body:invite?`${agency.name} invited you to join.`:`${user.name} requested to join ${agency.name}.`,action:{screen:"AGENCY_MEMBERSHIP",requestId:row.publicId,agencyId:agency.publicId,...(!invite?{actor:{publicId:user.publicId,name:user.name}}:{})}});
   return {requestId:row.publicId,direction:row.direction,status:row.status};
  },{isolationLevel:"Serializable"});
 }

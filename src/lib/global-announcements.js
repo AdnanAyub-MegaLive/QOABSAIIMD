@@ -52,19 +52,6 @@ export function announcementCandidatesSql(since, now) {
       ORDER BY confirmed, id LIMIT 100`;
 }
 
-// Called only for a new, qualifying announcement. Its snapshot is persisted in
-// GlobalAnnouncement so dispatch/retries never re-scan historical rounds.
-export function totalWinningProfitSql(userId, now) {
-  return Prisma.sql`SELECT COALESCE(SUM(profit),0)::text AS total FROM (
-    SELECT SUM(COALESCE((result->>'payout')::numeric,0))-SUM(amount) AS profit
-    FROM "SharedGameEntry"
-    WHERE "userId"=${userId} AND input->>'currency'='COINS'
-    GROUP BY "dayId","roomId",slot
-    HAVING bool_and(status='SETTLED' AND "settledAt" IS NOT NULL)
-      AND MAX("settledAt")<=${now} AND MAX("resolveAt")<=${now}
-  ) rounds WHERE profit>0`;
-}
-
 export async function collectAnnouncements(db, now = new Date()) {
   return db.$transaction(async tx => {
     const [lock] = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(2030140, 147) AS locked`;
@@ -83,10 +70,6 @@ export async function collectAnnouncements(db, now = new Date()) {
           actorId: c.actorId, type: c.type, payload: { not: Prisma.DbNull },
           createdAt: { gt: new Date(now.getTime() - policy.cooldownSeconds * 1000) },
         }, select: { id: true } });
-        if (!recent && c.type === "GAME_WIN") {
-          const [winnings] = await tx.$queryRaw(totalWinningProfitSql(c.actorId, now));
-          c.details = { ...c.details, totalWinningsCoins: winnings.total };
-        }
         if (!recent) payload = { type: c.type, amount: c.amount, unit: "COINS", details: c.details,
           policyRevision: policy.revision, occurredAt: c.confirmed.toISOString() };
       }

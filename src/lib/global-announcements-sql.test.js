@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { it, expect } from "vitest";
-import { announcementCandidatesSql, totalWinningProfitSql } from "./global-announcements.js";
+import { announcementCandidatesSql } from "./global-announcements.js";
 
 it("isolated PostgreSQL: complete-round net profit, paid gifts, reversals, expiry and durable dedup", async () => {
   const db = new PGlite(); // In memory only. Never opens the configured database.
@@ -52,8 +52,6 @@ it("isolated PostgreSQL: complete-round net profit, paid gifts, reversals, expir
       ('practice','day','ROOM-1',5,'player','{"currency":"PLAY_POINTS"}','{"payout":"999999"}',100,'SETTLED','2026-10-28','2026-10-28'),
       ('unfinished','day','ROOM-1',6,'player','{"currency":"COINS"}','{"payout":"999999"}',100,'PENDING',NULL,'2026-10-28'),
       ('earlycashout','day','ROOM-1',7,'player','{"currency":"COINS"}','{"payout":"999999"}',100,'SETTLED','2026-10-28','2026-10-30');`);
-    const lifetime=totalWinningProfitSql('player',now);
-    expect((await db.query(lifetime.text,lifetime.values)).rows[0].total).toBe('9007199254741043');
     const future = announcementCandidatesSql(now, new Date(now.getTime() + 1000));
     expect((await db.query(future.text, future.values)).rows).toHaveLength(0);
   } finally { await db.close(); }

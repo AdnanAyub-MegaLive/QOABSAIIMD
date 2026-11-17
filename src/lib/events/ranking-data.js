@@ -86,11 +86,11 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     for (const [id, progress] of agencyProgress) agencyProgress.set(id, { ...progress, ...tagBackground(backgrounds, 'AGENCY', progress.level) });
   }
   const identities = new Map(users.map(u => {
-    if (type === 'agency') return [u.id, { name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country }];
+    if (type === 'agency') return [u.id, { publicId: u.publicId, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country }];
     const p = perks.get(u.publicId), levels = p?.progression;
     const membership = vipIsActive(u.vipMembership, now) ? u.vipMembership : null;
     const vipAsset = membership?.tier.assets.find(a => a.privilege === 'VIP_LOGO')?.asset ?? membership?.tier.assets.find(a => a.privilege === 'BADGE')?.asset;
-    return [u.id, { vipPrivileges: p?.vipPrivileges ?? [], vipNameColor: p?.vipNameColor ?? null, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
+    return [u.id, { publicId: u.publicId, vipPrivileges: p?.vipPrivileges ?? [], vipNameColor: p?.vipNameColor ?? null, name: u.name, profileImage: avatarDisplayUrl(u.profileImage, origin), country: u.country,
       ...(type === 'cp' ? {} : { vip: membership ? { level: membership.tier.level, artwork: vipAsset ? decorationMedia(vipAsset, origin) : null } : null }),
       ownedBadges: (u.uploadAssignments ?? []).map(({asset}) => ({ ...decorationMedia(asset, origin), name: asset.name })),
       userLevel: levels?.userLevel ?? 0, charmLevel: levels?.charmLevel ?? 0,
@@ -106,7 +106,7 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
   return { type, period, cycle: period === 'month' ? { days:selectedWindow.days, key:selectedWindow.key, revision:selectedWindow.revision, start:start.toISOString(), endExclusive:end.toISOString() } : null, generatedAt: now.toISOString(), resetsAt: end.toISOString(), timezone: calendarWindow(period === 'today' ? 'day' : period, now).timezone, scoreUnit: type === 'charm' ? 'diamonds' : 'coins',
     viewer: viewer ? { rank: Number(viewer.rank), gap: viewer.gap?.toString() ?? null, ...(Number(viewer.rank) === 1 && ['wealth','charm'].includes(type) ? { total: viewer.score.toString() } : {}) } : null,
     rule: type === 'weekly-star' ? 'Coin value of selected Weekly Star gifts sent during this UTC+7 week. Only participating senders qualify; refunded gifts are excluded.' : type === 'game' ? 'Coins wagered in settled games during this period, across all rooms. Pending, cancelled and play-point entries are excluded; winnings do not affect the score.' : type === 'agency' ? 'Gift value received by hosts, attributed to their agency at gift settlement.' : type === 'cp' ? 'Gift value exchanged between active CP partners since their relationship began.' : type === 'wealth' ? 'Gift value sent during this period.' : 'Gift value received during this period.',
-    entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : {}), name: row.name, rank: Number(row.rank), gap: row.gap?.toString() ?? null, level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
+    entries: visible.map(row => ({ ...(type === 'agency' ? { id: row.publicId } : { publicId: identities.get(row.personId)?.publicId ?? null }), name: row.name, rank: Number(row.rank), gap: row.gap?.toString() ?? null, level: type === 'agency' ? agencyProgress.get(row.id)?.level ?? null : row.level,
       ...(type === 'agency' ? { agencyLevel: agencyProgress.get(row.id)?.level ?? null, agencyLevelBackgroundUrl: agencyProgress.get(row.id)?.backgroundUrl ?? null, agencyLevelBackgroundMimeType: agencyProgress.get(row.id)?.backgroundMimeType ?? null, agencyLevelBackgroundPosterUrl: agencyProgress.get(row.id)?.backgroundPosterUrl ?? null } : {}), country: row.country,
       ...(type === 'agency' ? {} : { memberCount: row.memberCount }), person: identities.get(row.personId) ?? null, partner: identities.get(row.partnerId) ?? null })),
     nextOffset: hasMore ? offset + 20 : null };
