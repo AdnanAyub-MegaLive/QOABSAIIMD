@@ -52,7 +52,8 @@ node scripts/prepare-droplet-release.mjs "$repo" "$release"
 node scripts/check-auth-config.mjs
 node scripts/check-media-tools.mjs
 npx prisma generate
-npm run build
+# Webpack supports the shared storage symlink outside this isolated release.
+npm run build -- --webpack
 test -s .next/BUILD_ID
 test -s .next/required-server-files.json
 node - <<'NODE'
