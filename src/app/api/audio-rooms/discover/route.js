@@ -1,4 +1,5 @@
 import { findPinnedRooms } from "@/lib/room-pinning";
+import { discoverableRoomWhere, countryVariants, DISCOVER_PAGE_SIZE } from "@/lib/room-discovery";
 import { roomCardActivity, roomCardActivityDto } from "@/lib/room-card-activity";
 import {roomFrameInclude} from "@/lib/room-frame";
 import { roomCoverDto } from "@/lib/room-cover";
@@ -38,25 +39,22 @@ export async function GET(request) {
     const searchParams = new URL(request.url).searchParams;
     const requestedCountry = searchParams.get("country")?.trim().toUpperCase();
     const includeIdle = searchParams.get("includeIdle") === "true";
+    const page = Math.min(Math.max(Number.parseInt(searchParams.get("page") ?? "1", 10) || 1, 1), 200);
     if (requestedCountry && !/^[A-Z]{2}$/.test(requestedCountry))
       return json({ success: false, error: { code: "INVALID_COUNTRY", message: "country must be an ISO alpha-2 code." } }, 422);
 
     // Clear restrictions whose allotted time has passed before discovering rooms.
     await reconcileExpiredAudioRoomRestrictions();
 
-    const rooms = await findPinnedRooms(prisma.audioRoom, requestedCountry, {
-      where: {
-        ownerId: { not: user.id },
-        status: includeIdle ? { in: ["LIVE", "IDLE"] } : "LIVE",
-        isBlocked: false,
-        joiningDisabled: false,
-        privacyMode: { not: "HIDDEN" },
-        ...(requestedCountry ? { OR: [{ country: requestedCountry }, { pinScope: "GLOBAL" }] } : {}),
-        owner: {
-          deletedAt: null,
-          status: "ACTIVE",
-        },
-      },
+    const baseWhere = discoverableRoomWhere(user.id, includeIdle);
+    const variants = requestedCountry
+      ? countryVariants(requestedCountry, (await prisma.audioRoom.findMany({ where: { ...baseWhere, country: { not: null } }, distinct: ["country"], select: { country: true } })).map(row => row.country))
+      : [];
+    const roomWhere = requestedCountry ? { ...baseWhere, country: { in: variants.length ? variants : [requestedCountry] } } : baseWhere;
+    const total = requestedCountry ? await prisma.audioRoom.count({ where: roomWhere }) : null;
+    const window = requestedCountry ? DISCOVER_PAGE_SIZE * page : DISCOVER_PAGE_SIZE;
+    const pinned = await findPinnedRooms(prisma.audioRoom, requestedCountry, {
+      where: roomWhere,
       select: {
         id: true,
         roomId: true,
@@ -95,8 +93,9 @@ export async function GET(request) {
         },
       },
       orderBy: [{ participantCount: "desc" }, { startedAt: "desc" }, { id: "asc" }],
-      take: 50,
+      take: window,
     });
+    const rooms = requestedCountry ? pinned.slice(DISCOVER_PAGE_SIZE * (page - 1)) : pinned;
     const origin = requestOrigin(request);
     const activity = await roomCardActivity(prisma, rooms.map(room => room.roomId));
     const perks = await resolveUserPerks(
@@ -108,6 +107,7 @@ export async function GET(request) {
     return json({
       success: true,
       data: {
+        ...(requestedCountry ? { country: requestedCountry, page, hasMore: total > DISCOVER_PAGE_SIZE * page } : {}),
         rooms: rooms.map((room) => ({
           roomId: room.roomId,
           title: room.title,
