@@ -17,6 +17,13 @@ import { betByLabel,isBetWinner } from "./roulette/original-rules.mjs";
 import {pizzaFoods,pizzaSettings} from "./pizza.mjs";
 const receipt=e=>e?{id:e.id,status:e.status,amount:e.amount.toString(),input:e.input,answered:e.answer!==null,result:e.result}:null;
 export function entryTotals(entries){const totals={};for(const e of entries){const parts=e.input.bets||{[e.input.choice||"round"]:e.amount};for(const [k,v] of Object.entries(parts))totals[k]=(BigInt(totals[k]||0)+BigInt(v)).toString();}return totals;}
+// Called under the game/user transaction locks, before any wallet debit.
+export function assertFoodBetLimit(game, entries, input){
+ if(!["greedy","pizza"].includes(game.engine))return;
+ const selected=new Set(Object.keys(entryTotals(entries)));
+ for(const key of Object.keys(input.bets||{[input.choice]:input.amount}))selected.add(key);
+ if(selected.size>6)throw new GameError("You can bet on at most 6 foods per round. Add coins to an existing selection or wait for the next round.",409);
+}
 export async function requireGameRoom(db,identity){
  const user=await assertPlayer(db,identity);
  if(!identity.roomId)throw new GameError("Open this game from an audio room.",403);
@@ -87,6 +94,10 @@ export async function enterSharedRound(identity,input,db=prisma){
    if(day.settings.engine==="rocket"&&await tx.sharedGameEntry.findFirst({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId}}))throw new GameError("You are already aboard this flight.",409);
    if(Date.now()>=clock.closesAt)throw new GameError("Entry closed. Wait for the next round.",409);
    if(["greedy","pizza"].includes(day.settings.engine))await (day.settings.engine==="pizza"?ensurePizzaRound:ensureGreedyRound)(tx,day,clock.slot);
+   if(["greedy","pizza"].includes(day.settings.engine)){
+     const entries=await tx.sharedGameEntry.findMany({where:{dayId:day.id,slot:clock.slot,userId:identity.userId},select:{input:true,amount:true}});
+     assertFoodBetLimit(day.settings,entries,parsed);
+   }
    const debit=await tx.user.updateMany({where:{id:identity.userId,coinBalance:{gte:BigInt(parsed.amount)}},data:{coinBalance:{decrement:BigInt(parsed.amount)}}});
    if(debit.count!==1)throw new GameError("Not enough coins in your application wallet.",409);
    await tx.walletTransaction.create({data:ledgerData({userId:identity.userId,type:"GAME_WAGER",direction:"DEBIT",title:`${day.settings.name} wager`,coins:BigInt(parsed.amount),referenceId:input.id,metadata:{gameId:input.gameId,roomId:identity.roomId,dayId:day.id,slot:clock.slot}})});
@@ -209,7 +220,7 @@ export async function sharedSnapshot(identity,input,db=prisma){
  }
  const clock=sharedClock(day,now);
  const entries=await db.sharedGameEntry.findMany({where:{dayId:day.id,...(["greedy","pizza"].includes(day.settings.engine)?{}:{roomId:identity.roomId}),slot:clock.slot},select:{userId:true,amount:true,input:true}});
- const mineEntries=await db.sharedGameEntry.findMany({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId},orderBy:[{createdAt:"asc"},{id:"asc"}]});
+ const mineEntries=await db.sharedGameEntry.findMany({where:{dayId:day.id,...(["greedy","pizza"].includes(day.settings.engine)?{}:{roomId:identity.roomId}),slot:clock.slot,userId:identity.userId},orderBy:[{createdAt:"asc"},{id:"asc"}]});
  const mine=mineEntries.find(e=>!e.answer)||mineEntries.at(-1);
  const account=await db.user.findUnique({where:{id:identity.userId}});
  const recentEntries=await db.sharedGameEntry.findMany({where:{userId:identity.userId,roomId:identity.roomId,day:{gameId:input.gameId}},orderBy:[{createdAt:"desc"},{id:"desc"}],take:10});

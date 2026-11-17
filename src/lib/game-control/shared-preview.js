@@ -5,7 +5,7 @@ import {roundSummary} from "./round-summary.mjs";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import {randomBytes} from "node:crypto";
 import {sharedClock,sharedDuration,sharedOutcome,sharedTrivia,seededRandom} from "./shared-engine.mjs";
-import {accepted,resolveSharedEntry,entryTotals} from "./shared-games.js";
+import {accepted,resolveSharedEntry,entryTotals,assertFoodBetLimit} from "./shared-games.js";
 import {GameError,serializeGame} from "./service.js";
 // Isolated, bounded admin preview: no membership, wallet or production point writes.
 const previews=new Map();
@@ -31,6 +31,7 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
 
   if(day.settings.engine==="rocket"&&state.entries.some(e=>e.slot===clock.slot))throw new GameError("You are already aboard this flight.",409);
   if(state.points<parsed.amount)throw new GameError("Use Free refill.",409);
+  assertFoodBetLimit(day.settings,state.entries.filter(e=>e.slot===clock.slot),parsed);
   if(["greedy","pizza"].includes(day.settings.engine)&&!state.outcomes[clock.slot]){
    const bonus=(day.settings.engine==="pizza"?pizzaBonusReady:greedyBonusReady)(state.pool,day.settings);
    state.outcomes[clock.slot]=bonus?(day.settings.engine==="pizza"?pizzaBonus:greedyBonus)(seededRandom(day.seed,`greedy-bonus:${clock.slot}`)):sharedOutcome(day,roomId,clock.slot);
