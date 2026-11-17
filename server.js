@@ -125,6 +125,10 @@ app.prepare().then(async()=>{
   const io=new Server(httpServer,{pingInterval:25000,pingTimeout:20000,cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;
+  const {attachGiftLeaveGraceTracking,startRedEnvelopeRefundSweeper,markAudioRoomRemoved}=await import("./src/lib/gift-leave-grace.js");
+  const {expireRedEnvelopes}=await import("./src/lib/red-envelope-expiry.js");
+  attachGiftLeaveGraceTracking(io);
+  startRedEnvelopeRefundSweeper(prisma,expireRedEnvelopes);
   const {createTaskTimer}=await import("./src/lib/task-center-timer.js");
   const sampleTaskTime=createTaskTimer(prisma,io);
   const taskTimer=setInterval(()=>void sampleTaskTime().catch(e=>console.error("Task timer failed",e.code??e.name)),15000);taskTimer.unref();
@@ -209,7 +213,7 @@ app.prepare().then(async()=>{
   globalThis.portalRemoveFromAudioRoom=async(publicId,roomId,error={})=>{
     if(rtcProvider()==="TRTC")await removeLiveKitParticipant(roomId,publicId).catch(()=>console.error("TRTC audio removal requires retry",{roomId,publicId}));
     const sockets=await io.in(`user:${publicId}`).fetchSockets();
-    for(const target of sockets)if(target.rooms.has(`audio-room:${roomId}`)){target.emit("audio-room:removed",{success:false,error,data:{roomId,publicId,reason:error?.details?.reason??error?.message??null,expiresAt:error?.details?.expiresAt??null}});await target.leave(`audio-room:${roomId}`)}
+    for(const target of sockets)if(target.rooms.has(`audio-room:${roomId}`)){markAudioRoomRemoved(target.data?.userId,roomId);target.emit("audio-room:removed",{success:false,error,data:{roomId,publicId,reason:error?.details?.reason??error?.message??null,expiresAt:error?.details?.expiresAt??null}});await target.leave(`audio-room:${roomId}`)}
   };
   globalThis.portalRemoveFromVideoLive=async(publicId,liveId,error)=>{
     await removeLiveKitParticipant(`video-${liveId}`,publicId).catch(()=>console.error("RTC video removal requires retry",{liveId,publicId}));

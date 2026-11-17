@@ -20,7 +20,9 @@ export function parseRedEnvelopeInput(body, limits = {}) {
   if (!Number.isSafeInteger(shareCount) || shareCount < 1 || shareCount > maxShareCount) throw contractError("VALIDATION_ERROR", `shareCount must be between 1 and ${maxShareCount}.`);
   if (totalCoins < BigInt(shareCount)) throw contractError("VALIDATION_ERROR", "totalCoins must provide at least one coin per recipient.");
   if (!Number.isSafeInteger(delaySeconds) || delaySeconds < 0 || delaySeconds > maxDelaySeconds) throw contractError("VALIDATION_ERROR", `delaySeconds must be between 0 and ${maxDelaySeconds}.`);
-  return { roomId, totalCoins, shareCount, delaySeconds };
+  const requestId = body?.requestId;
+  if (requestId !== undefined && requestId !== null && (typeof requestId !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(requestId))) throw contractError("VALIDATION_ERROR", "requestId must be 8-128 letters, digits, dots, underscores, colons or dashes.");
+  return { roomId, totalCoins, shareCount, delaySeconds, ...(typeof requestId === "string" ? { requestId } : {}) };
 }
 
 export function luckyShare(remainingCoins, remainingShares, random = randomInt) {
