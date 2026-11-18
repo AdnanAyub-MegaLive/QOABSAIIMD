@@ -39,3 +39,9 @@ it("changes URL cache version when bytes change and tolerates missing origin",as
  expect(first.supporterMedals.top1.url).not.toBe(next.supporterMedals.top1.url);
  expect((await profileCardArtwork(db(ranges,[asset("AST-one")]),"u",0,null,null)).supporterMedals.top1).toBeNull();
 });
+it("leaves explicitly empty agency levels empty instead of restoring the XP badge",async()=>{
+ vi.stubEnv("AUTH_SECRET","test-only");
+ const agency={id:"a",publicId:"AGN-1",name:"Agency"};
+ const result=await profileCardArtwork(db([{track:"AGENCY",min:5,max:5,badgeAssetId:null,backgroundAssetId:null}],[asset("AST-level","image/gif")]),"u",0,"https://portal.test",agency);
+ expect(result.agency.badgeUrl).toBeNull();expect(result.agency.cardBackgroundUrl).toBeNull();
+});
