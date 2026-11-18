@@ -6,12 +6,14 @@ import { avatarDisplayUrl } from "./avatar-history.js";
 import { requestOrigin, resolveUserPerks } from "./user-perks.js";
 import { rtcProvider } from "./rtc-provider.js";
 import { issueTrtcAccess } from "./trtc-authorization.js";
-import { csRoomsSnapshot, csRtcRoomId, sweepCsRooms } from "./cs-rooms.js";
+import { CS_LEGACY_MAX_VERSION, csRoomsSnapshot, csRtcRoomId, sweepCsRooms } from "./cs-rooms.js";
 
 export function csRoomRequest(request, path, methods, work) {
   return withV1Request(request, { path, methods }, async () => {
     try {
       const user = await requireMobileUser(request);
+      const versionCode = Number.parseInt(request.headers.get("x-app-version-code") ?? "", 10);
+      user.csLegacy = !Number.isInteger(versionCode) || versionCode <= CS_LEGACY_MAX_VERSION;
       if (isRateLimited(`cs-room:${user.id}`, { limit: 90, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Please wait before trying again." } }, 429);
       return mobileJson({ success: true, data: await work(user) });
     } catch (error) {
@@ -56,7 +58,7 @@ export async function csRoomState(request, user, country = null, withRtc = false
   if (!withRtc || !country) return snapshot;
   let trtc = null;
   try {
-    if (rtcProvider() === "TRTC") trtc = issueTrtcAccess(user, csRtcRoomId(country), snapshot.mySeat?.country === country && !snapshot.myMuted);
+    if (rtcProvider() === "TRTC" && snapshot.mySeat?.country === country) trtc = issueTrtcAccess(user, csRtcRoomId(country), !snapshot.myMuted);
   } catch {
     trtc = null;
   }

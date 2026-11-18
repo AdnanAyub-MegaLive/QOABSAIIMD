@@ -143,7 +143,7 @@
  .panel{display:flex!important;flex-direction:column!important;height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important;padding:10px 12px max(12px,env(safe-area-inset-bottom))!important;gap:10px!important;scrollbar-width:thin;}
  .panel>header{order:0;flex:none;min-height:36px!important;}
  .panel :global(.play-panel-stage){order:1;flex:0 0 auto!important;width:100%;height:auto!important;min-height:0!important;container-type:inline-size;display:block!important;padding:8px 0!important;}
- .wheel{width:94cqw!important;height:94cqw!important;max-width:380px!important;max-height:380px!important;margin:0 auto!important;container-type:size;}
+ .wheel{width:94cqw!important;height:94cqw!important;max-width:300px!important;max-height:300px!important;margin:0 auto!important;container-type:size;}
  .panel :global(.shared-betting-contents){order:2;flex:none;width:100%;margin:0!important;padding:8px!important;box-sizing:border-box;}
  .panel :global(.play-panel-chips){display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px!important;}
  .panel :global(.play-panel-chips) button{width:100%!important;min-height:48px!important;max-height:none;}
@@ -163,4 +163,66 @@
  .food{width:24%;height:24%;}.food b{font-size:5cqw;}.food em{font-size:3cqw;}
  .panel .bonusIndicators{position:relative;bottom:auto;left:auto;width:100%;height:38px;margin:0 0 4px;}
  .panel .bonusIndicators img{height:38px;}.steps{font-size:11px;gap:10px;}
+}
+
+/* Pizza header: Ranking | Coins | My History | Rules. */
+.panel>header.gameHeader{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) 32px;gap:6px;height:44px;min-height:44px!important;order:0;}
+.gameHeader .balance{position:static;transform:none;gap:4px;padding:3px 8px 3px 4px;font-size:13px;min-width:0;}
+.gameHeader .balance img{width:23px;height:23px;}
+.panel>header.gameHeader>.headerActivity{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:100%;height:44px;min-width:0;padding:2px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap;background:linear-gradient(100deg,#ffc77d,#e791a4,#8874b9)!important;}
+.headerActivity img{width:20px;height:20px;object-fit:contain;}
+.panel>header.gameHeader>.headerRules{width:32px;height:32px;padding:0;}
+
+.panel :global(.play-panel-stage){order:1;}
+.panel :global(.shared-betting-contents){order:2;}
+.panel :global(.food-game-auto){order:3;}
+.panel :global(.play-panel-footer){order:5;}
+
+/* Center the amount tray at 70% of the embedded game screen. */
+@media(max-width:600px){
+ .panel :global(.shared-betting-contents)>div:last-child{width:70vw;max-width:100%;box-sizing:border-box;align-self:center;margin-inline:auto;}
+}
+
+@media(max-width:600px){
+ .panel :global(.play-panel-chips){grid-template-columns:repeat(4,minmax(0,1fr));gap:4px!important;}
+ .panel :global(.shared-betting-contents) button[aria-label$=' coins']{min-width:0;padding:3px!important;font-size:12px;}
+ .panel :global(.shared-betting-contents) button[aria-label$=' coins'] img{width:20px;height:20px;}
+ .steps{flex-wrap:wrap;gap:2px 8px;font-size:10px;}
+}
+
+/* Fit the complete mobile game into the room's allotted WebView height. */
+@media(max-width:600px){
+ .panel{box-sizing:border-box;height:100dvh!important;padding:4px 12px max(4px,env(safe-area-inset-bottom))!important;gap:3px!important;overflow:hidden!important;}
+ .panel :global(.play-panel-stage){flex:1 1 0!important;min-height:0!important;height:auto!important;padding:0!important;container-type:size;display:flex!important;align-items:center;justify-content:center;}
+ .wheel{width:min(94cqw,94cqh,300px)!important;height:min(94cqw,94cqh,300px)!important;}
+ .panel :global(.shared-betting-contents){padding:0!important;gap:2px;}
+ .panel :global(.shared-betting-contents)>div:last-child{padding:3px 8px!important;}
+ .panel .bonusIndicators{height:24px;margin:0;}
+ .panel .bonusIndicators img{height:24px;}
+ .panel .bonusIndicators span{width:30px;}
+ .steps{margin:0 0 2px;line-height:1.2;}
+ .panel :global(.play-panel-chips){padding:0!important;}
+ .panel :global(.play-panel-chips) button{min-height:40px!important;height:40px!important;}
+ .panel :global(.play-panel-actions){min-height:20px!important;margin:0!important;font-size:10px!important;line-height:1.2;}
+ .panel :global(.play-panel-status){min-height:12px!important;margin:0!important;line-height:1.2;}
+ .panel :global([aria-label="Recent results"]){min-height:26px;padding:2px 5px;margin:0!important;}
+ .panel :global([aria-label="Recent results"])>span{max-width:24px;}
+ .panel :global(.food-game-auto){min-height:36px;padding:0 4px;align-items:center;}
+ .panel :global(.food-game-auto) button{min-height:36px;padding:4px 9px;}
+ .panel :global(.play-panel-footer){min-height:28px!important;padding:0!important;gap:4px!important;}
+ .panel :global(.play-panel-footer) button{min-height:28px!important;padding:3px 9px!important;}
+}
+
+/* Square amount cards, shelf-top bonus dishes, and circular result badges. */
+@media(max-width:600px){
+ .panel :global(.play-panel-chips){grid-template-columns:repeat(4,40px);justify-content:center;gap:4px!important;}
+ .panel :global(.play-panel-chips) button{width:40px!important;min-width:40px;height:40px!important;aspect-ratio:1;}
+ .panel :global(.shared-betting-contents)>div:last-child{margin-top:24px;padding-top:12px!important;}
+ .panel .bonusIndicators{position:absolute;left:0;bottom:calc(100% - 10px);top:auto;width:100%;height:40px;margin:0;}
+ .panel .bonusIndicators span{width:44px;height:40px;}
+ .panel .bonusIndicators img{width:44px;height:40px;object-fit:contain;}
+ .panel :global([aria-label="Recent results"]){gap:3px;}
+ .panel :global([aria-label="Recent results"])>span{flex:0 1 30px;width:30px;max-width:30px;height:auto;min-height:0;aspect-ratio:1;box-sizing:border-box;border-radius:50%;}
+ .panel :global([aria-label="Recent results"])>span>span{min-width:0;min-height:0;overflow:hidden;border-radius:50%;}
+ .panel :global([aria-label="Recent results"]) img{width:100%!important;height:100%!important;min-width:0;object-fit:contain;flex:1 1 0;}
 }

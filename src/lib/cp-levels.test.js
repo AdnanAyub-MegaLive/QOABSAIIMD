@@ -14,9 +14,10 @@ function fixture() {
     cpGiftExperience: { createMany: vi.fn(async({data:[gift]})=>{if(gifts.has(gift.giftId))return {count:0};gifts.add(gift.giftId);return {count:1};}) },
     cpLevelClaim: { createMany: vi.fn(async({data:[claim]})=>{if(claims.has(claim.level))return {count:0};claims.add(claim.level);return {count:1};}) },
     cpLevel: { findMany: vi.fn(async()=>levels) },
+    uploadAsset: { findUnique: vi.fn(async({where})=>({giftCategory:where.id==='cp-asset'?'CP_GIFT':'NORMAL'})) },
     user: { updateMany: vi.fn(async()=>({count:1})) }, walletTransaction: { create: vi.fn() }, notification: { upsert: vi.fn() },
   };
-  const gift = { id:'gift-1', senderId:'a', coinValue:250n, createdAt:new Date() };
+  const gift = { id:'gift-1', senderId:'a', giftAssetId:'cp-asset', coinValue:250n, createdAt:new Date() };
   return { row, tx, gift, claims };
 }
 describe('CP progression',()=>{
@@ -35,9 +36,17 @@ describe('CP progression',()=>{
     expect(tx.notification.upsert).toHaveBeenCalledTimes(4);
     expect(tx.walletTransaction.create).toHaveBeenCalledTimes(4);
   });
-  it.each(['LUCKY','BACKPACK'])('excludes %s gifts before reading the relationship',async source=>{
-    const {tx,gift}=fixture();await awardCpGift(tx,gift,{id:'b'},source);
+  it('excludes lucky gifts before reading the relationship',async()=>{
+    const {tx,gift}=fixture();await awardCpGift(tx,gift,{id:'b'},'LUCKY');
     expect(tx.profileRelationship.findUnique).not.toHaveBeenCalled();
+  });
+  it('only CP gifts add CP experience',async()=>{
+    const {tx,row,gift}=fixture();await awardCpGift(tx,{...gift,giftAssetId:'normal-asset'},{id:'b'},'PAID');
+    expect(tx.profileRelationship.findUnique).not.toHaveBeenCalled();expect(row.exp).toBe(0n);
+  });
+  it('counts CP gifts sent from the backpack',async()=>{
+    const {tx,row,gift}=fixture();await awardCpGift(tx,gift,{id:'b'},'BACKPACK');
+    expect(row.exp).toBe(250n);
   });
   it('does not accrue for inactive, self or reversed gifts',async()=>{
     const {tx,row,gift}=fixture();row.status='REMOVED';

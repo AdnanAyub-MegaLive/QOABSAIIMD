@@ -1,0 +1,1 @@
+ALTER TABLE "CsRoomPresence" ADD COLUMN "legacy" BOOLEAN NOT NULL DEFAULT false;

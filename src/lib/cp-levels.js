@@ -108,7 +108,9 @@ export async function syncCpLevel(tx, relationship, levels, now = new Date()) {
   return progress;
 }
 export async function awardCpGift(tx, gift, recipient, source) {
-  if (['LUCKY','BACKPACK'].includes(source) || !recipient || recipient.id === gift.senderId || gift.reversedAt || gift.coinValue <= 0n) return;
+  if (source === 'LUCKY' || !recipient || recipient.id === gift.senderId || gift.reversedAt || gift.coinValue <= 0n || !gift.giftAssetId) return;
+  const asset = await tx.uploadAsset.findUnique({ where: { id: gift.giftAssetId }, select: { giftCategory: true } });
+  if (asset?.giftCategory !== 'CP_GIFT') return;
   const [leftUserId, rightUserId] = [gift.senderId, recipient.id].sort();
   const relationship = await tx.profileRelationship.findUnique({ where: { leftUserId_rightUserId_type: { leftUserId, rightUserId, type: 'CP' } } });
   if (!relationship) return;
@@ -123,6 +125,7 @@ export async function awardCpGift(tx, gift, recipient, source) {
   if (current.exp + gift.coinValue > MAX) throw cpError('CP experience exceeds the supported range.');
   const updated = await tx.profileRelationship.update({ where: { id: current.id }, data: { exp: { increment: gift.coinValue }, maintenanceCoins: { increment: gift.coinValue } } });
   await syncCpLevel(tx, updated, levels);
+  return updated;
 }
 export async function saveCpLevel(tx, body, adminId) {
   const data = cpLevelInput(body);

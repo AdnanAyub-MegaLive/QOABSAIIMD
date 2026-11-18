@@ -84,7 +84,8 @@ export async function awardGiftProgress(tx, {sender,recipient,gift,source,gross,
   const settlement = knownSettlement ?? await tx.giftSettlement.findUnique({ where: { giftTransactionId: gift.id } });
   if (settlement?.recipientType === "HOST") await awardActivityXp(tx, "AGENCY", settlement.agencyId, gift.id, settlement.recipientDiamonds);
   recipient = await resolveGiftProgressRecipient(tx, gift, recipient);
-  await awardCpGift(tx, gift, recipient, source);
+  const cp = await awardCpGift(tx, gift, recipient, source);
+  if (cp) for (const partner of await tx.user.findMany({ where: { id: { in: [cp.leftUserId, cp.rightUserId] } }, select: { publicId: true } })) await appendOutbox(tx, `user:${partner.publicId}`, "cache:invalidate", { scopes: ["progression"], userId: partner.publicId, reason: "cp:updated" });
   const active=await giftTransactionRead(tx, "progression:configuration", () => currentConfiguration(tx));
   if (!active?.enabled) return null;
   let senderSnapshot=null;
