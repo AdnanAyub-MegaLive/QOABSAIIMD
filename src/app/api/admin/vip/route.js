@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/portal-admin";
 import { VIP_PRIVILEGES,validateVipTier } from "@/lib/vip-contract";
@@ -65,5 +66,5 @@ export async function POST(request){try{
     }else throw fail("Unsupported action.");
     await tx.auditLog.create({data:{adminId:admin.id,action:`VIP_${body.action}`,category:"USER_MANAGEMENT",entityType:"VIP",entityId:row.id,description:`${admin.name} performed VIP ${body.action.toLowerCase()}.`}});
     return {id:row.id,expiresAt:row.expiresAt??null};
-  });return Response.json({success:true,data});
+  });if(body?.userPublicId)signalUserCache(globalThis.portalIo,String(body.userPublicId),["profile"],{reason:"vip:admin"});return Response.json({success:true,data});
 }catch(error){return response(error)}}

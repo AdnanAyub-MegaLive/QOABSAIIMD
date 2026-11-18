@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import { prisma } from "@/lib/prisma";
 import { requireMobileUser, mobileJson, mobileApiError } from "@/lib/mobile-api";
 import { withV1Request, v1Options } from "@/lib/mobile-v1";
@@ -20,6 +21,7 @@ export function POST(request) {
       }
       const bytes = await decodeAvatar(await readAvatarFile(request, AVATAR_GIF_MAX_BYTES));
       const profileImage = await saveAvatar(prisma, user.id, bytes, requestOrigin(request));
+      signalUserCache(globalThis.portalIo, user.publicId, ['profile'], { reason: 'profile:edited' });
       return mobileJson({ success: true, data: { profileImage } }, 201);
     } catch (error) {
       if (error.code === "FILE_TOO_LARGE") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, 413);

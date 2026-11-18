@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requireMobileUser, mobileJson, mobileApiError } from "@/lib/mobile-api";
@@ -26,6 +27,7 @@ async function change(request, remove) {
         else await tx.profileCover.upsert({ where: { userId: user.id }, create: { userId: user.id, imageData: bytes, mimeType, revision: randomUUID() }, update: { createdAt: new Date(), imageData: bytes, mimeType, status: "PENDING", revision: randomUUID() } });
         await tx.auditLog.create({ data: { action: remove ? "PROFILE_COVER_DELETED" : "PROFILE_COVER_UPLOADED", category: "USER_MANAGEMENT", entityType: "User", entityId: user.publicId, description: "User changed their own profile cover." } });
       });
+      signalUserCache(globalThis.portalIo, user.publicId, ['profile'], { reason: 'profile:edited' });
       return mobileJson({ success: true, data: await profileCoverDto(prisma, user.id, user.id, requestOrigin(request)) }, remove ? 200 : 201);
     } catch (error) {
       if (error.code === "COVER_LIMIT_REACHED" || error.code === "VIDEO_VALIDATION_UNAVAILABLE") return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);

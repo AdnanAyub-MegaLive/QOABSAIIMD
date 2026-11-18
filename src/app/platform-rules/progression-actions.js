@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { signalAllCache } from "@/lib/cache-signal";
 import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { validateProgressionConfig, jsonSafe, levelSnapshot } from "@/lib/progression";
@@ -19,6 +20,7 @@ export async function publishProgression(input) {
     await tx.auditLog.create({data:{adminId:admin.id,action:"PUBLISH_PROGRESSION_RULES",category:"USER_MANAGEMENT",entityType:"ProgressionConfiguration",entityId:String(config.version),description:"Published immutable progression configuration and applied thresholds to accounts while preserving earned XP.",metadata:jsonSafe(data)}});
     return config.version;
   },{isolationLevel:"Serializable"});
+  signalAllCache(globalThis.portalIo,["progression"],{reason:"progression:rules-published"});
   revalidatePath("/platform-rules");return {success:true,version:result};
   } catch(error) {
     if (["VALIDATION_ERROR","UNAUTHORIZED","FORBIDDEN"].includes(error.code)) return {success:false,error:{code:error.code,message:error.message,...(error.fields?{fields:error.fields}:{})}};

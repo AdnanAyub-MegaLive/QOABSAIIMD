@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import { portalPermissionError } from "@/lib/portal-admin";
 import { auth } from "../../../../../../../auth";
 import { prisma } from "@/lib/prisma";
@@ -105,6 +106,7 @@ export async function PATCH(request, { params }) {
     });
     return updated;
   });
+  signalUserCache(globalThis.portalIo, user.publicId, ["profile"], { reason: "official:admin" });
   return json({
     success: true,
     data: {

@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import {prisma} from "@/lib/prisma";
 import {requireMobileUser,mobileJson,mobileApiError} from "@/lib/mobile-api";
 import {readAvatarFile} from "@/lib/avatar-upload";
@@ -15,5 +16,6 @@ export async function POST(request){try{
   await tx.profileCoverItem.create({data:{userId:user.id,imageData:bytes,mimeType:["image/gif","video/mp4"].includes(file.type)?file.type:"image/webp"}});
   await tx.auditLog.create({data:{action:"PROFILE_COVER_UPLOADED",category:"USER_MANAGEMENT",entityType:"User",entityId:user.publicId,description:"Added profile carousel cover."}});
  });
+ signalUserCache(globalThis.portalIo, user.publicId, ['profile'], { reason: 'profile:edited' });
  return mobileJson({success:true,data:await profileCoverDto(prisma,user.id,user.id,requestOrigin(request))},201);
 }catch(e){if(e.code==="VIDEO_VALIDATION_UNAVAILABLE")return mobileJson({success:false,error:{code:e.code,message:e.message}},503);if(e.code==="COVER_LIMIT_REACHED")return mobileJson({success:false,error:{code:e.code,message:e.message}},409);if(e.code==="FILE_TOO_LARGE")return mobileJson({success:false,error:{code:e.code,message:e.message}},413);return mobileApiError(e,"PROFILE_COVER_FAILED");}}
