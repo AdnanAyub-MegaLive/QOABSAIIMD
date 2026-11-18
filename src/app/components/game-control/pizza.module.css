@@ -212,3 +212,17 @@
  .panel :global(.play-panel-footer){min-height:28px!important;padding:0!important;gap:4px!important;}
  .panel :global(.play-panel-footer) button{min-height:28px!important;padding:3px 9px!important;}
 }
+
+/* Square amount cards, shelf-top bonus dishes, and circular result badges. */
+@media(max-width:600px){
+ .panel :global(.play-panel-chips){grid-template-columns:repeat(4,40px);justify-content:space-between;gap:4px!important;}
+ .panel :global(.play-panel-chips) button{width:40px!important;min-width:40px;height:40px!important;aspect-ratio:1;}
+ .panel :global(.shared-betting-contents)>div:last-child{margin-top:24px;padding-top:12px!important;}
+ .panel .bonusIndicators{position:absolute;left:0;bottom:calc(100% - 10px);top:auto;width:100%;height:40px;margin:0;}
+ .panel .bonusIndicators span{width:44px;height:40px;}
+ .panel .bonusIndicators img{width:44px;height:40px;object-fit:contain;}
+ .panel :global([aria-label="Recent results"]){gap:3px;}
+ .panel :global([aria-label="Recent results"])>span{flex:0 1 30px;width:30px;max-width:30px;height:auto;min-height:0;aspect-ratio:1;box-sizing:border-box;border-radius:50%;}
+ .panel :global([aria-label="Recent results"])>span>span{min-width:0;min-height:0;overflow:hidden;border-radius:50%;}
+ .panel :global([aria-label="Recent results"]) img{width:100%!important;height:100%!important;min-width:0;object-fit:contain;flex:1 1 0;}
+}
