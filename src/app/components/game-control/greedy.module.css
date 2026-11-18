@@ -211,3 +211,39 @@
  .autoNotice{position:static;order:3;flex:none;margin:0;}
  .panel :global(.play-panel-footer)>span{width:auto;flex:1;font-size:12px!important;}
 }
+
+/* Match Pizza's compact layout while retaining Greedy's carnival artwork. */
+.panel>header.gameHeader{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) 32px;align-items:center;gap:6px;height:44px;min-height:44px!important;order:0;padding:0;border:0;}
+.balance{display:flex;align-items:center;gap:4px;background:#ffe4b7;color:#683214;border-radius:24px;padding:3px 8px 3px 4px;font-size:13px;font-weight:800;white-space:nowrap;min-width:0;}
+.balance img{width:23px;height:23px;object-fit:contain;}
+.headerActivity{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:100%;height:44px;min-width:0;padding:2px;border:1px solid #bc8c5a;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap;background:#f4dfbc;color:#75482c;}
+.headerActivity img{width:20px;height:20px;object-fit:contain;}
+.headerRules{width:32px;height:32px;padding:0;border:0;border-radius:50%;background:#167e97;color:#fff;font-weight:900;}
+.stageRound{position:absolute;top:0;left:0;font-size:10px;color:#166c82;z-index:1;}
+.panel :global(.play-panel-stage){order:1;position:relative;}
+.panel :global(.shared-betting-contents){order:2;}
+.panel :global(.food-game-auto){order:3;}
+.panel :global(.play-panel-footer){order:5;}
+.panel :global(.play-panel-footer)>span{display:none;}
+@media(max-width:600px){
+ .panel{display:flex!important;flex-direction:column!important;box-sizing:border-box;height:100dvh!important;padding:4px 12px max(4px,env(safe-area-inset-bottom))!important;gap:3px!important;overflow:hidden!important;}
+ .panel :global(.play-panel-stage){flex:1 1 0!important;min-height:0!important;height:auto!important;padding:0!important;container-type:size;display:flex!important;align-items:center;justify-content:center;}
+ .wheel{width:min(94cqw,94cqh,300px)!important;height:min(94cqw,94cqh,300px)!important;max-width:300px!important;max-height:300px!important;margin:0!important;}
+ .panel :global(.shared-betting-contents){display:flex!important;flex-direction:column;flex:none;width:100%;margin:0!important;padding:4px 0!important;gap:3px;border-radius:12px;}
+ .panel :global(.play-panel-table){width:70vw;max-width:100%;box-sizing:border-box;align-self:center;padding:3px 8px!important;}
+ .panel :global(.play-panel-chips){display:grid!important;grid-template-columns:repeat(4,40px);justify-content:center;gap:4px!important;padding:0!important;}
+ .panel :global(.play-panel-chips) button{width:40px!important;height:40px!important;min-height:40px!important;max-height:40px;padding:8px 2px 3px!important;aspect-ratio:1;}
+ .panel :global(.play-panel-chips) img{width:15px!important;height:15px!important;}
+ .panel :global(.play-panel-actions){min-height:20px!important;margin:0!important;font-size:10px!important;line-height:1.2;}
+ .panel :global(.play-panel-actions)>span{display:flex;flex-wrap:wrap;gap:2px 8px;}
+ .panel :global(.play-panel-actions) b{margin:0;}
+ .panel :global(.play-panel-status){min-height:12px!important;margin:0!important;padding:0!important;line-height:1.2;}
+ .history{order:3;min-height:32px;padding:2px 5px;margin:0;gap:3px;}
+ .history>span{flex:0 1 30px;width:30px;max-width:30px;height:auto;min-height:0;aspect-ratio:1;box-sizing:border-box;border-radius:50%;}
+ .historyFoods{min-width:0;min-height:0;overflow:hidden;border-radius:50%;}
+ .panel :global(.food-game-auto){min-height:36px;padding:0 4px;align-self:stretch;align-items:center;}
+ .autoBar>span{display:block;font-size:10px;}.autoBar small{font-size:10px;}
+ .panel :global(.food-game-auto) button{min-height:36px;padding:4px 9px;font-size:14px;min-width:98px;}
+ .panel :global(.play-panel-footer){min-height:28px!important;margin:0!important;padding:0!important;gap:4px!important;align-self:stretch;justify-content:center;}
+ .panel :global(.play-panel-footer) button{min-height:28px!important;height:auto;padding:3px 9px!important;font-size:12px!important;}
+}
