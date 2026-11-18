@@ -1,6 +1,19 @@
 import { normalizeSignupCountry } from "./geo-country.js";
 
 export const CS_ROOM_COUNTRIES = ["PK", "IN", "BD", "SA", "ID", "PH", "NG", "BR", "EG", "IQ"];
+export const CS_LEGACY_COUNTRIES = ["AE", "QA", "US", "NP", "GB", "CA", "TR", "LK", "MY"];
+export const CS_LEGACY_MAX_VERSION = 23;
+export const CS_FALLBACK_COUNTRY = "PK";
+export const CS_INVITE_MS = 60_000;
+
+export function csRoomsFor(user) {
+  return user?.csLegacy ? [...CS_ROOM_COUNTRIES, ...CS_LEGACY_COUNTRIES] : CS_ROOM_COUNTRIES;
+}
+
+export function csHomeCountry(user) {
+  const code = normalizeSignupCountry(user?.country);
+  return code && csRoomsFor(user).includes(code) ? code : CS_FALLBACK_COUNTRY;
+}
 export const CS_SEAT_INDEXES = [0, 1, 2, 3, 4];
 export const CS_AGENT_SEAT = 0;
 export const CS_PRESENCE_STALE_MS = 90_000;
@@ -10,30 +23,38 @@ function fail(code, message, status) {
   return Object.assign(new Error(message), { code, status });
 }
 
-export function csRoomCountry(value) {
+export function csRoomCountry(value, user = null) {
   const code = String(value ?? "").trim().toUpperCase();
-  if (!CS_ROOM_COUNTRIES.includes(code)) throw fail("CS_ROOM_NOT_FOUND", "This support room does not exist.", 404);
+  if (!csRoomsFor(user).includes(code)) throw fail("CS_ROOM_NOT_FOUND", "This support room does not exist.", 404);
   return code;
 }
 
 export function csStaffCountry(user) {
   if (!Array.isArray(user?.appRoles) || !user.appRoles.some((role) => CS_ROLES.includes(role))) return null;
-  return normalizeSignupCountry(user.country) ?? "";
+  const code = normalizeSignupCountry(user.country) ?? "";
+  return csRoomsFor(user).includes(code) ? code : "";
+}
+
+export function csOfficial(user) {
+  return Boolean(user?.isOfficial || (Array.isArray(user?.appRoles) && user.appRoles.includes("OFFICIAL")));
 }
 
 export function assertCsRoomEntry(user, country) {
   const staff = csStaffCountry(user);
-  if (staff !== null && staff !== country) throw fail("CS_ROOM_OTHER_COUNTRY", "Support staff can only join their own country's support room.", 403);
+  if (staff === null && !csOfficial(user)) {
+    const real = normalizeSignupCountry(user?.country);
+    if (!(real && csRoomsFor(user).includes(real)) && country !== CS_FALLBACK_COUNTRY) throw fail("CS_ROOM_PAKISTAN_ONLY", "You can only use the Pakistan support room.", 403);
+  }
 }
 
 export function assertCsSeat(user, country, seatIndex) {
   if (!Number.isInteger(seatIndex) || !CS_SEAT_INDEXES.includes(seatIndex)) throw fail("VALIDATION_ERROR", "Invalid seat.", 422);
   assertCsRoomEntry(user, country);
   const staff = csStaffCountry(user);
+  if (csOfficial(user)) return;
   if (seatIndex === CS_AGENT_SEAT && staff !== country) throw fail("CS_SEAT_STAFF_ONLY", "Only this country's support team can use the support seat.", 403);
   if (seatIndex !== CS_AGENT_SEAT && staff !== null) throw fail("CS_SEAT_USERS_ONLY", "Support staff can only use the support seat.", 403);
-  const home = normalizeSignupCountry(user?.country);
-  if (staff === null && home && CS_ROOM_COUNTRIES.includes(home) && home !== country) throw fail("CS_SEAT_OWN_COUNTRY", "You can only take a seat in your own country's support room.", 403);
+  if (staff === null && csHomeCountry(user) !== country) throw fail("CS_SEAT_OWN_COUNTRY", "You can only take a seat in your own country's support room.", 403);
 }
 
 export async function sweepCsRooms(db, now = new Date()) {
@@ -60,12 +81,13 @@ const CS_USER_SEATS = CS_SEAT_INDEXES.filter((index) => index !== CS_AGENT_SEAT)
 
 async function queueEligible(tx, row, country, now) {
   const cutoff = new Date(now.getTime() - CS_PRESENCE_STALE_MS);
-  const presence = await tx.csRoomPresence.findUnique({ where: { userId: row.userId }, select: { country: true, removedAt: true, lastSeenAt: true } });
+  const presence = await tx.csRoomPresence.findUnique({ where: { userId: row.userId }, select: { country: true, removedAt: true, lastSeenAt: true, legacy: true } });
   if (presence?.country !== country || presence.removedAt || presence.lastSeenAt < cutoff) return null;
   if (await activeCsBan(tx, row.userId, country, now)) return null;
   if (await tx.csRoomSeat.findFirst({ where: { occupantUserId: row.userId }, select: { id: true } })) return null;
   const user = await tx.user.findUnique({ where: { id: row.userId }, select: { id: true, appRoles: true, country: true, status: true, deletedAt: true } });
   if (!user || user.status !== "ACTIVE" || user.deletedAt) return null;
+  user.csLegacy = presence.legacy;
   try { assertCsSeat(user, country, CS_USER_SEATS[0]); } catch { return null; }
   return user;
 }
@@ -131,7 +153,7 @@ export async function enterCsRoom(db, user, country, now = new Date()) {
   if (ban) throw bannedError(ban);
   await db.csRoomSeat.updateMany({ where: { occupantUserId: user.id, NOT: { country } }, data: { occupantUserId: null, occupiedAt: null } });
   await db.csRoomQueue.deleteMany({ where: { userId: user.id, NOT: { country } } });
-  await db.csRoomPresence.upsert({ where: { userId: user.id }, create: { userId: user.id, country, lastSeenAt: now }, update: { country, lastSeenAt: now, removedAt: null } });
+  await db.csRoomPresence.upsert({ where: { userId: user.id }, create: { userId: user.id, country, lastSeenAt: now, legacy: Boolean(user.csLegacy) }, update: { country, lastSeenAt: now, removedAt: null, legacy: Boolean(user.csLegacy) } });
 }
 
 export async function heartbeatCsRoom(db, user, country, now = new Date()) {
@@ -143,7 +165,7 @@ export async function heartbeatCsRoom(db, user, country, now = new Date()) {
     if (ban) throw bannedError(ban);
     throw fail("CS_ROOM_REMOVED", "You were removed from this support room.", 409);
   }
-  const updated = await db.csRoomPresence.updateMany({ where: { userId: user.id, country, removedAt: null }, data: { lastSeenAt: now } });
+  const updated = await db.csRoomPresence.updateMany({ where: { userId: user.id, country, removedAt: null }, data: { lastSeenAt: now, legacy: Boolean(user.csLegacy) } });
   if (!updated.count) throw fail("CS_ROOM_NOT_JOINED", "Join the support room first.", 409);
   const seat = await db.csRoomSeat.findFirst({ where: { occupantUserId: user.id }, select: { country: true, seatIndex: true } });
   if (!seat) return;
@@ -153,6 +175,7 @@ export async function heartbeatCsRoom(db, user, country, now = new Date()) {
 
 export async function leaveCsRoom(db, user) {
   await db.csRoomQueue.deleteMany({ where: { userId: user.id } });
+  await db.csRoomInvite.deleteMany({ where: { userId: user.id } });
   await db.csRoomSeat.updateMany({ where: { occupantUserId: user.id }, data: { occupantUserId: null, occupiedAt: null } });
   await db.csRoomPresence.deleteMany({ where: { userId: user.id } });
 }
@@ -199,16 +222,24 @@ export async function csRoomsSnapshot(db, user, avatar = (value) => value) {
   const joined = mine && !mine.removedAt ? mine.country : null;
   const myMuted = joined ? Boolean(await db.csRoomMute.findUnique({ where: { country_userId: { country: joined, userId: user.id } }, select: { userId: true } })) : false;
   const mySeat = seats.find((s) => s.occupantUserId === user.id);
+  const staffCountry = csStaffCountry(user);
+  const present = staffCountry ? await db.csRoomPresence.findMany({ where: { country: staffCountry, removedAt: null, lastSeenAt: { gte: new Date(Date.now() - CS_PRESENCE_STALE_MS) } }, select: { userId: true, country: true } }) : [];
+  const listenerPeople = present.length ? await db.user.findMany({ where: { id: { in: present.map((p) => p.userId) } }, select: { id: true, publicId: true, name: true, profileImage: true, appRoles: true } }) : [];
+  const listenerById = new Map(listenerPeople.filter((p) => !(p.appRoles ?? []).some((role) => CS_ROLES.includes(role))).map((p) => [p.id, p]));
   const myQueue = queue.find((q) => q.userId === user.id);
+  const invite = await db.csRoomInvite.findUnique({ where: { userId: user.id } });
+  const myInvite = invite && invite.expiresAt > new Date() && invite.country === joined && !mySeat ? { country: invite.country, seatIndex: invite.seatIndex, expiresAt: invite.expiresAt.toISOString() } : null;
   return {
+    myInvite,
     myQueue: myQueue ? { country: myQueue.country, position: queue.filter((q) => q.country === myQueue.country).findIndex((q) => q.userId === user.id) + 1 } : null,
-    staffCountry: csStaffCountry(user),
+    staffCountry,
     joinedCountry: joined,
     myMuted,
     mySeat: mySeat ? { country: mySeat.country, seatIndex: mySeat.seatIndex } : null,
-    rooms: CS_ROOM_COUNTRIES.map((country) => ({
+    rooms: csRoomsFor(user).map((country) => ({
       country,
       listeners: counts.get(country) ?? 0,
+      listenerList: staffCountry === country ? present.filter((p) => p.country === country && !seats.some((s) => s.occupantUserId === p.userId)).map((p) => listenerById.get(p.userId)).filter(Boolean).map((p) => ({ publicId: p.publicId, name: p.name, profileImage: avatar(p.profileImage) })) : [],
       queue: queue.filter((q) => q.country === country).map((q) => byId.get(q.userId)).filter(Boolean).map((p) => ({ publicId: p.publicId, name: p.name, profileImage: avatar(p.profileImage) })),
       seats: CS_SEAT_INDEXES.map((seatIndex) => {
         const seat = seats.find((s) => s.country === country && s.seatIndex === seatIndex);
@@ -229,6 +260,7 @@ export async function moderateCsRoom(db, actor, country, { action, targetId, sea
   if (own?.country !== country || own.removedAt) throw fail("CS_ROOM_NOT_JOINED", "Join the support room first.", 409);
   if (typeof targetId !== "string" || !targetId.trim()) throw fail("VALIDATION_ERROR", "Choose a user.", 422);
   const target = await db.user.findUnique({ where: { publicId: targetId.trim() }, select: { id: true, publicId: true, appRoles: true, country: true } });
+  if (target) target.csLegacy = (await db.csRoomPresence.findUnique({ where: { userId: target.id }, select: { legacy: true } }))?.legacy ?? Boolean(actor.csLegacy);
   if (!target) throw fail("CS_TARGET_NOT_FOUND", "This user was not found.", 404);
   if (target.id === actor.id || csStaffCountry(target) !== null) throw fail("CS_TARGET_STAFF", "Support staff cannot be managed here.", 403);
   const clearSeat = () => db.csRoomSeat.updateMany({ where: { occupantUserId: target.id, country }, data: { occupantUserId: null, occupiedAt: null } });
@@ -254,6 +286,24 @@ export async function moderateCsRoom(db, actor, country, { action, targetId, sea
       });
       return;
     }
+    case "invite": {
+      if (!Number.isInteger(seatIndex) || seatIndex === CS_AGENT_SEAT || !CS_SEAT_INDEXES.includes(seatIndex)) throw fail("VALIDATION_ERROR", "Choose a user seat.", 422);
+      const presence = await db.csRoomPresence.findUnique({ where: { userId: target.id }, select: { country: true, removedAt: true, lastSeenAt: true, legacy: true } });
+      if (presence?.legacy) throw fail("CS_TARGET_OLD_APP", "This user's app is too old to receive invitations.", 409);
+      if (presence?.country !== country || presence.removedAt || presence.lastSeenAt < new Date(now.getTime() - CS_PRESENCE_STALE_MS)) throw fail("CS_TARGET_NOT_PRESENT", "This user is not in the room.", 409);
+      if (await activeCsBan(db, target.id, country, now)) throw fail("CS_TARGET_BANNED", "This user is banned from this room.", 409);
+      if (await db.csRoomSeat.findFirst({ where: { occupantUserId: target.id }, select: { id: true } })) throw fail("CS_TARGET_SEATED", "This user already has a seat.", 409);
+      assertCsSeat(target, country, seatIndex);
+      if (await db.csRoomSeat.findFirst({ where: { country, seatIndex, occupantUserId: { not: null } }, select: { id: true } })) throw fail("CS_SEAT_TAKEN", "This seat is already taken.", 409);
+      const expiresAt = new Date(now.getTime() + CS_INVITE_MS);
+      await db.csRoomInvite.upsert({ where: { userId: target.id }, create: { userId: target.id, country, seatIndex, invitedById: actor.id, expiresAt }, update: { country, seatIndex, invitedById: actor.id, expiresAt, createdAt: now } });
+      return;
+    }
+    case "unseat": {
+      const cleared = await clearSeat();
+      if (!cleared.count) throw fail("CS_TARGET_NOT_SEATED", "This user is not on a seat.", 409);
+      return;
+    }
     case "queue-remove":
       await db.csRoomQueue.deleteMany({ where: { userId: target.id, country } });
       return;
@@ -272,4 +322,24 @@ export async function moderateCsRoom(db, actor, country, { action, targetId, sea
     default:
       throw fail("VALIDATION_ERROR", "Unknown action.", 422);
   }
+}
+
+export async function answerCsInvite(db, user, country, accept, now = new Date()) {
+  const invite = await db.csRoomInvite.findUnique({ where: { userId: user.id } });
+  await db.csRoomInvite.deleteMany({ where: { userId: user.id } });
+  if (!accept) return;
+  if (!invite || invite.country !== country || invite.expiresAt <= now) throw fail("CS_INVITE_EXPIRED", "This invitation has expired.", 409);
+  const presence = await db.csRoomPresence.findUnique({ where: { userId: user.id }, select: { country: true, removedAt: true } });
+  if (presence?.country !== country || presence.removedAt) throw fail("CS_ROOM_NOT_JOINED", "Join the support room first.", 409);
+  if (await activeCsBan(db, user.id, country, now)) throw fail("CS_ROOM_BANNED", "You are banned from this support room for now.", 403);
+  if (await db.csRoomSeat.findFirst({ where: { occupantUserId: user.id }, select: { id: true } })) throw fail("CS_ALREADY_SEATED", "You already have a seat.", 409);
+  await ensureSeats(db, country);
+  const order = [invite.seatIndex, ...CS_USER_SEATS.filter((index) => index !== invite.seatIndex)];
+  for (const seatIndex of order) {
+    assertCsSeat(user, country, seatIndex);
+    const placed = await db.csRoomSeat.updateMany({ where: { country, seatIndex, occupantUserId: null }, data: { occupantUserId: user.id, occupiedAt: now } }).catch((error) => { if (error?.code === "P2002") return { count: 0 }; throw error; });
+    if (placed.count) { await db.csRoomQueue.deleteMany({ where: { userId: user.id } }); return; }
+  }
+  if (await db.csRoomSeat.findFirst({ where: { occupantUserId: user.id, country }, select: { id: true } })) return;
+  throw fail("CS_SEAT_TAKEN", "All seats are taken now.", 409);
 }

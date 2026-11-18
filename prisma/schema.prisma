@@ -3473,6 +3473,7 @@ model CsRoomPresence {
   country    String
   lastSeenAt DateTime  @default(now())
   removedAt  DateTime?
+  legacy     Boolean   @default(false)
 
   @@index([country, lastSeenAt])
 }
@@ -3504,4 +3505,15 @@ model CsRoomQueue {
   joinedAt DateTime @default(now())
 
   @@index([country, joinedAt])
+}
+
+model CsRoomInvite {
+  userId      String   @id
+  country     String
+  seatIndex   Int
+  invitedById String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([country])
 }

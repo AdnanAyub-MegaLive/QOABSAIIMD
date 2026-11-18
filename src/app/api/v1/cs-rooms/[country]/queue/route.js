@@ -8,7 +8,7 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export async function POST(request, { params }) {
   const { country: raw } = await params;
   return csRoomRequest(request, path, methods, async (user) => {
-    const country = csRoomCountry(raw);
+    const country = csRoomCountry(raw, user);
     await joinCsQueue(prisma, user, country);
     return csRoomState(request, user, country);
   });
@@ -16,7 +16,7 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
   const { country: raw } = await params;
   return csRoomRequest(request, path, methods, async (user) => {
-    const country = csRoomCountry(raw);
+    const country = csRoomCountry(raw, user);
     await leaveCsQueue(prisma, user);
     return csRoomState(request, user, country);
   });
