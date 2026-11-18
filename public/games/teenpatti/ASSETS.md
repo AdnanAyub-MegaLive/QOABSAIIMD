@@ -1,0 +1,2 @@
+Drink sprite generated with the built-in image_gen tool, then resized to 900px wide and encoded as WebP with transparency.
+Prompt: A transparent 3:1 game sprite atlas, three equally spaced glossy mobile casino emblems: orange juice with orange slice and blue straw; red cocktail with cherry and mint beside caramel custard; golden foamy beer mug with barley and hops. Bright highlights, golden outlines, equal visual size, no text or background.
