@@ -1,9 +1,9 @@
 import { normalizeSignupCountry } from "./geo-country.js";
 
-export const CS_ROOM_COUNTRIES = ["PK", "IN", "BD", "SA", "ID", "PH"];
+export const CS_ROOM_COUNTRIES = ["PK", "IN", "BD", "SA", "ID", "PH", "NG", "BR", "EG", "IQ"];
 export const CS_SEAT_INDEXES = [0, 1, 2, 3, 4];
 export const CS_AGENT_SEAT = 0;
-export const CS_PRESENCE_STALE_MS = 45_000;
+export const CS_PRESENCE_STALE_MS = 90_000;
 const CS_ROLES = ["CS", "CS_LEADER"];
 
 function fail(code, message, status) {
