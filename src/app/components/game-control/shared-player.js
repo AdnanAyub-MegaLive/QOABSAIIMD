@@ -17,6 +17,7 @@ import PizzaWheel from "./pizza-wheel";
 import PizzaFood from "./pizza-food";
 import pizzaStyles from "./pizza.module.css";
 import TeenPattiTable from "./teen-patti-table";
+import teenStyles from "./teen-patti.module.css";
 import MiniGameAnimation from "./mini-game-animation";
 import InstantStage from "./instant-stage";
 import FlipStage from "./flip-stage";
@@ -73,7 +74,7 @@ export default function SharedPlayer({gameId,preview=false}){
  const visualResult=outcome?{id:`${state.dayId}:${state.slot}`,status:"settled",result:String(outcome.result),outcome:summary.pending?undefined:BigInt(summary.net)>0n?"win":BigInt(summary.net)<0n?"loss":"push"}:null;
  const quiz=state?.challenge?.questions?.[question];
  function placeChoice(value){if(locked)return;if(foodGame&&Object.keys(state.myTotals||{}).length>=6&&!BigInt(state.myTotals?.[value]||0))return;setChoice(value);void enter(value);}
- return <section className={`${styles.panel} ${engine==="pizza"?pizzaStyles.panel:engine==="greedy"?greedyStyles.panel:""} ${engine==="roulette"?"roulette-design":""} ${engine==="teenpatti"?styles.teenPanel:""}`} aria-label="Shared room coin game">
+ return <section className={`${styles.panel} ${engine==="pizza"?pizzaStyles.panel:engine==="greedy"?greedyStyles.panel:""} ${engine==="roulette"?"roulette-design":""} ${engine==="teenpatti"?`${styles.teenPanel} ${teenStyles.panel}`:""}`} aria-label="Shared room coin game">
    {engine==="greedy"&&<GreedyScenery/>}
    {foodGame?<GreedyControls state={state} amount={amount} phase={phase} locked={locked} onAuto={()=>enter(undefined,true)} request={request} headerBalance={balance} onRules={()=>setHelp(true)}/>:<header className={styles.header}><div><h1>{engine==="pizza"?<img className={pizzaStyles.logo} src="/games/pizza/logo.webp" alt="Pizza"/>:game?.name||"Connecting…"}</h1>{foodGame&&engine!=="pizza"?<small className={greedyStyles.round}>round: {state?.roundNumber}</small>:<div className={styles.roundHistory} aria-label="Recent results">{state?.history?.slice(0,5).map(h=><span key={h.roundNumber} title={`Round ${h.roundNumber}`}>{engine==="reaction"?"✓":String(h.result??"✓")}</span>)}</div>}</div>{engine==="pizza"&&<span className={pizzaStyles.balance}><img src="/games/pizza/coin.webp" alt=""/>{BigInt(balance).toLocaleString()}</span>}<button onClick={()=>setHelp(true)} aria-label="Game rules">?</button></header>}
    <div className={styles.stage}>
