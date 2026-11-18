@@ -62,9 +62,9 @@ window.RankingDesign = (() => {
         const mid=node('div','absolute left-[38%] top-[30%] flex w-[24%] flex-col items-center');mid.append(art('cp-heart.png','h-7 w-8 object-contain'));row.append(mid);$('entries').append(row);
       }return;
     }
-    const podium=node('div','relative mx-auto grid grid-cols-2 gap-x-10 px-6 pb-5');$('hero').append(podium);
+    const podium=node('div','agency-podium');$('hero').append(podium);
     for(const e of entries.filter(e=>e.rank<=3)){
-      const first=e.rank===1;const c=node('article',first?'relative col-span-2 mx-auto w-[66%]':'relative w-full');
+      const first=e.rank===1;const c=node('article',first?'agency-first-place':`agency-runner-up place-${e.rank}`);
       const artbox=node('div',first?'relative z-20 aspect-square w-full':'relative z-20 aspect-square w-full');
       const p=portrait(e.person,helpers.notify,first?'absolute left-[29%] top-[37%] h-[40%] w-[42%]':'absolute left-[23%] top-[22%] h-[52%] w-[54%]',type==='agency');
       if(type==='agency'){p.setAttribute('aria-label',`Open ${e.name} agency details`);p.disabled=!e.id;p.onclick=()=>helpers.notify({type:'ranking:open-agency',agencyPublicId:e.id});}

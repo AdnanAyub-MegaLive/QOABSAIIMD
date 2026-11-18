@@ -1,0 +1,11 @@
+/* Charm proportions, retaining Agency artwork and identity fields. */
+.agency-podium { display:grid; grid-template-columns:40% 20% 40%; align-items:start; position:relative; padding-bottom:20px; }
+.agency-first-place { position:relative; grid-column:1 / 4; grid-row:1; width:66%; margin:0 auto; }
+.agency-runner-up { position:relative; width:100%; min-width:0; grid-row:2; }
+.agency-runner-up.place-2 { grid-column:1; }
+.agency-runner-up.place-3 { grid-column:3; }
+.agency-runner-up .levels { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:0; }
+.agency-runner-up .ranking-gap { margin:5px auto; }
+
+/* The crown is now a real header image; no reserved background-header gap. */
+html #ranking #filters { margin-top:12px; }

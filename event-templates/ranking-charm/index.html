@@ -5,10 +5,10 @@
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
         <meta name="referrer" content="no-referrer">
         <base href="/event/ranking-charm/">
-        <title>Mega Live CHARM Rankings</title>
+        <title>Mega Live CHARM RANKINGS</title>
         <link rel="stylesheet" href="style.css">
         <script src="assets/equipped-frame.js" defer></script><script src="app.js" defer></script>
-    <link rel="stylesheet" href="rewards.css"></head>
+    </head>
     <body>
         <main id="ranking" data-theme="charm" data-track="charm" data-event="ranking-charm">
             <header>
@@ -22,7 +22,38 @@
                 <button id="rewards" aria-label="Ranking rewards">
                     <img src="assets/09184.png" alt="">
                 </button>
-                <div class="heading"><span>Count Down: </span><time id="countdown">—</time></div><div id="hero"></div>
+                <div class="heading"><span>Count Down: </span><time id="countdown">—</time></div>
+                <div id="hero">
+                    <article id="podium-1" class="podium-card place-1" hidden>
+                        <div class="art"><span data-field="portrait"></span><img class="frame" src="assets/frame-1.gif" alt="Rank 1"></div>
+                        <span class="name entry-name" data-field="name"></span>
+                        <div class="entry-details">
+                        <div data-field="levels" class="levels"></div>
+                        <div data-field="gap" class="gaps"></div>
+                        <div data-field="badges" class="badges"></div>
+                        </div>
+                    </article>
+                </div>
+                <div class="podium">
+                    <article id="podium-2" class="podium-card place-2" hidden>
+                        <div class="art"><span data-field="portrait"></span><img class="frame" src="assets/frame-2.gif" alt="Rank 2"></div>
+                        <span class="name entry-name" data-field="name"></span>
+                        <div class="entry-details">
+                        <div data-field="levels"></div>
+                        <div data-field="gap"></div>
+                        <div data-field="badges"></div>
+                        </div>
+                    </article>
+                    <article id="podium-3" class="podium-card place-3" hidden>
+                        <div class="art"><span data-field="portrait"></span><img class="frame" src="assets/frame-3.gif" alt="Rank 3"></div>
+                        <span class="name entry-name" data-field="name"></span>
+                        <div class="entry-details">
+                        <div data-field="levels"></div>
+                        <div data-field="gap"></div>
+                        <div data-field="badges"></div>
+                        </div>
+                    </article>
+                </div>
             </header>
             <section id="board">
                 <h2 id="heading" class="list-title">Today</h2>
@@ -42,6 +73,19 @@
                 <p id="award-rules"></p>
                 <button id="close-rules">Got it</button>
             </dialog>
+            <!-- Repeatable row markup. app.js fills these fields from the API. -->
+            <template id="ranking-row-template">
+                <article class="row">
+                    <span class="rank" data-field="rank"></span>
+                    <div data-field="avatar"></div>
+                    <div class="identity">
+                        <span class="name entry-name" data-field="name"></span>
+                        <div data-field="levels"></div>
+                        <div data-field="badges"></div>
+                    </div>
+                    <div class="totals" data-field="gap"></div>
+                </article>
+            </template>
         </main>
     </body>
 </html>

@@ -36,7 +36,11 @@ html #periods{display:flex}
 html #periods{height:48px}
 html #periods{align-items:center}
 html #periods{padding:0 6px}
-html #periods{background:url(assets/period-bar.png) 50%/100% 290% no-repeat}
+html #periods{
+    background: url(assets/period-bar.png);
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;}
 html #periods button{height:44px}
 html #periods button{width:33.333%}
 html #periods button{font-size:16px}
@@ -211,8 +215,8 @@ html .podium-card.place-1{top:16px}
 html .podium-card.place-1{left:18%}
 html .podium-card.place-1{height:350px}
 html .podium-card.place-1{width:64%}
-html .podium-card.place-1{background-image:url(assets/card-1.png)}
-html .podium-card.place-1{padding-top:220px}
+html .podium-card.place-1{background: url(assets/card-1.png);background-position: top;background-size: 60% 90%;background-repeat: no-repeat;}
+html .podium-card.place-1{}
 html .podium-card.place-2{top:375px}
 html .podium-card.place-2{left:5%}
 html .podium-card.place-2{height:275px}
@@ -393,13 +397,109 @@ html #ranking #board .owned-badge{width:20px;height:20px}
 html #ranking #board .ranking-gap{flex-shrink:0;margin-left:auto}
 html #ranking #board #status{margin:0;padding:6px 12px;font-size:12px}
 html #ranking #hero{height:500px}
-html #ranking .podium-card.place-2,html #ranking .podium-card.place-3{width:40%;height:235px;padding-top:100px;padding-bottom:8px;top:245px}
+html #ranking .podium-card.place-2,html #ranking .podium-card.place-3{width: 100%;height:235px;padding-top:100px;padding-bottom:8px;}
 html #ranking .podium-card.place-2{left:3%}
 html #ranking .podium-card.place-3{right:3%}
-html #ranking .podium-card.place-1{height:350px;padding-top:180px;top:16px}
+html #ranking .podium-card.place-1{height:350px;margin-top: 100px;}
 html #ranking .podium-card .entry-name{font-size:13px}
+html #ranking .podium-card .levels{
+    max-width: 100%;
+    margin: 0;
+    position: absolute;
+    top: 20vw;
+    }
+html #ranking .podium-card .gaps{
+    max-width: 100%;
+    margin: 0;
+    position: absolute;
+    top: 20vw;
+    }
+html #ranking .podium-card .badges{
+    max-width: 100%;
+    margin: 0;
+    position: absolute;
+    top: 20vw;
+    }
 html #ranking .podium-card.place-2 .art,html #ranking .podium-card.place-3 .art{top:-50px}
 html #ranking .podium-card.place-2 .ranking-gap,html #ranking .podium-card.place-3 .ranking-gap{margin:1px 0}
 html #ranking .podium-card.place-2 .owned-badges,html #ranking .podium-card.place-3 .owned-badges{margin:0}
 html #ranking #board{height:auto;max-height:none;position:relative;overflow:visible}
 
+
+/* Podium grid: 10% / 80% / 10%, then 40% / 20% / 40%. */
+html #ranking #hero {
+  height: auto;
+  padding: 16px 0 24px;
+  display: grid;
+  grid-template-columns: 10% 80% 10%;
+}
+html #ranking .podium {
+  display: grid;
+  grid-template-columns: 40% 20% 40%;
+  grid-template-rows: auto auto;
+  height: auto;
+  align-items: start;
+  position: relative;
+  top: -15vw;
+}
+html #ranking .podium-card {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+}
+html #ranking .podium-card.place-1 {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+}
+html #ranking .podium-card.place-2 {
+  grid-column: 1;
+  grid-row: 2;
+}
+html #ranking .podium-card.place-3 {
+  grid-column: 3;
+  grid-row: 2;
+}
+html #ranking .podium-card .art {
+  inset: auto;
+  width: calc(100% + 20px);
+  aspect-ratio: 1;
+  position: absolute;
+  top: -150px;
+}
+html #ranking .podium-card .entry-name {
+  max-width: 100%;
+  margin: 0;
+  position: absolute;
+  top: 35vw;
+}
+
+/* Details flow below the name without overlapping each other. */
+html #ranking .podium-card > .entry-details { position:absolute; top:calc(35vw + 26px); left:5%; width:90%; display:grid; gap:5px; justify-items:center; }
+html #ranking .entry-details [data-field], html #ranking .entry-details .levels, html #ranking .entry-details .owned-badges, html #ranking .entry-details .ranking-gap { position:static; inset:auto; margin:0; max-width:100%; }
+html #ranking .entry-details .levels { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
+html #ranking .entry-details .owned-badges { flex-wrap:wrap; justify-content:center; }
+html #ranking .podium-card.place-2 .art .portrait, html #ranking .podium-card.place-3 .art .portrait { left:23%; top:22%; width:54%; height:52%; }
+
+/* Gold separator beneath each ranked user, matching the supplied reference. */
+html #ranking #board .row {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  padding-bottom: 28px;
+  min-height: 100px;
+}
+html #ranking #board .row::after {
+  content: "";
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: 0;
+  height: auto;
+  aspect-ratio: 1640 / 148;
+  background: url("assets/ranking-strip.png") center / 100% 100% no-repeat;
+  pointer-events: none;
+}
