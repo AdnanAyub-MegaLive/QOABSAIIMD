@@ -1,22 +1,106 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><base href="/event/ranking-cp/"><title>Mega Live Cp Rankings</title><link rel="stylesheet" href="style.css"><script src="assets/svga.lite-1.6.1.min.js" defer></script><script src="assets/svga.lite-1.6.1.min.js" defer></script><script src="design.js" defer></script><script src="assets/equipped-frame.js" defer></script><script src="app.js" defer></script><link rel="stylesheet" href="rewards.css"></head>
-<body class="m-0 bg-slate-950 font-sans text-white [&_[hidden]]:hidden! [&_button]:cursor-pointer [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-yellow-300">
-<main id="ranking" data-track="cp" data-event="ranking-cp" data-theme="cp" class="relative mx-auto min-h-screen max-w-[440px] overflow-hidden bg-cover bg-top pb-8">
-<header class="relative z-10 flex items-center px-2 pt-5"><button id="back" aria-label="Back" class="text-3xl">‹</button><nav id="tracks" aria-label="Ranking category" class="flex min-w-0 flex-1 justify-around text-base font-bold"></nav><button id="rewards" aria-label="Ranking rewards"><img src="assets/gift.png" class="h-8 w-8" alt="Rewards"></button></header>
-<div id="wheel" aria-label="Leading CP pairs"></div>
-<div id="filters" class="relative z-10 px-3"><input id="search" type="search" maxlength="80" placeholder="Enter Agency ID or Name" aria-label="Search agencies" class="mx-auto mb-4 block w-2/3 rounded-full border border-amber-400 bg-red-950 px-4 py-1 text-xs" hidden><nav id="periods" aria-label="Ranking period" class="flex h-12 items-center bg-[length:100%_100%] bg-no-repeat"></nav></div>
-<div id="timing" class="mx-auto my-1 flex w-fit items-center gap-2 rounded-full border border-yellow-400 bg-slate-950 px-3 py-1 text-xs"><span>Count Down:</span><time id="countdown" class="text-yellow-300">—</time></div>
-<div id="hero"></div>
-<section id="board" class="relative rounded-t-3xl border-t border-amber-400 px-2 pb-6"><h1 id="heading" class="sr-only">Rankings</h1><button id="rules" class="mx-auto my-2 block rounded-full bg-amber-700 px-4 text-xs">Rules</button><p id="status" role="status" class="p-6 text-center">Open this event from Mega Live to view rankings.</p><div id="entries"></div><button id="more" class="mx-auto mt-4 block rounded-full border border-amber-300 bg-slate-950 px-6 py-2" hidden>Show more</button><button id="retry" class="mx-auto mt-4 block rounded-full border border-amber-300 bg-slate-950 px-6 py-2" hidden>Try again</button></section>
-<dialog class="m-auto max-h-[80dvh] w-[90%] max-w-md overflow-y-auto rounded-2xl border border-amber-300 bg-slate-950 p-6 text-white backdrop:bg-black/70 [&_button]:rounded-xl [&_button]:bg-amber-700 [&_button]:px-4 [&_button]:py-2 [&_h2]:text-xl [&_h3]:mt-4 [&_p]:my-3 [&_img]:max-h-20" id="rewards-dialog" aria-labelledby="rewards-title">
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+        <meta name="referrer" content="no-referrer" />
+        <base href="/event/ranking-cp/" />
+        <title>Mega Live Cp Rankings</title>
+        <link rel="stylesheet" href="style.css" />
+        <script src="assets/svga.lite-1.6.1.min.js" defer></script>
+        <script src="assets/svga.lite-1.6.1.min.js" defer></script>
+        <script src="design.js" defer></script>
+        <script src="assets/equipped-frame.js" defer></script><script src="app.js" defer></script>
+    <link rel="stylesheet" href="rewards.css" />
+    </head>
+    <body
+        class="m-0 bg-slate-950 font-sans text-white [&_[hidden]]:hidden! [&_button]:cursor-pointer [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-yellow-300"
+    >
+        <main
+            id="ranking"
+            data-track="cp"
+            data-event="ranking-cp"
+            data-theme="cp"
+            class="relative mx-auto min-h-screen max-w-[440px] overflow-hidden bg-cover bg-top pb-8"
+        >
+            <header class="relative z-10 flex items-center px-2 pt-5">
+                <button id="back" aria-label="Back" class="text-3xl">‹</button>
+                <nav
+                    id="tracks"
+                    aria-label="Ranking category"
+                    class="flex min-w-0 flex-1 justify-around text-base font-bold"
+                ></nav>
+                <button id="rewards" aria-label="Ranking rewards">
+                    <img src="assets/gift.png" class="h-8 w-8" alt="Rewards" />
+                </button>
+            </header>
+            <div id="wheel" aria-label="Leading CP pairs"></div>
+            <div id="filters" class="relative z-10 px-3">
+                <input
+                    id="search"
+                    type="search"
+                    maxlength="80"
+                    placeholder="Enter Agency ID or Name"
+                    aria-label="Search agencies"
+                    class="mx-auto mb-4 block w-2/3 rounded-full border border-amber-400 bg-red-950 px-4 py-1 text-xs"
+                    hidden
+                />
+                <nav
+                    id="periods"
+                    aria-label="Ranking period"
+                    class="flex h-12 items-center bg-[length:100%_100%] bg-no-repeat"
+                ></nav>
+            </div>
+            <div
+                id="timing"
+                class="mx-auto my-1 flex w-fit items-center gap-2 rounded-full border border-yellow-400 bg-slate-950 px-3 py-1 text-xs"
+            >
+                <span>Count Down:</span><time id="countdown" class="text-yellow-300">—</time>
+            </div>
+            <div id="hero"></div>
+            <section id="board" class="relative rounded-t-3xl border-t border-amber-400 px-2 pb-6">
+                <h1 id="heading" class="sr-only">Rankings</h1>
+                <button id="rules" class="mx-auto my-2 block rounded-full bg-amber-700 px-4 text-xs">Rules</button>
+                <p id="status" role="status" class="p-6 text-center">
+                    Open this event from Mega Live to view rankings.
+                </p>
+                <div id="entries"></div>
+                <button
+                    id="more"
+                    class="mx-auto mt-4 block rounded-full border border-amber-300 bg-slate-950 px-6 py-2"
+                    hidden
+                >
+                    Show more</button
+                ><button
+                    id="retry"
+                    class="mx-auto mt-4 block rounded-full border border-amber-300 bg-slate-950 px-6 py-2"
+                    hidden
+                >
+                    Try again
+                </button>
+            </section>
+            <dialog
+                class="m-auto max-h-[80dvh] w-[90%] max-w-md overflow-y-auto rounded-2xl border border-amber-300 bg-slate-950 p-6 text-white backdrop:bg-black/70 [&_button]:rounded-xl [&_button]:bg-amber-700 [&_button]:px-4 [&_button]:py-2 [&_h2]:text-xl [&_h3]:mt-4 [&_p]:my-3 [&_img]:max-h-20"
+                id="rewards-dialog"
+                aria-labelledby="rewards-title"
+            >
                 <h2 id="rewards-title">Event rewards</h2>
                 <section id="reward-details" class="reward-details" aria-live="polite"></section>
                 <button id="close-rewards">Close</button>
             </dialog>
-            <dialog class="m-auto max-h-[80dvh] w-[90%] max-w-md overflow-y-auto rounded-2xl border border-amber-300 bg-slate-950 p-6 text-white backdrop:bg-black/70 [&_button]:rounded-xl [&_button]:bg-amber-700 [&_button]:px-4 [&_button]:py-2 [&_h2]:text-xl [&_h3]:mt-4 [&_p]:my-3 [&_img]:max-h-20" id="rules-dialog" aria-labelledby="rules-title">
+            <dialog
+                class="m-auto max-h-[80dvh] w-[90%] max-w-md overflow-y-auto rounded-2xl border border-amber-300 bg-slate-950 p-6 text-white backdrop:bg-black/70 [&_button]:rounded-xl [&_button]:bg-amber-700 [&_button]:px-4 [&_button]:py-2 [&_h2]:text-xl [&_h3]:mt-4 [&_p]:my-3 [&_img]:max-h-20"
+                id="rules-dialog"
+                aria-labelledby="rules-title"
+            >
                 <h2 id="rules-title">Ranking rules</h2>
-                <p id="rule-text">Rankings use confirmed gift records. Refunded gifts are excluded. Periods reset at midnight UTC; weeks begin on Monday.</p>
+                <p id="rule-text">
+                    Rankings use confirmed gift records. Refunded gifts are excluded. Periods reset at midnight UTC;
+                    weeks begin on Monday.
+                </p>
                 <p id="award-rules"></p>
                 <button id="close-rules">Got it</button>
             </dialog>
-        </main></body></html>
+        </main>
+    </body>
+</html>

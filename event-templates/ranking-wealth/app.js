@@ -155,23 +155,28 @@
     return n;
   }
   function render() {
-    $('entries').replaceChildren(); $('hero').replaceChildren();
-    const podium=el('div','podium'); $('hero').append(podium);
+    $('entries').replaceChildren();
+    for(let rank=1;rank<=3;rank++)$('podium-'+rank).hidden=true;
     for(const e of entries){
-      if(e.rank<=3){
-        const card=el('article',`podium-card place-${e.rank}`),art=el('div','art');
-        art.append(image(e.person?.profileImage,'portrait',true));
-        const frame=el('img','frame');frame.src=`assets/frame-${e.rank}.gif`;frame.alt=`Rank ${e.rank}`;art.append(frame);
-        card.append(art,entryName(e),levels(e.person,e),gap(e),badges(e.person));podium.append(card);
+      const podium=e.rank>=1 && e.rank<=3;
+      const card=podium ? $('podium-'+e.rank) : $('ranking-row-template').content.firstElementChild.cloneNode(true);
+      const field=name=>card.querySelector(`[data-field="${name}"]`);
+      card.hidden=false;
+      field('name').textContent=e.name ?? '';
+      field('levels').replaceChildren(levels(e.person,e));
+      field('badges').replaceChildren(badges(e.person));
+      field('gap').replaceChildren(gap(e));
+      if(podium){
+        field('portrait').replaceChildren(image(e.person?.profileImage,'portrait',true));
       }else{
-        const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e),levels(e.person,e),badges(e.person));
-        const totals=el('div','ml-auto flex shrink-0 flex-col items-end gap-1');
-        totals.append(gap(e));
-        row.append(el('span','rank',e.rank),rowAvatar(e.person),details,totals);$('entries').append(row);
+        field('rank').textContent=e.rank;
+        field('avatar').replaceChildren(rowAvatar(e.person));
+        $('entries').append(card);
       }
     }
     $('more').hidden=nextOffset===null;
   }
+
   async function load(append = false) {
     renderRules();
     if(!append)rewardsPanel.replaceChildren(el('p','',token?'Loading rewards…':'Open this event from Mega Live to view rewards.'));
