@@ -2362,10 +2362,13 @@ model SpecialIdDefinition {
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   assignments            SpecialIdAssignment[]
+  combinationId          String?
+  combination            PrettyIdCombination?  @relation(fields: [combinationId], references: [id], onDelete: SetNull)
 
   @@index([category, active])
   @@index([minimumVipLevel])
   @@index([minimumTopUpAmount])
+  @@index([combinationId])
 }
 
 model SpecialIdPurchase {
@@ -3153,6 +3156,19 @@ model RoomRocketLaunch {
   @@unique([campaignId, roomId, cycle, level])
   @@index([paidAt, createdAt])
   @@index([winnersFinalizedAt, grabClosesAt])
+}
+
+model PrettyIdCombination {
+  id           String   @id @default(cuid())
+  pattern      String   @unique
+  coinPrice    BigInt
+  durationDays Int
+  storeVisible Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ids          SpecialIdDefinition[]
+  @@index([active, storeVisible])
 }
 
 model PrettyIdGrant {

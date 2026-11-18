@@ -3,6 +3,7 @@
 import { unwrapAction } from "@/lib/action-validation";
 
 import PrettyIdSettings from "./pretty-id-settings";
+import PrettyCombinations from "./pretty-combinations";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -34,6 +35,7 @@ export default function SpecialIdAssignments({ initialAssignments, canManage = t
         </div>
       </div>
       {canManage && <PrettyIdSettings />}
+      {canManage && <PrettyCombinations />}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1050px] text-left text-xs">
           <thead>
