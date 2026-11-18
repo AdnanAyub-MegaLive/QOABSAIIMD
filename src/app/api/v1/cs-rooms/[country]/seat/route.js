@@ -8,7 +8,7 @@ export function OPTIONS(request) { return v1Options(request, methods); }
 export async function POST(request, { params }) {
   const { country: raw } = await params;
   return csRoomRequest(request, path, methods, async (user) => {
-    const country = csRoomCountry(raw);
+    const country = csRoomCountry(raw, user);
     const body = await request.json();
     await takeCsSeat(prisma, user, country, body?.seatIndex);
     return csRoomState(request, user, country, true);
@@ -17,7 +17,7 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
   const { country: raw } = await params;
   return csRoomRequest(request, path, methods, async (user) => {
-    const country = csRoomCountry(raw);
+    const country = csRoomCountry(raw, user);
     await leaveCsSeat(prisma, user);
     return csRoomState(request, user, country, true);
   });

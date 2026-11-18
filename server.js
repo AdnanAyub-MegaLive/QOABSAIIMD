@@ -411,6 +411,7 @@ app.prepare().then(async()=>{
     registerRoomTools({db:prisma,io,socket,user,isRateLimited});
     const connectionOrigin=socketOrigin(socket);
     registerRoomGiftPreviews({db:prisma,socket,user,origin:connectionOrigin});
+    (await import("./src/lib/cs-room-chat.js")).registerCsRoomChat({io,socket,user,origin:connectionOrigin,db:prisma});
     socket.data.audioRoomTaskTimers=new Map();
     const recordAudioRoomTaskTime=async(roomId)=>{
       const timer=socket.data.audioRoomTaskTimers.get(roomId);
