@@ -1,0 +1,36 @@
+.panel{background:radial-gradient(ellipse at 50% 35%,#176249,#082c24 65%,#041b18)!important;color:#fff2cd!important;display:flex!important;flex-direction:column;height:100dvh;min-height:0!important;box-sizing:border-box;padding:10px!important;gap:6px!important;overflow:hidden;border:1px solid #b49352!important;}
+.panel :global(.play-panel-header){flex:none;border-bottom:1px solid #b4935255;padding:0 2px 6px!important;}
+.panel :global(.play-panel-header) h1{color:#f5d58d;font-size:19px;letter-spacing:1px;}
+.panel :global(.play-panel-header) button{background:#102e27;color:#f5d58d;border:1px solid #b49352;border-radius:50%;}
+.panel :global(.play-panel-stage){flex:1;min-height:0!important;padding:0!important;}
+.panel :global(.shared-betting-contents){flex:none;min-height:0;}
+.panel :global(.play-panel-status){font-size:11px;min-height:16px;margin:0;text-align:center;color:#e9d7b1;}
+.panel :global(.play-panel-table){background:linear-gradient(#153b30,#09271f)!important;border:1px solid #aa874e!important;border-radius:14px;padding:7px!important;box-shadow:0 3px 10px #0005;}
+.panel :global(.play-panel-sharedHands):empty{display:none;}
+.panel :global(.play-panel-chips){display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:3px 0!important;}
+.panel :global(.play-panel-chips) button{border:2px dashed #d9bc79!important;border-radius:50%!important;background:#713334!important;color:#fff3d2!important;width:44px;min-width:44px;height:44px;min-height:44px;padding:3px!important;font-size:11px;box-shadow:inset 0 0 0 2px #251a17,0 2px 3px #0005;}
+.panel :global(.play-panel-chips) button[aria-pressed=true]{background:#e4bc63!important;color:#281d0b!important;box-shadow:0 0 0 2px #fff2ba,0 0 12px #f0cb6555;}
+.panel :global(.play-panel-chips) button img{width:15px;height:15px;object-fit:contain;}
+.panel :global(.play-panel-actions){font-size:10px;margin:3px 0 0!important;min-height:16px;}
+.panel :global(.play-panel-footer){flex:none;min-height:30px;padding:3px!important;font-size:11px;gap:5px;}
+.panel :global(.play-panel-footer) button{background:#143c30;color:#f6d898;border:1px solid #aa874e;border-radius:18px;padding:5px 9px;font-size:11px;}
+.table{height:100%;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px 5px;box-sizing:border-box;border:2px solid #bc9859;border-radius:46% 46% 18px 18px / 20% 20% 18px 18px;background:radial-gradient(ellipse at center,#23765655,#0c3d2c88);box-shadow:inset 0 0 0 3px #052c22,inset 0 0 0 4px #d0ae6040,0 5px 15px #0004;}
+.clock{display:flex;flex-direction:column;align-items:center;gap:3px;flex:none;color:#ead3a0;}
+.clock small{font-size:9px;letter-spacing:2px;}.clock b{font-size:11px;letter-spacing:1px;}.clock strong{display:grid;place-items:center;border:1px solid #c4a362;border-radius:50%;width:34px;height:34px;background:#08291e;color:#fff0bc;font-size:17px;font-variant-numeric:tabular-nums;}
+.hands{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:stretch;}
+.hand{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:0;padding:7px 3px;background:linear-gradient(#103d2a55,#052c2288);border:1px solid #c7a45e66;border-radius:38px 38px 12px 12px;color:#f4e4be;cursor:pointer;}
+.hand:disabled{opacity:1;cursor:default;}.hand:focus-visible{outline:2px solid #fff2bb;outline-offset:2px;}.hand b{font-size:11px;letter-spacing:1px;}.crest{color:#e4bf72;font-size:25px;line-height:1;}.hand:nth-child(2) .crest{color:#f4a08f;}
+.cards{display:flex;justify-content:center;align-items:center;width:94%;height:clamp(40px,12dvh,76px);perspective:600px;}
+.cards span{display:grid;place-items:center;flex:1;min-width:0;height:90%;background:#fff7e8;color:#20281f;border:1px solid #f5dcb0;border-radius:4px;font-size:clamp(10px,3vw,18px);font-weight:800;box-shadow:0 3px 5px #0005;}
+.cards span:first-child{transform:rotate(-9deg) translateY(3px);}.cards span:last-child{transform:rotate(9deg) translateY(3px);}.cards span:nth-child(2){z-index:1;}
+.cards span[data-red=true]{color:#bc3436;}.cards span[data-back=true]{background:repeating-linear-gradient(45deg,#732f35 0 3px,#4f2028 3px 6px);color:#e7c980;font-size:20px;box-shadow:inset 0 0 0 2px #bd985e,0 3px 5px #0005;}
+.ribbon{font-size:9px;font-weight:700;text-align:center;color:#f2db9e;min-height:22px;display:grid;place-items:center;width:100%;border-block:1px solid #b99a5544;padding:3px 0;box-sizing:border-box;}
+.hand small{font-size:10px;text-align:center;max-width:100%;overflow-wrap:anywhere;}.chips{display:flex;justify-content:center;height:14px;flex:none;}.chips i{font-style:normal;color:#bc5254;border:1px dashed #f5d88f;border-radius:50%;font-size:12px;line-height:12px;width:12px;margin-left:-3px;}
+.hand[data-won=true]{border-color:#ffe18e;background:linear-gradient(#9d7a2344,#123a25);box-shadow:inset 0 0 15px #f0c94c33,0 0 9px #f0c94c55;}.hand[data-won=true] .ribbon{background:#e4bf72;color:#2e220c;border-radius:4px;}
+@media(max-height:560px){.panel{padding:6px!important;gap:3px!important;}.table{gap:4px;padding:5px 4px;}.clock{flex-direction:row;justify-content:center;gap:8px;}.clock small{letter-spacing:0;font-size:8px;}.clock b{font-size:9px;letter-spacing:0;}.clock strong{width:28px;height:28px;font-size:14px;}.hand{gap:4px;padding:4px 2px;}.crest{font-size:19px;}.cards{height:48px;}.panel :global(.play-panel-chips) button{width:38px;min-width:38px;height:38px;min-height:38px;}}
+.panel :global(.play-panel-amountPicker) :global(.play-panel-chips){padding:3px 0!important;}
+.panel :global(.play-panel-amountPicker) :global(.play-panel-chips) button{flex:0 1 44px!important;flex-direction:column;gap:1px!important;width:44px!important;height:44px!important;min-height:44px!important;padding:2px!important;font-size:10px!important;}
+.panel :global(.play-panel-amountPicker) img{width:14px!important;height:14px!important;}
+@media(prefers-reduced-motion:no-preference){.cards span{animation:reveal .45s both;}.hand[data-won=true] .crest{animation:glow 1s ease-in-out infinite alternate;}}
+@keyframes reveal{from{opacity:0;translate:0 -8px;}to{opacity:1;translate:0 0;}}
+@keyframes glow{to{filter:drop-shadow(0 0 5px #ffe18e);}}
