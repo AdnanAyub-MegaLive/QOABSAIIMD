@@ -1,5 +1,6 @@
 import { occupiedSpecialId, retainActiveSpecialIds, publishSpecialIdentity } from "./special-id-ownership.js";
 export { occupiedSpecialId } from "./special-id-ownership.js";
+import { fitsPattern } from "./pretty-id.js";
 import { ledgerData } from "./wallet.js";
 import { setTimeout as retryDelay } from "node:timers/promises";
 export function retryableConflict(error) {
@@ -17,8 +18,8 @@ export function retryableConflict(error) {
 }
 const fail = (code, message, status = 409) => { throw Object.assign(new Error(message), { code, status }); };
 
-export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
-  if (typeof definitionId !== "string" || !definitionId || !/^[A-Za-z0-9._:-]{8,128}$/.test(requestKey || ""))
+export async function purchaseSpecialId(db, userId, definitionId, requestKey, custom = null) {
+  if ((!custom && (typeof definitionId !== "string" || !definitionId)) || !/^[A-Za-z0-9._:-]{8,128}$/.test(requestKey || ""))
     fail("VALIDATION_ERROR", "Provide a Special ID and an Idempotency-Key of 8–128 characters.", 422);
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
@@ -33,10 +34,24 @@ export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
         if (!user || user.deletedAt || user.status !== "ACTIVE") fail("SESSION_REVOKED", "Account unavailable.", 401);
         const replay = await tx.specialIdPurchase.findUnique({ where: { userId_requestKey: { userId, requestKey } } });
         if (replay) {
-          if (replay.definitionId !== definitionId) fail("IDEMPOTENCY_CONFLICT", "This request key belongs to another purchase.");
+          if (custom ? replay.result.combinationId !== custom.combinationId || replay.result.specialId !== String(custom.code ?? "").trim().toUpperCase() : replay.definitionId !== definitionId) fail("IDEMPOTENCY_CONFLICT", "This request key belongs to another purchase.");
           return replay.result;
         }
-        const definition = await tx.specialIdDefinition.findUnique({ where: { id: definitionId } });
+        let definition;
+        if (custom) {
+          const combination = typeof custom.combinationId === "string" ? await tx.prettyIdCombination.findUnique({ where: { id: custom.combinationId } }) : null;
+          if (!combination?.active || !combination.storeVisible || combination.coinPrice <= 0n)
+            fail("SPECIAL_ID_NOT_FOR_SALE", "This pattern is not available for purchase.");
+          const code = String(custom.code ?? "").trim().toUpperCase();
+          if (!fitsPattern(combination.pattern, code)) fail("VALIDATION_ERROR", `Enter an ID matching ${combination.pattern}. Different letters must use different characters.`, 422);
+          if (await tx.publicNumberReservation.findFirst({ where: { number: code, kind: "NORMAL" } }))
+            fail("SPECIAL_ID_UNAVAILABLE", "This ID is already in use.");
+          const existing = await tx.specialIdDefinition.findFirst({ where: { code: { equals: code, mode: "insensitive" } } });
+          if (existing && (existing.combinationId !== combination.id || !existing.active || !existing.storeVisible))
+            fail("SPECIAL_ID_UNAVAILABLE", "This ID is reserved or unavailable.");
+          definition = existing ?? await tx.specialIdDefinition.create({ data: { code, combinationId: combination.id, coinPrice: combination.coinPrice, defaultDurationMinutes: combination.durationDays * 1440, storeVisible: true, active: true, category: "STANDARD" } });
+          definitionId = definition.id;
+        } else definition = await tx.specialIdDefinition.findUnique({ where: { id: definitionId } });
         if (!definition?.active || !definition.storeVisible || !definition.coinPrice || definition.coinPrice <= 0n)
           fail("SPECIAL_ID_NOT_FOR_SALE", "This Special ID is not available for purchase.");
         const now = new Date();
@@ -49,7 +64,7 @@ export async function purchaseSpecialId(db, userId, definitionId, requestKey) {
         await retainActiveSpecialIds(tx, userId, now);
         const assignment = await tx.specialIdAssignment.create({ data: { userId, definitionId, specialId: definition.code, source: "PURCHASE", startsAt: now, expiresAt } });
         await tx.walletTransaction.create({ data: ledgerData({ userId, type: "SPECIAL_ID_PURCHASE", direction: "DEBIT", title: "Special ID purchase", coins: definition.coinPrice, referenceId: assignment.id, metadata: { definitionId, code: definition.code, requestKey } }) });
-        const result = { assignmentId: assignment.id, specialId: definition.code, normalId: user.publicId, expiresAt: expiresAt.toISOString(), coinBalance: (user.coinBalance - definition.coinPrice).toString(), price: definition.coinPrice.toString() };
+        const result = { assignmentId: assignment.id, specialId: definition.code, normalId: user.publicId, expiresAt: expiresAt.toISOString(), coinBalance: (user.coinBalance - definition.coinPrice).toString(), price: definition.coinPrice.toString(), ...(custom ? { combinationId: custom.combinationId } : {}) };
         await tx.specialIdPurchase.create({ data: { userId, requestKey, definitionId, result } });
         await tx.auditLog.create({ data: { action: "SPECIAL_ID_PURCHASE", category: "USER_MANAGEMENT", entityType: "User", entityId: userId, description: "Special ID purchased", metadata: result } });
         identity = { publicId: user.publicId, row: { id: assignment.id, specialId: definition.code, expiresAt } };

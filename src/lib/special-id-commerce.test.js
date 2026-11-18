@@ -61,3 +61,45 @@ it("does not grant an ID with insufficient Coins", async () => {
   await expect(purchaseSpecialId(db, "u", "d", "request-123")).rejects.toMatchObject({ code: "INSUFFICIENT_COINS" });
   expect(db.specialIdAssignment.create).not.toHaveBeenCalled();
 });
+function customDatabase() {
+  const db = database();
+  db.prettyIdCombination = { findUnique: vi.fn(async () => ({ id: "combo", pattern: "AABB", active: true, storeVisible: true, coinPrice: 20n, durationDays: 30 })) };
+  db.publicNumberReservation = { findFirst: vi.fn(async () => null) };
+  db.specialIdDefinition.findFirst = vi.fn(async () => null);
+  db.specialIdDefinition.create = vi.fn(async ({ data }) => ({ id: "custom", ...data }));
+  return db;
+}
+it("purchases a custom matching ID with the admin price and validity", async () => {
+  const db = customDatabase();
+  const result = await purchaseSpecialId(db, "u", null, "custom-123", { combinationId: "combo", code: "1122" });
+  expect(result).toMatchObject({ specialId: "1122", price: "20", coinBalance: "80", combinationId: "combo" });
+  expect(db.specialIdDefinition.create.mock.calls[0][0].data.defaultDurationMinutes).toBe(43200);
+  expect(db.specialIdAssignment.create.mock.calls[0][0].data.definitionId).toBe("custom");
+});
+it.each(["1111", "1234", "112", "11!!"])("rejects custom ID %s that does not fit its pattern", async code => {
+  const db = customDatabase();
+  await expect(purchaseSpecialId(db,"u",null,"custom-123",{combinationId:"combo",code})).rejects.toMatchObject({code:"VALIDATION_ERROR"});
+  expect(db.user.updateMany).not.toHaveBeenCalled();
+});
+it("blocks normal IDs, reserved definitions, and occupied custom IDs without debit", async () => {
+  for (const kind of ["normal", "reserved", "occupied"]) {
+    const db = customDatabase();
+    if (kind === "normal") db.publicNumberReservation.findFirst.mockResolvedValue({number:"1122"});
+    if (kind === "reserved") db.specialIdDefinition.findFirst.mockResolvedValue({id:"reserved",active:true,storeVisible:false});
+    if (kind === "occupied") db.specialIdAssignment.findFirst.mockResolvedValue({id:"owned"});
+    await expect(purchaseSpecialId(db,"u",null,"custom-123",{combinationId:"combo",code:"1122"})).rejects.toHaveProperty("status",409);
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+  }
+});
+it("replays custom purchases without a second charge and rejects a changed code", async () => {
+  const db = customDatabase(), result = {specialId:"1122",combinationId:"combo",coinBalance:"80"};
+  db.specialIdPurchase.findUnique.mockResolvedValue({definitionId:"custom",result});
+  expect(await purchaseSpecialId(db,"u",null,"custom-123",{combinationId:"combo",code:"1122"})).toEqual(result);
+  await expect(purchaseSpecialId(db,"u",null,"custom-123",{combinationId:"combo",code:"1133"})).rejects.toMatchObject({code:"IDEMPOTENCY_CONFLICT"});
+  expect(db.user.updateMany).not.toHaveBeenCalled();
+});
+it("does not sell hidden patterns", async () => {
+  const db=customDatabase(); db.prettyIdCombination.findUnique.mockResolvedValue({active:true,storeVisible:false});
+  await expect(purchaseSpecialId(db,"u",null,"custom-123",{combinationId:"combo",code:"1122"})).rejects.toMatchObject({code:"SPECIAL_ID_NOT_FOR_SALE"});
+  expect(db.user.updateMany).not.toHaveBeenCalled();
+});
