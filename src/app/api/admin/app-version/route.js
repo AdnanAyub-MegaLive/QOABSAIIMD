@@ -17,7 +17,10 @@ export async function GET() {
 export async function PUT(request) {
   try {
     const admin = await requirePermission("uploads.edit"); sameOrigin(request);
-    const input = await jsonBody(request);
+    const raw = await jsonBody(request);
+    const stored = await prisma.appVersionSettings.findUnique({ where: { id: "GLOBAL" } });
+    const input = { ...raw };
+    for (const key of ["minorUpdateEnabled", "androidRecommendedVersionCode", "minorUpdateMessage"]) if (input[key] === undefined && stored?.[key] !== undefined) input[key] = stored[key];
     const { errors, values } = validateAppVersionInput(input);
     if (Object.keys(errors).length) throw Object.assign(new Error(Object.values(errors)[0]), { status: 422, code: "VALIDATION_ERROR", fields: errors });
     const data = await prisma.$transaction(async tx => {

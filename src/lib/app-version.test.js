@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ settings: null }));
 vi.mock("./prisma.js", () => ({ prisma: { appVersionSettings: { findUnique: async () => m.settings }, apiRequestLog: { create: async () => ({}) } } }));
 vi.mock("./prisma", () => ({ prisma: { appVersionSettings: { findUnique: async () => m.settings }, apiRequestLog: { create: async () => ({}) } } }));
@@ -23,7 +23,7 @@ it("decides update requirement", () => {
   expect(versionDecision(enabled, "junk").updateRequired).toBe(true);
   expect(versionDecision({ ...enabled, forceUpdateEnabled: false }, "1").updateRequired).toBe(false);
   expect(versionDecision({ ...enabled, forceUpdateEnabled: false }, null)).toMatchObject({ forceUpdate: false, updateRequired: false });
-  expect(versionDecision(enabled, "21")).toEqual({ platform: "android", minVersionCode: 22, latestVersionName: "2.0.2", storeUrl: enabled.androidStoreUrl, forceUpdate: true, updateRequired: true, message: enabled.updateMessage });
+  expect(versionDecision(enabled, "21")).toEqual({ platform: "android", minVersionCode: 22, latestVersionName: "2.0.2", storeUrl: enabled.androidStoreUrl, forceUpdate: true, updateRequired: true, message: enabled.updateMessage, recommendedVersionCode: 22, minorUpdate: false, minorMessage: "A new version of MegaLive is available with improvements. Update now for the best experience.", updateType: "MAJOR" });
 });
 
 it("makes the gate message point to the Play Store", () => {
@@ -92,4 +92,38 @@ it("serves the public version endpoint", async () => {
   const unknown = await (await GET(new Request("https://portal.test/api/v1/app/version", { headers: { "x-real-ip": "198.51.100.9" } }))).json();
   expect(unknown.data.updateRequired).toBe(true);
   expect((await GET(new Request("https://portal.test/api/v1/app/version?platform=ios", { headers: { "x-real-ip": "198.51.100.10" } }))).status).toBe(422);
+});
+
+describe("minor and major update types", () => {
+  const base = { forceUpdateEnabled: true, androidMinVersionCode: 20, androidLatestVersionName: "2.0.4", androidStoreUrl: "https://play.google.com/x", updateMessage: "major", minorUpdateEnabled: true, androidRecommendedVersionCode: 24, minorUpdateMessage: "minor", revision: 0 };
+  it("returns MAJOR below the minimum and blocks", () => {
+    const d = versionDecision(base, "19");
+    expect(d.updateType).toBe("MAJOR"); expect(d.updateRequired).toBe(true);
+  });
+  it("returns MINOR between minimum and recommended without blocking", () => {
+    const d = versionDecision(base, "22");
+    expect(d.updateType).toBe("MINOR"); expect(d.updateRequired).toBe(false); expect(d.minorMessage).toBe("minor");
+  });
+  it("returns NONE at or above recommended, or when minor is off", () => {
+    expect(versionDecision(base, "24").updateType).toBe("NONE");
+    expect(versionDecision({ ...base, minorUpdateEnabled: false }, "22").updateType).toBe("NONE");
+  });
+  it("keeps the old fields for older apps", () => {
+    const d = versionDecision({ ...base, minorUpdateEnabled: false }, "19");
+    expect(d).toMatchObject({ forceUpdate: true, updateRequired: true, message: "major", minVersionCode: 20 });
+  });
+  it("rejects a recommended version below the minimum", () => {
+    const { errors } = validateAppVersionInput({ ...base, androidRecommendedVersionCode: 10 });
+    expect(errors.androidRecommendedVersionCode).toBeTruthy();
+    expect(validateAppVersionInput(base).errors).toEqual({});
+  });
+});
+
+it("keeps major settings when the new columns are not migrated yet", async () => {
+  const { loadAppVersionSettings, clearAppVersionCache } = await import("./app-version.js");
+  clearAppVersionCache();
+  const db = { appVersionSettings: { findUnique: vi.fn(async (q) => { if (!q.select) throw new Error("column does not exist"); return { forceUpdateEnabled: true, androidMinVersionCode: 30, androidLatestVersionName: "2.1", androidStoreUrl: "https://play.google.com/x", updateMessage: "m", revision: 3 }; }) } };
+  const settings = await loadAppVersionSettings(db, { fresh: true });
+  expect(settings).toMatchObject({ forceUpdateEnabled: true, androidMinVersionCode: 30, minorUpdateEnabled: false });
+  expect(versionDecision(settings, "29")).toMatchObject({ updateRequired: true, updateType: "MAJOR" });
 });
