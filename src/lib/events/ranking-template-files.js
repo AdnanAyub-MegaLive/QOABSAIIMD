@@ -13,9 +13,11 @@ export async function rankingTemplateForm(root) {
     }
     return files.sort();
   }
-  const entries = await readdir(root);
-  const filenames = ['index.html', 'style.css', 'app.js',
-    ...(entries.includes('design.js') ? ['design.js'] : []), ...await assetFiles('assets')];
+  const entries = await readdir(root, { withFileTypes: true });
+  const filenames = [
+    ...entries.filter(entry => entry.isFile() && /\.(html|css|js|json)$/.test(entry.name) && entry.name !== 'tailwind.css').map(entry => entry.name),
+    ...await assetFiles('assets'),
+  ];
   const form = new FormData();
   for (const filename of filenames) {
     form.append('files', new File([await readFile(path.join(root, filename))], path.basename(filename)));

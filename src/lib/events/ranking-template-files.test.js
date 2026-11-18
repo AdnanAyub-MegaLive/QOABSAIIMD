@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { rankingTemplateForm } from './ranking-template-files.js';
 import { filesFromFormData } from './storage.js';
@@ -10,6 +11,9 @@ describe('ranking template bundles', () => {
     const form = await rankingTemplateForm(path.resolve('event-templates', slug));
     const paths = form.getAll('paths');
     expect(paths).toContain('index.html');
+    for (const name of await readdir(path.resolve('event-templates', slug))) {
+      if (/\.css$/.test(name) && name !== 'tailwind.css') expect(paths).toContain(name);
+    }
     expect(paths.some(name => name.startsWith('assets/rewards/'))).toBe(true);
     expect(paths).not.toContain('assets/rewards');
     const result = await filesFromFormData(form);

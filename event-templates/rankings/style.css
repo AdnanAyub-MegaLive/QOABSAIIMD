@@ -1,6 +1,6 @@
 * { box-sizing:border-box; }
 html,body { margin:0; height:100%; background:#080b15; color:white; font-family:Arial,sans-serif; }
-body { display:grid; grid-template-rows:auto minmax(0,1fr); height:100dvh; }
+body { display:grid; grid-template-rows:auto minmax(0,1fr); position:fixed; inset:0; height:auto; overflow:hidden; }
 #ranking-tabs { display:flex; justify-content:space-around; gap:8px; padding:12px 8px; }
 #ranking-tabs button { border:0; background:none; color:inherit; font:600 15px Arial,sans-serif; padding:8px; cursor:pointer; }
 #ranking-tabs button[aria-selected="true"] { color:#ffda49; border-bottom:2px solid #ffda49; }
