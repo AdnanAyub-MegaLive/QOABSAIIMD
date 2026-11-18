@@ -3,8 +3,9 @@ import {useEffect,useRef,useState} from 'react';
 import GreedyFood from './greedy-food';
 import PizzaFood from './pizza-food';
 import styles from './greedy.module.css';
+import pizzaStyles from './pizza.module.css';
 const coins=n=>BigInt(n??0).toLocaleString();
-export default function GreedyControls({state,amount,phase,locked,onAuto,request}){
+export default function GreedyControls({state,amount,phase,locked,onAuto,request,headerBalance,onRules}){
  const engine=state?.game?.engine||'greedy',Food=engine==='pizza'?PizzaFood:GreedyFood;
  const [auto,setAuto]=useState(false),[notice,setNotice]=useState(''),[view,setView]=useState(null),[data,setData]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false);
  const attempted=useRef(null),dialog=useRef(null),call=useRef(onAuto),version=useRef(0);
@@ -29,7 +30,12 @@ export default function GreedyControls({state,amount,phase,locked,onAuto,request
   catch(e){if(version.current===current)setError(e.message);}finally{if(version.current===current)setLoading(false);}
  }
  return <>
-  <div className={`${styles.activityButtons} food-game-activity`}><button onClick={()=>{setData(null);void load('ranking');}}><img src="/games/common/coins.webp" alt=""/><span>Ranking<small>Past 24 hours</small></span></button><button onClick={()=>{setData(null);void load('history');}}><img src="/games/greedy/history-v2.webp" alt=""/><span>My History<small>Past 24 hours</small></span></button></div>
+  {headerBalance!==undefined?<header className={pizzaStyles.gameHeader} aria-label="Pizza game controls">
+   <button className={pizzaStyles.headerActivity} onClick={()=>{setData(null);void load('ranking');}}><img src="/games/common/coins.webp" alt=""/><span>Ranking</span></button>
+   <span className={pizzaStyles.balance} aria-label={`${coins(headerBalance)} coins`}><img src="/games/pizza/coin.webp" alt=""/>{coins(headerBalance)}</span>
+   <button className={pizzaStyles.headerActivity} onClick={()=>{setData(null);void load('history');}}><img src="/games/greedy/history-v2.webp" alt=""/><span>My History</span></button>
+   <button className={pizzaStyles.headerRules} onClick={onRules} aria-label="Game rules">?</button>
+  </header>:<div className={`${styles.activityButtons} food-game-activity`}><button onClick={()=>{setData(null);void load('ranking');}}><img src="/games/common/coins.webp" alt=""/><span>Ranking<small>Past 24 hours</small></span></button><button onClick={()=>{setData(null);void load('history');}}><img src="/games/greedy/history-v2.webp" alt=""/><span>My History<small>Past 24 hours</small></span></button></div>}
   <div className={`${styles.autoBar} food-game-auto`}><span>{auto?'Six random spots each round':'Random bets on six spots'}<small>{Number.isSafeInteger(amount)&&amount>0?`${coins(amount)} each · ${coins(BigInt(amount)*6n)} per round`:'Choose a coin amount'}</small></span><button className={styles.autoButton} aria-pressed={auto} onClick={()=>{setAuto(!auto);setNotice('');}}>{auto?'Stop Auto Play':'Auto Play'}</button></div>
   {notice&&<p className={styles.autoNotice} role="status">{notice}</p>}
   <dialog ref={dialog} className={styles.activityDialog} onClose={()=>{version.current++;setView(null);setData(null);}} aria-label={view==='ranking'?`${engine} ranking`:`My ${engine} history`}><header><h2>{view==='ranking'?'Ranking':'My History'}</h2><button aria-label="Close activity" onClick={()=>dialog.current?.close()}>×</button></header><p>Past 24 hours{view==='ranking'?' · Coins returned, including winning stakes':''}</p>

@@ -164,3 +164,16 @@
  .panel .bonusIndicators{position:relative;bottom:auto;left:auto;width:100%;height:38px;margin:0 0 4px;}
  .panel .bonusIndicators img{height:38px;}.steps{font-size:11px;gap:10px;}
 }
+
+/* Pizza header: Ranking | Coins | My History | Rules. */
+.panel>header.gameHeader{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) 32px;gap:6px;height:44px;min-height:44px!important;order:0;}
+.gameHeader .balance{position:static;transform:none;gap:4px;padding:3px 8px 3px 4px;font-size:13px;min-width:0;}
+.gameHeader .balance img{width:23px;height:23px;}
+.panel>header.gameHeader>.headerActivity{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:100%;height:44px;min-width:0;padding:2px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap;background:linear-gradient(100deg,#ffc77d,#e791a4,#8874b9)!important;}
+.headerActivity img{width:20px;height:20px;object-fit:contain;}
+.panel>header.gameHeader>.headerRules{width:32px;height:32px;padding:0;}
+
+.panel :global(.play-panel-stage){order:1;}
+.panel :global(.shared-betting-contents){order:2;}
+.panel :global(.food-game-auto){order:3;}
+.panel :global(.play-panel-footer){order:5;}
