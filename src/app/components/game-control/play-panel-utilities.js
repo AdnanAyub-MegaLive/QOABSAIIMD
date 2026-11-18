@@ -38,10 +38,6 @@ export const playPanelUtilities = [
   "[&_.play-panel-teenPanel_.play-panel-header_small]:[letter-spacing:1px] [&_.play-panel-teenPanel_.play-panel-header_small]:[color:#c4f2ff]",
   // base · & .play-panel-panel .play-panel-table
   "[&_.play-panel-panel_.play-panel-table]:relative",
-  // base · & .play-panel-sharedEntryChip
-  "[&_.play-panel-sharedEntryChip]:pointer-events-none [&_.play-panel-sharedEntryChip]:[z-index:2] [&_.play-panel-sharedEntryChip]:[background:#7554b3] [&_.play-panel-sharedEntryChip]:[border:2px_dashed_#ffe1a2] [&_.play-panel-sharedEntryChip]:rounded-full [&_.play-panel-sharedEntryChip]:[padding:8px] [&_.play-panel-sharedEntryChip]:[font-size:10px] [&_.play-panel-sharedEntryChip]:[animation:.65s_ease-out_both_play-panel-sharedChip] [&_.play-panel-sharedEntryChip]:absolute [&_.play-panel-sharedEntryChip]:[top:-20px] [&_.play-panel-sharedEntryChip]:[right:12px]",
-  // (prefers-reduced-motion:reduce) · & .play-panel-sharedEntryChip
-  "[@media_(prefers-reduced-motion:reduce)]:[&_.play-panel-sharedEntryChip]:[animation:none]",
   // base · & .play-panel-sharedTitle
   "[&_.play-panel-sharedTitle]:text-center [&_.play-panel-sharedTitle]:[gap:12px] [&_.play-panel-sharedTitle]:grid",
   // base · & .play-panel-sharedTitle span
@@ -306,7 +302,6 @@ export default {
   "actions": "play-panel-actions",
   "footer": "play-panel-footer",
   "teenPanel": "play-panel-teenPanel",
-  "sharedEntryChip": "play-panel-sharedEntryChip",
   "sharedTitle": "play-panel-sharedTitle",
   "sharedHands": "play-panel-sharedHands",
   "threeCards": "play-panel-threeCards",
