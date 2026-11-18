@@ -7,7 +7,7 @@ export async function greedyActivity(identity,input,db=prisma,now=new Date()){
  const user=await requireGameRoom(db,identity);
  await assertGameAccess(db,user,input.gameId,'view');
  const game=await db.gameDefinition.findUnique({where:{id:input.gameId}});
- if(!['greedy','pizza'].includes(game?.settings?.engine)||!input.action.startsWith(`${game.settings.engine}-`))throw new GameError('Invalid game activity.');
+ if(!['greedy','pizza','teenpatti'].includes(game?.settings?.engine)||!input.action.startsWith(`${game.settings.engine}-`))throw new GameError('Invalid game activity.');
  const since=new Date(+now-86400000);
  if(input.action.endsWith('-ranking')){
   const rows=await db.$queryRaw(Prisma.sql`SELECT u."publicId", u.name,

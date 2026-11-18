@@ -61,7 +61,7 @@ export function previewRound(owner,gameRow,input,now=Date.now()){
   e.answer={value,at:now};return view(e);
  }
  if(input.action==="refill")state.points=state.points<10000n?10000n:state.points;
- if(['greedy-history','greedy-ranking','pizza-history','pizza-ranking'].includes(input.action)){
+ if(['greedy-history','greedy-ranking','pizza-history','pizza-ranking','teenpatti-history','teenpatti-ranking'].includes(input.action)){
   const entries=state.entries.filter(e=>e.createdAt>=now-86400000),page=Math.max(0,Number.isInteger(input.page)?input.page:0);
   const payout=entries.filter(e=>e.status==='SETTLED').reduce((n,e)=>n+BigInt(e.result.payout),0n);
   return {page,hasMore:input.action.endsWith('-history')&&entries.length>(page+1)*50,rows:input.action.endsWith('-ranking')?(payout>0n?[{publicId:'preview',name:'You (practice)',payout:String(payout)}]:[]):entries.toReversed().slice(page*50,(page+1)*50).map(e=>({...view(e),roundNumber:e.slot+1,createdAt:new Date(e.createdAt).toISOString()}))};

@@ -20,7 +20,7 @@ export async function POST(request) {
       const games = await prisma.gameDefinition.findMany({ orderBy: { createdAt: "asc" } });
       return gameJson({ user: { userId: user.publicId, nickname: user.name, availableCoins: user.coinBalance.toString() }, currency: "COINS", roomId: identity.roomId, games: playerCatalog(games.map(serializeGame), process.env.MOBILE_API_BASE_URL || new URL(request.url).origin, user,await gameUserLevel(prisma,user.id)).filter(game=>game.engine!=="external" || game.previewOnly), live: true });
     }
-    if (["greedy-history","greedy-ranking","pizza-history","pizza-ranking"].includes(body.action)) return gameJson(await greedyActivity(identity,body));
+    if (["greedy-history","greedy-ranking","pizza-history","pizza-ranking","teenpatti-history","teenpatti-ranking"].includes(body.action)) return gameJson(await greedyActivity(identity,body));
     if (body.action === "shared-state") return gameJson(await sharedSnapshot(identity,body));
     if (body.action === "shared-enter") return gameJson({entry:await enterSharedRound(identity,body)});
     if (body.action === "shared-cashout") return gameJson({entry:await cashOutRocket(identity,body)});

@@ -19,10 +19,11 @@ const receipt=e=>e?{id:e.id,status:e.status,amount:e.amount.toString(),input:e.i
 export function entryTotals(entries){const totals={};for(const e of entries){const parts=e.input.bets||{[e.input.choice||"round"]:e.amount};for(const [k,v] of Object.entries(parts))totals[k]=(BigInt(totals[k]||0)+BigInt(v)).toString();}return totals;}
 // Called under the game/user transaction locks, before any wallet debit.
 export function assertFoodBetLimit(game, entries, input){
- if(!["greedy","pizza"].includes(game.engine))return;
+ if(!["greedy","pizza","teenpatti"].includes(game.engine))return;
+ const limit=game.engine==="teenpatti"?2:6;
  const selected=new Set(Object.keys(entryTotals(entries)));
  for(const key of Object.keys(input.bets||{[input.choice]:input.amount}))selected.add(key);
- if(selected.size>6)throw new GameError("You can bet on at most 6 foods per round. Add coins to an existing selection or wait for the next round.",409);
+ if(selected.size>limit)throw new GameError(`You can bet on at most ${limit} ${game.engine==="teenpatti"?"hands":"foods"} per round. Add coins to an existing selection or wait for the next round.`,409);
 }
 export async function requireGameRoom(db,identity){
  const user=await assertPlayer(db,identity);
@@ -57,6 +58,11 @@ async function getDay(db,gameId,now,viewExisting=false,readOnly=false){
 export function accepted(game,input,autoRandom){
  if(input.auto===true){
   if(input.custom!==undefined&&typeof input.custom!=="boolean")throw new GameError("Invalid custom selection.");
+  if(game.engine==="teenpatti"){
+   if(!autoRandom||!Number.isSafeInteger(input.amount)||input.amount<1||!Number.isSafeInteger(input.amount*2))throw new GameError("Choose a positive whole coin amount.");
+   const hands=["1","2","3"];hands.splice(autoRandom(3),1);
+   return {amount:input.amount*2,choice:"auto",bets:Object.fromEntries(hands.map(id=>[id,input.amount])),custom:false,auto:true,perSpot:input.amount};
+  }
   if(!["greedy","pizza"].includes(game.engine)||!autoRandom)throw new GameError("Auto Play is unavailable.");
   const bets=(game.engine==="pizza"?pizzaAutoBets:greedyAutoBets)(input.amount,autoRandom);
   return {amount:input.amount*6,choice:"auto",bets,custom:input.custom===true,auto:true,perSpot:input.amount};
@@ -94,7 +100,7 @@ export async function enterSharedRound(identity,input,db=prisma){
    if(day.settings.engine==="rocket"&&await tx.sharedGameEntry.findFirst({where:{dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId}}))throw new GameError("You are already aboard this flight.",409);
    if(Date.now()>=clock.closesAt)throw new GameError("Entry closed. Wait for the next round.",409);
    if(["greedy","pizza"].includes(day.settings.engine))await (day.settings.engine==="pizza"?ensurePizzaRound:ensureGreedyRound)(tx,day,clock.slot);
-   if(["greedy","pizza"].includes(day.settings.engine)){
+   if(["greedy","pizza","teenpatti"].includes(day.settings.engine)){
      const entries=await tx.sharedGameEntry.findMany({where:{dayId:day.id,slot:clock.slot,userId:identity.userId},select:{input:true,amount:true}});
      assertFoodBetLimit(day.settings,entries,parsed);
    }
@@ -156,6 +162,11 @@ export function resolveSharedEntry(entry,frozenOutcome){
    const resolved=resolveInstant(g,amount,input.choice,outcome.draw);
    payout=BigInt(resolved.payout);win=resolved.outcome==="win";tie=resolved.outcome==="push";detail=resolved.result;
  }else if(["greedy","pizza"].includes(g.engine)){payout=(g.engine==="pizza"?pizzaPayout:greedyPayout)(g,input.bets||{[input.choice]:amount},outcome.winners||[outcome.result]);win=payout>BigInt(amount);tie=payout===BigInt(amount);}
+ else if(g.engine==="teenpatti"&&input.bets){
+   const multiplier=BigInt(Math.round((g.pointReturnMultiplier??3)*100));
+   payout=Object.entries(input.bets).reduce((sum,[id,n])=>sum+(outcome.winners.includes(id)?BigInt(n)*multiplier/100n:0n),0n);
+   win=payout>BigInt(amount);tie=payout===BigInt(amount);
+ }
  else if(g.engine==="roulette"){payout=Object.entries(input.bets).reduce((sum,[label,n])=>sum+(isBetWinner(label,outcome.result)?BigInt(n)*BigInt(betByLabel[label].multiplier):0n),0n);win=payout>BigInt(amount);tie=payout===BigInt(amount);}
  else{
    if(g.engine==="teenpatti")win=outcome.winners.includes(input.choice);
