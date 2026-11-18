@@ -189,3 +189,26 @@
  .panel :global(.shared-betting-contents) button[aria-label$=' coins'] img{width:20px;height:20px;}
  .steps{flex-wrap:wrap;gap:2px 8px;font-size:10px;}
 }
+
+/* Fit the complete mobile game into the room's allotted WebView height. */
+@media(max-width:600px){
+ .panel{box-sizing:border-box;height:100dvh!important;padding:4px 12px max(4px,env(safe-area-inset-bottom))!important;gap:3px!important;overflow:hidden!important;}
+ .panel :global(.play-panel-stage){flex:1 1 0!important;min-height:0!important;height:auto!important;padding:0!important;container-type:size;display:flex!important;align-items:center;justify-content:center;}
+ .wheel{width:min(94cqw,94cqh,300px)!important;height:min(94cqw,94cqh,300px)!important;}
+ .panel :global(.shared-betting-contents){padding:0!important;gap:2px;}
+ .panel :global(.shared-betting-contents)>div:last-child{padding:3px 8px!important;}
+ .panel .bonusIndicators{height:24px;margin:0;}
+ .panel .bonusIndicators img{height:24px;}
+ .panel .bonusIndicators span{width:30px;}
+ .steps{margin:0 0 2px;line-height:1.2;}
+ .panel :global(.play-panel-chips){padding:0!important;}
+ .panel :global(.play-panel-chips) button{min-height:40px!important;height:40px!important;}
+ .panel :global(.play-panel-actions){min-height:20px!important;margin:0!important;font-size:10px!important;line-height:1.2;}
+ .panel :global(.play-panel-status){min-height:12px!important;margin:0!important;line-height:1.2;}
+ .panel :global([aria-label="Recent results"]){min-height:26px;padding:2px 5px;margin:0!important;}
+ .panel :global([aria-label="Recent results"])>span{max-width:24px;}
+ .panel :global(.food-game-auto){min-height:36px;padding:0 4px;align-items:center;}
+ .panel :global(.food-game-auto) button{min-height:36px;padding:4px 9px;}
+ .panel :global(.play-panel-footer){min-height:28px!important;padding:0!important;gap:4px!important;}
+ .panel :global(.play-panel-footer) button{min-height:28px!important;padding:3px 9px!important;}
+}
