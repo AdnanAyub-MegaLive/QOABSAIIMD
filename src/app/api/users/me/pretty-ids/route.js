@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import { prisma } from '@/lib/prisma';
 import { mobileJson, mobileApiError, mobileOptions, requireMobileUser } from '@/lib/mobile-api';
 import { isRateLimited } from '@/lib/rate-limit';
@@ -33,6 +34,7 @@ export async function POST(request) {
     try {
       if (body.action === 'ACTIVATE') {
         globalThis.portalIo?.to(`user:${user.publicId}`).emit('special-id:assigned', { success: true, data: { ...data, effectiveId: data.specialId, source: 'PRETTY_ID' } });
+        signalUserCache(globalThis.portalIo, user.publicId, ['profile'], { reason: 'special-id:assigned' });
         globalThis.portalScheduleSpecialIdExpiry?.(data.assignmentId, new Date(data.expiresAt));
       }
       globalThis.portalIo?.to(`user:${user.publicId}`).emit('pretty-id:updated', { success: true, data: { grantId: body.grantId } });

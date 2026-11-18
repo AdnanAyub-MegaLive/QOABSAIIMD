@@ -1,10 +1,11 @@
 import { versionMediaPayload } from "./media-payload.js";
+import { signalCacheForEvent } from "./cache-signal.js";
 async function emitVersioned(channel,event,payload) {
   try { channel.emit(event,await versionMediaPayload(payload)); }
   catch(error) { console.error("Realtime media delivery failed",event,error); }
 }
 export async function emitToUser(publicId,event,payload) {
-  if(globalThis.portalIo)await emitVersioned(globalThis.portalIo.to(`user:${publicId}`),event,payload);
+  if(globalThis.portalIo){await emitVersioned(globalThis.portalIo.to(`user:${publicId}`),event,payload);signalCacheForEvent(globalThis.portalIo,`user:${publicId}`,event,payload);}
 }
 
 export async function emitToAudioRoom(roomId,event,payload) {

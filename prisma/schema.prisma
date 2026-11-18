@@ -1439,6 +1439,9 @@ model AppVersionSettings {
   androidLatestVersionName String @default("")
   androidStoreUrl String @default("https://play.google.com/store/apps/details?id=com.megachat.megalive")
   updateMessage String @default("A new version of MegaLive is available. Please update MegaLive from the Play Store to continue.")
+  minorUpdateEnabled Boolean @default(false)
+  androidRecommendedVersionCode Int @default(1)
+  minorUpdateMessage String @default("A new version of MegaLive is available with improvements. Update now for the best experience.")
   revision Int @default(0)
   updatedAt DateTime @updatedAt
 }
@@ -3493,4 +3496,12 @@ model CsRoomMute {
   createdAt DateTime @default(now())
 
   @@id([country, userId])
+}
+
+model CsRoomQueue {
+  userId   String   @id
+  country  String
+  joinedAt DateTime @default(now())
+
+  @@index([country, joinedAt])
 }

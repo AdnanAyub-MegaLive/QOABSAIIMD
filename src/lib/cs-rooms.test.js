@@ -9,6 +9,10 @@ describe("cs rooms rules", () => {
   it("accepts only the 15 countries", () => {
     expect(csRoomCountry("pk")).toBe("PK");
     expect(() => csRoomCountry("FR")).toThrow(expect.objectContaining({ code: "CS_ROOM_NOT_FOUND" }));
+    for (const removed of ["AE", "QA", "US", "NP", "GB", "CA", "TR", "LK", "MY"]) expect(() => csRoomCountry(removed)).toThrow(expect.objectContaining({ code: "CS_ROOM_NOT_FOUND" }));
+    for (const kept of ["PK", "IN", "BD", "SA", "ID", "PH", "NG", "BR", "EG", "IQ"]) expect(csRoomCountry(kept)).toBe(kept);
+    expect(() => assertCsSeat({ appRoles: ["LISTENER"], country: "NG" }, "PK", 1)).toThrow(expect.objectContaining({ code: "CS_SEAT_OWN_COUNTRY" }));
+    expect(() => assertCsSeat({ appRoles: ["LISTENER"], country: "NG" }, "NG", 1)).not.toThrow();
   });
   it("detects staff country", () => {
     expect(csStaffCountry(user)).toBeNull();
@@ -62,7 +66,7 @@ describe("cs rooms own-country seats", () => {
   });
   it("lets users from other countries sit anywhere", () => {
     expect(() => assertCsSeat({ appRoles: ["LISTENER"], country: "FR" }, "IN", 2)).not.toThrow();
-    expect(() => assertCsSeat({ appRoles: ["LISTENER"], country: null }, "US", 3)).not.toThrow();
+    expect(() => assertCsSeat({ appRoles: ["LISTENER"], country: null }, "NG", 3)).not.toThrow();
   });
 });
 

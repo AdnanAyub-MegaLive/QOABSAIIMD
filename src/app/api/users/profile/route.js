@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import { userVip } from "@/lib/vip-capabilities";
 import { prisma } from "../../../../lib/prisma";
 import { versionMediaPayload } from "@/lib/media-payload";
@@ -140,6 +141,7 @@ export async function PATCH(request) {
         description: "Updated onboarding/profile identity fields.", metadata: { fields: Object.keys(changes) },
       } });
     });
+    signalUserCache(globalThis.portalIo, user.publicId, ['profile'], { reason: 'profile:edited' });
     await reconcileExpiredSpecialIds();
     const identity = await getEffectiveUserId(user.id, user.publicId);
     return json({

@@ -1,3 +1,4 @@
+import { signalUserCache } from "@/lib/cache-signal";
 import { prisma } from '@/lib/prisma';
 import { requireMobileUser, mobileJson, mobileApiError, mobileOptions } from '@/lib/mobile-api';
 import { personalPrivileges, updatePersonalPrivilege } from '@/lib/personal-privileges';
@@ -19,7 +20,7 @@ export async function PATCH(request) {
     try { body=await request.json(); } catch { return mobileJson({success:false,error:{code:'VALIDATION_ERROR',message:'Provide a valid preference.'}},422); }
     const data=await updatePersonalPrivilege(prisma,user.id,body?.key,body?.enabled);
     invalidateChatPerks(user.id);
-    globalThis.portalIo?.to(`user:${user.publicId}`).emit('vip:updated',{success:true,data:{userId:user.publicId}});
+    globalThis.portalIo?.to(`user:${user.publicId}`).emit('vip:updated',{success:true,data:{userId:user.publicId}});signalUserCache(globalThis.portalIo,user.publicId,['profile'],{reason:'vip:updated'});
     return mobileJson({success:true,data});
   } catch(error) {
     if(error.status)return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);

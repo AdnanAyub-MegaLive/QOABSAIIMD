@@ -2,9 +2,10 @@ import { prisma } from "./prisma.js";
 
 export const DEFAULT_STORE_URL = "https://play.google.com/store/apps/details?id=com.megachat.megalive";
 export const DEFAULT_UPDATE_MESSAGE = "A new version of MegaLive is available. Please update MegaLive from the Play Store to continue.";
+export const DEFAULT_MINOR_MESSAGE = "A new version of MegaLive is available with improvements. Update now for the best experience.";
 export const STORE_HINT = "Please update MegaLive from the Play Store to continue.";
-export const appVersionDefaults = { forceUpdateEnabled: false, androidMinVersionCode: 1, androidLatestVersionName: "", androidStoreUrl: DEFAULT_STORE_URL, updateMessage: DEFAULT_UPDATE_MESSAGE, revision: 0 };
-const fields = ["forceUpdateEnabled", "androidMinVersionCode", "androidLatestVersionName", "androidStoreUrl", "updateMessage", "revision"];
+export const appVersionDefaults = { forceUpdateEnabled: false, androidMinVersionCode: 1, androidLatestVersionName: "", androidStoreUrl: DEFAULT_STORE_URL, updateMessage: DEFAULT_UPDATE_MESSAGE, minorUpdateEnabled: false, androidRecommendedVersionCode: 1, minorUpdateMessage: DEFAULT_MINOR_MESSAGE, revision: 0 };
+const fields = ["forceUpdateEnabled", "androidMinVersionCode", "androidLatestVersionName", "androidStoreUrl", "updateMessage", "minorUpdateEnabled", "androidRecommendedVersionCode", "minorUpdateMessage", "revision"];
 
 export function appVersionSettingsDto(row) {
   const source = row ?? appVersionDefaults;
@@ -20,7 +21,10 @@ export async function loadAppVersionSettings(db = prisma, { fresh = false } = {}
   const now = Date.now();
   if (!fresh && cached && cached.db === db && cached.expiresAt > now) return cached.value;
   try {
-    const value = appVersionSettingsDto(await db.appVersionSettings.findUnique({ where: { id: "GLOBAL" } }));
+    let row;
+    try { row = await db.appVersionSettings.findUnique({ where: { id: "GLOBAL" } }); }
+    catch { row = await db.appVersionSettings.findUnique({ where: { id: "GLOBAL" }, select: { forceUpdateEnabled: true, androidMinVersionCode: true, androidLatestVersionName: true, androidStoreUrl: true, updateMessage: true, revision: true } }); }
+    const value = appVersionSettingsDto(row);
     cached = { db, value, expiresAt: now + CACHE_MS };
     return value;
   } catch (error) {
@@ -48,21 +52,35 @@ export function validateAppVersionInput(input) {
   try { url = new URL(storeUrl); } catch { url = null; }
   if (!url || url.protocol !== "https:" || storeUrl.length > 500) errors.androidStoreUrl = "Store URL must be a valid https:// link.";
   if (message.length > 500) errors.updateMessage = "Update message must be 500 characters or fewer.";
+  const minorMessage = typeof input?.minorUpdateMessage === "string" && input.minorUpdateMessage.trim() ? input.minorUpdateMessage.trim() : DEFAULT_MINOR_MESSAGE;
+  const minorEnabled = input?.minorUpdateEnabled === undefined ? false : input.minorUpdateEnabled;
+  const recommended = input?.androidRecommendedVersionCode === undefined ? (Number.isInteger(input?.androidMinVersionCode) && input.androidMinVersionCode >= 1 && input.androidMinVersionCode <= 1_000_000 ? input.androidMinVersionCode : 1) : input.androidRecommendedVersionCode;
+  if (typeof minorEnabled !== "boolean") errors.minorUpdateEnabled = "Choose whether the minor update is enabled.";
+  if (!Number.isInteger(recommended) || recommended < 1 || recommended > 1_000_000) errors.androidRecommendedVersionCode = "Recommended version code must be a whole number from 1 to 1,000,000.";
+  else if (!errors.androidMinVersionCode && recommended < input.androidMinVersionCode) errors.androidRecommendedVersionCode = "Recommended version code must be at least the minimum version code.";
+  if (minorMessage.length > 500) errors.minorUpdateMessage = "Minor update message must be 500 characters or fewer.";
   if (!Number.isInteger(input?.revision) || input.revision < 0) errors.revision = "Reload the page and try again.";
-  return { errors, values: { forceUpdateEnabled: input?.forceUpdateEnabled, androidMinVersionCode: input?.androidMinVersionCode, androidLatestVersionName: latest, androidStoreUrl: storeUrl, updateMessage: message } };
+  return { errors, values: { forceUpdateEnabled: input?.forceUpdateEnabled, androidMinVersionCode: input?.androidMinVersionCode, androidLatestVersionName: latest, androidStoreUrl: storeUrl, updateMessage: message, minorUpdateEnabled: minorEnabled, androidRecommendedVersionCode: recommended, minorUpdateMessage: minorMessage } };
 }
 
 export function versionDecision(settings, versionCode) {
   const code = parseVersionCode(versionCode);
   const forceUpdate = Boolean(settings.forceUpdateEnabled);
+  const recommendedVersionCode = Math.max(settings.androidRecommendedVersionCode ?? settings.androidMinVersionCode, settings.androidMinVersionCode);
+  const updateRequired = forceUpdate && (code === null || code < settings.androidMinVersionCode);
+  const minorUpdate = !updateRequired && Boolean(settings.minorUpdateEnabled) && code !== null && code < recommendedVersionCode;
   return {
     platform: "android",
     minVersionCode: settings.androidMinVersionCode,
     latestVersionName: settings.androidLatestVersionName,
     storeUrl: settings.androidStoreUrl,
     forceUpdate,
-    updateRequired: forceUpdate && (code === null || code < settings.androidMinVersionCode),
+    updateRequired,
     message: settings.updateMessage,
+    recommendedVersionCode,
+    minorUpdate,
+    minorMessage: settings.minorUpdateMessage || DEFAULT_MINOR_MESSAGE,
+    updateType: updateRequired ? "MAJOR" : minorUpdate ? "MINOR" : "NONE",
   };
 }
 

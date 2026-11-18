@@ -1,3 +1,4 @@
+import { signalUserCache } from "./cache-signal.js";
 export const occupiedSpecialId = now => ({ status: { in: ["ACTIVE", "OWNED", "CLAIMED"] }, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
 export const activeSpecialIdWhere = now => ({ ...occupiedSpecialId(now), status: "ACTIVE", startsAt: { lte: now } });
 const include = { definition: true, prettyIdGrant: true };
@@ -14,6 +15,7 @@ export async function publishSpecialIdentity(userId, publicId, row) {
     for (const key of globalThis.chatPerksCache?.keys() ?? []) if (key.startsWith(`${userId}:`)) globalThis.chatPerksCache.delete(key);
     const data = { publicId, normalId: publicId, effectiveId: row?.specialId ?? publicId, specialId: row?.specialId ?? null, specialIdExpiresAt: row?.expiresAt?.toISOString() ?? null };
     globalThis.portalIo?.to(`user:${publicId}`).emit("profile:updated", { success: true, data });
+    signalUserCache(globalThis.portalIo, publicId, ["profile"], { reason: "profile:updated" });
     if (row?.expiresAt) await globalThis.portalScheduleSpecialIdExpiry?.(row.id, row.expiresAt);
   } catch (error) { console.error("Special ID post-commit delivery failed", error); }
 }

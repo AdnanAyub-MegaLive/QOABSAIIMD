@@ -14,6 +14,7 @@ export const VIP_PRIVILEGES = [
   ["PROFILE_CARD", "Profile card", "BUSINESS_CARD"], ["GIF_ROOM_COVER", "GIF room cover"],
   ["LEVEL_BOOST", "Level boost"],
   ["VIEW_VISITORS", "View visitor details (VIP 3+)"],
+  ["GROUP_CHAT", "Create group chats"],
 ].map(([key,label,category])=>({key,label,category:category??null}));
 
 export function validateVipTier(body) {

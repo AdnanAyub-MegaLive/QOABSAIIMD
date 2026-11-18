@@ -1,4 +1,5 @@
 import { refreshReactionDelivery } from "./message-reaction-delivery.js";
+import { signalCacheForEvent } from "./cache-signal.js";
 import { prisma } from "./prisma.js";
 import { versionMediaPayload } from "./media-payload.js";
 import { refreshActivityEventMedia } from "./activity-event-media.js";
@@ -59,6 +60,7 @@ async function deliver(rows, io, db) {
           payload = await versionMediaPayload(payload, db);
         }
         io.to(row.channel).emit(row.event, payload);
+        signalCacheForEvent(io, row.channel, row.event, payload);
         if (isGiftEvent(row.event) && process.env.REALTIME_TIMINGS === "true") {
           try {
             console.info("Realtime timing", {
