@@ -4,6 +4,7 @@ import { withV1Request } from "./mobile-v1.js";
 import { isRateLimited } from "./rate-limit.js";
 import { avatarDisplayUrl } from "./avatar-history.js";
 import { requestOrigin, resolveUserPerks } from "./user-perks.js";
+import { perkMediaFields } from "./decoration-media.js";
 import { rtcProvider } from "./rtc-provider.js";
 import { issueTrtcAccess } from "./trtc-authorization.js";
 import { CS_LEGACY_MAX_VERSION, csRoomsSnapshot, csRtcRoomId, sweepCsRooms } from "./cs-rooms.js";
@@ -24,25 +25,37 @@ export function csRoomRequest(request, path, methods, work) {
   });
 }
 
-const FRAME_CACHE_MS = 15_000;
+const PERSON_CACHE_MS = 15_000;
 
-async function seatFrames(snapshot, origin) {
-  const ids = [...new Set(snapshot.rooms.map((room) => room.seats.find((seat) => seat.agentSeat)?.occupant?.publicId).filter(Boolean))].sort();
+const detailedRooms = (snapshot) => snapshot.rooms.filter((room) => room.country === snapshot.joinedCountry || room.country === snapshot.staffCountry);
+
+function snapshotPeople(snapshot) {
+  const ids = new Set();
+  for (const room of snapshot.rooms) { const agent = room.seats.find((seat) => seat.agentSeat)?.occupant; if (agent) ids.add(agent.publicId); }
+  for (const room of detailedRooms(snapshot)) {
+    for (const seat of room.seats) if (seat.occupant) ids.add(seat.occupant.publicId);
+    for (const person of [...(room.queue ?? []), ...(room.listenerList ?? [])]) ids.add(person.publicId);
+  }
+  return [...ids].sort();
+}
+
+async function personDetails(snapshot, origin) {
+  const ids = snapshotPeople(snapshot);
   if (!ids.length) return new Map();
-  globalThis.portalCsFrameCache ??= new Map();
-  const cache = globalThis.portalCsFrameCache;
+  globalThis.portalCsPersonCache ??= new Map();
+  const cache = globalThis.portalCsPersonCache;
   const key = `${origin}|${ids.join(",")}`;
   const hit = cache.get(key);
-  if (hit && hit.until > Date.now()) return hit.frames;
-  const users = await prisma.user.findMany({ where: { publicId: { in: ids } }, select: { id: true, publicId: true } });
-  const perks = await resolveUserPerks(users, origin, ["FRAMES"]);
-  const frames = new Map(ids.map((id) => {
-    const p = perks.get(id);
-    return [id, { frameUrl: p?.frameUrl ?? null, framePosterUrl: p?.framePosterUrl ?? null, frameMimeType: p?.frameMimeType ?? null }];
+  if (hit && hit.until > Date.now()) return hit.details;
+  const users = await prisma.user.findMany({ where: { publicId: { in: ids } }, select: { id: true, publicId: true, gender: true, isOfficial: true } });
+  const perks = await resolveUserPerks(users, origin, ["FRAMES", "BADGES", "USER_TAGS"]);
+  const details = new Map(users.map((u) => {
+    const p = perks.get(u.publicId);
+    return [u.publicId, { ...p?.progression, ...perkMediaFields(p, ["frame", "badge", "userTag"]), vipPrivileges: undefined, specialId: undefined, frameUrl: p?.frameUrl ?? null, framePosterUrl: p?.framePosterUrl ?? null, frameMimeType: p?.frameMimeType ?? null, badgeUrl: p?.badgeUrl ?? null, userTagUrl: p?.userTagUrl ?? null, userTagMimeType: p?.userTagMimeType ?? null, gender: u.gender ?? null, isOfficial: Boolean(u.isOfficial), invisible: (p?.vipPrivileges ?? []).includes("INVISIBLE_ENTRY") }];
   }));
   if (cache.size > 200) cache.clear();
-  cache.set(key, { frames, until: Date.now() + FRAME_CACHE_MS });
-  return frames;
+  cache.set(key, { details, until: Date.now() + PERSON_CACHE_MS });
+  return details;
 }
 
 export async function csRoomState(request, user, country = null, withRtc = false) {
@@ -50,15 +63,29 @@ export async function csRoomState(request, user, country = null, withRtc = false
   const origin = requestOrigin(request);
   const snapshot = await csRoomsSnapshot(prisma, user, (value) => avatarDisplayUrl(value, origin));
   try {
-    const frames = await seatFrames(snapshot, origin);
-    for (const room of snapshot.rooms) for (const seat of room.seats) if (seat.occupant) Object.assign(seat.occupant, frames.get(seat.occupant.publicId) ?? {});
+    const details = await personDetails(snapshot, origin);
+    const fill = (person) => Object.assign(person, details.get(person.publicId) ?? {}, { publicId: person.publicId, name: person.name, profileImage: person.profileImage });
+    const detailed = new Set(detailedRooms(snapshot).map((room) => room.country));
+    for (const room of snapshot.rooms) {
+      if (detailed.has(room.country)) continue;
+      const agent = room.seats.find((seat) => seat.agentSeat)?.occupant;
+      const d = agent && details.get(agent.publicId);
+      if (d) Object.assign(agent, { frameUrl: d.frameUrl, framePosterUrl: d.framePosterUrl, frameMimeType: d.frameMimeType });
+    }
+    for (const room of detailedRooms(snapshot)) {
+      for (const seat of room.seats) if (seat.occupant) fill(seat.occupant);
+      for (const person of [...(room.queue ?? []), ...(room.listenerList ?? [])]) fill(person);
+      if (room.country !== snapshot.staffCountry) room.listenerList = (room.listenerList ?? []).filter((person) => !person.invisible);
+      for (const person of [...room.seats.map((seat) => seat.occupant).filter(Boolean), ...(room.queue ?? []), ...(room.listenerList ?? [])]) delete person.invisible;
+    }
   } catch (error) {
-    console.error("CS room frames failed", error?.code ?? error?.name);
+    console.error("CS room person details failed", error?.code ?? error?.name);
+    for (const room of snapshot.rooms) if (room.country !== snapshot.staffCountry) room.listenerList = [];
   }
   if (!withRtc || !country) return snapshot;
   let trtc = null;
   try {
-    if (rtcProvider() === "TRTC" && snapshot.mySeat?.country === country) trtc = issueTrtcAccess(user, csRtcRoomId(country), !snapshot.myMuted);
+    if (rtcProvider() === "TRTC" && snapshot.joinedCountry === country) trtc = issueTrtcAccess(user, csRtcRoomId(country), snapshot.mySeat?.country === country && !snapshot.myMuted);
   } catch {
     trtc = null;
   }

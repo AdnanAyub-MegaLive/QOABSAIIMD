@@ -122,11 +122,15 @@ export async function joinCsQueue(db, user, country, now = new Date()) {
   const presence = await db.csRoomPresence.findUnique({ where: { userId: user.id }, select: { country: true, removedAt: true } });
   if (presence?.country !== country || presence.removedAt) throw fail("CS_ROOM_NOT_JOINED", "Join the support room first.", 409);
   if (await db.csRoomSeat.findFirst({ where: { occupantUserId: user.id }, select: { id: true } })) throw fail("CS_ALREADY_SEATED", "You already have a seat.", 409);
-  const occupied = await db.csRoomSeat.count({ where: { country, seatIndex: { in: CS_USER_SEATS }, occupantUserId: { not: null } } });
-  if (occupied < CS_USER_SEATS.length) throw fail("CS_QUEUE_NOT_FULL", "A seat is free. Tap it to sit.", 409);
   const existing = await db.csRoomQueue.findUnique({ where: { userId: user.id }, select: { country: true } });
   if (existing?.country === country) return;
   await db.csRoomQueue.upsert({ where: { userId: user.id }, create: { userId: user.id, country, joinedAt: now }, update: { country, joinedAt: now } });
+}
+
+export async function autoQueueCsRoom(db, user, country, now = new Date()) {
+  if (csStaffCountry(user) !== null) return;
+  try { await joinCsQueue(db, user, country, now); }
+  catch (error) { if (!(error.code?.startsWith("CS_") || error.code === "VALIDATION_ERROR")) throw error; }
 }
 
 export async function leaveCsQueue(db, user) {
@@ -223,7 +227,8 @@ export async function csRoomsSnapshot(db, user, avatar = (value) => value) {
   const myMuted = joined ? Boolean(await db.csRoomMute.findUnique({ where: { country_userId: { country: joined, userId: user.id } }, select: { userId: true } })) : false;
   const mySeat = seats.find((s) => s.occupantUserId === user.id);
   const staffCountry = csStaffCountry(user);
-  const present = staffCountry ? await db.csRoomPresence.findMany({ where: { country: staffCountry, removedAt: null, lastSeenAt: { gte: new Date(Date.now() - CS_PRESENCE_STALE_MS) } }, select: { userId: true, country: true } }) : [];
+  const roomOfMine = staffCountry || joined;
+  const present = roomOfMine ? await db.csRoomPresence.findMany({ where: { country: roomOfMine, removedAt: null, lastSeenAt: { gte: new Date(Date.now() - CS_PRESENCE_STALE_MS) } }, select: { userId: true, country: true } }) : [];
   const listenerPeople = present.length ? await db.user.findMany({ where: { id: { in: present.map((p) => p.userId) } }, select: { id: true, publicId: true, name: true, profileImage: true, appRoles: true } }) : [];
   const listenerById = new Map(listenerPeople.filter((p) => !(p.appRoles ?? []).some((role) => CS_ROLES.includes(role))).map((p) => [p.id, p]));
   const myQueue = queue.find((q) => q.userId === user.id);
@@ -239,8 +244,8 @@ export async function csRoomsSnapshot(db, user, avatar = (value) => value) {
     rooms: csRoomsFor(user).map((country) => ({
       country,
       listeners: counts.get(country) ?? 0,
-      listenerList: staffCountry === country ? present.filter((p) => p.country === country && !seats.some((s) => s.occupantUserId === p.userId)).map((p) => listenerById.get(p.userId)).filter(Boolean).map((p) => ({ publicId: p.publicId, name: p.name, profileImage: avatar(p.profileImage) })) : [],
-      queue: queue.filter((q) => q.country === country).map((q) => byId.get(q.userId)).filter(Boolean).map((p) => ({ publicId: p.publicId, name: p.name, profileImage: avatar(p.profileImage) })),
+      listenerList: (staffCountry === country || joined === country) ? present.filter((p) => p.country === country && !seats.some((s) => s.occupantUserId === p.userId)).map((p) => listenerById.get(p.userId)).filter(Boolean).map((p) => ({ publicId: p.publicId, name: p.name, profileImage: avatar(p.profileImage) })) : [],
+      queue: queue.filter((q) => q.country === country && !seats.some((s) => s.occupantUserId === q.userId)).map((q) => byId.get(q.userId)).filter(Boolean).map((p) => ({ publicId: p.publicId, name: p.name, profileImage: avatar(p.profileImage) })),
       seats: CS_SEAT_INDEXES.map((seatIndex) => {
         const seat = seats.find((s) => s.country === country && s.seatIndex === seatIndex);
         const person = seat ? byId.get(seat.occupantUserId) : null;

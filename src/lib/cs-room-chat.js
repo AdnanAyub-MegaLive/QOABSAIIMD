@@ -4,6 +4,8 @@ import { serializeRoomChatMessages } from "./audio-room-chat.js";
 import { resolveRoomMentions } from "./room-mentions.js";
 import { assertChatWordsAllowed } from "./chat-word-policy.js";
 import { isRateLimited } from "./rate-limit.js";
+import { resolveUserPerks } from "./user-perks.js";
+import { versionMediaPayload } from "./media-payload.js";
 
 export const CS_CHAT_PREFIX = "cs-room:";
 export const CS_CHAT_MAX_LENGTH = 200;
@@ -26,6 +28,18 @@ async function presentIn(db, userId, country, now = new Date()) {
   return Boolean(presence && presence.country === country && !presence.removedAt && presence.lastSeenAt >= new Date(now.getTime() - CS_PRESENCE_STALE_MS));
 }
 
+const ENTRY_REPEAT_MS = 60_000;
+
+function isNewEntry(publicId, country, now = Date.now()) {
+  globalThis.portalCsEntries ??= new Map();
+  const seen = globalThis.portalCsEntries;
+  const key = `${publicId}|${country}`;
+  const last = seen.get(key);
+  seen.set(key, now);
+  if (seen.size > 5000) for (const [k, at] of seen) if (now - at > ENTRY_REPEAT_MS) seen.delete(k);
+  return !(last && now - last < ENTRY_REPEAT_MS);
+}
+
 export function registerCsRoomChat({ io, socket, user, origin, db }) {
   const leaveAll = () => { for (const room of socket.rooms) if (room.startsWith(CS_CHAT_PREFIX)) socket.leave(room); };
 
@@ -38,7 +52,13 @@ export function registerCsRoomChat({ io, socket, user, origin, db }) {
       const fresh = !socket.rooms.has(channel);
       leaveAll();
       socket.join(channel);
-      if (fresh) socket.to(channel).emit("cs-room:entered", { success: true, data: { country: code, publicId: user.publicId, name: user.name, at: new Date().toISOString() } });
+      if (fresh && isNewEntry(user.publicId, code)) {
+        const perks = (await resolveUserPerks([user], origin, ["ENTRANCES"]).catch(() => new Map())).get(user.publicId);
+        if (!(perks?.vipPrivileges ?? []).includes("INVISIBLE_ENTRY")) {
+          const payload = { success: true, data: { country: code, publicId: user.publicId, name: user.name, profileImage: user.profileImage ?? null, at: new Date().toISOString(), isOfficial: Boolean(user.isOfficial), entranceUrl: perks?.entranceUrl ?? null, entranceMimeType: perks?.entranceMimeType ?? null } };
+          io.to(channel).emit("cs-room:entered", await versionMediaPayload(payload).catch(() => payload));
+        }
+      }
       ack({ success: true, data: { country: code } });
     } catch (error) {
       ack(failure(error?.code ?? "CS_CHAT_FAILED", error?.message ?? "Unable to join the chat."));
