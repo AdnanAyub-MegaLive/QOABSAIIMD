@@ -53,7 +53,7 @@ export default function SharedPlayer({gameId,preview=false}){
  },[request]);
  useEffect(()=>{let alive=true;const poll=()=>{if(document.hidden)return;load().catch(e=>{if(alive)setError(e.message);});};poll();const timer=setInterval(poll,2000),tick=setInterval(()=>setNow(Date.now()+offset.current),["pizza","greedy"].includes(state?.game?.engine)?1000:100);document.addEventListener("visibilitychange",poll);return()=>{alive=false;clearInterval(timer);clearInterval(tick);document.removeEventListener("visibilitychange",poll);};},[load,state?.game?.engine]);
  useEffect(()=>{if(help)dialog.current?.showModal();else dialog.current?.close();},[help]);
- useGameLoading(!!state,error);
+ const launchReady=useGameLoading(!!state,error);
  const game=state?.game,engine=game?.engine,mine=state?.mine;
  const foodGame=["greedy","pizza"].includes(engine),Food=engine==="pizza"?PizzaFood:GreedyFood;
  const balance=state?.availableCoins??state?.availablePoints??"0";
@@ -139,7 +139,7 @@ export default function SharedPlayer({gameId,preview=false}){
    </div>
    {engine==="teenpatti"&&<div className={teenStyles.history} aria-label="Recent results"><small>Result</small>{state?.history?.slice(0,8).map(h=><span key={h.roundNumber} title={`Round ${h.roundNumber}`} >{(h.winners||[h.result]).map(id=><TeenPattiIcon key={id} food={id}/>)}</span>)}</div>}
    {engine==="teenpatti"&&<TeenPattiAuto state={state} amount={amount} phase={phase} locked={locked||queuedTaps.length>0} onAuto={()=>enter(undefined,true)}/>}
-   <footer className={styles.footer}><span><b>{BigInt(balance).toLocaleString()}</b> {currency}</span>{preview&&<button disabled={busy||!!pending} onClick={refill}>Refill practice coins</button>}<RoundResults state={state} ready={foodGame?greedyReady===roundKey:engine!=="roulette"||wheelReady===roundKey}/>{preview&&<small>Practice coins</small>}</footer>
+   <footer className={styles.footer}><span><b>{BigInt(balance).toLocaleString()}</b> {currency}</span>{preview&&<button disabled={busy||!!pending} onClick={refill}>Refill practice coins</button>}<RoundResults state={state} ready={launchReady&&(foodGame?greedyReady===roundKey:engine!=="roulette"||wheelReady===roundKey)}/>{preview&&<small>Practice coins</small>}</footer>
    <dialog ref={dialog} className={styles.help} onClose={()=>setHelp(false)}><header><h2>{game?.name} rules</h2><button onClick={()=>setHelp(false)} aria-label="Close rules">×</button></header><GameRules game={game}/></dialog>
  </section>;
 }

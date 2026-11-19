@@ -19,7 +19,7 @@ function PlayerContent({defaultGame="lucky-flip"}){
   api("player",token?{action:"launch",token,roomId:params.get("roomId")}:{action:"profile"}).then(setProfile).catch(e=>setError(e.message));
  },[defaultGame,isDemo]);
  const game=(isDemo?data.games:profile?.games||[]).find(g=>g.id===gameId);
- useGameLoading(false,error||(gameId&&(profile||isDemo)&&!game?"This game is unavailable.":""));
+ useGameLoading(game?.engine==="external",error||(gameId&&(profile||isDemo)&&!game?"This game is unavailable.":""));
  if(game) {
    const restricted=!isDemo && game.previewOnly;
    const board=game.engine==="external"?<section className={styles.panel}><h1>{game.name}</h1></section>

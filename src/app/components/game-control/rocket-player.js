@@ -32,7 +32,7 @@ export default function RocketPlayer({ gameId, preview = false }) {
     return () => { active = false; clearInterval(timer); clearInterval(tick); document.removeEventListener("visibilitychange", poll); };
   }, [load]);
   useEffect(() => { if (help) dialog.current?.showModal(); else dialog.current?.close(); }, [help]);
-  useGameLoading(!!state,error);
+  const launchReady=useGameLoading(!!state,error);
   const game = state?.game, mine = state?.mineEntries?.[0], result = mine?.result;
   const maxMultiplier = rocketMaxMultiplier(game);
   const stale = !state || now - state.serverTime > 2000;
@@ -70,7 +70,7 @@ export default function RocketPlayer({ gameId, preview = false }) {
   return <div className={styles.shell}>
 
     <section className={styles.game} aria-label="Rocket shared room game">
-      <header className={styles.header}><div><GameIcon engine="rocket" size={30}/><strong>ROCKET</strong><span>MAX {maxMultiplier}×</span></div><RoundResults state={state}/><button onClick={() => setHelp(true)} aria-label="Rocket rules and probabilities">?</button></header>
+      <header className={styles.header}><div><GameIcon engine="rocket" size={30}/><strong>ROCKET</strong><span>MAX {maxMultiplier}×</span></div><RoundResults state={state} ready={launchReady}/><button onClick={() => setHelp(true)} aria-label="Rocket rules and probabilities">?</button></header>
       <div className={styles.history} aria-label="Previous flights">{state?.history?.length ? state.history.slice(0, 5).map(h => <span key={h.roundNumber} className={h.crashCents >= 300 ? styles.high : ""}>{h.result}</span>) : <small>Flight history appears after the first round</small>}<small>{preview ? "PRACTICE" : "RECENT"}</small></div>
       <div className={`${styles.flight} ${crashed ? styles.crashed : ""}`}>
         <div className={styles.flightTop}><span>{stale ? "CONNECTING…" : boarding ? "● BOARDING OPEN" : crashed ? "● ROCKET CRASHED" : flying ? "● ROCKET IN FLIGHT" : "WAITING FOR NEXT FLIGHT"}</span><small>#{String(state?.roundNumber ?? 0).padStart(4, "0")}</small></div>

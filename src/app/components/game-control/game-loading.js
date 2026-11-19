@@ -3,8 +3,9 @@ import {createContext,useCallback,useContext,useEffect,useRef,useState} from 're
 import styles from './game-loading.module.css';
 const LoadingContext=createContext(null);
 export function useGameLoading(ready,error=''){
- const report=useContext(LoadingContext);
+ const context=useContext(LoadingContext),report=context?.report;
  useEffect(()=>{report?.({ready,error});},[ready,error,report]);
+ return context?.finished??true;
 }
 export default function GameLoading({children}){
  const root=useRef(null),[status,setStatus]=useState({ready:false,error:''});
@@ -46,7 +47,7 @@ export default function GameLoading({children}){
   return()=>{cancelled=true;clearTimeout(timeout);clearTimeout(hideTimer);controller.abort();};
  },[status.ready,finished]);
  const error=status.error||assetError;
- return <LoadingContext.Provider value={report}><div data-game-load-progress={progress} data-game-load-error={error||undefined}>
+ return <LoadingContext.Provider value={{report,finished}}><div data-game-load-progress={progress} data-game-load-error={error||undefined}>
   <div ref={root} inert={!finished} aria-hidden={!finished}>{children}</div>
   {!finished&&<div className={styles.screen} role="status" aria-live="polite">
    <div className={styles.content}><span className={styles.mark} aria-hidden="true">✦</span><h1>Loading game</h1>
