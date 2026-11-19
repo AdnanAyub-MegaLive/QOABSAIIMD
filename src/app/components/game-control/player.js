@@ -3,8 +3,10 @@ import {useEffect,useRef,useState} from "react";
 import {useStore,api} from "./store";
 import RocketPlayer from "./rocket-player";
 import SharedPlayer from "./shared-player";
+import GameLoading,{useGameLoading} from "./game-loading";
 import styles from "./play-panel-utilities";
-export default function Player({defaultGame="lucky-flip"}){
+export default function Player(props){return <GameLoading><PlayerContent {...props}/></GameLoading>;}
+function PlayerContent({defaultGame="lucky-flip"}){
  const {isDemo,data}=useStore();
  const [profile,setProfile]=useState(null),[gameId,setGameId]=useState(null),[error,setError]=useState("");
  const launched=useRef(false);
@@ -17,6 +19,7 @@ export default function Player({defaultGame="lucky-flip"}){
   api("player",token?{action:"launch",token,roomId:params.get("roomId")}:{action:"profile"}).then(setProfile).catch(e=>setError(e.message));
  },[defaultGame,isDemo]);
  const game=(isDemo?data.games:profile?.games||[]).find(g=>g.id===gameId);
+ useGameLoading(false,error||(gameId&&(profile||isDemo)&&!game?"This game is unavailable.":""));
  if(game) {
    const restricted=!isDemo && game.previewOnly;
    const board=game.engine==="external"?<section className={styles.panel}><h1>{game.name}</h1></section>

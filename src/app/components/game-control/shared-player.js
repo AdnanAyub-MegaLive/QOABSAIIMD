@@ -1,5 +1,6 @@
 "use client";
 import {createFoodTapQueue} from "@/lib/game-control/food-tap-queue.mjs";
+import {useGameLoading} from "./game-loading";
 import RoundResults from "./round-results";
 import {roundSummary} from "@/lib/game-control/round-summary.mjs";
 import {useCallback,useEffect,useRef,useState} from "react";
@@ -52,6 +53,7 @@ export default function SharedPlayer({gameId,preview=false}){
  },[request]);
  useEffect(()=>{let alive=true;const poll=()=>{if(document.hidden)return;load().catch(e=>{if(alive)setError(e.message);});};poll();const timer=setInterval(poll,2000),tick=setInterval(()=>setNow(Date.now()+offset.current),["pizza","greedy"].includes(state?.game?.engine)?1000:100);document.addEventListener("visibilitychange",poll);return()=>{alive=false;clearInterval(timer);clearInterval(tick);document.removeEventListener("visibilitychange",poll);};},[load,state?.game?.engine]);
  useEffect(()=>{if(help)dialog.current?.showModal();else dialog.current?.close();},[help]);
+ useGameLoading(!!state,error);
  const game=state?.game,engine=game?.engine,mine=state?.mine;
  const foodGame=["greedy","pizza"].includes(engine),Food=engine==="pizza"?PizzaFood:GreedyFood;
  const balance=state?.availableCoins??state?.availablePoints??"0";

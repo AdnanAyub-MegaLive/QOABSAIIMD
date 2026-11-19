@@ -1,4 +1,5 @@
 "use client";
+import {useGameLoading} from "./game-loading";
 import RoundResults from "./round-results";
 import PointAmount from "./point-amount";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -31,6 +32,7 @@ export default function RocketPlayer({ gameId, preview = false }) {
     return () => { active = false; clearInterval(timer); clearInterval(tick); document.removeEventListener("visibilitychange", poll); };
   }, [load]);
   useEffect(() => { if (help) dialog.current?.showModal(); else dialog.current?.close(); }, [help]);
+  useGameLoading(!!state,error);
   const game = state?.game, mine = state?.mineEntries?.[0], result = mine?.result;
   const maxMultiplier = rocketMaxMultiplier(game);
   const stale = !state || now - state.serverTime > 2000;
