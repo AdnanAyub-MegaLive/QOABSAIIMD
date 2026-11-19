@@ -136,7 +136,7 @@
 .winnerLabel{position:absolute;left:50%;bottom:-9%;transform:translateX(-50%);z-index:8;background:linear-gradient(#fff8ae,#ffc837);border:1px solid white;border-radius:8px;padding:2px 8px;font-size:3cqw;font-weight:900;letter-spacing:1px;color:#733d15;box-shadow:0 2px 4px #6b351b88}
 
 /* Decorative sky and flybys stay behind the interactive game. */
-.panel{position:relative;isolation:isolate;background:#08bbee url('/games/greedy/sky.png') center/cover no-repeat!important}
+.panel{position:relative;isolation:isolate;background:#08bbee url('/games/greedy/sky-optimized.webp') center/cover no-repeat!important}
 .scenery{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:-1;border-radius:inherit}
 .birdFlight{position:absolute;left:-120px;width:calc(100% + 240px);height:var(--bird-size);animation:birdCross linear both;will-change:transform}
 .birdFlight img{display:block;width:var(--bird-size);height:var(--bird-size);object-fit:contain}

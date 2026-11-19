@@ -16,7 +16,7 @@ export default function GameLoading({children}){
   if(!status.ready||finished)return;
   let cancelled=false,hideTimer;
   const controller=new AbortController();
-  const timeout=setTimeout(()=>{controller.abort();if(!cancelled)setAssetError('Loading is taking longer than expected. Please retry.');},30000);
+  const timeout=setTimeout(()=>{controller.abort();if(!cancelled)setAssetError('Loading is taking longer than expected. Please retry.');},120000);
   const run=async()=>{
    // Wait until the first round has rendered before collecting its artwork.
    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
