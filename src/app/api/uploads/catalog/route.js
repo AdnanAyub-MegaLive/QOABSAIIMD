@@ -90,7 +90,7 @@ export async function GET(request) {
           : {}),
         ...(roomBackground ? { isRoomBackground: true } : {}),
         ...(["ROOM_BACKGROUNDS", "SEAT_STYLES"].includes(category)
-          ? { mimeType: { in: category === "ROOM_BACKGROUNDS" ? ["image/png", "image/jpeg", "image/webp", "video/mp4"] : ["image/png", "image/jpeg", "image/webp"] } }
+          ? { mimeType: { in: category === "ROOM_BACKGROUNDS" ? ["image/png", "image/jpeg", "image/webp", "video/mp4", "application/svga"] : ["image/png", "image/jpeg", "image/webp", "application/svga"] } }
           : {}),
         ...(category === "BANNERS"
           ? {}

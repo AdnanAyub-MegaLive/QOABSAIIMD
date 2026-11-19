@@ -1,6 +1,6 @@
 import { createPublicDisplayAssetUrl } from "./upload-assets.js";
 
-export const seatStyleMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+export const seatStyleMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "application/svga"]);
 
 export function isSupportedSeatStyleMimeType(mimeType) {
   return seatStyleMimeTypes.has(String(mimeType ?? "").toLowerCase());

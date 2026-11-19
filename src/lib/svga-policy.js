@@ -5,6 +5,7 @@ export const SVGA_CATEGORIES = new Set([
   "ROOM_FRAMES", "GIFTS", "LIVE_GIFTS", "FRAMES", "ENTRANCES", "RIDES", "BADGES",
   "CHAT_BOXES", "VIP_STICKERS", "CAMPAIGN_WIDGETS",
   "PROFILE_DRESS", "USER_TAGS", "PROFILE_BG", "BANNERS",
+  "SEAT_STYLES", "ROOM_BACKGROUNDS", "BUSINESS_CARD",
 ]);
 export function isSvgaFile(file) {
   return /\.svga$/i.test(file?.name ?? "") || [SVGA_MIME, "application/x-svga"].includes(file?.type);

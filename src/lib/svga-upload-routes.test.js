@@ -56,7 +56,7 @@ it("never saves or publishes malformed animations or posters", async () => {
   expect(m.create).not.toHaveBeenCalled(); expect(m.mirror).not.toHaveBeenCalled();
 });
 it("rejects unsupported categories and files larger than 8 MiB", async () => {
-  expect((await POST(request({ category: "ROOM_BACKGROUNDS" }))).status).toBe(422);
+  expect((await POST(request({ category: "MUSIC_TRACKS" }))).status).toBe(422);
   expect((await POST(request({ bytes: Buffer.alloc(8 * 1024 * 1024 + 1) }))).status).toBe(413);
   expect(m.validate).not.toHaveBeenCalled(); expect(m.create).not.toHaveBeenCalled();
 });

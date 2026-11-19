@@ -6,6 +6,7 @@ export const roomBackgroundMimeTypes = new Set([
   "image/webp",
   "image/gif",
   "video/mp4",
+  "application/svga",
 ]);
 
 export function isSupportedRoomBackgroundMimeType(mimeType) {

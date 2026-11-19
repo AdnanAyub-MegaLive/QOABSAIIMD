@@ -39,9 +39,10 @@ export const roomBackgroundMimeTypes = new Set([
   "image/jpeg",
   "image/webp",
   "video/mp4",
+  SVGA_MIME,
 ]);
-export const seatStyleMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
-export const businessCardMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "video/mp4"]);
+export const seatStyleMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", SVGA_MIME]);
+export const businessCardMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "video/mp4", SVGA_MIME]);
 export const musicTrackMimeTypes = new Set(["audio/mpeg", "audio/mp4", "audio/aac", "audio/ogg", "audio/wav", "audio/x-wav"]);
 export const bannerCatalogOrderBy = [
   { sortOrder: "asc" },
@@ -105,7 +106,7 @@ export function safeBannerActionUrl(value) {
 
 export function validateUploadAssetContract({ category, placement, mimeType }) {
   if (mimeType === SVGA_MIME && !SVGA_CATEGORIES.has(category)) {
-    throw validationError("SVGA is only supported for gifts, frames, entrances, rides, badges, chat boxes, profile dresses, user tags, profile backgrounds, VIP stickers, campaign widgets and banners.");
+    throw validationError("SVGA is only supported for gifts, frames, entrances, rides, badges, chat boxes, profile dresses, user tags, profile backgrounds, seat styles, room backgrounds, business cards, room frames, VIP stickers, campaign widgets and banners.");
   }
   if (category === "BANNERS") {
     if (mimeType && !bannerMimeTypes.has(mimeType)) {
@@ -116,15 +117,15 @@ export function validateUploadAssetContract({ category, placement, mimeType }) {
     };
   }
   if (category === "ROOM_BACKGROUNDS" && mimeType && !roomBackgroundMimeTypes.has(mimeType)) {
-    throw validationError("Room backgrounds must be PNG, JPEG, WebP, or MP4.");
+    throw validationError("Room backgrounds must be PNG, JPEG, WebP, GIF, MP4, or SVGA.");
   }
   if (category === "ROOM_FRAMES" && mimeType && !["image/png","image/jpeg","image/webp","image/gif","application/svga"].includes(mimeType)) throw validationError("Room frames must be PNG, JPEG, WebP, GIF or SVGA.");
   if (category === "SEAT_STYLES" && mimeType && !seatStyleMimeTypes.has(mimeType)) {
-    throw validationError("Seat styles must be PNG, JPEG, or WebP images.");
+    throw validationError("Seat styles must be PNG, JPEG, WebP, or SVGA.");
   }
   if (["USER_TAGS", "PROFILE_BG", "PROFILE_DRESS", "MEDALS", "ROLE_ARTWORK", "AGENCY_ARTWORK"].includes(category) && mimeType && !(mimeType === SVGA_MIME && SVGA_CATEGORIES.has(category)) && !["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"].includes(mimeType)) throw validationError("Unsupported profile artwork format.");
   if (category === "BUSINESS_CARD" && mimeType && !businessCardMimeTypes.has(mimeType)) {
-    throw validationError("Business cards must be PNG, JPEG, WebP, or MP4.");
+    throw validationError("Business cards must be PNG, JPEG, WebP, MP4, or SVGA.");
   }
   if (category === "MUSIC_TRACKS" && mimeType && !musicTrackMimeTypes.has(mimeType)) {
     throw validationError("Music tracks must be MP3, M4A, AAC, OGG, or WAV audio files.");
