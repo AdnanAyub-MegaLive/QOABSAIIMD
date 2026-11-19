@@ -328,9 +328,15 @@ app.prepare().then(async()=>{
     if(room.terminatedUntil)scheduleAudioRoomRestriction(room.roomId,"TERMINATE",room.terminatedUntil);
   }
 
+  const pendingRoomReleases=new Map();
   const releaseEmptyAudioRoom=async(roomId)=>{
     const socketRoom=`audio-room:${roomId}`;
     if((io.sockets.adapter.rooms.get(socketRoom)?.size??0)>0)return false;
+    const recoveringUntil=Math.max(0,...[...recoveringRooms].filter(([key])=>key.endsWith(`:${roomId}`)).map(([,until])=>until));
+    if(recoveringUntil>Date.now()){
+      if(!pendingRoomReleases.has(roomId))pendingRoomReleases.set(roomId,setTimeout(()=>{pendingRoomReleases.delete(roomId);void releaseEmptyAudioRoom(roomId).catch((error)=>console.error("Deferred audio room release failed",error));},recoveringUntil-Date.now()+1000).unref());
+      return false;
+    }
     const room=await prisma.audioRoom.findUnique({where:{roomId},include:{owner:{select:{publicId:true}}}});
     if(!room||room.status!=="LIVE")return false;
     const endedAt=new Date();
