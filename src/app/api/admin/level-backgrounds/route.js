@@ -8,6 +8,8 @@ import { requestOrigin } from '@/lib/user-perks';
 import { levelTagBackgrounds } from '@/lib/level-tag-backgrounds';
 import { mirrorAssetBestEffort } from '@/lib/media-cdn';
 import { isRateLimited } from '@/lib/rate-limit';
+import { SVGA_MIME, uploadMimeType } from '@/lib/svga-policy';
+import { validateSvga } from '@/lib/svga-upload';
 const fail=(message,status=422)=>Object.assign(new Error(message),{status});
 const error=e=>Response.json({success:false,error:{message:e.status?e.message:'Unable to update level background.'}},{status:e.status??500});
 async function levels(){
@@ -25,10 +27,12 @@ export async function POST(request){try{
   const form=await readUploadForm(request,9*1024*1024),track=String(form.get('track')),level=Number(form.get('level'));
   if(!(await levels()).some(l=>l.track===track&&l.level===level))throw fail('Save this level before adding its background.');
   const file=form.get('file');
-  if(!(file instanceof File)||!['image/png','image/jpeg','image/webp','image/gif'].includes(file.type))throw fail('Upload a PNG, JPEG, WebP or GIF image.');
+  const type=file instanceof File?uploadMimeType(file):null;
+  if(!(file instanceof File)||![...['image/png','image/jpeg','image/webp','image/gif'],SVGA_MIME].includes(type))throw fail('Upload a PNG, JPEG, WebP, GIF or SVGA file.');
   if(!file.size||file.size>8*1024*1024)throw fail('Backgrounds must be at most 8 MB.',413);
   let bytes;
-  try{
+  if(type===SVGA_MIME){bytes=Buffer.from(await file.arrayBuffer());await validateSvga(bytes);}
+  else try{
     const input=Buffer.from(await file.arrayBuffer());
     const image=sharp(input,{animated:true,limitInputPixels:16000000});const meta=await image.metadata();
     if(({png:'image/png',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif'})[meta.format]!==file.type||(meta.pages??1)>100)throw Error();
@@ -36,7 +40,7 @@ export async function POST(request){try{
     if(bytes.length>8*1024*1024)throw Error();
   }catch{throw fail('Invalid image, too many frames or excessive decoded dimensions.');}
   const asset=await prisma.$transaction(async tx=>{
-    const asset=await tx.uploadAsset.create({data:{publicId:`AST-${randomUUID()}`,name:`${track} level ${level} tag background`,category:'BADGES',fileName:'level-background.webp',mimeType:'image/webp',fileSize:bytes.length,fileData:bytes,mediaVersion:createHash('sha256').update(bytes).digest('hex').slice(0,16),isGlobal:true,storeVisible:false,distribution:'MANUAL',active:true}});
+    const asset=await tx.uploadAsset.create({data:{publicId:`AST-${randomUUID()}`,name:`${track} level ${level} tag background`,category:'BADGES',fileName:type===SVGA_MIME?'level-background.svga':'level-background.webp',mimeType:type===SVGA_MIME?SVGA_MIME:'image/webp',fileSize:bytes.length,fileData:bytes,mediaVersion:createHash('sha256').update(bytes).digest('hex').slice(0,16),isGlobal:true,storeVisible:false,distribution:'MANUAL',active:true}});
     await tx.levelTagBackground.upsert({where:{track_level:{track,level}},create:{track,level,assetId:asset.id},update:{assetId:asset.id}});
     await tx.auditLog.create({data:{adminId:admin.id,action:'LEVEL_BACKGROUND_UPDATED',category:'USER_MANAGEMENT',entityType:'LevelTagBackground',entityId:`${track}:${level}`,description:'Updated level tag artwork only; XP thresholds unchanged.'}});
     return asset;

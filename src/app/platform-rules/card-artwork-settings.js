@@ -25,7 +25,7 @@ function ArtworkUpload({ label, disabled, onSelect, onBusy }) {
    onSelect(body.data.asset.id);
   } catch(e){setError(e.message);}finally{onBusy(false);event.target.value="";}
  }
- return <div><input aria-label={`Upload ${label}`} type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={disabled} onChange={upload} className="my-2 block w-full text-xs"/>{error&&<p role="alert" className="text-red-600">{error}</p>}</div>;
+ return <div><input aria-label={`Upload ${label}`} type="file" accept="image/png,image/jpeg,image/webp,image/gif,.svga,application/svga" disabled={disabled} onChange={upload} className="my-2 block w-full text-xs"/>{error&&<p role="alert" className="text-red-600">{error}</p>}</div>;
 }
 function withAgencyLevels(data){return {...data,ranges:[...data.ranges.filter(r=>r.track!=="AGENCY"),...Array.from({length:50},(_,i)=>{const level=i+1,old=data.ranges.find(r=>r.track==="AGENCY"&&level>=r.min&&(r.max==null||level<=r.max));return {track:"AGENCY",min:level,max:level,backgroundAssetId:old?.backgroundAssetId??null,badgeAssetId:old?.badgeAssetId??null};})]};}
 export default function CardArtworkSettings({canManage=false,canUpload=false}){
