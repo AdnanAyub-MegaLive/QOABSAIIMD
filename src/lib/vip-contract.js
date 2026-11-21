@@ -1,21 +1,25 @@
 // Stable capability keys; labels may change without breaking the mobile contract.
 export const VIP_PRIVILEGES = [
-  ["BADGE", "Badge", "BADGES"], ["ENTRANCE_STRIP", "Entrance strip", "ENTRANCES"],
-  ["VIP_GIFTS", "VIP gifts", "GIFTS"], ["HIGHLIGHT_NAME", "Highlight name"],
-  ["VIP_SEAT", "VIP seat", "SEAT_STYLES"], ["VIP_DATA_CARD", "VIP data card", "BUSINESS_CARD"],
-  ["VIP_EMOJI", "VIP emoji", "VIP_STICKERS"], ["ANTI_MIC_BAN", "Anti-mic-ban"],
-  ["ANTI_KICK", "Anti-kick"], ["VIP_LOGO", "VIP logo", "BADGES"],
-  ["VIP_FRAME", "VIP frame", "FRAMES"], ["RANKING_PRIORITY", "Ranking priority"],
-  ["VIP_ENTRANCE", "VIP entrance", "ENTRANCES"], ["CUSTOMER_SERVICE", "Exclusive customer service"],
+  ["VIP_FRAME", "VIP Frames", "FRAMES"], ["VIP_PROFILE_DRESS", "VIP Profile Dresses", "PROFILE_DRESS"],
+  ["ENTRANCE_STRIP", "VIP Entrance Strip", "ENTRANCES"], ["VIP_RIDE", "VIP Rides", "RIDES"],
+  ["BADGE", "VIP Badges", "BADGES"], ["VIP_USER_TAG", "VIP User Tags", "USER_TAGS"],
+  ["VIP_PROFILE_BG", "VIP Profile BG", "PROFILE_BG"], ["CHAT_BACKGROUND", "VIP Chat Boxes", "CHAT_BOXES"],
+  ["VIP_ROOM_FRAME", "VIP Room Frames", "ROOM_FRAMES"], ["VIP_ROOM_BACKGROUND", "VIP Room Backgrounds", "ROOM_BACKGROUNDS"],
+  ["VIP_SEAT", "VIP Seat Styles", "SEAT_STYLES"], ["VIP_DATA_CARD", "VIP Business Cards", "BUSINESS_CARD"],
+  ["VIP_GIFTS", "VIP gifts", "GIFTS"], ["VIP_EMOJI", "VIP emoji", "VIP_STICKERS"],
+  ["HIGHLIGHT_NAME", "Highlight name"], ["ANTI_MIC_BAN", "Anti-mic-ban"],
+  ["ANTI_KICK", "Anti-kick"], ["RANKING_PRIORITY", "Ranking priority"],
+  ["CUSTOMER_SERVICE", "Exclusive customer service"],
   ["EVENT_CUSTOMIZATION", "Event customization"], ["FORBIDDEN_FOLLOW", "Forbidden to follow"],
   ["ROOM_ANTI_LOCK", "Room anti-lock"], ["INVISIBLE_ENTRY", "Enter room invisibly"],
-  ["EXCLUSIVE_SEAT_STYLE", "Exclusive seat style", "SEAT_STYLES"],
-  ["GIFT_AVATAR", "Gift avatar", "FRAMES"], ["CHAT_BACKGROUND", "Chat background", "CHAT_BOXES"],
-  ["PROFILE_CARD", "Profile card", "BUSINESS_CARD"], ["GIF_ROOM_COVER", "GIF room cover"],
+  ["GIF_ROOM_COVER", "GIF room cover"],
   ["LEVEL_BOOST", "Level boost"],
   ["VIEW_VISITORS", "View visitor details (VIP 3+)"],
   ["GROUP_CHAT", "Create group chats"],
-].map(([key,label,category])=>({key,label,category:category??null}));
+  ["VIP_LOGO", "VIP logo", "BADGES", true], ["VIP_ENTRANCE", "VIP entrance", "ENTRANCES", true],
+  ["EXCLUSIVE_SEAT_STYLE", "Exclusive seat style", "SEAT_STYLES", true], ["GIFT_AVATAR", "Gift avatar", "FRAMES", true],
+  ["PROFILE_CARD", "Profile card", "BUSINESS_CARD", true],
+].map(([key,label,category,hidden])=>({key,label,category:category??null,hidden:Boolean(hidden)}));
 
 export function validateVipTier(body) {
   const fail=message=>{throw Object.assign(new Error(message),{status:422,code:"VALIDATION_ERROR"});};

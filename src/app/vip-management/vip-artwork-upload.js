@@ -11,7 +11,7 @@ export default function VipArtworkUpload({ privilege, canUpload, onUploaded, onB
     setBusy(true); onBusy(true); setError("");
     try {
       const form = new FormData();
-      form.set("name", `${privilege.label} — ${file.name}`.slice(0, 80));
+      form.set("name", `${/^vip\b/i.test(privilege.label) ? privilege.label : `VIP ${privilege.label}`} — ${file.name}`.slice(0, 80));
       form.set("category", privilege.category); form.set("distribution", "MANUAL");
       form.set("storeVisible", "false"); form.set("file", file);
       if (poster) form.set("posterFile", poster);
