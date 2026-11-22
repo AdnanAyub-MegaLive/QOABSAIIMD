@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { vipArtworkForm } from "@/lib/vip-artwork-form";
 import { SVGA_CATEGORIES } from "@/lib/svga-policy";
 
 export default function VipArtworkUpload({ privilege, canUpload, onUploaded, onBusy }) {
@@ -10,15 +11,7 @@ export default function VipArtworkUpload({ privilege, canUpload, onUploaded, onB
     if (!file) return;
     setBusy(true); onBusy(true); setError("");
     try {
-      const form = new FormData();
-      form.set("name", `${/^vip\b/i.test(privilege.label) ? privilege.label : `VIP ${privilege.label}`} — ${file.name}`.slice(0, 80));
-      form.set("category", privilege.category); form.set("distribution", "MANUAL");
-      form.set("storeVisible", "false"); form.set("file", file);
-      if (poster) form.set("posterFile", poster);
-      if (privilege.category === "GIFTS") {
-        form.set("giftTier", "VIP"); form.set("giftCategory", "VIP");
-        form.set("coinPrice", price); form.set("senderXp", senderXp); form.set("receiverXp", receiverXp);
-      }
+      const form = vipArtworkForm({ privilege, file, poster, price, senderXp, receiverXp });
       const response = await fetch("/api/uploads", { method: "POST", body: form });
       const text = await response.text();
       let body; try { body = JSON.parse(text); } catch { throw new Error(`Upload failed (${response.status}). Check the file size or server connection.`); }

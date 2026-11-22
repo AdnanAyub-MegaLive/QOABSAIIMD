@@ -1,3 +1,4 @@
+import { rejectDuplicateArtwork } from "@/lib/upload-duplicates";
 import { giftCategory as normalizeGiftCategory } from "@/lib/gift-categories";
 import { SVGA_MIME, SVGA_MAX_BYTES, SVGA_CATEGORIES, uploadMimeType } from "@/lib/svga-policy";
 import { validateSvga, decodeUploadPoster } from "@/lib/svga-upload";
@@ -407,6 +408,7 @@ export async function POST(request) {
     const svga = mimeType === SVGA_MIME ? await validateSvga(bytes) : null;
     const poster = hasPoster ? await decodeUploadPoster(posterFile) : null;
     const asset = await prisma.$transaction(async (tx) => {
+      await rejectDuplicateArtwork(tx, { category, bytes });
       const created = await tx.uploadAsset.create({
         data: {
           publicId,
@@ -496,6 +498,7 @@ export async function POST(request) {
       { status: 201 },
     );
   } catch (error) {
+    if (error?.code === "DUPLICATE_ARTWORK") return Response.json({ success: false, error: { code: error.code, message: error.message, assetId: error.assetId } }, { status: 409 });
     if (error?.code === "UPLOAD_BUSY") return Response.json({ success: false, error: { code: error.code, message: error.message } }, { status: 429, headers: { "Retry-After": "5" } });
     if (error?.status === 413) return Response.json({ success: false, error: { code: "FILE_TOO_LARGE", message: error.message } }, { status: 413 });
     if (error?.code === "VALIDATION_ERROR")

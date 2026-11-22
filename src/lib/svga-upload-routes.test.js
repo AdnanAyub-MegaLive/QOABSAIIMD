@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ permission: vi.fn(), auth: vi.fn(), limited: vi.fn(), validate: vi.fn(), poster: vi.fn(), mirror: vi.fn(), notify: vi.fn(), create: vi.fn(), audit: vi.fn(), row: null, db: {} }));
+const m = vi.hoisted(() => ({ permission: vi.fn(), auth: vi.fn(), limited: vi.fn(), validate: vi.fn(), poster: vi.fn(), mirror: vi.fn(), notify: vi.fn(), create: vi.fn(), audit: vi.fn(), duplicate: vi.fn(), lock: vi.fn(), row: null, db: {} }));
 vi.mock("../../auth", () => ({ auth: m.auth }));
 vi.mock("@/lib/portal-admin", () => ({ portalPermissionError: m.permission, requirePermission: async () => ({ id: "admin" }) }));
 vi.mock("@/lib/prisma", () => ({ prisma: m.db }));
@@ -8,6 +8,7 @@ vi.mock("@/lib/rate-limit", () => ({ isRateLimited: m.limited }));
 vi.mock("@/lib/media-cdn", () => ({ mirrorAssetBestEffort: m.mirror }));
 vi.mock("@/lib/gift-catalog-version", () => ({ notifyGiftCatalogUpdated: m.notify }));
 vi.mock("@/lib/live-commerce", () => ({ getLiveCommerceRule: vi.fn() }));
+import { vipArtworkForm } from "./vip-artwork-form";
 import { POST } from "../app/api/uploads/route.js";
 import { POST as live } from "../app/api/admin/live-commerce/route.js";
 function request({ category = "GIFTS", mime = "application/octet-stream", bytes = "validated-by-mock", poster = false } = {}) {
@@ -20,10 +21,11 @@ function request({ category = "GIFTS", mime = "application/octet-stream", bytes 
 beforeEach(() => {
   vi.clearAllMocks();
   m.permission.mockResolvedValue(null); m.auth.mockResolvedValue({ user: { id: "admin", name: "Admin" } }); m.limited.mockReturnValue(false);
+  m.duplicate.mockResolvedValue(null); m.lock.mockResolvedValue(1);
   m.validate.mockResolvedValue({ version: "2.0", width: 100, height: 100 });
   m.poster.mockImplementation(async file => file?.size ? { posterFileData: Buffer.from("webp"), posterFileSize: 4, posterMimeType: "image/webp", posterFileName: "poster.webp" } : null);
   m.create.mockImplementation(async ({ data }) => m.row = { ...data, id: "internal", createdAt: new Date(), updatedAt: new Date(), assignments: [] });
-  Object.assign(m.db, { $transaction: async work => work(m.db), uploadAsset: { create: m.create, findUniqueOrThrow: async () => m.row }, auditLog: { create: m.audit } });
+  Object.assign(m.db, { $transaction: async work => work(m.db), $executeRaw: m.lock, uploadAsset: { findFirst: m.duplicate, create: m.create, findUniqueOrThrow: async () => m.row }, auditLog: { create: m.audit } });
   m.mirror.mockImplementation(async (_db, asset) => asset);
 });
 it("rejects unauthorized uploads before parsing or validation", async () => {
@@ -59,4 +61,20 @@ it("rejects unsupported categories and files larger than 8 MiB", async () => {
   expect((await POST(request({ category: "MUSIC_TRACKS" }))).status).toBe(422);
   expect((await POST(request({ bytes: Buffer.alloc(8 * 1024 * 1024 + 1) }))).status).toBe(413);
   expect(m.validate).not.toHaveBeenCalled(); expect(m.create).not.toHaveBeenCalled();
+});
+
+it("accepts the VIP editor gift payload with its category, tier, price and XP", async () => {
+  const form = vipArtworkForm({ privilege: { label: "VIP gifts", category: "GIFTS" }, file: new File(["gift"], "gift.png", { type: "image/png" }), price: "100", senderXp: "5", receiverXp: "8" });
+  const response = await POST(new Request("https://portal.test/api/uploads", { method: "POST", body: form }));
+  expect(response.status).toBe(201);
+  expect(m.create.mock.calls[0][0].data).toMatchObject({ giftTier: "VIP", giftCategory: "VIP", coinPrice: 100n, senderXp: 5n, receiverXp: 8n, storeVisible: false });
+});
+it("rejects duplicate bytes even under a different filename without changing or publishing assets", async () => {
+  m.duplicate.mockResolvedValue({ publicId: "AST-EXISTING", active: true });
+  const response = await POST(request());
+  expect(response.status).toBe(409);
+  expect((await response.json()).error).toMatchObject({ code: "DUPLICATE_ARTWORK", assetId: "AST-EXISTING" });
+  expect(m.lock).toHaveBeenCalledOnce();
+  expect(m.duplicate.mock.calls[0][0].where).toMatchObject({ category: "GIFTS", fileData: Buffer.from("validated-by-mock") });
+  expect(m.create).not.toHaveBeenCalled(); expect(m.audit).not.toHaveBeenCalled(); expect(m.mirror).not.toHaveBeenCalled(); expect(m.notify).not.toHaveBeenCalled();
 });
