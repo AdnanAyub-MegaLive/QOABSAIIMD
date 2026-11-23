@@ -26,7 +26,7 @@ async function waitFor(fn,attempts=30){for(let n=0;n<attempts;n++){if(await fn()
 try{
  process.env.MOBILE_SESSION_TTL_SECONDS='300';
  originalSettings=await p.roomBannerSettings.findUnique({where:{id:'default'}});
- assert.equal(await p.vipTier.findUnique({where:{level:3}}),null,'VIP 3 already exists; refuse to alter it');
+ assert.equal(await p.vipTier.findFirst({where:{level:3,archivedAt:null}}),null,'VIP 3 already exists; refuse to alter it');
  for(let i=0;i<3;i++)users.push(await p.user.create({data:{publicId:`USR-${Math.floor(100000000+Math.random()*899999999)}`,name:`QA VIP/banner ${run}`,coinBalance:0n}}));
  const [a,b,c]=users;log('Dedicated accounts created',{publicIds:users.map(u=>u.publicId)});
  tier=await p.vipTier.create({data:{name:`QA temporary visitor VIP ${run}`,level:3,validDays:1,coinPrice:null,privileges:['VIEW_VISITORS']}});

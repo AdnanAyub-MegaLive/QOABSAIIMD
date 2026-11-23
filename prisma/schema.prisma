@@ -1039,7 +1039,8 @@ model VipTier {
   coinPrice BigInt?
   id String @id @default(cuid())
   name String
-  level Int @unique
+  // Unique among non-archived tiers; enforced by VipTier_live_level_key in SQL.
+  level Int
   validDays Int
   active Boolean @default(true)
   privileges String[] @default([])
