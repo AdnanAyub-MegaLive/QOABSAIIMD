@@ -1,4 +1,6 @@
 import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
+import { liveTopGifter } from "@/lib/video-live";
+import { emitToVideoLive as emitLiveTopGifter } from "@/lib/realtime";
 import { isHostUser } from "@/lib/user-roles";
 import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
@@ -391,6 +393,7 @@ export async function POST(request) {
     );
     });
     void flushRealtimeOutbox().catch(error => console.error("Outbox flush failed", error.message));
+    if (live) void liveTopGifter(prisma, live.id, requestOrigin(request)).then(topGifter => topGifter ? emitLiveTopGifter(live.publicId, "live-video:top-gifter", { success: true, data: { liveId: live.publicId, topGifter } }) : null).catch(error => console.error("Live top gifter failed", error?.message));
     return mobileJson(response, 201);
   } catch (error) {
     if (error?.message === "INSUFFICIENT_COINS")

@@ -391,7 +391,8 @@ app.prepare().then(async()=>{
     }catch(error){nextSocket(new Error(error.message||"UNAUTHORIZED"));}
   });
 
-  io.on("connection",async(socket)=>{
+  const liveCommentRate=new Map();
+io.on("connection",async(socket)=>{
     // Mirror the Engine.IO heartbeat lease; live room membership is read directly.
     socket.data.audioPresenceLeaseUntil=Date.now()+45000;
     const refreshPresenceLease=packet=>{if(packet.type==="pong")socket.data.audioPresenceLeaseUntil=Date.now()+45000;};
@@ -703,6 +704,27 @@ app.prepare().then(async()=>{
       try{const id=String(liveId??"");const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},include:{host:{select:{publicId:true,name:true,profileImage:true}},guestRequests:{where:{status:"APPROVED"},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{slot:"asc"}}}});if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live video is unavailable."}});const ban=await prisma.videoLiveBan.findFirst({where:{sessionId:live.id,userId:user.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});if(ban)return ack({success:false,error:{code:"LIVE_BANNED",message:"You are banned from this live video.",details:{reason:ban.reason,expiresAt:ban.expiresAt?.toISOString()??null}}});await requireVideoAccess(prisma,live,user.id);const channel=`live-video:${id}`,alreadyJoined=socket.rooms.has(channel);socket.join(channel);if(!alreadyJoined)await prisma.videoLiveViewer.upsert({where:{sessionId_userId:{sessionId:live.id,userId:user.id}},create:{sessionId:live.id,userId:user.id,active:true,socketCount:1},update:{active:true,socketCount:{increment:1}}});const viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});const updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,peakViewers:{set:Math.max(live.peakViewers,viewerCount)},revision:alreadyJoined?undefined:{increment:1}},select:{revision:true}});ack({success:true,data:{liveId:id,revision:updated.revision,hostAway:live.hostAway,announcement:live.announcement,category:live.category,privacyMode:live.privacyMode,mode:live.mode,maxGuests:live.mode==="GROUP"?8:4,viewerCount,likeCount:live.likeCount,giftIncome:live.giftIncome.toString(),host:live.host,guests:live.guestRequests.map(g=>({requestId:g.id,slot:g.slot,user:g.user}))}});if(!alreadyJoined)io.to(channel).emit("live-video:viewer-joined",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,user:{publicId:user.publicId,name:user.name,profileImage:user.profileImage}}})}catch(error){console.error("Live video join failed",error);ack({success:false,error:{code:"LIVE_JOIN_FAILED",message:"Unable to join this live video."}})}
     });
     socket.on("live-video:leave",async({liveId}={},ack=()=>{})=>{const id=String(liveId??""),live=await prisma.videoLiveSession.findUnique({where:{publicId:id}});if(live&&socket.rooms.has(`live-video:${id}`)){await socket.leave(`live-video:${id}`);const current=await prisma.videoLiveViewer.findUnique({where:{sessionId_userId:{sessionId:live.id,userId:user.id}}}),socketCount=Math.max(0,(current?.socketCount??1)-1);await prisma.videoLiveViewer.updateMany({where:{sessionId:live.id,userId:user.id},data:{socketCount,active:socketCount>0}});const viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});const updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,revision:{increment:1}},select:{revision:true}});io.to(`live-video:${id}`).emit("live-video:viewer-left",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,userId:user.publicId}})}ack({success:true,data:{liveId:id}})});
+    socket.on("live-video:comment",async({liveId,body,requestId}={},ack=()=>{})=>{
+      try{
+        const id=String(liveId??"");
+        if(!socket.rooms.has(`live-video:${id}`))return ack({success:false,error:{code:"JOIN_LIVE_FIRST",message:"Join the live first."}});
+        const text=String(body??"").replace(/\s+/g," ").trim().slice(0,200);
+        if(!text)return ack({success:false,error:{code:"VALIDATION_ERROR",message:"Write a message first."}});
+        const now=Date.now(),rateKey=`${user.id}:${id}`;
+        if(now-(liveCommentRate.get(rateKey)??0)<800)return ack({success:false,error:{code:"RATE_LIMITED",message:"You're sending messages too fast."}});
+        const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},select:{id:true,status:true}});
+        if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live has ended."}});
+        const ban=await prisma.videoLiveBan.findFirst({where:{sessionId:live.id,userId:user.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});
+        if(ban)return ack({success:false,error:{code:"LIVE_BANNED",message:"You can't chat in this live."}});
+        const data={liveId:id,id:globalThis.crypto.randomUUID(),requestId:requestId?String(requestId).slice(0,64):null,body:text,at:new Date(now).toISOString(),sender:{publicId:user.publicId,name:user.name,profileImage:user.profileImage??null}};
+        liveCommentRate.set(rateKey,now);if(liveCommentRate.size>5000)liveCommentRate.clear();
+        io.to(`live-video:${id}`).emit("live-video:comment",{success:true,data});
+        ack({success:true,data});
+      }catch(error){
+        console.error("Live comment failed",error?.code??error?.message);
+        ack({success:false,error:{code:"LIVE_COMMENT_FAILED",message:"Message not sent."}});
+      }
+    });
     socket.on("audio-room:set-password",async({roomId,password}={},ack=()=>{})=>{
       try{
         const id=String(roomId??"");
