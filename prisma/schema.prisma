@@ -384,6 +384,7 @@ model User {
   gameLogs                   GameLog[]
   gameRounds                 GameRound[]
   gameSessions               GamePlayerSession[]
+  tulasiSessions             TulasiSession[]
   audioRooms                 AudioRoom[]
   audioRoomSeats             AudioRoomSeat[]
   dailyTaskInstances         DailyTaskInstance[]
@@ -3533,4 +3534,39 @@ model CsRoomInvite {
   createdAt   DateTime @default(now())
 
   @@index([country])
+}
+
+model TulasiGame {
+  id                 String    @id @default(cuid())
+  tulasiId           Int       @unique
+  name               String
+  gameIdentification String
+  description        String?
+  image              String?
+  banner             String?
+  gameDomain         String?
+  providerStatus     Int       @default(1)
+  enabled            Boolean   @default(false)
+  sortOrder          Int       @default(0)
+  expirationDate     DateTime?
+  syncedAt           DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
+model TulasiSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  claims    Json
+  roomId    String
+  gameId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
