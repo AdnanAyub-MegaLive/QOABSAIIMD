@@ -503,3 +503,32 @@ html #ranking #board .row::after {
   background: url("assets/ranking-strip.png") center / 100% 100% no-repeat;
   pointer-events: none;
 }
+
+
+/* Desktop: keep the phone layout so the podium does not overlap. */
+html body #ranking{max-width:430px !important}
+html body #ranking .podium-card.place-1{padding-top:0 !important}
+html body #ranking .podium{top:max(-15vw,-64.5px) !important}
+html body #ranking .podium-card .entry-name{top:min(35vw,150.5px) !important}
+html body #ranking .podium-card > .entry-details{top:calc(min(35vw,150.5px) + 26px) !important}
+html body #ranking .podium-card :is(.levels,.gaps,.badges){top:min(20vw,86px) !important}
+/* 2nd/3rd: keep name, level and coins inside the card. */
+html body #ranking .podium-card:is(.place-2,.place-3) .entry-name{top:128px !important;font-size:12px !important;line-height:15px !important;padding:0 3px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{top:146px !important;gap:2px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) .ranking-gap{font-size:11px !important;margin:0 !important;transform:scale(.85)}
+/* 2nd/3rd: centre text between badge and card bottom. */
+html body #ranking .podium-card:is(.place-2,.place-3) .entry-name{top:136px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{top:154px !important}
+/* 2nd/3rd: shorter stack, centred. */
+html body #ranking .podium-card:is(.place-2,.place-3) .entry-name{top:132px !important;font-size:11px !important;line-height:13px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{top:147px !important;gap:0 !important}
+html body #ranking .podium-card:is(.place-2,.place-3) .ranking-gap{font-size:10px !important;line-height:1 !important;transform:scale(.8);margin-top:-2px !important}
+
+/* Daily/Weekly/Monthly like Wealth: equal tabs, highlight fills the bar height. */
+html body #ranking #periods{padding:0 !important;display:flex !important;align-items:center !important}
+html body #ranking #periods > button{flex:1 1 0 !important;height:48px !important;background-size:100% 106% !important;background-position:50% 50% !important;background-repeat:no-repeat !important;text-decoration:none !important}
+/* Charm bar image is trimmed, so the highlight must be taller to reach its edges. */
+html body #ranking #periods > button{background-size:100% 136% !important;background-position:50% 36% !important}
+html body #ranking #periods > button{background-size:100% 128% !important;background-position:50% 26% !important}
+/* Calibrated from screenshot: highlight top stays, bottom pulled ~3.5px inside the bar. */
+html body #ranking #periods > button{background-size:100% 118.5% !important;background-position:50% 34% !important}

@@ -32,6 +32,7 @@ window.RankingDesign = (() => {
     const t=themes[type];$('ranking').className=`relative mx-auto min-h-screen max-w-[440px] overflow-hidden bg-cover bg-top pb-8 ${t.background}`;
     $('filters').className=type==='agency'?'relative z-10 mt-[52%] px-3':'relative z-10 mt-3 px-3';
     $('periods').className=`flex h-12 items-center bg-[length:100%_300%] bg-center bg-no-repeat ${t.period}`;
+    if(type==='agency')Object.assign($('periods').style,{backgroundSize:'100% 270%',backgroundPosition:'center 44.5%'});
     for(const b of $('periods').children)b.className=`h-full min-w-0 flex-1 bg-[length:100%_100%] bg-no-repeat text-sm ${b.getAttribute('aria-selected')==='true'?t.active:''}`;
     $('board').className=`relative rounded-t-3xl border-t border-amber-400 px-2 pb-6 ${t.board}`;
     $('search').hidden=type!=='agency';
@@ -67,11 +68,14 @@ window.RankingDesign = (() => {
       const first=e.rank===1;const c=node('article',first?'agency-first-place':`agency-runner-up place-${e.rank}`);
       const artbox=node('div',first?'relative z-20 aspect-square w-full':'relative z-20 aspect-square w-full');
       const p=portrait(e.person,helpers.notify,first?'absolute left-[29%] top-[37%] h-[40%] w-[42%]':'absolute left-[23%] top-[22%] h-[52%] w-[54%]',type==='agency');
+      if(first)p.style.top='32%';
+      if(e.rank===3)p.style.top='19%';
       if(type==='agency'){p.setAttribute('aria-label',`Open ${e.name} agency details`);p.disabled=!e.id;p.onclick=()=>helpers.notify({type:'ranking:open-agency',agencyPublicId:e.id});}
       artbox.append(p,art(`frame-${e.rank}.gif`,'pointer-events-none absolute inset-0 h-full w-full object-contain'));c.append(artbox);
       let card;
       if(type==='agency')card=node('div',first?'relative -mt-[23%] flex aspect-[774/554] flex-col justify-center bg-[url(assets/agency-first.png)] bg-[length:100%_100%] px-4 pt-5':'relative -mt-[23%] flex aspect-[638/438] flex-col justify-center bg-[url(assets/agency-pedestal.png)] bg-[length:100%_100%] px-2 pt-2');
       else {const backgrounds={wealth:['bg-[url(assets/wealth-card-1.png)]','bg-[url(assets/wealth-card-2.png)]','bg-[url(assets/wealth-card-3.png)]'],charm:['bg-[url(assets/charm-card-1.png)]','bg-[url(assets/charm-card-2.png)]','bg-[url(assets/charm-card-3.png)]']};card=node('div',`relative -mt-[28%] flex min-h-28 flex-col justify-end bg-[length:100%_100%] px-2 pb-6 pt-8 ${backgrounds[type][e.rank-1]}`);if(type==='charm'&&e.rank>1)card.append(art(`charm-card-${e.rank}-border.png`,'pointer-events-none absolute inset-0 h-full w-full'));}
+      if(type==='agency'&&first){card.style.marginTop='-30%';card.style.zIndex='1';artbox.style.position='relative';artbox.style.zIndex='2';}
       const info=details(e,type,helpers);if(type==='agency')info.append(helpers.gap(e));else {const badges=info.lastElementChild;info.append(helpers.gap(e),badges);}card.append(info);c.append(card);podium.append(c);
     }
     for(const e of entries.filter(e=>e.rank>3)){
@@ -81,6 +85,7 @@ window.RankingDesign = (() => {
       const total=node('div','ml-auto flex shrink-0 flex-col items-end gap-1');
       total.append(helpers.gap(e));
       row.append(node('span','text-xs',e.rank),portrait(e.person,helpers.notify,'h-12 w-12 shrink-0'),identity,total);$('entries').append(row);
+      if(type==='agency'){const d=art('divider.png','block w-full');d.style.cssText='display:block;width:96%;height:auto;margin:2px auto';$('entries').append(d);}
     }
   }
   return Object.freeze({render,theme});

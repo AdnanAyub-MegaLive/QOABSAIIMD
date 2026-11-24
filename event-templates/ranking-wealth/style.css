@@ -613,3 +613,37 @@ html #ranking .podium-card:is(.place-2, .place-3) .entry-name {
 }
 html #ranking .podium-card:is(.place-2, .place-3) > .entry-details { position:absolute; top:calc(35vw + 26px); left:5%; width:90%; display:grid; gap:5px; justify-items:center; }
 html #ranking .podium-card.place-2 .art .portrait, html #ranking .podium-card.place-3 .art .portrait { left:23%; top:22%; width:54%; height:52%; }
+
+
+/* Desktop: keep the phone layout so the podium does not overlap. */
+html body #ranking{max-width:430px !important}
+html body #ranking .podium-card.place-1{padding-top:0 !important}
+html body #ranking .podium{top:max(-15vw,-64.5px) !important}
+html body #ranking .podium-card > .entry-details{top:calc(min(35vw,150.5px) + 26px) !important}
+html body #ranking .podium-card .entry-name{top:min(35vw,150.5px) !important}
+/* 2nd/3rd: name and details inside the coloured card. */
+html body #ranking .podium-card:is(.place-2,.place-3) .entry-name{top:36px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{top:56px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details .levels{position:static !important;margin:0 !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{gap:2px !important}
+/* 2nd/3rd: smaller text so coins sit inside the card. */
+html body #ranking .podium-card:is(.place-2,.place-3) .entry-name{font-size:11px !important;line-height:13px !important;padding:0 3px !important;top:34px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{top:49px !important;gap:1px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) .ranking-gap{font-size:11px !important;margin:0 !important;transform:scale(.85)}
+html body #ranking .podium-card:is(.place-2,.place-3) .entry-name{top:28px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{top:41px !important;gap:0 !important}
+html body #ranking .podium-card:is(.place-2,.place-3) .ranking-gap{font-size:10px !important;line-height:1 !important;transform:scale(.8);margin-top:-2px !important}
+/* 2nd/3rd: keep blue/green fill inside the gold frame; centre the text. */
+html body #ranking .podium-card:is(.place-2,.place-3){background-size:100% 100%,92% 86% !important;background-position:50% 100%,50% 40% !important}
+html body #ranking .podium-card:is(.place-2,.place-3) .entry-name{top:33px !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{top:46px !important}
+html body #ranking .podium-card:is(.place-2,.place-3){background-size:100% 100%,96% 96% !important;background-position:50% 100%,50% -9px !important}
+/* Green card: a little taller so it reaches the frame bottom. */
+html body #ranking .podium-card.place-3{background-size:100% 100%,96% 100% !important}
+/* Daily/Weekly/Monthly: bar fills the strip like the Agency page; equal-width tabs. */
+html body #ranking #periods{background-size:100% 294% !important;background-position:50% 45% !important;padding:0 !important;display:flex !important;align-items:center !important}
+html body #ranking #periods > button{flex:1 1 0 !important;height:44px !important;background-size:100% 100% !important;background-repeat:no-repeat !important;text-decoration:none !important}
+/* Selected tab fills the bar height (no top/bottom gap). */
+html body #ranking #periods > button{height:48px !important;background-size:100% 128% !important;background-position:50% 50% !important}
+/* Selected tab: body matches the bar height, no overflow. */
+html body #ranking #periods > button{background-size:100% 106% !important}

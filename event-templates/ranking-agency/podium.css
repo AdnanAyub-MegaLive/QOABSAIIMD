@@ -6,6 +6,16 @@
 .agency-runner-up.place-3 { grid-column:3; }
 .agency-runner-up .levels { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:0; }
 .agency-runner-up .ranking-gap { margin:5px auto; }
+/* Keep 2nd/3rd place text inside the pedestal's front face. */
+.agency-runner-up > div:last-child { justify-content:flex-start !important; padding-top:25% !important; }
+.agency-runner-up > div:last-child > div { gap:0 !important; line-height:1.15; }
+.agency-runner-up > div:last-child .entry-name, .agency-runner-up > div:last-child > div > span, .agency-runner-up > div:last-child > div b { font-size:8px !important; line-height:1.1 !important; }
+.agency-runner-up > div:last-child span, .agency-runner-up > div:last-child b { line-height:1.15; }
+.agency-runner-up > div:last-child .ranking-gap { margin:1px auto 0 !important; display:flex !important; flex-wrap:nowrap; align-items:center; gap:2px; font-size:8px !important; height:11px !important; min-height:0 !important; padding:0 !important; }
+.agency-runner-up > div:last-child .ranking-gap * { font-size:8px !important; line-height:1 !important; width:auto !important; height:auto !important; margin:0 !important; }
+
+/* No light band behind list rows; the gold divider separates them. */
+#ranking[data-theme="agency"] #entries > article.row { background-color:transparent !important; }
 
 /* The crown is now a real header image; no reserved background-header gap. */
 html #ranking #filters { margin-top:12px; }
