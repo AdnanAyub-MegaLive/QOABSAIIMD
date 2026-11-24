@@ -11,7 +11,7 @@ export async function GET(request,{params}) {
     const user=await requireMobileUser(request),{liveId}=await params;
     const live=await prisma.videoLiveSession.findUnique({where:{publicId:liveId}});
     await requireVideoAccess(prisma,live,user.id); await finalizeExpiredPkSessions();
-    const p=await prisma.videoLivePkSession.findFirst({where:{status:{in:["PENDING","LIVE"]},OR:[{leftSessionId:live.id},{rightSessionId:live.id}]},include:{leftSession:true,rightSession:true}});
+    const p=await prisma.videoLivePkSession.findFirst({where:{status:{in:["PENDING","LIVE"]},OR:[{leftSessionId:live.id},{rightSessionId:live.id}]},include:{leftSession:true,rightSession:true}})??await prisma.videoLivePkSession.findFirst({where:{status:"ENDED",endedAt:{gte:new Date(Date.now()-30000)},OR:[{leftSessionId:live.id},{rightSessionId:live.id}]},orderBy:{endedAt:"desc"},include:{leftSession:true,rightSession:true}});
     return mobileJson({success:true,data:{pk:p?videoPkDto(p):null}});
   } catch(e){return mobileApiError(e,"LIVE_PK_READ_FAILED")}
 }

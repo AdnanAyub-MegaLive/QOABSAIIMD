@@ -1,7 +1,8 @@
 import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
 import { liveTopGifter } from "@/lib/video-live";
-import { getLiveCommerceRule } from "@/lib/live-commerce";
 import { emitToVideoLive as emitLiveTopGifter } from "@/lib/realtime";
+const liveTopGifterSeq = new Map();
+let liveTopGifterCounter = 0;
 import { isHostUser } from "@/lib/user-roles";
 import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
 import { rememberGiftRecovery } from "@/lib/gift-outbox-context";
@@ -97,7 +98,7 @@ export async function POST(request) {
         where: { publicId: recipientId },
         select: { id: true, publicId: true, displayName: true, agencyId: true },
       }),
-      liveId ? getLiveCommerceRule() : getProfitSplitRule(),
+      liveId ? getLiveCommerceRule(prisma, true) : getProfitSplitRule(),
       roomId
         ? prisma.audioRoom.findFirst({
             where: { roomId, status: "LIVE" },
@@ -394,7 +395,15 @@ export async function POST(request) {
     );
     });
     void flushRealtimeOutbox().catch(error => console.error("Outbox flush failed", error.message));
-    if (live) void getLiveCommerceRule().then(rule => liveTopGifter(prisma, live.id, requestOrigin(request), rule.bossSeatMinCoins)).then(topGifter => topGifter ? emitLiveTopGifter(live.publicId, "live-video:top-gifter", { success: true, data: { liveId: live.publicId, topGifter } }) : null).catch(error => console.error("Live top gifter failed", error?.message));
+    if (live) {
+      const seq = ++liveTopGifterCounter;
+      liveTopGifterSeq.set(live.id, seq);
+      void getLiveCommerceRule().then(rule => liveTopGifter(prisma, live.id, requestOrigin(request), rule.bossSeatMinCoins)).then(topGifter => {
+        if (liveTopGifterSeq.get(live.id) !== seq) return;
+        liveTopGifterSeq.delete(live.id);
+        emitLiveTopGifter(live.publicId, "live-video:top-gifter", { success: true, data: { liveId: live.publicId, topGifter: topGifter ?? null } });
+      }).catch(error => { if (liveTopGifterSeq.get(live.id) === seq) liveTopGifterSeq.delete(live.id); console.error("Live top gifter failed", error?.message); });
+    }
     return mobileJson(response, 201);
   } catch (error) {
     if (error?.message === "INSUFFICIENT_COINS")

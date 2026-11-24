@@ -2,8 +2,15 @@ import { prisma } from "./prisma.js";
 import { notifyAction } from "./action-notifications.js";
 import { ledgerData } from "./wallet.js";
 export const LIVE_GIFT_CATEGORY = "LIVE_GIFTS";
-export function getLiveCommerceRule(db = prisma) {
-  return db.liveCommerceRule.upsert({ where: { id: "LIVE" }, update: {}, create: { id: "LIVE" } });
+let cachedRule = null;
+export function invalidateLiveCommerceRule() {
+  cachedRule = null;
+}
+export async function getLiveCommerceRule(db = prisma, fresh = false) {
+  if (db === prisma && !fresh && cachedRule && Date.now() - cachedRule.at < 10000) return cachedRule.rule;
+  const rule = await db.liveCommerceRule.findUnique({ where: { id: "LIVE" } }) ?? await db.liveCommerceRule.upsert({ where: { id: "LIVE" }, update: {}, create: { id: "LIVE" } });
+  if (db === prisma) cachedRule = { rule, at: Date.now() };
+  return rule;
 }
 export function liveRewardSnapshot(rule) {
   return { liveRuleVersion: rule.version, rewardTargetCoins: rule.rewardsEnabled ? rule.targetCoins : 0n, targetRewardCoins: rule.rewardsEnabled ? rule.rewardCoins : 0n };

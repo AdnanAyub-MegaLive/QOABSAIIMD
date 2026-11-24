@@ -9,7 +9,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { notifyGiftCatalogUpdated } from "@/lib/gift-catalog-version";
 import { requirePermission } from "@/lib/portal-admin";
-import { getLiveCommerceRule } from "@/lib/live-commerce";
+import { getLiveCommerceRule, invalidateLiveCommerceRule } from "@/lib/live-commerce";
 import { validateProfitSplit } from "@/lib/profit-rules";
 const safe = value => JSON.parse(JSON.stringify(value, (_, v) => typeof v === "bigint" ? String(v) : v));
 function amount(value, positive = false) {
@@ -41,7 +41,7 @@ export async function POST(request) {
       let bytes;
       if (svga) { bytes = Buffer.from(await file.arrayBuffer()); await validateSvga(bytes); }
       else if (gif) { bytes = Buffer.from(await file.arrayBuffer()); if (bytes.subarray(0, 4).toString("latin1") !== "GIF8") throw Object.assign(new Error("Invalid GIF artwork."), { status: 422 }); }
-      else if (mp4) { bytes = Buffer.from(await file.arrayBuffer()); if (bytes.length < 12 || bytes.subarray(4, 8).toString("latin1") !== "ftyp") throw Object.assign(new Error("Invalid MP4 video."), { status: 422 }); }
+      else if (mp4) { bytes = Buffer.from(await file.arrayBuffer()); if (bytes.length < 12 || bytes.subarray(4, 8).toString("latin1") !== "ftyp") throw Object.assign(new Error("Invalid MP4 video."), { status: 422 }); const info = mp4Info(bytes); if (!info.duration) throw Object.assign(new Error("Invalid MP4 video."), { status: 422 }); if (info.duration > 15) throw Object.assign(new Error("MP4 gifts must be 15 seconds or shorter."), { status: 422 }); if (info.audio) throw Object.assign(new Error("MP4 gifts must not contain an audio track."), { status: 422 }); }
       else { try { bytes = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 16000000 }).webp().toBuffer(); } catch { throw Object.assign(new Error("Invalid image artwork."), { status: 422 }); } }
       const poster = await decodeUploadPoster(form.get("posterFile"));
       const coinPrice = amount(form.get("coinPrice"), true);
@@ -76,9 +76,35 @@ export async function POST(request) {
           await tx.liveCommerceRule.update({ where: { id: "LIVE" }, data: { ...shares, rewardsEnabled: body.rewardsEnabled, targetCoins, rewardCoins, bossSeatMinCoins, version: { increment: 1 } } });
           await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_RULES_UPDATED", category: "LIVE_MANAGEMENT", entityType: "LiveCommerceRule", entityId: "LIVE", description: "Updated live-only settlement and gifting-target rewards." } });
         });
+        invalidateLiveCommerceRule();
       } else throw Object.assign(new Error("Unknown action."), { status: 422 });
     }
     await notifyGiftCatalogUpdated();
     return Response.json({ success: true });
   } catch (e) { return failure(e); }
+}
+
+function mp4Info(bytes) {
+  const info = { duration: null, audio: false };
+  const walk = (start, end) => {
+    let offset = start;
+    while (offset + 8 <= end) {
+      let size = bytes.readUInt32BE(offset), header = 8;
+      const type = bytes.subarray(offset + 4, offset + 8).toString("latin1");
+      if (size === 1) { if (offset + 16 > end) return; size = Number(bytes.readBigUInt64BE(offset + 8)); header = 16; }
+      else if (size === 0) size = end - offset;
+      if (size < header || offset + size > end) return;
+      const body = offset + header;
+      if (["moov", "trak", "mdia"].includes(type)) walk(body, offset + size);
+      else if (type === "mvhd" && body + 4 <= offset + size) {
+        const version = bytes[body];
+        const timescale = version === 1 ? (body + 24 <= offset + size ? bytes.readUInt32BE(body + 20) : 0) : (body + 20 <= offset + size ? bytes.readUInt32BE(body + 12) : 0);
+        const duration = version === 1 ? (body + 32 <= offset + size ? Number(bytes.readBigUInt64BE(body + 24)) : 0) : (body + 20 <= offset + size ? bytes.readUInt32BE(body + 16) : 0);
+        if (timescale) info.duration = duration / timescale;
+      } else if (type === "hdlr" && body + 12 <= offset + size && bytes.subarray(body + 8, body + 12).toString("latin1") === "soun") info.audio = true;
+      offset += size;
+    }
+  };
+  walk(0, bytes.length);
+  return info;
 }

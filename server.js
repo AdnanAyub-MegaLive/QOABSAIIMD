@@ -712,12 +712,11 @@ io.on("connection",async(socket)=>{
         if(!text)return ack({success:false,error:{code:"VALIDATION_ERROR",message:"Write a message first."}});
         const now=Date.now(),rateKey=`${user.id}:${id}`;
         if(now-(liveCommentRate.get(rateKey)??0)<800)return ack({success:false,error:{code:"RATE_LIMITED",message:"You're sending messages too fast."}});
-        const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},select:{id:true,status:true}});
+        liveCommentRate.set(rateKey,now);if(liveCommentRate.size>5000)for(const [key,at] of liveCommentRate)if(now-at>=800)liveCommentRate.delete(key);
+        const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},select:{id:true,status:true,hostId:true,privacyMode:true}});
         if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live has ended."}});
-        const ban=await prisma.videoLiveBan.findFirst({where:{sessionId:live.id,userId:user.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});
-        if(ban)return ack({success:false,error:{code:"LIVE_BANNED",message:"You can't chat in this live."}});
+        try{await requireVideoAccess(prisma,live,user.id)}catch(error){return ack({success:false,error:{code:error?.code??"LIVE_BANNED",message:"You can't chat in this live."}})}
         const data={liveId:id,id:globalThis.crypto.randomUUID(),requestId:requestId?String(requestId).slice(0,64):null,body:text,at:new Date(now).toISOString(),sender:{publicId:user.publicId,name:user.name,profileImage:user.profileImage??null}};
-        liveCommentRate.set(rateKey,now);if(liveCommentRate.size>5000)liveCommentRate.clear();
         io.to(`live-video:${id}`).emit("live-video:comment",{success:true,data});
         ack({success:true,data});
       }catch(error){
