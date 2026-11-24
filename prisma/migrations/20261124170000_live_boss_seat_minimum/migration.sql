@@ -1,0 +1,1 @@
+ALTER TABLE "LiveCommerceRule" ADD COLUMN "bossSeatMinCoins" BIGINT NOT NULL DEFAULT 0;

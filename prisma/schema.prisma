@@ -1175,6 +1175,7 @@ model LiveCommerceRule {
   rewardsEnabled Boolean @default(false)
   targetCoins BigInt @default(0)
   rewardCoins BigInt @default(0)
+  bossSeatMinCoins BigInt @default(0)
   updatedAt DateTime @updatedAt
 }
 

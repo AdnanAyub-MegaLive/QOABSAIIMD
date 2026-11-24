@@ -69,11 +69,11 @@ export async function POST(request) {
         let split;
         try { split = validateProfitSplit({ ...body, normalUserReusablePercent: 0 }); } catch { throw Object.assign(new Error("Host, agency and company shares must total 100%."), { status: 422 }); }
         if (typeof body.rewardsEnabled !== "boolean") throw Object.assign(new Error("Invalid reward setting."), { status: 422 });
-        const targetCoins = amount(body.targetCoins, body.rewardsEnabled), rewardCoins = amount(body.rewardCoins, body.rewardsEnabled);
+        const targetCoins = amount(body.targetCoins, body.rewardsEnabled), rewardCoins = amount(body.rewardCoins, body.rewardsEnabled), bossSeatMinCoins = amount(body.bossSeatMinCoins ?? 0, false);
         await getLiveCommerceRule();
         await prisma.$transaction(async tx => {
           const { normalUserReusableShareBps: _unused, ...shares } = split;
-          await tx.liveCommerceRule.update({ where: { id: "LIVE" }, data: { ...shares, rewardsEnabled: body.rewardsEnabled, targetCoins, rewardCoins, version: { increment: 1 } } });
+          await tx.liveCommerceRule.update({ where: { id: "LIVE" }, data: { ...shares, rewardsEnabled: body.rewardsEnabled, targetCoins, rewardCoins, bossSeatMinCoins, version: { increment: 1 } } });
           await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_RULES_UPDATED", category: "LIVE_MANAGEMENT", entityType: "LiveCommerceRule", entityId: "LIVE", description: "Updated live-only settlement and gifting-target rewards." } });
         });
       } else throw Object.assign(new Error("Unknown action."), { status: 422 });
