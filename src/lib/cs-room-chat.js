@@ -95,6 +95,7 @@ export function registerCsRoomChat({ io, socket, user, origin, db }) {
         senderName: user.name,
         sender: { id: user.id, publicId: user.publicId, name: user.name, profileImage: user.profileImage },
       }], origin);
+      await db.csRoomMessage.create({ data: { publicId: data.id ?? data.publicId, country: code, senderId: user.id, body: text, mentions: resolvedMentions?.length ? resolvedMentions : undefined, createdAt: now } }).catch((error) => console.error("CS room message persist failed", error?.code ?? error?.name));
       io.to(channel).emit("cs-room:message", { success: true, data });
       ack({ success: true, data });
     } catch (error) {
@@ -111,10 +112,24 @@ export function registerCsRoomChat({ io, socket, user, origin, db }) {
       if (csStaffCountry(scoped) !== code) return ack(failure("CS_ADMIN_ONLY", "Only this country's support team can manage this room."));
       const id = String(messageId ?? "").trim();
       if (!id || id.length > 64) return ack(failure("VALIDATION_ERROR", "Choose a message."));
+      await db.csRoomMessage.updateMany({ where: { publicId: id, country: code, deletedAt: null }, data: { deletedAt: new Date(), deletedById: user.id } }).catch((error) => console.error("CS room message delete persist failed", error?.code ?? error?.name));
       io.to(channelOf(code)).emit("cs-room:message-deleted", { success: true, data: { country: code, id } });
       ack({ success: true });
     } catch (error) {
       ack(failure(error?.code ?? "CS_CHAT_FAILED", error?.message ?? "Unable to delete this message."));
+    }
+  });
+
+  socket.on("cs-room:clear-chat", async ({ country } = {}, ack = () => {}) => {
+    try {
+      const scoped = scopedUser(user, socket);
+      const code = csRoomCountry(country, scoped);
+      if (csStaffCountry(scoped) !== code) return ack(failure("CS_ADMIN_ONLY", "Only this country's support team can clear this chat."));
+      await db.csRoomMessage.updateMany({ where: { country: code, clearedAt: null }, data: { clearedAt: new Date(), clearedById: user.id } }).catch((error) => console.error("CS room chat clear persist failed", error?.code ?? error?.name));
+      io.to(channelOf(code)).emit("cs-room:chat-cleared", { success: true, data: { country: code } });
+      ack({ success: true });
+    } catch (error) {
+      ack(failure(error?.code ?? "CS_CHAT_FAILED", error?.message ?? "Unable to clear the chat."));
     }
   });
 

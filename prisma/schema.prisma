@@ -423,6 +423,7 @@ model User {
   blockedUsers               UserBlock[]                   @relation("UserBlocksCreated")
   blockedByUsers             UserBlock[]                   @relation("UserBlocksReceived")
   sentAudioRoomMessages      AudioRoomMessage[]
+  csRoomMessages             CsRoomMessage[]
   notifications              Notification[]
   notificationReads          NotificationRead[]
   friendRequestsSent         FriendRequest[]               @relation("FriendRequestsSent")
@@ -3507,6 +3508,25 @@ model CsRoomBan {
 
   @@unique([country, userId])
   @@index([expiresAt])
+}
+
+model CsRoomMessage {
+  id          String    @id @default(cuid())
+  publicId    String    @unique
+  country     String
+  senderId    String?
+  body        String
+  mentions    Json?
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+  deletedById String?
+  clearedAt   DateTime?
+  clearedById String?
+  sender      User?     @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([country, createdAt])
+  @@index([senderId, createdAt])
+  @@index([createdAt])
 }
 
 model CsRoomMute {

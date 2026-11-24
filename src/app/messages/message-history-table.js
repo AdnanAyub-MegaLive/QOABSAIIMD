@@ -19,7 +19,7 @@ export default function MessageHistoryTable({ records, query, type, kind = "ALL"
 
   return (
     <div className="overflow-hidden portal-panel rounded-2xl border border-[#dce8e5] bg-white shadow-[0_8px_30px_rgba(15,65,60,.04)]">
-      <nav aria-label="Message categories" className="flex gap-1 overflow-x-auto border-b p-3">{tabs.map(([key, label]) => <Link key={key} href={`/messages?${new URLSearchParams({ type: key, ...(query ? { q: query } : {}), ...(kind !== "ALL" ? { kind } : {}) })}`} aria-current={type === key ? "page" : undefined} className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold ${type === key ? "bg-[#e8f5f1] text-[#087f74]" : "text-[#71847f]"}`}>{label}</Link>)}</nav>
+      <nav aria-label="Message categories" className="flex gap-1 overflow-x-auto border-b p-3">{tabs.map(([key, label]) => <Link key={key} href={`/messages?${new URLSearchParams({ type: key, ...(query ? { q: query } : {}), ...(kind !== "ALL" ? { kind } : {}) })}`} aria-current={type === key ? "page" : undefined} className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold ${type === key ? "bg-[#e8f5f1] text-[#087f74]" : "text-[#71847f]"}`}>{label}</Link>)}<Link href="/messages/cs-room" className="shrink-0 rounded-lg px-4 py-2 text-xs font-semibold text-[#71847f]">CS Room</Link></nav>
       <form method="GET" className="flex flex-col gap-3 border-b border-[#e5ecea] p-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full lg:max-w-xl">
           <svg className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 fill-none stroke-[#80938f] stroke-2" viewBox="0 0 24 24" aria-hidden="true">
