@@ -35,6 +35,8 @@ describe("live setup and access", () => {
     const tx = { videoLiveGuestRequest: { findMany: vi.fn().mockResolvedValue([1,2,3,4].map(slot => ({ slot }))) }, videoLiveSession: { findUnique: vi.fn().mockResolvedValue({ mode: "GROUP" }) } };
     expect(await freeGuestSlot(tx, "live")).toBe(5);
     tx.videoLiveSession.findUnique.mockResolvedValue({ mode: "SOLO" });
+    expect(await freeGuestSlot(tx, "live")).toBe(5);
+    tx.videoLiveGuestRequest.findMany.mockResolvedValue([1,2,3,4,5].map(slot => ({ slot })));
     await expect(freeGuestSlot(tx, "live")).rejects.toThrow("GUEST_SLOTS_FULL");
     tx.videoLiveSession.findUnique.mockResolvedValue({ mode: "GROUP" }); tx.videoLiveGuestRequest.findMany.mockResolvedValue(Array.from({ length: 8 }, (_, i) => ({ slot: i + 1 })));
     await expect(freeGuestSlot(tx, "live")).rejects.toThrow("GUEST_SLOTS_FULL");

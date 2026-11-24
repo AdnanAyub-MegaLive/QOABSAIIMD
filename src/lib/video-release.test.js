@@ -25,6 +25,8 @@ it("reserves invitation slots alongside approved guests", async () => {
   expect(await freeGuestSlot(tx, "live")).toBe(4);
   expect(tx.videoLiveGuestRequest.findMany.mock.calls[0][0].where.OR[1]).toMatchObject({ status: "INVITED" });
   tx.videoLiveGuestRequest.findMany.mockResolvedValue([1, 2, 3, 4].map(slot => ({ slot })));
+  expect(await freeGuestSlot(tx, "live")).toBe(5);
+  tx.videoLiveGuestRequest.findMany.mockResolvedValue([1, 2, 3, 4, 5].map(slot => ({ slot })));
   await expect(freeGuestSlot(tx, "live")).rejects.toThrow("GUEST_SLOTS_FULL");
 });
 it("rejects expired or another user's invite", async () => {

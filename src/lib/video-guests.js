@@ -13,7 +13,7 @@ export async function liveGuestAccess(tx, liveId, userId) {
 export async function freeGuestSlot(tx, sessionId, now = new Date()) {
   const used = await tx.videoLiveGuestRequest.findMany({ where: { sessionId, OR: [{ status: "APPROVED" }, { status: "INVITED", expiresAt: { gt: now } }] }, select: { slot: true } });
   const live = await tx.videoLiveSession.findUnique({where:{id:sessionId},select:{mode:true}});
-  const slot = Array.from({length:live?.mode==="GROUP"?8:4},(_,i)=>i+1).find(n => !used.some(r => r.slot === n));
+  const slot = Array.from({length:live?.mode==="GROUP"?8:5},(_,i)=>i+1).find(n => !used.some(r => r.slot === n));
   if (!slot) fail("GUEST_SLOTS_FULL");
   return slot;
 }
