@@ -33,15 +33,21 @@ export async function POST(request) {
       if (isRateLimited(`live-gift-upload:${admin.id}`, { limit: 20, windowMs: 60000 })) throw Object.assign(new Error("Too many uploads. Please retry shortly."), { status: 429, code: "RATE_LIMITED" });
       const form = await readUploadForm(request, 14 * 1024 * 1024), file = form.get("file"), name = String(form.get("name") || "").trim();
       const svga = isSvgaFile(file);
-      if (!name || name.length > 120 || !(file instanceof File) || !file.size || file.size > (svga ? SVGA_MAX_BYTES : 5 * 1024 * 1024) || (!svga && !["image/png", "image/jpeg", "image/webp"].includes(file.type))) throw Object.assign(new Error("Provide a name and PNG, JPEG or WebP artwork up to 5 MB, or silent SVGA up to 8 MB."), { status: 422 });
+      const fileName = String(file?.name ?? "").toLowerCase();
+      const gif = !svga && (file?.type === "image/gif" || fileName.endsWith(".gif"));
+      const mp4 = !svga && !gif && (file?.type === "video/mp4" || fileName.endsWith(".mp4"));
+      const limit = svga || gif ? SVGA_MAX_BYTES : mp4 ? 8 * 1024 * 1024 : 5 * 1024 * 1024;
+      if (!name || name.length > 120 || !(file instanceof File) || !file.size || file.size > limit || (!svga && !gif && !mp4 && !["image/png", "image/jpeg", "image/webp"].includes(file.type))) throw Object.assign(new Error("Provide a name and PNG, JPEG or WebP artwork up to 5 MB, GIF or silent SVGA up to 8 MB, or MP4 up to 8 MB."), { status: 422 });
       let bytes;
       if (svga) { bytes = Buffer.from(await file.arrayBuffer()); await validateSvga(bytes); }
+      else if (gif) { bytes = Buffer.from(await file.arrayBuffer()); if (bytes.subarray(0, 4).toString("latin1") !== "GIF8") throw Object.assign(new Error("Invalid GIF artwork."), { status: 422 }); }
+      else if (mp4) { bytes = Buffer.from(await file.arrayBuffer()); if (bytes.length < 12 || bytes.subarray(4, 8).toString("latin1") !== "ftyp") throw Object.assign(new Error("Invalid MP4 video."), { status: 422 }); }
       else { try { bytes = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 16000000 }).webp().toBuffer(); } catch { throw Object.assign(new Error("Invalid image artwork."), { status: 422 }); } }
       const poster = await decodeUploadPoster(form.get("posterFile"));
       const coinPrice = amount(form.get("coinPrice"), true);
       const xp=giftXpInput({senderXp:form.get("senderXp"),receiverXp:form.get("receiverXp")});
       const createdAsset = await prisma.$transaction(async tx => {
-        const asset = await tx.uploadAsset.create({ data: { publicId: `AST-${crypto.randomUUID()}`, name, category: "LIVE_GIFTS", fileName: svga ? "live-gift.svga" : "live-gift.webp", mimeType: svga ? SVGA_MIME : "image/webp", fileSize: bytes.length, fileData: bytes, ...poster, coinPrice, ...xp, receiverDiamonds: receiverDiamondsInput(form.get("receiverDiamonds")), giftTier: "CLASSIC", active: true, isGlobal: true } });
+        const asset = await tx.uploadAsset.create({ data: { publicId: `AST-${crypto.randomUUID()}`, name, category: "LIVE_GIFTS", fileName: svga ? "live-gift.svga" : gif ? "live-gift.gif" : mp4 ? "live-gift.mp4" : "live-gift.webp", mimeType: svga ? SVGA_MIME : gif ? "image/gif" : mp4 ? "video/mp4" : "image/webp", fileSize: bytes.length, fileData: bytes, ...poster, coinPrice, ...xp, receiverDiamonds: receiverDiamondsInput(form.get("receiverDiamonds")), giftTier: "CLASSIC", active: true, isGlobal: true } });
         await tx.auditLog.create({ data: { adminId: admin.id, action: "LIVE_GIFT_CREATED", category: "LIVE_MANAGEMENT", entityType: "UploadAsset", entityId: asset.publicId, description: "Created a live-only gift." } });
         return asset;
       });

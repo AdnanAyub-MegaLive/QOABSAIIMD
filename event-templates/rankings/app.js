@@ -7,12 +7,13 @@
     const child=frame.contentWindow;
     // The wrapper supplies category navigation; embedded Agency/CP retain all
     // their own artwork, period controls, rewards and standalone navigation.
-    if (/\/ranking-(agency|cp)\//.test(new URL(frame.src,window.location.href).pathname)) {
+    const embedded=/\/ranking-(agency|cp|wealth|charm)\//.exec(new URL(frame.src,window.location.href).pathname);
+    if (embedded) {
       const doc=child.document;
       if (!doc.getElementById('all-rankings-navigation')) {
         const style=doc.createElement('style');
         style.id='all-rankings-navigation';
-        style.textContent='#tracks { display:none !important; }';
+        style.textContent='#tracks { display:none !important; }'+(embedded[1]==='wealth'||embedded[1]==='charm'?' #filters { margin-top:50px !important; }':'')+(embedded[1]==='cp'?' #ranking header { justify-content:space-between !important; }':'');
         doc.head.append(style);
       }
     }
