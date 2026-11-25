@@ -25,3 +25,10 @@ it("does not silently succeed when cloud credentials are missing",async()=>{
 });
 
 it("dismisses the video string room through TRTC",async()=>{await dismissRtcRoom("video-LIVE-1");expect(mocks.dismiss).toHaveBeenCalledWith({SdkAppId:20044231,RoomId:"video-LIVE-1"});});
+
+it("treats Tencent's missing-room codes as already closed", async () => {
+  const { isMissingTrtcRoom } = await import("./rtc-moderation.js");
+  expect(isMissingTrtcRoom({ code: "FailedOperation.RoomNotExist" })).toBe(true);
+  expect(isMissingTrtcRoom({ code: "ResourceNotFound.RoomNotExist" })).toBe(true);
+  expect(isMissingTrtcRoom({ code: "InternalError" })).toBe(false);
+});
