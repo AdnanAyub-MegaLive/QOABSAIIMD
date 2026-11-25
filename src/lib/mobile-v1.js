@@ -1,4 +1,5 @@
 import { isServerProblem, mobileRequestContext, mobileRequestId, serverProblemBody } from "./mobile-server-problem.js";
+import { isWalletFrozenError, WALLET_FROZEN_MESSAGE } from "./wallet-freeze.js";
 import { prisma } from "./prisma";
 import { isRateLimited } from "./rate-limit";
 import mobileSession from "./mobile-session.cjs";
@@ -143,6 +144,7 @@ export async function withV1Request(request, { path, methods, rateLimit }, handl
       response = await mobileRequestContext.run(requestIdValue, () => handler({ requestId: requestIdValue }));
     } catch (error) {
       if (isAppUpdateRequired(error)) response = appUpdateRequiredResponse(error);
+      else if (isWalletFrozenError(error)) response = v1Json(request, requestIdValue, { success: false, error: { code: "WALLET_FROZEN", message: WALLET_FROZEN_MESSAGE } }, 403);
       else response = v1Json(
         request,
         requestIdValue,

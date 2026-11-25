@@ -33,7 +33,7 @@ export function permissionsForRole(role) { return roomPermissions[role] ?? roomP
 export async function serializeRoomMembers(room, origin, { q = null, skip = 0, take = 30, viewerId = null } = {}) {
   const canSeeInvisible = viewerId && (await resolveRoomAccess(room, viewerId)).permissions.canModerateMembers;
   const now = new Date();
-  const visible = canSeeInvisible ? {} : { NOT: { vipMembership: { is: activeVipWhere("INVISIBLE_ENTRY", now) } } };
+  const visible = canSeeInvisible ? {} : { NOT: { OR: [{ vipMembership: { is: activeVipWhere("INVISIBLE_ENTRY", now) } }, { grantedPrivileges: { has: "INVISIBLE_ENTRY" }, NOT: { disabledGrantedPrivileges: { has: "INVISIBLE_ENTRY" } } }] } };
   const where = { audioRoomId: room.id, socketCount: { gt: 0 }, user: { ...visible, ...(q ? { OR: [{ publicId: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {}) } };
   // Sort and filter before pagination; an invisible listener must never consume a public slot.
   const [total, ordered] = await Promise.all([prisma.audioRoomMember.count({ where }), prisma.$queryRaw(Prisma.sql`
@@ -41,7 +41,7 @@ export async function serializeRoomMembers(room, origin, { q = null, skip = 0, t
     LEFT JOIN "VipMembership" v ON v."userId"=u.id AND v."revokedAt" IS NULL AND v."startsAt"<=${now} AND v."expiresAt">${now}
     LEFT JOIN "VipTier" t ON t.id=v."tierId" AND t.active=true
     WHERE m."audioRoomId"=${room.id} AND m."socketCount">0
-      AND (${Boolean(canSeeInvisible)} OR NOT COALESCE('INVISIBLE_ENTRY'=ANY(t.privileges) AND NOT ('INVISIBLE_ENTRY'=ANY(v."disabledPrivileges")),false))
+      AND (${Boolean(canSeeInvisible)} OR NOT (COALESCE('INVISIBLE_ENTRY'=ANY(t.privileges) AND NOT ('INVISIBLE_ENTRY'=ANY(v."disabledPrivileges")),false) OR COALESCE('INVISIBLE_ENTRY'=ANY(u."grantedPrivileges") AND NOT ('INVISIBLE_ENTRY'=ANY(u."disabledGrantedPrivileges")),false)))
       AND (${q ?? ''}='' OR POSITION(LOWER(${q ?? ''}) IN LOWER(u.name))>0 OR POSITION(LOWER(${q ?? ''}) IN LOWER(u."publicId"))>0)
     ORDER BY CASE WHEN 'RANKING_PRIORITY'=ANY(t.privileges) AND NOT ('RANKING_PRIORITY'=ANY(v."disabledPrivileges")) THEN t.level ELSE 0 END DESC, m."joinedAt" ASC, u."publicId" ASC
     LIMIT ${take} OFFSET ${skip}`)]);

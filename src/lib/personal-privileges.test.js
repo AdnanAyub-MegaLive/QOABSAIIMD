@@ -20,3 +20,15 @@ it('can restore a granted disabled benefit',async()=>{
  expect(result.items.find(p=>p.key==='ANTI_KICK').enabled).toBe(true);
 });
 it('expired memberships expose no switches',()=>{expect(personalPrivileges({...row(),expiresAt:new Date(0)}).items).toEqual([])});
+
+it('lists staff-granted privileges without VIP and lets the user switch them off', async () => {
+  const { personalPrivileges, updatePersonalPrivilege } = await import('./personal-privileges.js');
+  expect(personalPrivileges(null, { grantedPrivileges: ['INVISIBLE_ENTRY'], disabledGrantedPrivileges: [] }).items)
+    .toEqual([expect.objectContaining({ key: 'INVISIBLE_ENTRY', enabled: true, switchable: true })]);
+  const user = { grantedPrivileges: ['INVISIBLE_ENTRY'], disabledGrantedPrivileges: [] };
+  const db = { user: { findUnique: async () => ({ ...user }), update: async ({ data }) => Object.assign(user, data) }, vipMembership: { findUnique: async () => null } };
+  db.$transaction = fn => fn(db);
+  const result = await updatePersonalPrivilege(db, 'u1', 'INVISIBLE_ENTRY', false);
+  expect(user.disabledGrantedPrivileges).toEqual(['INVISIBLE_ENTRY']);
+  expect(result.items[0].enabled).toBe(false);
+});

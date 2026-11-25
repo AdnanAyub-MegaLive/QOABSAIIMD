@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { prisma } from "../../../../../lib/prisma.js";
 import {
   mobileApiError,
@@ -15,6 +16,7 @@ export function OPTIONS() {
 export async function POST(request, { params }) {
   try {
     const user = await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(user.id); if (frozen) return frozen; }
     const { assetId } = await params;
     const result = await prisma.$transaction(
       async (tx) => {

@@ -1,4 +1,5 @@
 "use server";
+import { requireUserInScope, capGrant } from "../lib/staff-scope.js";
 import { calendarWindow } from "@/lib/business-time.js";
 import { occupiedSpecialId, promoteSpecialId, publishSpecialIdentity } from "@/lib/special-id-ownership";
 
@@ -72,6 +73,7 @@ const normalizeEmail = (value) =>
 
 export async function updateUserAccount(publicId, changes) {
   const admin = await requirePermission("users.edit");
+  await requireUserInScope(admin, publicId);
   if (changes.status !== undefined) await requirePermission("users.ban");
   if (changes.isOfficial !== undefined || changes.isVerified !== undefined) await requirePermission("users.verify");
   if (changes.role !== undefined || changes.roles !== undefined) await requirePermission("hosts.edit");
@@ -235,6 +237,7 @@ export async function updateUserAccount(publicId, changes) {
 
 export async function updateTalentAccount(publicId, changes) {
   const admin = await requirePermission("hosts.edit");
+  await requireUserInScope(admin, publicId);
   if (changes.salary !== undefined) await requirePermission("hosts.salary");
   const talent = await prisma.talent.findUniqueOrThrow({ where: { publicId } });
   const data = {};
@@ -302,6 +305,7 @@ export async function updateTalentAccount(publicId, changes) {
 
 export async function managePortalHost(publicId, changes) {
   const admin = await requirePermission("hosts.edit");
+  await requireUserInScope(admin, publicId);
   const user = await prisma.user.findUniqueOrThrow({
     where: { publicId },
     select: {
@@ -427,6 +431,7 @@ export async function managePortalHost(publicId, changes) {
 
 export async function adjustUserCoins(publicId, operation, amount, reason, requestId) {
   const admin = await requirePermission("finance.adjust");
+  await requireUserInScope(admin, publicId);
   const result = await applyAdminCoinAdjustment(prisma, admin, { publicId, operation, amount, reason, requestId });
   // A committed credit must never be reported as a failed adjustment because
   // a derived entitlement or cache refresh failed. Same-key retries are safe.
@@ -454,6 +459,7 @@ export async function adjustUserCoins(publicId, operation, amount, reason, reque
 
 export async function deductUserDiamonds(publicId, amount, reason, requestId) {
   const admin = await requirePermission("finance.adjust");
+  await requireUserInScope(admin, publicId);
   let result;
   try {
     result = await applyAdminDiamondDeduction(prisma, admin, { publicId, amount, reason, requestId });
@@ -477,6 +483,7 @@ export async function manageUserAssetGrant(
   options = {},
 ) {
   const admin = await requirePermission("users.props");
+  await requireUserInScope(admin, publicId);
   const [user, asset] = await Promise.all([
     prisma.user.findFirstOrThrow({
       where: { publicId, deletedAt: null },
@@ -518,6 +525,7 @@ export async function manageUserAssetGrant(
       : Math.floor(Number(options.durationMinutes));
     if (!permanent && (!Number.isInteger(durationMinutes) || durationMinutes < 1))
       throw new Error("INVALID_DURATION");
+    capGrant(admin, { permanent, durationMinutes });
     const assignedAt = new Date();
     const expiresAt = permanent
       ? null
@@ -651,6 +659,7 @@ export async function createBan({
   if (target === "DEVICE") {
     try {
       const admin = await requirePermission("users.devices");
+      await requireUserInScope(admin, publicId);
       const data = await changeDeviceBan(prisma, admin, { publicId, macAddress, reason, durationMinutes, permanent, proofImage }, true);
       try { await globalThis.portalDisconnectDevice?.(macAddress, data); }
       catch (error) { console.error("Device ban disconnect failed", error); }
@@ -666,6 +675,7 @@ export async function createBan({
     }
   }
   const admin = await requirePermission(target === "DEVICE" ? "users.devices" : "users.ban");
+  await requireUserInScope(admin, publicId);
   const isTalent = publicId.startsWith("T");
   const owner = isTalent
     ? await prisma.talent.findUniqueOrThrow({ where: { publicId } })
@@ -748,6 +758,7 @@ export async function createBan({
 
 export async function unbanUser(publicId, reason) {
   const admin = await requirePermission("users.ban");
+  await requireUserInScope(admin, publicId);
   const isTalent = publicId.startsWith("T");
   const owner = isTalent
     ? await prisma.talent.findUniqueOrThrow({ where: { publicId } })
@@ -800,6 +811,7 @@ export async function unbanUser(publicId, reason) {
 
 export async function forceLogoutUser(publicId, reason) {
   const admin = await requirePermission("users.logout");
+  await requireUserInScope(admin, publicId);
   const user = await prisma.user.update({
     where: { publicId },
     data: { sessionVersion: { increment: 1 }, forcedLogoutAt: new Date() },
@@ -840,6 +852,7 @@ export async function forceLogoutUser(publicId, reason) {
 
 export async function unbanDevice(publicId, macAddress, reason) {
   const admin = await requirePermission("users.devices");
+  await requireUserInScope(admin, publicId);
   await changeDeviceBan(prisma, admin, { publicId, macAddress, reason, permanent: true }, false);
 
   emitToUser(publicId, "device:unbanned", {
@@ -852,6 +865,7 @@ export async function unbanDevice(publicId, macAddress, reason) {
 
 export async function resetUserPassword(publicId, reason) {
   const admin = await requirePermission("users.password");
+  await requireUserInScope(admin, publicId);
   const temporaryPassword = generateTemporaryPassword();
   const passwordHash = await hashPassword(temporaryPassword);
   const user = await prisma.user.update({
@@ -890,6 +904,7 @@ export async function resetUserPassword(publicId, reason) {
 
 export async function deleteUserAccount(publicId, _reason) {
   const admin = await requirePermission("users.delete");
+  await requireUserInScope(admin, publicId);
   const user = await prisma.user.findUniqueOrThrow({ where: { publicId } });
   const { requestAccountDeletion } = await import('../lib/account-deletion.js');
   const job = await requestAccountDeletion(prisma, user.id, {source:'ADMIN_ACTION',verifiedBy:admin.id});
@@ -1190,6 +1205,7 @@ export async function assignSpecialId(
   reason,
 ) {
   const admin = await requirePermission("users.specialIds");
+  await requireUserInScope(admin, publicId);
   let assignment;
   try { assignment = await assignDefinitionToUser({
     publicId,
@@ -1266,4 +1282,16 @@ export async function revokeSpecialId(assignmentId, reason) {
   });
   revalidatePath("/users");
   revalidatePath("/vip-management");
+}
+
+export async function setUserWalletFreeze(publicId, frozen, reason) {
+  const admin = await requirePermission("users.freeze");
+  await requireUserInScope(admin, publicId);
+  const user = await prisma.user.findUnique({ where: { publicId: String(publicId ?? "") }, select: { id: true } });
+  if (!user) throw new Error("User not found.");
+  const { setWalletFreeze } = await import("../lib/wallet-freeze.js");
+  const result = await setWalletFreeze(prisma, { admin, userId: user.id, frozen: Boolean(frozen), reason });
+  revalidatePath("/users");
+  revalidatePath(`/users/${publicId}`);
+  return result;
 }

@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { comboBatchOperation } from '@/lib/gift-combo-batch';
 import { priorGiftOperation, runGiftOperation } from '@/lib/gift-operation';
 import { prepareMultiGift } from '@/lib/multi-gift-settlement';
@@ -9,6 +10,7 @@ export const OPTIONS = mobileOptions;
 export async function POST(request) {
   try {
     const sender = await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(sender.id); if (frozen) return frozen; }
     let body;
     try { body = await request.json(); }
     catch { throw Object.assign(new Error('Provide a JSON combo batch.'), { code: 'VALIDATION_ERROR' }); }

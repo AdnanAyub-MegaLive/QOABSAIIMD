@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
 import { liveTopGifter } from "@/lib/video-live";
 import { emitToVideoLive as emitLiveTopGifter } from "@/lib/realtime";
@@ -38,6 +39,7 @@ export function OPTIONS() {
 export async function POST(request) {
   try {
     const sessionUser = await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(sessionUser.id); if (frozen) return frozen; }
     const body = await request.json();
     const conversationId = body?.conversationId ?? null;
     if (conversationId && (typeof conversationId !== "string" || conversationId.length > 128 || body.roomId || body.liveId || typeof body.clientMessageId !== "string" || !/^[A-Za-z0-9._:-]{8,123}$/.test(body.clientMessageId))) throw Object.assign(new Error("Chat gifts require conversationId and an 8–123 character clientMessageId, without a room or live ID."), { code: "VALIDATION_ERROR" });

@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { mobileApiError, mobileJson, mobileOptions, requireMobileUser } from "@/lib/mobile-api";
 import { createRedEnvelope, getRedEnvelopeConfiguration, listRedEnvelopes, parseRedEnvelopeInput } from "@/lib/red-envelopes";
 
@@ -18,6 +19,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(user.id); if (frozen) return frozen; }
     const configuration = await getRedEnvelopeConfiguration();
     const data = await createRedEnvelope(user, parseRedEnvelopeInput(await request.json(), configuration.settings));
     return mobileJson({ success: true, data }, 201);

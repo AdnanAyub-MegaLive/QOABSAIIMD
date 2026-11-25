@@ -65,6 +65,8 @@ export async function refundGift({giftId,confirmation,reason,adminId,origin},db=
   if(typeof reason!=="string"||!reason.trim()||reason.length>500)throw error("Provide a refund reason (1–500 characters).",422);
   for(let attempt=0;attempt<4;attempt++){
     try{return await db.$transaction(async tx=>{
+        // Staff wallet corrections stay possible while a wallet is frozen.
+        if (typeof tx.$executeRaw === "function") await tx.$executeRaw`SELECT set_config('mega.wallet_admin', 'on', true)`;
       const preview=await previewGiftRefund(giftId,tx);
       if(preview.confirmation!==confirmation)throw error("Preview changed. Review and confirm again.");
       const existing=await tx.giftRefund.findUnique({where:{giftId}});

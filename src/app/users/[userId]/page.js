@@ -1,6 +1,7 @@
 import { loadUserMessageHistory } from "@/lib/portal-user-history";
 import { PermissionGate } from "@/app/components/portal-access";
 import { requirePagePermission } from "@/lib/portal-admin";
+import { scopedUserWhere } from "@/lib/staff-scope";
 import { hasPermission } from "@/lib/portal-permissions";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -16,7 +17,7 @@ export default async function UserProfilePage({ params }) {
   if (!session?.user) redirect("/");
   const { userId } = await params;
   const user = await prisma.user.findFirst({
-    where: { publicId: decodeURIComponent(userId), deletedAt: null },
+    where: { publicId: decodeURIComponent(userId), deletedAt: null, ...scopedUserWhere(admin) },
     include: {
       devices: { orderBy: { lastLoginAt: "desc" }, take: 1 },
       bans: {
@@ -123,6 +124,8 @@ export default async function UserProfilePage({ params }) {
     vipLevel: user.vipLevel,
     isOfficial: Boolean(user.isOfficial),
     isBanned: user.bans.length > 0,
+    walletFrozen: user.walletFrozen,
+    walletFrozenReason: user.walletFrozenReason,
     banReason: user.bans[0]?.reason ?? null,
     banExpiresAt: user.bans[0]?.expiresAt?.toISOString() ?? null,
     activeSpecialId: user.specialIds[0]

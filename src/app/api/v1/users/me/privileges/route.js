@@ -7,8 +7,8 @@ export const OPTIONS = mobileOptions;
 export async function GET(request) {
   try {
     const user=await requireMobileUser(request);
-    const row=await prisma.vipMembership.findUnique({where:{userId:user.id},include:{tier:true}});
-    const response=await mobileJson({success:true,data:personalPrivileges(row)});
+    const [row,grants]=await Promise.all([prisma.vipMembership.findUnique({where:{userId:user.id},include:{tier:true}}),prisma.user.findUnique({where:{id:user.id},select:{grantedPrivileges:true,disabledGrantedPrivileges:true}})]);
+    const response=await mobileJson({success:true,data:personalPrivileges(row,grants)});
     response.headers.set('Cache-Control','private, no-store');
     return response;
   } catch(error) { return mobileApiError(error,'PRIVILEGES_LOAD_FAILED'); }

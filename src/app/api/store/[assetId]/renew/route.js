@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { prisma } from '@/lib/prisma';
 import { requireMobileUser,mobileJson,mobileApiError,mobileOptions } from '@/lib/mobile-api';
 import { isRateLimited } from '@/lib/rate-limit';
@@ -6,6 +7,7 @@ export function OPTIONS(){return mobileOptions();}
 export async function POST(request,{params}){
  try{
   const user=await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(user.id); if (frozen) return frozen; }
   if(isRateLimited(`prop-renew:${user.id}`,{limit:20,windowMs:60000}))return mobileJson({success:false,error:{code:'RATE_LIMITED',message:'Try again in a minute.'}},429);
   const {assetId}=await params;
   return mobileJson({success:true,data:await renewProp(prisma,user.id,assetId,request.headers.get('Idempotency-Key'))});

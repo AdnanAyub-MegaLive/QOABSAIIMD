@@ -15,6 +15,7 @@ import { allowedNavigation, usePortalAccess } from "./portal-access";
 
 export const portalNavigation = [
   ["Overview", "/home"],
+  ["My Region", "/region-report"],
   ["Users / Senders", "/users"],
   ["Account deletion", "/account-deletions"],
   ["VIP Management", "/vip-management"],

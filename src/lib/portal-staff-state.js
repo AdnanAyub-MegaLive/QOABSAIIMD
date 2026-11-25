@@ -33,5 +33,6 @@ export async function canManageStaff(db, actor, target) {
 export function staffDto(admin) {
   return { id: admin.id, name: admin.name, email: admin.email, role: admin.role, active: admin.active,
     permissions: admin.permissions, createdById: admin.createdById, sessionVersion: admin.sessionVersion,
-    createdAt: admin.createdAt, lastLoginAt: admin.lastLoginAt };
+    createdAt: admin.createdAt, lastLoginAt: admin.lastLoginAt,
+    allowedCountries: admin.allowedCountries ?? [], maxGrantDays: admin.maxGrantDays ?? null, linkedUserPublicId: admin.linkedUserPublicId ?? null };
 }

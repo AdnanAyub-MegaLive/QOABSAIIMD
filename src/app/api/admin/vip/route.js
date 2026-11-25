@@ -6,16 +6,18 @@ import { selectOwnedVip } from "@/lib/vip-commerce";
 import { syncProgressionProps } from "@/lib/props-store";
 import { uploadLibraryFilter } from "@/lib/upload-library-filter";
 import { sameOrigin } from "@/lib/game-control/http";
+import { requireUserInScope, scopedUserWhere, countryValues } from "@/lib/staff-scope";
 const fail=(message,status=422)=>Object.assign(new Error(message),{status,code:"VALIDATION_ERROR"});
 function response(error){return Response.json({success:false,error:{code:error.code==="P2002"?"VIP_LEVEL_EXISTS":error.status?error.code:"VIP_UPDATE_FAILED",message:error.code==="P2002"?"This VIP level already exists.":error.status?error.message:"Unable to update VIP management."}},{status:error.code==="P2002"?409:error.status??500});}
 export async function GET(request){try{
-  await requirePermission("vip.view");
+  const viewer=await requirePermission("vip.view");
+  const memberWhere=countryValues(viewer)?{user:scopedUserWhere(viewer)}:{};
   const page=Math.max(1,Math.min(100000,Number(new URL(request.url).searchParams.get("page"))||1));
   const memberPage=Math.max(1,Math.min(100000,Math.floor(Number(new URL(request.url).searchParams.get("memberPage")))||1));
   const [tiers,total,assets,members,memberTotal]=await Promise.all([
     prisma.vipTier.findMany({where:{archivedAt:null},include:{assets:true,_count:{select:{members:true}}},orderBy:{level:"asc"},skip:(page-1)*50,take:50}),prisma.vipTier.count({where:{archivedAt:null}}),
     prisma.uploadAsset.findMany({where:{...uploadLibraryFilter,active:true,category:{in:VIP_PRIVILEGES.map(p=>p.category).filter(Boolean)}},select:{id:true,publicId:true,name:true,category:true},take:1000,orderBy:{createdAt:"desc"}}),
-    prisma.vipMembership.findMany({include:{user:{select:{publicId:true,name:true}},tier:{select:{name:true,level:true}}},orderBy:[{startsAt:"desc"},{userId:"desc"}],skip:(memberPage-1)*50,take:50}),prisma.vipMembership.count()]);
+    prisma.vipMembership.findMany({where:memberWhere,include:{user:{select:{publicId:true,name:true}},tier:{select:{name:true,level:true}}},orderBy:[{startsAt:"desc"},{userId:"desc"}],skip:(memberPage-1)*50,take:50}),prisma.vipMembership.count({where:memberWhere})]);
   return Response.json({success:true,data:{tiers:tiers.map(t=>({...t,coinPrice:t.coinPrice?.toString()??null})),total,page,assets,members,memberPage,memberTotal,privileges:VIP_PRIVILEGES}});
 }catch(error){return response(error)}}
 export async function POST(request){try{
@@ -40,6 +42,7 @@ export async function POST(request){try{
     }else if(body.action==="GRANT"||body.action==="REVOKE"){
       const user=await tx.user.findFirst({where:{publicId:String(body.userPublicId??""),deletedAt:null,status:"ACTIVE"}});
       if(!user)throw fail("Active user not found.",404);
+      await requireUserInScope(admin,user.publicId,tx);
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
       if(body.action==="REVOKE"){
         await tx.vipOwnership.updateMany({where:{userId:user.id},data:{revokedAt:new Date()}});
@@ -51,7 +54,12 @@ export async function POST(request){try{
       }else{
         const tier=await tx.vipTier.findFirst({where:{id:String(body.tierId??""),active:true,archivedAt:null},include:{assets:true}});
         if(!tier)throw fail("Select an active VIP tier.");
-        const startsAt=new Date(),expiresAt=new Date(startsAt.getTime()+tier.validDays*86400000);
+        const limit=admin.role==="SUPER_ADMIN"?null:admin.maxGrantDays;
+        const requested=body.days==null||body.days===""?null:Number(body.days);
+        if(requested!=null&&(!Number.isInteger(requested)||requested<1||requested>3650))throw fail("Enter the number of VIP days.");
+        if(limit&&requested!=null&&requested>limit)throw fail(`You can only grant VIP for up to ${limit} days.`,403);
+        const days=requested??(limit?Math.min(limit,tier.validDays):tier.validDays);
+        const startsAt=new Date(),expiresAt=new Date(startsAt.getTime()+days*86400000);
         const owned=await tx.vipOwnership.upsert({where:{userId_tierId:{userId:user.id,tierId:tier.id}},create:{userId:user.id,tierId:tier.id,startsAt,expiresAt},update:{startsAt,expiresAt,revokedAt:null}});
         await selectOwnedVip(tx,user.id,owned,tier);
         await tx.vipMembership.upsert({where:{userId:user.id},create:{userId:user.id,tierId:tier.id,startsAt,expiresAt},update:{tierId:tier.id,startsAt,expiresAt,revokedAt:null}});
