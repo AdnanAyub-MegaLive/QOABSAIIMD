@@ -1,3 +1,4 @@
+import { clearAssetManifestCache } from "@/lib/asset-manifest";
 import sharp from 'sharp';
 import { createHash, randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
@@ -45,11 +46,12 @@ export async function POST(request){try{
     await tx.auditLog.create({data:{adminId:admin.id,action:'LEVEL_BACKGROUND_UPDATED',category:'USER_MANAGEMENT',entityType:'LevelTagBackground',entityId:`${track}:${level}`,description:'Updated level tag artwork only; XP thresholds unchanged.'}});
     return asset;
   });
+  clearAssetManifestCache();
   await mirrorAssetBestEffort(prisma,asset);
   return Response.json({success:true});
 }catch(e){return error(e);}}
 export async function DELETE(request){try{
   const admin=await requirePermission('rules.levels');sameOrigin(request);const {track,level}=await request.json();
   if(!['USER','CHARM','GAME','AGENCY'].includes(track)||!Number.isSafeInteger(level)||level<0)throw fail('Invalid level.');
-  await prisma.$transaction(async tx=>{await tx.levelTagBackground.deleteMany({where:{track,level}});await tx.auditLog.create({data:{adminId:admin.id,action:'LEVEL_BACKGROUND_REMOVED',category:'USER_MANAGEMENT',entityType:'LevelTagBackground',entityId:`${track}:${level}`,description:'Removed tag background link; shared media preserved.'}});});return Response.json({success:true});
+  await prisma.$transaction(async tx=>{await tx.levelTagBackground.deleteMany({where:{track,level}});await tx.auditLog.create({data:{adminId:admin.id,action:'LEVEL_BACKGROUND_REMOVED',category:'USER_MANAGEMENT',entityType:'LevelTagBackground',entityId:`${track}:${level}`,description:'Removed tag background link; shared media preserved.'}});});clearAssetManifestCache();return Response.json({success:true});
 }catch(e){return error(e);}}

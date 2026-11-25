@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
-const mocks=vi.hoisted(()=>({findUnique:vi.fn(),user:vi.fn(),auth:vi.fn()}));
+const mocks=vi.hoisted(()=>({findUnique:vi.fn(),findFirst:vi.fn(),user:vi.fn(),auth:vi.fn()}));
 vi.mock("../../auth",()=>({auth:mocks.auth}));
-vi.mock("./prisma",()=>({prisma:{uploadAsset:{findUnique:mocks.findUnique},user:{findUnique:mocks.user}}}));
+vi.mock("./prisma",()=>({prisma:{uploadAsset:{findUnique:mocks.findUnique,findFirst:mocks.findFirst},user:{findUnique:mocks.user}}}));
 import { GET } from "../app/api/uploads/[assetId]/file/route.js";
 import { createPublicDisplayAssetUrl, createSignedAssetUrl } from "./upload-assets.js";
 import { mediaByteCache } from "./media-byte-cache.js";
@@ -69,4 +69,21 @@ it("fetches only original bytes and retains video range responses",async()=>{
  mocks.findUnique.mockResolvedValueOnce({...asset,mimeType:"video/mp4"}).mockResolvedValueOnce({fileData:Buffer.from("abcdef"),mediaVersion:"abc",posterMediaVersion:"def"});
  const response=await get(3600,{Range:"bytes=1-3"});expect(response.status).toBe(206);expect(await response.text()).toBe("bcd");
  expect(mocks.findUnique.mock.calls[1][0].select).not.toHaveProperty("posterFileData");
+});
+it("lets a Bearer user fetch only assets the manifest exposes",async()=>{
+ const {default:mobileSession}=await import("./mobile-session.cjs");
+ mocks.user.mockResolvedValue({id:"viewer",status:"ACTIVE",sessionVersion:1,deletedAt:null,forcedLogoutAt:null});
+ const token=mobileSession.createMobileSessionToken({publicId:"U-1",sessionVersion:1});
+ const bearer=()=>GET(new Request("https://portal.test/api/uploads/AST-1/file?v=abc",{headers:{authorization:`Bearer ${token}`}}),{params:Promise.resolve({assetId:"AST-1"})});
+ mocks.findUnique.mockResolvedValue({...asset,category:"FRAMES",isGlobal:false,storeVisible:false,fileData:Buffer.from("gif")});
+ mocks.findFirst.mockResolvedValueOnce({publicId:"AST-1"});
+ expect((await bearer()).status).toBe(200);
+ expect(mocks.findFirst.mock.calls[0][0].where.AND[1]).toEqual({publicId:"AST-1"});
+ expect(mocks.findFirst.mock.calls[0][0].where.AND[0].OR[2].OR).toEqual(expect.arrayContaining([{isGlobal:true},{vipBenefits:{some:{tier:{active:true}}}}]));
+ mocks.findFirst.mockResolvedValueOnce(null);
+ expect((await bearer()).status).toBe(401);
+ mocks.findUnique.mockResolvedValue({...asset,category:"FRAMES",isGlobal:true,storeVisible:false,fileData:Buffer.from("gif")});
+ mocks.findFirst.mockClear();
+ expect((await bearer()).status).toBe(200);
+ expect(mocks.findFirst).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import { clearAssetManifestCache } from "@/lib/asset-manifest";
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/portal-admin';
@@ -27,6 +28,7 @@ export async function POST(request){
    await tx.auditLog.create({data:{adminId:admin.id,action:'ROOM_GAME_ICON_UPLOADED',category:'CONTENT_MANAGEMENT',entityType:'UploadAsset',entityId:publicId,description:'Uploaded public room-game icon.'}});
    return created;
   });
+  clearAssetManifestCache();
   const published=await mirrorAssetBestEffort(prisma,asset);
   return Response.json({success:true,data:{name:asset.name,...catalogIcon(published,origin(request))}},{status:201,headers:{'Cache-Control':'no-store'}});
  }catch(e){return failure(e);}

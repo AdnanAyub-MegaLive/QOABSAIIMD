@@ -1663,6 +1663,7 @@ model UploadAsset {
   selectedAsSeatStyle         AudioRoom[]                  @relation("AudioRoomSeatStyle")
   customBackgroundApproval    CustomRoomBackgroundRequest? @relation("CustomBackgroundApprovedAsset")
   giftInventories             UserGiftInventory[]
+  partnerPreviews             AssetPreview[]
   audioRoom                   AudioRoom?                   @relation("AudioRoomMusicTracks", fields: [audioRoomId], references: [id], onDelete: Cascade)
 
   @@index([category, createdAt])
@@ -3590,4 +3591,51 @@ model TulasiSession {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+enum AssetPreviewKind {
+  POSTER
+  MOTION
+}
+
+model PartnerApiKey {
+  id             String    @id @default(cuid())
+  publicId       String    @unique
+  name           String
+  keyHash        String    @unique
+  keyPrefix      String
+  allowedOrigins String[]  @default([])
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  revokedAt      DateTime?
+  lastUsedAt     DateTime?
+  createdById    String?
+
+  @@index([active, createdAt])
+}
+
+model AssetPreview {
+  id            String           @id @default(cuid())
+  assetId       String
+  kind          AssetPreviewKind
+  mimeType      String
+  data          Bytes?
+  storageKey    String?
+  sourceVersion String?
+  width         Int?
+  height        Int?
+  size          Int
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  asset         UploadAsset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, kind])
+}
+
+model PartnerCatalogRemoval {
+  id            String   @id @default(cuid())
+  assetPublicId String
+  removedAt     DateTime @default(now())
+
+  @@index([removedAt])
 }

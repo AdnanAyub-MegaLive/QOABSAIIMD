@@ -1,3 +1,4 @@
+import { clearAssetManifestCache } from "@/lib/asset-manifest";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
 import { giftXpInput, receiverDiamondsInput } from "@/lib/gift-xp-input";
 import crypto from "node:crypto";
@@ -79,6 +80,7 @@ export async function POST(request) {
         invalidateLiveCommerceRule();
       } else throw Object.assign(new Error("Unknown action."), { status: 422 });
     }
+    clearAssetManifestCache();
     await notifyGiftCatalogUpdated();
     return Response.json({ success: true });
   } catch (e) { return failure(e); }

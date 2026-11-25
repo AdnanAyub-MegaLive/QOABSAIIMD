@@ -1,3 +1,4 @@
+import { clearAssetManifestCache } from "@/lib/asset-manifest";
 import { portalPermissionError } from "@/lib/portal-admin";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAdmin } from "@/lib/portal-admin";
@@ -38,6 +39,7 @@ export async function PATCH(request, { params }) {
       await tx.auditLog.create({ data: { adminId: actor.id, action: `CUSTOM_BACKGROUND_${action}D`, category: "CONTENT_MANAGEMENT", entityType: "CustomRoomBackgroundRequest", entityId: publicId, description: `${actor.name} ${action === "APPROVE" ? "approved" : "rejected"} custom background ${publicId}.`, metadata: { reason: reason || null } } });
       await notifyAction(tx,{userId:item.userId,key:`custom-background:${item.id}:reviewed`,type:"CUSTOM_BACKGROUND",title:action==="APPROVE"?"Background approved":"Background rejected",body:action==="APPROVE"?"Your custom background is ready. Apply it to your room.":`${reason}. ${item.coins} coins have been refunded.`,action:{screen:"ROOM_THEME"}});
     });
+    clearAssetManifestCache();
     return Response.json({ success: true, data: { id: publicId, status: action === "APPROVE" ? "APPROVED" : "REJECTED" } });
   } catch (error) { const status = error.status ?? 500; if (status === 500) console.error("Custom background review failed", error); return Response.json({ success: false, error: { code: status === 422 ? "VALIDATION_ERROR" : status === 404 ? "NOT_FOUND" : status === 409 ? "ALREADY_REVIEWED" : "CUSTOM_BACKGROUND_REVIEW_FAILED", message: status === 500 ? "Unable to review this submission." : error.message } }, { status }); }
 }

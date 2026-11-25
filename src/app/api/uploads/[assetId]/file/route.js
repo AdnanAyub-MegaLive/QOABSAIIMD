@@ -1,5 +1,6 @@
 import { publicCdnUrl, canPublishMedia } from "@/lib/media-cdn-policy";
 import { mediaByteCache } from "@/lib/media-byte-cache";
+import { isManifestAsset } from "@/lib/asset-manifest";
 import { auth } from "../../../../../../auth";
 import { prisma } from "../../../../../lib/prisma";
 import mobileSession from "../../../../../lib/mobile-session.cjs";
@@ -105,7 +106,8 @@ export async function GET(request, { params }) {
           !asset.storeVisible &&
           !asset.assignments.some(
             (assignment) => assignment.userId === user.id,
-          ))
+          ) &&
+          (signed || !(await isManifestAsset(assetId, { db: prisma, now }))))
       )
         throw new Error(invalidation ?? "FORBIDDEN");
     } catch (error) {

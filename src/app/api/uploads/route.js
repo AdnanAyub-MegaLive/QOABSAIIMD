@@ -1,3 +1,4 @@
+import { clearAssetManifestCache } from "@/lib/asset-manifest";
 import { rejectDuplicateArtwork } from "@/lib/upload-duplicates";
 import { giftCategory as normalizeGiftCategory } from "@/lib/gift-categories";
 import { SVGA_MIME, SVGA_MAX_BYTES, SVGA_CATEGORIES, uploadMimeType } from "@/lib/svga-policy";
@@ -483,6 +484,7 @@ export async function POST(request) {
       });
     });
     const mirroredAsset = await mirrorAssetBestEffort(prisma, asset);
+    clearAssetManifestCache();
     if(["GIFTS","LIVE_GIFTS"].includes(asset.category))await notifyGiftCatalogUpdated();
     await notifyGameIconUpdated(prisma, asset.publicId);
     return Response.json(
@@ -749,6 +751,7 @@ export async function PATCH(request) {
       });
     });
     const mirroredAsset = await mirrorAssetBestEffort(prisma, asset);
+    clearAssetManifestCache();
     if(["GIFTS","LIVE_GIFTS"].includes(asset.category))await notifyGiftCatalogUpdated();
     await notifyGameIconUpdated(prisma, asset.publicId);
     return Response.json({
@@ -879,6 +882,7 @@ export async function DELETE(request) {
       });
       await tx.uploadAsset.update({ where: { id: asset.id }, data: { archivedAt: new Date(), storeVisible: false } });
     });
+    clearAssetManifestCache();
     await Promise.resolve().then(() => notifyGiftCatalogUpdated()).catch(error => console.error("Archived upload catalogue refresh failed", error));
     await notifyGameIconUpdated(prisma, assetId);
     return Response.json({ success: true, data: { assetId } });
