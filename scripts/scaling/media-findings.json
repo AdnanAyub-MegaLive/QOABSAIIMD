@@ -1,0 +1,21 @@
+{
+  "observedAtUtc": "2026-11-25T19:16:37Z",
+  "requestWindow": "2026-11-25T18:29:19Z/2026-11-25T19:14:43Z",
+  "mediaRequests": 932,
+  "mediaRequestsOver4Seconds": 25,
+  "maximumMediaSeconds": 60.027,
+  "codePath": "src/app/api/uploads/[assetId]/file/route.js: metadata/authentication, optional public CDN redirect, otherwise full database byte fetch before constructing response",
+  "byteCache": {"maxItemMiB":8,"totalPerProcessMiB":64,"ttlSeconds":300},
+  "activeAssetMetadata": [
+    {"mime":"video/mp4","count":165,"withoutCdn":28,"over8MiB":50},
+    {"mime":"audio/mpeg","count":28,"withoutCdn":28,"over8MiB":9},
+    {"mime":"image/png","count":220,"withoutCdn":48,"over8MiB":0},
+    {"mime":"application/svga","count":94,"withoutCdn":90,"over8MiB":0},
+    {"mime":"image/gif","count":236,"withoutCdn":132,"over8MiB":9},
+    {"mime":"image/webp","count":855,"withoutCdn":421,"over8MiB":0},
+    {"mime":"image/jpeg","count":8,"withoutCdn":0,"over8MiB":0}
+  ],
+  "interpretation": "Measure authorized database fallback separately from CDN and client transfer. Missing CDN URLs are not evidence that an asset is eligible for public publication. Additional workers multiply byte-cache memory and database connections; they do not eliminate these downloads.",
+  "productionDatabase": {"trackIoTiming":false,"deadlocksCumulative":200,"temporaryBytesCumulative":6898123642,"statsReset":null},
+  "databaseLimit": "Cumulative counters do not establish a current deadlock rate or the cause of an individual request. No production settings were changed."
+}

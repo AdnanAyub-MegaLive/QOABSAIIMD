@@ -1,0 +1,5427 @@
+{
+  "firstUtc": "2026-11-25T18:29:19+00:00",
+  "lastUtc": "2026-11-25T19:14:43+00:00",
+  "untimedLines": 33248,
+  "malformedLines": 1,
+  "bucketUpperSeconds": [
+    0.01,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1,
+    2,
+    4,
+    8,
+    30,
+    60,
+    null
+  ],
+  "groups": {
+    "2026-11-25T18:00Z|api|POST|/api/tulasi/[action]": {
+      "statuses": {
+        "200": 134
+      },
+      "bytes": 52528,
+      "request": {
+        "count": 134,
+        "sumSeconds": 2.931999999999998,
+        "maxSeconds": 0.13,
+        "buckets": [
+          0,
+          132,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 134,
+        "sumSeconds": 2.938999999999999,
+        "maxSeconds": 0.129,
+        "buckets": [
+          0,
+          132,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|media|GET|/api/uploads/[assetId]/file": {
+      "statuses": {
+        "304": 32,
+        "200": 122,
+        "307": 473,
+        "401": 40
+      },
+      "bytes": 23794737,
+      "request": {
+        "count": 667,
+        "sumSeconds": 247.52600000000047,
+        "maxSeconds": 60.027,
+        "buckets": [
+          519,
+          66,
+          9,
+          2,
+          15,
+          22,
+          7,
+          8,
+          15,
+          3,
+          0,
+          1
+        ]
+      },
+      "upstream": {
+        "count": 667,
+        "sumSeconds": 241.52700000000044,
+        "maxSeconds": 60.027,
+        "buckets": [
+          523,
+          67,
+          9,
+          2,
+          11,
+          21,
+          7,
+          9,
+          14,
+          3,
+          0,
+          1
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/auth/[...nextauth]": {
+      "statuses": {
+        "200": 171
+      },
+      "bytes": 332400,
+      "request": {
+        "count": 171,
+        "sumSeconds": 1.9569999999999963,
+        "maxSeconds": 0.085,
+        "buckets": [
+          105,
+          65,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 171,
+        "sumSeconds": 1.9449999999999972,
+        "maxSeconds": 0.084,
+        "buckets": [
+          105,
+          65,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/auth/[...nextauth]": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 3930,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.020999999999999998,
+        "maxSeconds": 0.011,
+        "buckets": [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.020999999999999998,
+        "maxSeconds": 0.012,
+        "buckets": [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/conversations": {
+      "statuses": {
+        "200": 289,
+        "499": 2,
+        "401": 1
+      },
+      "bytes": 1406413,
+      "request": {
+        "count": 292,
+        "sumSeconds": 56.82199999999995,
+        "maxSeconds": 0.309,
+        "buckets": [
+          1,
+          0,
+          1,
+          272,
+          18,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 292,
+        "sumSeconds": 56.82199999999994,
+        "maxSeconds": 0.309,
+        "buckets": [
+          1,
+          0,
+          1,
+          272,
+          18,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/me/host-center": {
+      "statuses": {
+        "200": 11
+      },
+      "bytes": 39795,
+      "request": {
+        "count": 11,
+        "sumSeconds": 0.6070000000000002,
+        "maxSeconds": 0.1,
+        "buckets": [
+          0,
+          6,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 11,
+        "sumSeconds": 0.6060000000000002,
+        "maxSeconds": 0.099,
+        "buckets": [
+          0,
+          6,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/users/session/status": {
+      "statuses": {
+        "200": 98,
+        "401": 1,
+        "502": 4
+      },
+      "bytes": 729771,
+      "request": {
+        "count": 103,
+        "sumSeconds": 6.751999999999998,
+        "maxSeconds": 0.269,
+        "buckets": [
+          5,
+          25,
+          64,
+          7,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 103,
+        "sumSeconds": 6.743999999999998,
+        "maxSeconds": 0.269,
+        "buckets": [
+          5,
+          25,
+          64,
+          7,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/notifications": {
+      "statuses": {
+        "200": 594
+      },
+      "bytes": 804452,
+      "request": {
+        "count": 594,
+        "sumSeconds": 7.6499999999999995,
+        "maxSeconds": 0.145,
+        "buckets": [
+          299,
+          285,
+          7,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 594,
+        "sumSeconds": 7.649999999999998,
+        "maxSeconds": 0.145,
+        "buckets": [
+          292,
+          292,
+          7,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/admin/access": {
+      "statuses": {
+        "200": 89
+      },
+      "bytes": 174796,
+      "request": {
+        "count": 89,
+        "sumSeconds": 1.0940000000000003,
+        "maxSeconds": 0.078,
+        "buckets": [
+          44,
+          44,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 89,
+        "sumSeconds": 1.1050000000000004,
+        "maxSeconds": 0.078,
+        "buckets": [
+          41,
+          47,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/chat/prohibited-words": {
+      "statuses": {
+        "200": 73,
+        "401": 1
+      },
+      "bytes": 3840,
+      "request": {
+        "count": 74,
+        "sumSeconds": 1.0919999999999999,
+        "maxSeconds": 0.298,
+        "buckets": [
+          63,
+          9,
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 74,
+        "sumSeconds": 1.099,
+        "maxSeconds": 0.297,
+        "buckets": [
+          63,
+          9,
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1": {
+      "statuses": {
+        "200": 290
+      },
+      "bytes": 661200,
+      "request": {
+        "count": 290,
+        "sumSeconds": 2.6009999999999933,
+        "maxSeconds": 0.106,
+        "buckets": [
+          269,
+          14,
+          5,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 290,
+        "sumSeconds": 2.588999999999992,
+        "maxSeconds": 0.105,
+        "buckets": [
+          270,
+          13,
+          5,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/events/rankings": {
+      "statuses": {
+        "200": 346,
+        "499": 1,
+        "502": 1
+      },
+      "bytes": 3404696,
+      "request": {
+        "count": 348,
+        "sumSeconds": 19.615000000000002,
+        "maxSeconds": 0.248,
+        "buckets": [
+          0,
+          193,
+          118,
+          37,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 348,
+        "sumSeconds": 19.600000000000012,
+        "maxSeconds": 0.248,
+        "buckets": [
+          0,
+          191,
+          119,
+          38,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/audio-rooms/[roomId]/pk": {
+      "statuses": {
+        "200": 24
+      },
+      "bytes": 14334,
+      "request": {
+        "count": 24,
+        "sumSeconds": 0.8390000000000003,
+        "maxSeconds": 0.074,
+        "buckets": [
+          0,
+          22,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 24,
+        "sumSeconds": 0.8350000000000003,
+        "maxSeconds": 0.074,
+        "buckets": [
+          0,
+          22,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/audio-rooms/[roomId]/rankings": {
+      "statuses": {
+        "200": 25
+      },
+      "bytes": 43771,
+      "request": {
+        "count": 25,
+        "sumSeconds": 1.1340000000000003,
+        "maxSeconds": 0.091,
+        "buckets": [
+          0,
+          16,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 25,
+        "sumSeconds": 1.1350000000000005,
+        "maxSeconds": 0.09,
+        "buckets": [
+          0,
+          16,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/rankings/hourly-gifts": {
+      "statuses": {
+        "200": 24
+      },
+      "bytes": 91755,
+      "request": {
+        "count": 24,
+        "sumSeconds": 1.621,
+        "maxSeconds": 0.176,
+        "buckets": [
+          0,
+          7,
+          15,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 24,
+        "sumSeconds": 1.6199999999999999,
+        "maxSeconds": 0.175,
+        "buckets": [
+          0,
+          6,
+          16,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/v1/audio-rooms/rtc-token": {
+      "statuses": {
+        "200": 9
+      },
+      "bytes": 6954,
+      "request": {
+        "count": 9,
+        "sumSeconds": 0.259,
+        "maxSeconds": 0.115,
+        "buckets": [
+          0,
+          8,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 9,
+        "sumSeconds": 0.257,
+        "maxSeconds": 0.114,
+        "buckets": [
+          0,
+          8,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/app/version": {
+      "statuses": {
+        "200": 7,
+        "499": 1
+      },
+      "bytes": 3766,
+      "request": {
+        "count": 8,
+        "sumSeconds": 0.07800000000000001,
+        "maxSeconds": 0.021,
+        "buckets": [
+          6,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 8,
+        "sumSeconds": 0.07600000000000001,
+        "maxSeconds": 0.021,
+        "buckets": [
+          6,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/users/me": {
+      "statuses": {
+        "200": 43,
+        "401": 2
+      },
+      "bytes": 271160,
+      "request": {
+        "count": 45,
+        "sumSeconds": 3.679,
+        "maxSeconds": 0.337,
+        "buckets": [
+          2,
+          6,
+          31,
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 45,
+        "sumSeconds": 3.6749999999999994,
+        "maxSeconds": 0.337,
+        "buckets": [
+          2,
+          7,
+          30,
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/audio-rooms": {
+      "statuses": {
+        "200": 20
+      },
+      "bytes": 43228,
+      "request": {
+        "count": 20,
+        "sumSeconds": 1.651,
+        "maxSeconds": 0.219,
+        "buckets": [
+          0,
+          6,
+          9,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 20,
+        "sumSeconds": 1.6540000000000001,
+        "maxSeconds": 0.219,
+        "buckets": [
+          0,
+          6,
+          9,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/team/invitations": {
+      "statuses": {
+        "200": 11
+      },
+      "bytes": 704,
+      "request": {
+        "count": 11,
+        "sumSeconds": 0.563,
+        "maxSeconds": 0.142,
+        "buckets": [
+          0,
+          7,
+          2,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 11,
+        "sumSeconds": 0.5640000000000001,
+        "maxSeconds": 0.142,
+        "buckets": [
+          0,
+          7,
+          2,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/audio-rooms/countries": {
+      "statuses": {
+        "499": 3,
+        "200": 46
+      },
+      "bytes": 3588,
+      "request": {
+        "count": 49,
+        "sumSeconds": 1.2859999999999998,
+        "maxSeconds": 0.224,
+        "buckets": [
+          20,
+          24,
+          2,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 49,
+        "sumSeconds": 1.273,
+        "maxSeconds": 0.224,
+        "buckets": [
+          21,
+          23,
+          2,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|media|GET|/api/audio-rooms/[roomId]/cover": {
+      "statuses": {
+        "200": 19
+      },
+      "bytes": 6515535,
+      "request": {
+        "count": 19,
+        "sumSeconds": 111.961,
+        "maxSeconds": 43.407,
+        "buckets": [
+          1,
+          0,
+          0,
+          0,
+          5,
+          3,
+          1,
+          3,
+          2,
+          3,
+          1,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 19,
+        "sumSeconds": 97.895,
+        "maxSeconds": 30.55,
+        "buckets": [
+          2,
+          0,
+          0,
+          1,
+          5,
+          1,
+          1,
+          3,
+          2,
+          3,
+          1,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/audio-rooms/recent": {
+      "statuses": {
+        "200": 6
+      },
+      "bytes": 85386,
+      "request": {
+        "count": 6,
+        "sumSeconds": 0.41800000000000004,
+        "maxSeconds": 0.1,
+        "buckets": [
+          0,
+          0,
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 6,
+        "sumSeconds": 0.42000000000000004,
+        "maxSeconds": 0.101,
+        "buckets": [
+          0,
+          0,
+          5,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/audio-rooms/discover": {
+      "statuses": {
+        "200": 29
+      },
+      "bytes": 39999,
+      "request": {
+        "count": 29,
+        "sumSeconds": 2.3610000000000007,
+        "maxSeconds": 0.218,
+        "buckets": [
+          0,
+          4,
+          17,
+          8,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 29,
+        "sumSeconds": 2.3599999999999994,
+        "maxSeconds": 0.218,
+        "buckets": [
+          0,
+          4,
+          17,
+          8,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|media|GET|/api/uploads/catalog": {
+      "statuses": {
+        "200": 72,
+        "422": 6
+      },
+      "bytes": 127578,
+      "request": {
+        "count": 78,
+        "sumSeconds": 4.071000000000001,
+        "maxSeconds": 0.154,
+        "buckets": [
+          0,
+          51,
+          13,
+          14,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 78,
+        "sumSeconds": 4.074000000000001,
+        "maxSeconds": 0.155,
+        "buckets": [
+          0,
+          52,
+          12,
+          14,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|web|GET|/event/[slug]/[[...path]]": {
+      "statuses": {
+        "307": 18,
+        "200": 121,
+        "404": 118
+      },
+      "bytes": 22330697,
+      "request": {
+        "count": 257,
+        "sumSeconds": 85.48800000000008,
+        "maxSeconds": 41.121,
+        "buckets": [
+          210,
+          33,
+          6,
+          0,
+          0,
+          1,
+          0,
+          3,
+          1,
+          2,
+          1,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 257,
+        "sumSeconds": 85.47000000000008,
+        "maxSeconds": 41.122,
+        "buckets": [
+          212,
+          30,
+          7,
+          0,
+          0,
+          1,
+          0,
+          3,
+          1,
+          2,
+          1,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|PUT|/api/users/session/device": {
+      "statuses": {
+        "200": 5
+      },
+      "bytes": 438,
+      "request": {
+        "count": 5,
+        "sumSeconds": 0.075,
+        "maxSeconds": 0.018,
+        "buckets": [
+          0,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 5,
+        "sumSeconds": 0.076,
+        "maxSeconds": 0.017,
+        "buckets": [
+          0,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/gifts/catalog": {
+      "statuses": {
+        "200": 11
+      },
+      "bytes": 1382194,
+      "request": {
+        "count": 11,
+        "sumSeconds": 12.033,
+        "maxSeconds": 3.781,
+        "buckets": [
+          0,
+          3,
+          1,
+          0,
+          2,
+          2,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 11,
+        "sumSeconds": 6.414,
+        "maxSeconds": 2.933,
+        "buckets": [
+          0,
+          5,
+          1,
+          1,
+          1,
+          1,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|web|GET|/unknown": {
+      "statuses": {
+        "404": 4,
+        "200": 895,
+        "304": 1
+      },
+      "bytes": 1513104,
+      "request": {
+        "count": 900,
+        "sumSeconds": 15.132999999999972,
+        "maxSeconds": 0.107,
+        "buckets": [
+          430,
+          423,
+          46,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 897,
+        "sumSeconds": 15.134999999999971,
+        "maxSeconds": 0.107,
+        "buckets": [
+          419,
+          432,
+          45,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/vip": {
+      "statuses": {
+        "200": 13
+      },
+      "bytes": 611,
+      "request": {
+        "count": 13,
+        "sumSeconds": 0.21400000000000002,
+        "maxSeconds": 0.031,
+        "buckets": [
+          0,
+          13,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 13,
+        "sumSeconds": 0.20800000000000002,
+        "maxSeconds": 0.03,
+        "buckets": [
+          0,
+          13,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/levels": {
+      "statuses": {
+        "200": 12
+      },
+      "bytes": 1112220,
+      "request": {
+        "count": 12,
+        "sumSeconds": 6.459000000000001,
+        "maxSeconds": 5.073,
+        "buckets": [
+          0,
+          7,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 12,
+        "sumSeconds": 1.423,
+        "maxSeconds": 0.633,
+        "buckets": [
+          0,
+          8,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/conversations/sync": {
+      "statuses": {
+        "200": 26,
+        "499": 1
+      },
+      "bytes": 404268,
+      "request": {
+        "count": 27,
+        "sumSeconds": 0.7310000000000003,
+        "maxSeconds": 0.094,
+        "buckets": [
+          1,
+          24,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 27,
+        "sumSeconds": 0.7240000000000003,
+        "maxSeconds": 0.093,
+        "buckets": [
+          1,
+          24,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/conversations/[conversationId]/messages": {
+      "statuses": {
+        "200": 8
+      },
+      "bytes": 337316,
+      "request": {
+        "count": 8,
+        "sumSeconds": 0.5510000000000002,
+        "maxSeconds": 0.098,
+        "buckets": [
+          0,
+          2,
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 8,
+        "sumSeconds": 0.5500000000000002,
+        "maxSeconds": 0.097,
+        "buckets": [
+          0,
+          2,
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/v1/conversations/[conversationId]/read": {
+      "statuses": {
+        "200": 10
+      },
+      "bytes": 1345,
+      "request": {
+        "count": 10,
+        "sumSeconds": 0.22899999999999998,
+        "maxSeconds": 0.032,
+        "buckets": [
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 10,
+        "sumSeconds": 0.23399999999999999,
+        "maxSeconds": 0.032,
+        "buckets": [
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/store": {
+      "statuses": {
+        "200": 7
+      },
+      "bytes": 1027144,
+      "request": {
+        "count": 7,
+        "sumSeconds": 10.213,
+        "maxSeconds": 4.097,
+        "buckets": [
+          0,
+          0,
+          2,
+          1,
+          0,
+          1,
+          0,
+          2,
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 7,
+        "sumSeconds": 1.222,
+        "maxSeconds": 0.723,
+        "buckets": [
+          0,
+          0,
+          5,
+          1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|socket|GET|/socket.io": {
+      "statuses": {
+        "101": 32
+      },
+      "bytes": 78645,
+      "request": {
+        "count": 32,
+        "sumSeconds": 4157.941,
+        "maxSeconds": 1437.311,
+        "buckets": [
+          0,
+          0,
+          0,
+          0,
+          3,
+          3,
+          2,
+          2,
+          0,
+          8,
+          3,
+          11
+        ]
+      },
+      "upstream": {
+        "count": 32,
+        "sumSeconds": 4157.939,
+        "maxSeconds": 1437.312,
+        "buckets": [
+          0,
+          0,
+          0,
+          0,
+          3,
+          3,
+          2,
+          2,
+          0,
+          8,
+          3,
+          11
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/games": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 47,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.012,
+        "maxSeconds": 0.012,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.012,
+        "maxSeconds": 0.012,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/wallet": {
+      "statuses": {
+        "200": 26
+      },
+      "bytes": 86437,
+      "request": {
+        "count": 26,
+        "sumSeconds": 0.8790000000000003,
+        "maxSeconds": 0.085,
+        "buckets": [
+          1,
+          20,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 26,
+        "sumSeconds": 0.8790000000000003,
+        "maxSeconds": 0.084,
+        "buckets": [
+          1,
+          20,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/users/[publicId]/followers": {
+      "statuses": {
+        "200": 10
+      },
+      "bytes": 12889,
+      "request": {
+        "count": 10,
+        "sumSeconds": 0.43,
+        "maxSeconds": 0.102,
+        "buckets": [
+          0,
+          8,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 10,
+        "sumSeconds": 0.428,
+        "maxSeconds": 0.101,
+        "buckets": [
+          0,
+          7,
+          2,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/users/[publicId]/profile": {
+      "statuses": {
+        "200": 27
+      },
+      "bytes": 441452,
+      "request": {
+        "count": 27,
+        "sumSeconds": 1.8330000000000004,
+        "maxSeconds": 0.146,
+        "buckets": [
+          0,
+          7,
+          16,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 27,
+        "sumSeconds": 1.8350000000000006,
+        "maxSeconds": 0.147,
+        "buckets": [
+          0,
+          6,
+          18,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/tulasi/games": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 18257,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.013,
+        "maxSeconds": 0.013,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.013,
+        "maxSeconds": 0.013,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|web|POST|/unknown": {
+      "statuses": {
+        "405": 1,
+        "303": 1
+      },
+      "bytes": 2400,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.364,
+        "maxSeconds": 0.364,
+        "buckets": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.364,
+        "maxSeconds": 0.364,
+        "buckets": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/agencies/mine": {
+      "statuses": {
+        "200": 8
+      },
+      "bytes": 8718,
+      "request": {
+        "count": 8,
+        "sumSeconds": 0.16499999999999998,
+        "maxSeconds": 0.035,
+        "buckets": [
+          2,
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 8,
+        "sumSeconds": 0.16499999999999998,
+        "maxSeconds": 0.035,
+        "buckets": [
+          3,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/users/[publicId]/following": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 5808,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.049,
+        "maxSeconds": 0.049,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.05,
+        "maxSeconds": 0.05,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/users/[publicId]/follow": {
+      "statuses": {
+        "200": 8
+      },
+      "bytes": 838,
+      "request": {
+        "count": 8,
+        "sumSeconds": 0.07899999999999999,
+        "maxSeconds": 0.012,
+        "buckets": [
+          5,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 8,
+        "sumSeconds": 0.07699999999999999,
+        "maxSeconds": 0.011,
+        "buckets": [
+          5,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/live-video": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 100,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.023,
+        "maxSeconds": 0.012,
+        "buckets": [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.022,
+        "maxSeconds": 0.011,
+        "buckets": [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/v1/auth/google": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 2604,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.136,
+        "maxSeconds": 0.068,
+        "buckets": [
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.135,
+        "maxSeconds": 0.068,
+        "buckets": [
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/tasks/daily": {
+      "statuses": {
+        "200": 7
+      },
+      "bytes": 102542,
+      "request": {
+        "count": 7,
+        "sumSeconds": 1.208,
+        "maxSeconds": 0.211,
+        "buckets": [
+          0,
+          0,
+          0,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 7,
+        "sumSeconds": 1.2029999999999998,
+        "maxSeconds": 0.21,
+        "buckets": [
+          0,
+          0,
+          0,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/tasks/new-user": {
+      "statuses": {
+        "200": 5
+      },
+      "bytes": 635,
+      "request": {
+        "count": 5,
+        "sumSeconds": 0.139,
+        "maxSeconds": 0.078,
+        "buckets": [
+          3,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 5,
+        "sumSeconds": 0.136,
+        "maxSeconds": 0.077,
+        "buckets": [
+          3,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/tasks/sign-in": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 1511,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.134,
+        "maxSeconds": 0.103,
+        "buckets": [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.133,
+        "maxSeconds": 0.102,
+        "buckets": [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/audio-rooms/[roomId]/roles": {
+      "statuses": {
+        "200": 6
+      },
+      "bytes": 516,
+      "request": {
+        "count": 6,
+        "sumSeconds": 0.09,
+        "maxSeconds": 0.029,
+        "buckets": [
+          1,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 6,
+        "sumSeconds": 0.089,
+        "maxSeconds": 0.028,
+        "buckets": [
+          1,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/audio-rooms/[roomId]/banners": {
+      "statuses": {
+        "200": 7
+      },
+      "bytes": 5236,
+      "request": {
+        "count": 7,
+        "sumSeconds": 0.089,
+        "maxSeconds": 0.021,
+        "buckets": [
+          2,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 7,
+        "sumSeconds": 0.08499999999999999,
+        "maxSeconds": 0.02,
+        "buckets": [
+          2,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/audio-rooms/[roomId]/gift-totals": {
+      "statuses": {
+        "200": 6,
+        "499": 3
+      },
+      "bytes": 2083,
+      "request": {
+        "count": 9,
+        "sumSeconds": 0.237,
+        "maxSeconds": 0.061,
+        "buckets": [
+          3,
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 9,
+        "sumSeconds": 0.236,
+        "maxSeconds": 0.061,
+        "buckets": [
+          3,
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/users/props": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 6244,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.20099999999999998,
+        "maxSeconds": 0.089,
+        "buckets": [
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.20099999999999998,
+        "maxSeconds": 0.09,
+        "buckets": [
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/room-red-envelopes": {
+      "statuses": {
+        "200": 6
+      },
+      "bytes": 444,
+      "request": {
+        "count": 6,
+        "sumSeconds": 0.072,
+        "maxSeconds": 0.014,
+        "buckets": [
+          1,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 6,
+        "sumSeconds": 0.069,
+        "maxSeconds": 0.014,
+        "buckets": [
+          2,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/gifts/backpack": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 141,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.077,
+        "maxSeconds": 0.047,
+        "buckets": [
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.078,
+        "maxSeconds": 0.047,
+        "buckets": [
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/gifts/send": {
+      "statuses": {
+        "201": 3
+      },
+      "bytes": 8225,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.303,
+        "maxSeconds": 0.105,
+        "buckets": [
+          0,
+          0,
+          1,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.303,
+        "maxSeconds": 0.104,
+        "buckets": [
+          0,
+          0,
+          1,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/wallet/google-recharge": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 1548,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.13899999999999998,
+        "maxSeconds": 0.12,
+        "buckets": [
+          2,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.138,
+        "maxSeconds": 0.121,
+        "buckets": [
+          2,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/wallet/coin-packages": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 258,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.026000000000000002,
+        "maxSeconds": 0.009,
+        "buckets": [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.025,
+        "maxSeconds": 0.009,
+        "buckets": [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/v1/notifications/[notificationId]/read": {
+      "statuses": {
+        "200": 4
+      },
+      "bytes": 512,
+      "request": {
+        "count": 4,
+        "sumSeconds": 0.05,
+        "maxSeconds": 0.015,
+        "buckets": [
+          1,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 4,
+        "sumSeconds": 0.049,
+        "maxSeconds": 0.014,
+        "buckets": [
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/wallet/coin-agents": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 84,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.01,
+        "maxSeconds": 0.01,
+        "buckets": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.011,
+        "maxSeconds": 0.011,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/cs-rooms": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 3339,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.017,
+        "maxSeconds": 0.017,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.017,
+        "maxSeconds": 0.017,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/v1/cs-rooms/[country]": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 5829,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.067,
+        "maxSeconds": 0.067,
+        "buckets": [
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.067,
+        "maxSeconds": 0.067,
+        "buckets": [
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|PATCH|/api/v1/cs-rooms/[country]": {
+      "statuses": {
+        "200": 10
+      },
+      "bytes": 51460,
+      "request": {
+        "count": 10,
+        "sumSeconds": 0.36100000000000004,
+        "maxSeconds": 0.084,
+        "buckets": [
+          0,
+          9,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 10,
+        "sumSeconds": 0.35900000000000004,
+        "maxSeconds": 0.083,
+        "buckets": [
+          0,
+          9,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|POST|/api/v1/cs-rooms/[country]/seat": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 11650,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.096,
+        "maxSeconds": 0.062,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.096,
+        "maxSeconds": 0.062,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/v1/users/me/relationships": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 47,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.017,
+        "maxSeconds": 0.017,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.018,
+        "maxSeconds": 0.018,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|DELETE|/api/v1/cs-rooms/[country]": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 3339,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.016,
+        "maxSeconds": 0.016,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.017,
+        "maxSeconds": 0.017,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T18:00Z|api|GET|/api/health": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 420,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.009000000000000001,
+        "maxSeconds": 0.005,
+        "buckets": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.009000000000000001,
+        "maxSeconds": 0.005,
+        "buckets": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|socket|GET|/socket.io": {
+      "statuses": {
+        "502": 8,
+        "101": 16,
+        "200": 1
+      },
+      "bytes": 90883,
+      "request": {
+        "count": 25,
+        "sumSeconds": 383.902,
+        "maxSeconds": 85.999,
+        "buckets": [
+          9,
+          0,
+          0,
+          1,
+          3,
+          1,
+          0,
+          0,
+          0,
+          7,
+          2,
+          2
+        ]
+      },
+      "upstream": {
+        "count": 25,
+        "sumSeconds": 383.90599999999995,
+        "maxSeconds": 86.0,
+        "buckets": [
+          9,
+          0,
+          0,
+          1,
+          3,
+          1,
+          0,
+          0,
+          0,
+          7,
+          2,
+          2
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/auth/[...nextauth]": {
+      "statuses": {
+        "502": 2,
+        "200": 114
+      },
+      "bytes": 225181,
+      "request": {
+        "count": 116,
+        "sumSeconds": 1.691999999999999,
+        "maxSeconds": 0.13,
+        "buckets": [
+          48,
+          65,
+          1,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 116,
+        "sumSeconds": 1.6909999999999978,
+        "maxSeconds": 0.13,
+        "buckets": [
+          46,
+          66,
+          2,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|POST|/api/auth/[...nextauth]": {
+      "statuses": {
+        "502": 1
+      },
+      "bytes": 568,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.0,
+        "maxSeconds": 0,
+        "buckets": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.0,
+        "maxSeconds": 0,
+        "buckets": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/events/rankings": {
+      "statuses": {
+        "200": 112
+      },
+      "bytes": 1181825,
+      "request": {
+        "count": 112,
+        "sumSeconds": 8.507999999999996,
+        "maxSeconds": 0.695,
+        "buckets": [
+          0,
+          45,
+          42,
+          24,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 112,
+        "sumSeconds": 8.525999999999996,
+        "maxSeconds": 0.696,
+        "buckets": [
+          0,
+          46,
+          40,
+          25,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1": {
+      "statuses": {
+        "200": 101,
+        "499": 1
+      },
+      "bytes": 230280,
+      "request": {
+        "count": 102,
+        "sumSeconds": 0.9530000000000006,
+        "maxSeconds": 0.1,
+        "buckets": [
+          91,
+          9,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 102,
+        "sumSeconds": 0.9560000000000006,
+        "maxSeconds": 0.1,
+        "buckets": [
+          91,
+          9,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/conversations": {
+      "statuses": {
+        "200": 96,
+        "401": 1,
+        "499": 1
+      },
+      "bytes": 638320,
+      "request": {
+        "count": 98,
+        "sumSeconds": 20.396000000000004,
+        "maxSeconds": 0.63,
+        "buckets": [
+          1,
+          0,
+          0,
+          84,
+          12,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 98,
+        "sumSeconds": 20.392999999999997,
+        "maxSeconds": 0.629,
+        "buckets": [
+          1,
+          0,
+          0,
+          84,
+          12,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/notifications": {
+      "statuses": {
+        "200": 191
+      },
+      "bytes": 155517,
+      "request": {
+        "count": 191,
+        "sumSeconds": 2.8629999999999938,
+        "maxSeconds": 0.206,
+        "buckets": [
+          66,
+          120,
+          4,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 191,
+        "sumSeconds": 2.8679999999999937,
+        "maxSeconds": 0.206,
+        "buckets": [
+          67,
+          119,
+          4,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/team/invitations": {
+      "statuses": {
+        "200": 11
+      },
+      "bytes": 704,
+      "request": {
+        "count": 11,
+        "sumSeconds": 0.7550000000000001,
+        "maxSeconds": 0.322,
+        "buckets": [
+          0,
+          7,
+          3,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 11,
+        "sumSeconds": 0.7510000000000001,
+        "maxSeconds": 0.323,
+        "buckets": [
+          0,
+          8,
+          2,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/users/me": {
+      "statuses": {
+        "200": 26,
+        "401": 1,
+        "499": 1
+      },
+      "bytes": 204193,
+      "request": {
+        "count": 28,
+        "sumSeconds": 3.68,
+        "maxSeconds": 0.28,
+        "buckets": [
+          0,
+          2,
+          9,
+          14,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 28,
+        "sumSeconds": 3.6800000000000006,
+        "maxSeconds": 0.28,
+        "buckets": [
+          0,
+          2,
+          9,
+          14,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/users/session/status": {
+      "statuses": {
+        "200": 40,
+        "401": 1
+      },
+      "bytes": 309949,
+      "request": {
+        "count": 41,
+        "sumSeconds": 2.9809999999999994,
+        "maxSeconds": 0.274,
+        "buckets": [
+          1,
+          7,
+          28,
+          4,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 41,
+        "sumSeconds": 2.987,
+        "maxSeconds": 0.275,
+        "buckets": [
+          1,
+          7,
+          28,
+          4,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|web|GET|/unknown": {
+      "statuses": {
+        "200": 905
+      },
+      "bytes": 1412146,
+      "request": {
+        "count": 905,
+        "sumSeconds": 20.86599999999999,
+        "maxSeconds": 0.325,
+        "buckets": [
+          310,
+          505,
+          76,
+          13,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 902,
+        "sumSeconds": 20.814999999999984,
+        "maxSeconds": 0.325,
+        "buckets": [
+          312,
+          499,
+          77,
+          13,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/admin/access": {
+      "statuses": {
+        "200": 73
+      },
+      "bytes": 143372,
+      "request": {
+        "count": 73,
+        "sumSeconds": 1.0440000000000003,
+        "maxSeconds": 0.087,
+        "buckets": [
+          21,
+          50,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 73,
+        "sumSeconds": 1.0340000000000005,
+        "maxSeconds": 0.086,
+        "buckets": [
+          21,
+          50,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/health": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 210,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.007,
+        "maxSeconds": 0.007,
+        "buckets": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.006,
+        "maxSeconds": 0.006,
+        "buckets": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/chat/prohibited-words": {
+      "statuses": {
+        "200": 25,
+        "401": 1
+      },
+      "bytes": 1392,
+      "request": {
+        "count": 26,
+        "sumSeconds": 0.48400000000000015,
+        "maxSeconds": 0.163,
+        "buckets": [
+          17,
+          8,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 26,
+        "sumSeconds": 0.48600000000000015,
+        "maxSeconds": 0.163,
+        "buckets": [
+          16,
+          9,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|POST|/api/v1/auth/google": {
+      "statuses": {
+        "200": 2,
+        "409": 1
+      },
+      "bytes": 3230,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.223,
+        "maxSeconds": 0.131,
+        "buckets": [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.222,
+        "maxSeconds": 0.131,
+        "buckets": [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/audio-rooms": {
+      "statuses": {
+        "200": 13
+      },
+      "bytes": 29650,
+      "request": {
+        "count": 13,
+        "sumSeconds": 1.589,
+        "maxSeconds": 0.308,
+        "buckets": [
+          0,
+          0,
+          7,
+          5,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 13,
+        "sumSeconds": 1.5919999999999999,
+        "maxSeconds": 0.308,
+        "buckets": [
+          0,
+          0,
+          7,
+          5,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|media|GET|/api/uploads/catalog": {
+      "statuses": {
+        "200": 44,
+        "422": 4
+      },
+      "bytes": 88746,
+      "request": {
+        "count": 48,
+        "sumSeconds": 2.5239999999999996,
+        "maxSeconds": 0.18,
+        "buckets": [
+          0,
+          32,
+          9,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 48,
+        "sumSeconds": 2.522,
+        "maxSeconds": 0.18,
+        "buckets": [
+          0,
+          32,
+          9,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/audio-rooms/discover": {
+      "statuses": {
+        "200": 20
+      },
+      "bytes": 24240,
+      "request": {
+        "count": 20,
+        "sumSeconds": 2.121,
+        "maxSeconds": 0.194,
+        "buckets": [
+          0,
+          1,
+          10,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 20,
+        "sumSeconds": 2.124,
+        "maxSeconds": 0.195,
+        "buckets": [
+          0,
+          1,
+          10,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/app/version": {
+      "statuses": {
+        "200": 5
+      },
+      "bytes": 2690,
+      "request": {
+        "count": 5,
+        "sumSeconds": 0.063,
+        "maxSeconds": 0.024,
+        "buckets": [
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 5,
+        "sumSeconds": 0.062000000000000006,
+        "maxSeconds": 0.024,
+        "buckets": [
+          4,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/gifts/catalog": {
+      "statuses": {
+        "200": 6
+      },
+      "bytes": 753924,
+      "request": {
+        "count": 6,
+        "sumSeconds": 2.0220000000000002,
+        "maxSeconds": 0.927,
+        "buckets": [
+          0,
+          0,
+          0,
+          2,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 6,
+        "sumSeconds": 1.364,
+        "maxSeconds": 0.511,
+        "buckets": [
+          0,
+          0,
+          1,
+          2,
+          2,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|web|GET|/event/[slug]/[[...path]]": {
+      "statuses": {
+        "307": 12,
+        "200": 65,
+        "404": 64
+      },
+      "bytes": 16925113,
+      "request": {
+        "count": 141,
+        "sumSeconds": 29.14100000000005,
+        "maxSeconds": 13.964,
+        "buckets": [
+          119,
+          15,
+          1,
+          0,
+          0,
+          2,
+          2,
+          0,
+          0,
+          2,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 141,
+        "sumSeconds": 29.13000000000003,
+        "maxSeconds": 13.964,
+        "buckets": [
+          117,
+          17,
+          1,
+          0,
+          0,
+          2,
+          2,
+          0,
+          0,
+          2,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/audio-rooms/countries": {
+      "statuses": {
+        "200": 25,
+        "499": 1
+      },
+      "bytes": 1950,
+      "request": {
+        "count": 26,
+        "sumSeconds": 1.3299999999999992,
+        "maxSeconds": 0.312,
+        "buckets": [
+          2,
+          17,
+          5,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 26,
+        "sumSeconds": 1.3309999999999995,
+        "maxSeconds": 0.312,
+        "buckets": [
+          3,
+          16,
+          5,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|media|GET|/api/uploads/[assetId]/file": {
+      "statuses": {
+        "200": 6,
+        "307": 112
+      },
+      "bytes": 6984092,
+      "request": {
+        "count": 118,
+        "sumSeconds": 4.318999999999997,
+        "maxSeconds": 1.412,
+        "buckets": [
+          88,
+          26,
+          0,
+          1,
+          1,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 118,
+        "sumSeconds": 4.112999999999998,
+        "maxSeconds": 1.412,
+        "buckets": [
+          90,
+          25,
+          0,
+          0,
+          1,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|PUT|/api/users/session/device": {
+      "statuses": {
+        "200": 4
+      },
+      "bytes": 350,
+      "request": {
+        "count": 4,
+        "sumSeconds": 0.152,
+        "maxSeconds": 0.067,
+        "buckets": [
+          0,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 4,
+        "sumSeconds": 0.152,
+        "maxSeconds": 0.067,
+        "buckets": [
+          0,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|media|GET|/api/audio-rooms/[roomId]/cover": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 422723,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.24000000000000002,
+        "maxSeconds": 0.226,
+        "buckets": [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.03,
+        "maxSeconds": 0.016,
+        "buckets": [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/vip": {
+      "statuses": {
+        "200": 6
+      },
+      "bytes": 282,
+      "request": {
+        "count": 6,
+        "sumSeconds": 0.6160000000000001,
+        "maxSeconds": 0.2,
+        "buckets": [
+          0,
+          3,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 6,
+        "sumSeconds": 0.6130000000000001,
+        "maxSeconds": 0.2,
+        "buckets": [
+          0,
+          3,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/audio-rooms/recent": {
+      "statuses": {
+        "200": 5
+      },
+      "bytes": 93647,
+      "request": {
+        "count": 5,
+        "sumSeconds": 0.6859999999999999,
+        "maxSeconds": 0.308,
+        "buckets": [
+          0,
+          0,
+          3,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 5,
+        "sumSeconds": 0.6849999999999999,
+        "maxSeconds": 0.307,
+        "buckets": [
+          0,
+          0,
+          3,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/tasks/daily": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 43823,
+      "request": {
+        "count": 3,
+        "sumSeconds": 1.063,
+        "maxSeconds": 0.645,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 1.064,
+        "maxSeconds": 0.645,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/levels": {
+      "statuses": {
+        "200": 8
+      },
+      "bytes": 741480,
+      "request": {
+        "count": 8,
+        "sumSeconds": 0.42199999999999993,
+        "maxSeconds": 0.088,
+        "buckets": [
+          0,
+          5,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 8,
+        "sumSeconds": 0.42099999999999993,
+        "maxSeconds": 0.087,
+        "buckets": [
+          0,
+          5,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/tasks/new-user": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 381,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.119,
+        "maxSeconds": 0.043,
+        "buckets": [
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.12,
+        "maxSeconds": 0.044,
+        "buckets": [
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/store": {
+      "statuses": {
+        "200": 4
+      },
+      "bytes": 590558,
+      "request": {
+        "count": 4,
+        "sumSeconds": 0.9329999999999999,
+        "maxSeconds": 0.448,
+        "buckets": [
+          0,
+          0,
+          2,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 4,
+        "sumSeconds": 0.9329999999999999,
+        "maxSeconds": 0.447,
+        "buckets": [
+          0,
+          0,
+          2,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|POST|/api/tasks/sign-in": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 769,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.301,
+        "maxSeconds": 0.301,
+        "buckets": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.3,
+        "maxSeconds": 0.3,
+        "buckets": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/wallet": {
+      "statuses": {
+        "200": 5
+      },
+      "bytes": 17403,
+      "request": {
+        "count": 5,
+        "sumSeconds": 0.342,
+        "maxSeconds": 0.098,
+        "buckets": [
+          0,
+          1,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 5,
+        "sumSeconds": 0.342,
+        "maxSeconds": 0.098,
+        "buckets": [
+          0,
+          0,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/users/[publicId]/followers": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 20516,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.30400000000000005,
+        "maxSeconds": 0.137,
+        "buckets": [
+          0,
+          0,
+          1,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.30400000000000005,
+        "maxSeconds": 0.137,
+        "buckets": [
+          0,
+          0,
+          1,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/users/[publicId]/profile": {
+      "statuses": {
+        "200": 4
+      },
+      "bytes": 145437,
+      "request": {
+        "count": 4,
+        "sumSeconds": 0.665,
+        "maxSeconds": 0.221,
+        "buckets": [
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 4,
+        "sumSeconds": 0.665,
+        "maxSeconds": 0.222,
+        "buckets": [
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/agencies/mine": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 2557,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.121,
+        "maxSeconds": 0.087,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.121,
+        "maxSeconds": 0.087,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/audio-rooms/[roomId]/roles": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 87,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.156,
+        "maxSeconds": 0.156,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.157,
+        "maxSeconds": 0.157,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/audio-rooms/[roomId]/rankings": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 1419,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.143,
+        "maxSeconds": 0.143,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.143,
+        "maxSeconds": 0.143,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/rankings/hourly-gifts": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 3838,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.185,
+        "maxSeconds": 0.185,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.185,
+        "maxSeconds": 0.185,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/audio-rooms/[roomId]/pk": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 1377,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.292,
+        "maxSeconds": 0.292,
+        "buckets": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.293,
+        "maxSeconds": 0.293,
+        "buckets": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/audio-rooms/[roomId]/banners": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 1525,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.163,
+        "maxSeconds": 0.163,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.163,
+        "maxSeconds": 0.163,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/audio-rooms/[roomId]/gift-totals": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 656,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.043,
+        "maxSeconds": 0.043,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.042,
+        "maxSeconds": 0.042,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/users/props": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 24963,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.316,
+        "maxSeconds": 0.178,
+        "buckets": [
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.315,
+        "maxSeconds": 0.177,
+        "buckets": [
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/room-red-envelopes": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 74,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.064,
+        "maxSeconds": 0.064,
+        "buckets": [
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.064,
+        "maxSeconds": 0.064,
+        "buckets": [
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/games": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 47,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.05,
+        "maxSeconds": 0.05,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.05,
+        "maxSeconds": 0.05,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/tulasi/games": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 18257,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.041,
+        "maxSeconds": 0.041,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.04,
+        "maxSeconds": 0.04,
+        "buckets": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/conversations/sync": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 73905,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.098,
+        "maxSeconds": 0.068,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.097,
+        "maxSeconds": 0.068,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/posts": {
+      "statuses": {
+        "200": 1
+      },
+      "bytes": 3819,
+      "request": {
+        "count": 1,
+        "sumSeconds": 0.157,
+        "maxSeconds": 0.157,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 1,
+        "sumSeconds": 0.156,
+        "maxSeconds": 0.156,
+        "buckets": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/stories": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 96,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.21999999999999997,
+        "maxSeconds": 0.174,
+        "buckets": [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.22199999999999998,
+        "maxSeconds": 0.175,
+        "buckets": [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/me/host-center": {
+      "statuses": {
+        "200": 3
+      },
+      "bytes": 11664,
+      "request": {
+        "count": 3,
+        "sumSeconds": 0.239,
+        "maxSeconds": 0.144,
+        "buckets": [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 3,
+        "sumSeconds": 0.238,
+        "maxSeconds": 0.144,
+        "buckets": [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|GET|/api/v1/cs-rooms": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 6678,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.068,
+        "maxSeconds": 0.052,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.067,
+        "maxSeconds": 0.051,
+        "buckets": [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|POST|/api/v1/cs-rooms/[country]": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 13626,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.197,
+        "maxSeconds": 0.115,
+        "buckets": [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.198,
+        "maxSeconds": 0.115,
+        "buckets": [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|PATCH|/api/v1/cs-rooms/[country]": {
+      "statuses": {
+        "200": 6
+      },
+      "bytes": 35940,
+      "request": {
+        "count": 6,
+        "sumSeconds": 0.18200000000000002,
+        "maxSeconds": 0.047,
+        "buckets": [
+          0,
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 6,
+        "sumSeconds": 0.18200000000000002,
+        "maxSeconds": 0.047,
+        "buckets": [
+          0,
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "2026-11-25T19:00Z|api|DELETE|/api/v1/cs-rooms/[country]": {
+      "statuses": {
+        "200": 2
+      },
+      "bytes": 6678,
+      "request": {
+        "count": 2,
+        "sumSeconds": 0.067,
+        "maxSeconds": 0.047,
+        "buckets": [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "upstream": {
+        "count": 2,
+        "sumSeconds": 0.067,
+        "maxSeconds": 0.047,
+        "buckets": [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  }
+}

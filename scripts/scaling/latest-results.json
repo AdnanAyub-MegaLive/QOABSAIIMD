@@ -1,0 +1,25 @@
+{
+  "at": "2026-11-25T19:17:07.506Z",
+  "processes": 4,
+  "database": "fresh local PostgreSQL",
+  "productionAccess": false,
+  "passed": [
+    "Independent Redis namespaces do not share temporary state",
+    "Broadcast and presence queries reach clients on all four processes",
+    "Shared six-action limit, unique sequences and expiring state work across processes",
+    "Duplicate joins/leaves and late join retries preserve atomic distinct-user counts",
+    "Only one process owns a concurrent background job",
+    "Concurrent outbox consumers claim disjoint rows without duplicate normal delivery",
+    "Send-before-commit failure retries with the same event ID; deduplicating consumers apply once",
+    "Redis outage fails shared-state operations closed",
+    "Cross-process queries and broadcasts recover after Redis restarts",
+    "One dedicated database leader owns the background-job runner",
+    "Process death releases the database job lock and permits takeover",
+    "Background leader ownership transfers after the elected process dies"
+  ],
+  "limitations": [
+    "Foundation harness, not a full portal or phone test",
+    "Existing portal timers, expiry handling and memory-state callers still require migration",
+    "No production peak-hour event-loop/database telemetry collected yet"
+  ]
+}

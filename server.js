@@ -6,6 +6,7 @@ process.env.NODE_ENV = process.argv.includes("--dev") ? "development" : (process
 if (process.argv.includes("--dev")) process.env.__NEXT_DEV_SERVER = "1";
 else delete process.env.__NEXT_DEV_SERVER;
 const { createServer } = require("node:http");
+const { startMetrics } = require("./src/lib/runtime-metrics.cjs");
 const { applyWebCacheHeaders } = require("./src/lib/web-cache.cjs");
 const { setRequestClientIp } = require("./src/lib/request-ip.cjs");
 const { randomUUID } = require("node:crypto");
@@ -122,7 +123,9 @@ app.prepare().then(async()=>{
   const {resolveCatalogTrack}=await import("./src/lib/music-catalog.js");
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileExpiredAudioRoomControls,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
-  const httpServer=createServer((request,response)=>{setRequestClientIp(request);applyWebCacheHeaders(request,response);return handle(request,response)});
+  const metrics=startMetrics();
+  const httpServer=createServer((request,response)=>metrics.request(request,response,()=>{setRequestClientIp(request);applyWebCacheHeaders(request,response);return handle(request,response)}));
+  httpServer.once("close",()=>metrics.stop());
   const io=new Server(httpServer,{pingInterval:25000,pingTimeout:20000,cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
   globalThis.portalIo=io;

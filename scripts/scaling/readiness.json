@@ -1,0 +1,43 @@
+{
+  "stage": "2 - measure and prepare safe scaling",
+  "status": "foundation implemented; portal migration incomplete",
+  "productionChanged": false,
+  "productionProcessCount": 1,
+  "implemented": [
+    "Opt-in PORTAL_METRICS=true request histograms, cancellation tracking, slow-request database correlation and Node event-loop delay",
+    "Aggregate nginx timing reader that removes URL parameters and dynamic identifiers, separates media and excludes Socket.IO from API latency",
+    "Redis adapter, atomic sliding-window limiter, expiring shared values and per-key sequences",
+    "Transaction-bound job leader and exclusive-job foundation; job database writes must use the provided connection",
+    "Atomic presence proof using connection identity and tombstones to tolerate duplicate and delayed operations",
+    "SKIP LOCKED outbox proof with stable event IDs and at-least-once retry semantics",
+    "Four real Node processes with fresh local PostgreSQL and Redis, failure injection and teardown"
+  ],
+  "commands": {
+    "diagnostics": "PORTAL_METRICS=true npm start (apply only during a reviewed single-process release)",
+    "summarize": "python3 scripts/scaling/summarize-nginx.py < nginx-access.log > sanitized-summary.json",
+    "database": "psql -X -f scripts/scaling/database-snapshot.sql (read-only; use the intended database)",
+    "lab": "REDIS_SERVER_BIN=/path/to/redis-server npm run test:scaling:lab"
+  },
+  "measurementLimits": [
+    "Captured request sample: 2026-11-25 18:29:19 through 19:14:43 UTC; not established as a peak-hour window",
+    "Runtime metrics code has not been deployed; production Node event-loop and per-request database timing are not yet collected",
+    "Pooled query duration includes pool waiting and database round trips; transaction.acquire measures transaction connection acquisition",
+    "Database track_io_timing is off; cumulative deadlocks and temporary bytes have no known reset boundary",
+    "499 means the connection closed before the response completed, not proof of a particular app timeout cause",
+    "Redis restart test deliberately clears temporary state; production persistence and recovery policy still need configuration",
+    "Outbox proof marks dispatch, not client acknowledgement; stable event IDs require consumer deduplication and snapshot recovery"
+  ],
+  "remainingBeforeProductionScaling": [
+    "Deploy measurement-only change with production still at one process and collect an agreed peak window",
+    "Refactor existing salary, reward, refund, game, cleanup, expiry, notification and outbox jobs to accept the leader transaction or durable idempotent job ownership",
+    "Replace all synchronous memory rate-limit call sites and room-comment limits with awaited shared-state calls",
+    "Migrate gift-leave history, reconnect grace and top-gifter sequencing to shared state",
+    "Replace local adapter room-size and old-session-revocation checks with cross-worker queries",
+    "Integrate connection-identity presence accounting with actual audio/video room joins, disconnects and repair jobs",
+    "Integrate database claims into both actual realtime outboxes and validate Android deduplication for every retryable event",
+    "Replace ban, Special ID and room restriction memory expiry timers with database-driven jobs",
+    "Full portal schema/data fixture, nginx affinity and two-phone interaction tests including financial invariants",
+    "Readiness/draining, connection budgets, Redis outage policy and rolling-deployment rollback rehearsal"
+  ],
+  "deploymentGate": "Do not enable multiple portal workers from this branch. Foundation lab success is not full portal concurrency readiness."
+}

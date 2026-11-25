@@ -1,3 +1,4 @@
+import metrics from './runtime-metrics.cjs';
 import { giftOutboxContext } from './gift-outbox-context.js';
 // A transaction has one PostgreSQL connection. Queue its queries explicitly;
 // unrelated transactions and pooled reads remain concurrent.
@@ -8,9 +9,9 @@ export function serializeTransaction(tx) {
     tx[name] = (...args) => {
       const result = tail.then(async () => {
         const context = process.env.REALTIME_TIMINGS === 'true' ? giftOutboxContext.getStore() : null;
-        if (!context) return method(...args);
+        if (!context) return metrics.measureDatabase('transaction.' + name, () => method(...args));
         const started = performance.now();
-        try { return await method(...args); }
+        try { return await metrics.measureDatabase('transaction.' + name, () => method(...args)); }
         finally {
           try {
           // No SQL text/parameters or account identifiers in diagnostics.
@@ -34,8 +35,13 @@ export function serializePgTransactions(factory) {
   const connect = factory.connect.bind(factory);
   factory.connect = async (...args) => {
     const adapter = await connect(...args);
+    for (const name of ['queryRaw', 'executeRaw']) {
+      if (typeof adapter[name] !== 'function') continue;
+      const method = adapter[name].bind(adapter);
+      adapter[name] = (...args) => metrics.measureDatabase('pooled.' + name, () => method(...args));
+    }
     const start = adapter.startTransaction.bind(adapter);
-    adapter.startTransaction = async (...options) => serializeTransaction(await start(...options));
+    adapter.startTransaction = async (...options) => serializeTransaction(await metrics.measureDatabase('transaction.acquire', () => start(...options)));
     return adapter;
   };
   return factory;
