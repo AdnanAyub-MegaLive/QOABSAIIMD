@@ -68,10 +68,28 @@ export async function finalizeExpiredPkSessions(now = new Date()) {
   return { audio: audio.length, video: video.length };
 }
 
-export async function reconcileStaleVideoPresence(now = new Date(), staleMs = 90_000) {
+let lastHostRefresh = 0;
+export async function refreshConnectedVideoHosts(io = globalThis.portalIo, now = new Date(), db = prisma, intervalMs = 30_000) {
+  if (!io) return 0;
+  if (+now < lastHostRefresh) lastHostRefresh = 0;
+  if (+now - lastHostRefresh < intervalMs) return 0;
+  lastHostRefresh = +now;
+  const lives = await db.videoLiveSession.findMany({ where: { status: "LIVE" }, select: { id: true, publicId: true, host: { select: { publicId: true } } } });
+  let refreshed = 0;
+  for (const live of lives) {
+    const sockets = await io.in(`live-video:${live.publicId}`).fetchSockets();
+    if (!sockets.some((socket) => socket?.data?.userId === live.host?.publicId)) continue;
+    const updated = await db.videoLiveSession.updateMany({ where: { id: live.id, status: "LIVE" }, data: { hostLastSeenAt: now } });
+    refreshed += updated.count;
+  }
+  return refreshed;
+}
+
+export async function reconcileStaleVideoPresence(now = new Date(), staleMs = 180_000) {
+  await refreshConnectedVideoHosts(globalThis.portalIo, now).catch((error) => { console.error("Live host refresh failed", error?.code ?? error?.name); return 0; });
   await endStaleVideoLives(now, staleMs);
   await retryVideoRtcCleanup();
-  const cutoff = new Date(now.getTime() - staleMs);
+  const cutoff = new Date(now.getTime() - 90_000);
   await prisma.videoLiveViewer.updateMany({ where: { active: true, socketCount: 0, lastSeenAt: { lt: cutoff } }, data: { active: false } });
   const lives = await prisma.videoLiveSession.findMany({ where: { status: "LIVE" }, select: { id: true, publicId: true, viewerCount: true } });
   for (const live of lives) {
