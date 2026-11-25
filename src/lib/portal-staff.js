@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { prisma } from "./prisma.js";
 import { hasPermission, validatePermissions, assignedPermissions } from "./portal-permissions.js";
+import { normalizeCountries } from "./staff-scope.js";
 import { effectiveAdmin, canManageStaff, staffDto } from "./portal-staff-state.js";
 
 const fail = (message, status = 422) => { throw Object.assign(new Error(message), { status }); };
@@ -40,7 +41,17 @@ export async function saveStaff(identity, body) {
       const accessChanged = JSON.stringify(requested)!==JSON.stringify(previous) || (target && target.role!==body.role);
       if(accessChanged && !hasPermission(actor,'accounts.permissions')) fail('Assign permissions access is required to change grants or role.',403);
       const permissions = accessChanged || action==='create' ? validatePermissions(body.permissions,actor) : target.permissions;
-      data = { name, email, role: body.role, active: body.active, permissions };
+      const allowedCountries = normalizeCountries(body.allowedCountries ?? target?.allowedCountries ?? []);
+      const maxGrantDays = body.maxGrantDays == null || body.maxGrantDays === "" ? null : Number(body.maxGrantDays);
+      if (maxGrantDays != null && (!Number.isInteger(maxGrantDays) || maxGrantDays < 1 || maxGrantDays > 3650)) fail("Enter a grant limit between 1 and 3650 days, or leave it empty.");
+      const linkedUserPublicId = String(body.linkedUserPublicId ?? "").trim() || null;
+      if (linkedUserPublicId && !await tx.user.findUnique({ where: { publicId: linkedUserPublicId }, select: { id: true } })) fail("The linked app account was not found.");
+      const limitsChanged = JSON.stringify(allowedCountries) !== JSON.stringify([...(target?.allowedCountries ?? [])].sort()) || maxGrantDays !== (target?.maxGrantDays ?? null);
+      if (limitsChanged && !hasPermission(actor, "accounts.permissions")) fail("Assign permissions access is required to change regions or grant limits.", 403);
+      // A region-limited manager cannot create wider access than their own.
+      if (actor.role !== "SUPER_ADMIN" && actor.allowedCountries?.length && (!allowedCountries.length || allowedCountries.some(c => !actor.allowedCountries.includes(c)))) fail("You can only assign your own countries.", 403);
+      if (actor.role !== "SUPER_ADMIN" && actor.maxGrantDays && (!maxGrantDays || maxGrantDays > actor.maxGrantDays)) fail(`Set a grant limit of ${actor.maxGrantDays} days or less.`, 403);
+      data = { name, email, role: body.role, active: body.active, permissions, allowedCountries, maxGrantDays, linkedUserPublicId };
       // A direct Platform Admin grant must not be silently reduced by an old
       // delegating manager. Transfer administration to the granting root.
       if (actor.role === "SUPER_ADMIN" && action === "update") data.createdById = actor.id;

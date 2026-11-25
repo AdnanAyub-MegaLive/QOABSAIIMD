@@ -1,6 +1,7 @@
 import { hasPermission } from '@/lib/portal-permissions';
 import DirectoryExport from '../components/directory-export';
 import { requirePagePermission } from "@/lib/portal-admin";
+import { scopedUserWhere } from "@/lib/staff-scope";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "../../../auth";
 import ManagementTabs from "./management-tabs";
@@ -21,7 +22,7 @@ export default async function UsersPage() {
   await reconcileExpiredAudioRoomRestrictions();
   const [users, devices, audioRooms, specialIdDefinitions] = await Promise.all([
     prisma.user.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, ...scopedUserWhere(admin) },
       orderBy: { createdAt: "desc" },
       include: {
         _count: { select: { sentGifts: true } },
@@ -34,11 +35,12 @@ export default async function UsersPage() {
       },
     }),
     prisma.device.findMany({
-      where: { userId: { not: null }, user: { deletedAt: null } },
+      where: { userId: { not: null }, user: { deletedAt: null, ...scopedUserWhere(admin) } },
       include: { user: true },
       orderBy: { lastLoginAt: "desc" },
     }),
     prisma.audioRoom.findMany({
+      where: { owner: scopedUserWhere(admin) },
       include: { owner: true },
       orderBy: { startedAt: "desc" },
       take: 250,

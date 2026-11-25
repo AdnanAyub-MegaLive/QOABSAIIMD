@@ -200,6 +200,12 @@ model Admin {
   role                       String                        @default("ADMIN")
   active                     Boolean                       @default(true)
   permissions                String[]                      @default([])
+  /// Countries this staff account may act on; empty means all countries.
+  allowedCountries           String[]                      @default([])
+  /// Longest timed grant (props, VIP) this staff account may give, in days; null means no limit.
+  maxGrantDays               Int?
+  /// App account that belongs to this staff member.
+  linkedUserPublicId         String?
   sessionVersion             Int                           @default(0)
   createdById                String?
   createdBy                  Admin?                        @relation("StaffCreator", fields: [createdById], references: [id], onDelete: Restrict)
@@ -351,6 +357,13 @@ model User {
   dob                        DateTime?
   isVerified                 Boolean                       @default(false)
   isOfficial                 Boolean                       @default(false)
+  walletFrozen               Boolean                       @default(false)
+  walletFrozenReason         String?
+  walletFrozenAt             DateTime?
+  walletFrozenByAdminId      String?
+  /// Privileges granted by staff without VIP (e.g. INVISIBLE_ENTRY).
+  grantedPrivileges          String[]                      @default([])
+  disabledGrantedPrivileges  String[]                      @default([])
   agencyId                   String?
   passwordHash               String?
   role                       UserRole                      @default(LISTENER)
@@ -3638,4 +3651,15 @@ model PartnerCatalogRemoval {
   removedAt     DateTime @default(now())
 
   @@index([removedAt])
+}
+
+model WalletFreezeEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  frozen    Boolean
+  reason    String
+  adminId   String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

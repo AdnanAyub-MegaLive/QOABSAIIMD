@@ -17,6 +17,7 @@ import {
   resetUserPassword,
   revokeSpecialId,
   unbanUser,
+  setUserWalletFreeze,
   updateTalentAccount,
   updateUserAccount as updateUserAccountAction,
 } from "../database-actions";
@@ -96,6 +97,7 @@ export default function ProfileManager({ profile, type }) {
                   ["Date of birth", data.dob],
                   ["Roles", (data.roles ?? [data.role]).join(", ")],
                   ["Status", data.status],
+                  ["Wallet", data.walletFrozen ? `Frozen — ${data.walletFrozenReason ?? ""}` : "Active"],
                   [
                     "Official account",
                     data.isOfficial ? "Official · Blue badge enabled" : "Not official",
@@ -161,6 +163,11 @@ export default function ProfileManager({ profile, type }) {
                   text={data.isBanned ? "Unban user" : "Ban user"}
                   disabled={!can("users.ban")}
                   onClick={() => setModal(data.isBanned ? "unban" : "ban")}
+                />
+                <Action
+                  text={data.walletFrozen ? "Unfreeze wallet" : "Freeze wallet"}
+                  disabled={!can("users.freeze")}
+                  onClick={() => setModal(data.walletFrozen ? "unfreeze" : "freeze")}
                 />
                 <Action
                   text="Force logout"
@@ -332,6 +339,8 @@ function ProfileActionModal({ type, profile, onClose, onChanged }) {
     specialId: "Manage Special ID",
     ban: "Ban user",
     unban: "Unban user",
+    freeze: "Freeze wallet",
+    unfreeze: "Unfreeze wallet",
     forceLogout: "Force logout",
     resetPassword: "Reset user password",
     deleteAccount: "Delete user account",
@@ -360,6 +369,9 @@ function ProfileActionModal({ type, profile, onClose, onChanged }) {
               ? null
               : new Date(Date.now() + minutes * 60_000).toISOString(),
         });
+      } else if (type === "freeze" || type === "unfreeze") {
+        await setUserWalletFreeze(profile.id, type === "freeze", reason);
+        onChanged({ walletFrozen: type === "freeze", walletFrozenReason: type === "freeze" ? reason : null });
       } else if (type === "unban") {
         await unbanUser(profile.id, reason);
         onChanged({ isBanned: false, status: "Active", banReason: null, banExpiresAt: null });
@@ -455,6 +467,7 @@ function ProfileActionModal({ type, profile, onClose, onChanged }) {
             {type === "deleteAccount" && (
               <p className="rounded-lg bg-red-50 p-4 text-xs text-red-700">This permanently disables and anonymizes the account.</p>
             )}
+            {type === "freeze" && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">The user keeps using the app normally but cannot buy, gift, transfer, exchange, withdraw or play paid games until unfrozen. A clear explanation is required.</p>}
             {type === "ban" && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">The user will immediately lose application access but will remain in portal records.</p>}
             <label className="mt-4 block text-xs font-bold">
               Administrative reason

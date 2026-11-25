@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { withdrawalHistory } from "@/lib/withdrawal-history";
 import { walletHistorySearch } from "@/lib/wallet-history-search";
 import { prisma } from "@/lib/prisma";
@@ -55,6 +56,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user=await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(user.id); if (frozen) return frozen; }
     if(isRateLimited(`currency-request:${user.id}`,{limit:10,windowMs:60000}))return mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Try again in a minute."}},429);
     const body=await request.json();
     if(String(body.method??"").toLowerCase()!=="usdt_trc20")throw Object.assign(new Error("Official withdrawals support USDT TRC20 only."),{code:"VALIDATION_ERROR"});

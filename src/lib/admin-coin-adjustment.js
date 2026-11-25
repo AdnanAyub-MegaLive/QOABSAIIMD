@@ -9,6 +9,8 @@ export async function applyAdminCoinAdjustment(db, admin, { publicId, operation,
   for (let attempt = 0; ; attempt++) {
     try {
       return await db.$transaction(async tx => {
+        // Staff wallet corrections stay possible while a wallet is frozen.
+        if (typeof tx.$executeRaw === "function") await tx.$executeRaw`SELECT set_config('mega.wallet_admin', 'on', true)`;
         const existing = await tx.adminCoinAdjustmentRequest.findUnique({ where: { adminId_requestId: { adminId: admin.id, requestId } } });
         if (existing) {
           if (existing.fingerprint !== fingerprint) throw new Error("ADJUSTMENT_REQUEST_CONFLICT");

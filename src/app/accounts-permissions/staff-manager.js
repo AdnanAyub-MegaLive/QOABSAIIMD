@@ -1,10 +1,11 @@
 "use client";
+import { REGION_COUNTRIES } from "@/lib/staff-regions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hasPermission, assignedPermissions } from "@/lib/portal-permissions";
 
 const input = "mt-1.5 w-full rounded-xl border border-[#dce7e4] bg-white px-3 py-2 text-sm";
 const button = "rounded-lg bg-[#087f74] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
-const blank = { name: "", email: "", password: "", role: "STAFF", active: true, permissions: [] };
+const blank = { name: "", email: "", password: "", role: "STAFF", active: true, permissions: [], allowedCountries: [], maxGrantDays: "", linkedUserPublicId: "" };
 export default function StaffManager() {
   const [data, setData] = useState(null), [draft, setDraft] = useState(null), [reset, setReset] = useState(null);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [saving, setSaving] = useState(false), [search, setSearch] = useState("");
@@ -62,7 +63,10 @@ export default function StaffManager() {
         {!draft.id && <label className="text-sm font-semibold">Initial password<input className={input} type="password" autoComplete="new-password" required minLength={12} maxLength={72} value={draft.password} onChange={e => setDraft({ ...draft, password: e.target.value })} /><span className="text-xs font-normal text-[#71847f]">At least 12 characters. Passwords are never displayed after saving.</span></label>}
         <label className="text-sm font-semibold">Account role<select disabled={Boolean(draft.id)&&!can("accounts.permissions")} className={input} value={draft.role} onChange={e => setDraft({ ...draft, role: e.target.value })}><option value="STAFF">Staff</option><option value="MANAGER">Manager</option></select></label>
         <label className="text-sm font-semibold">Status<select className={input} value={String(draft.active)} onChange={e => setDraft({ ...draft, active: e.target.value === "true" })}><option value="true">Active</option><option value="false">Suspended</option></select></label>
+        <label className="text-sm font-semibold">Linked app ID<input className={input} placeholder="e.g. 2030397" value={draft.linkedUserPublicId ?? ""} onChange={e => setDraft({ ...draft, linkedUserPublicId: e.target.value })} /></label>
+        <label className="text-sm font-semibold">Longest grant (days)<input className={input} type="number" min="1" max="3650" placeholder="No limit" disabled={!can("accounts.permissions")} value={draft.maxGrantDays ?? ""} onChange={e => setDraft({ ...draft, maxGrantDays: e.target.value })} /></label>
       </fieldset>
+      <fieldset disabled={saving||!can("accounts.permissions")}><legend className="font-semibold">Regions <span className="text-xs font-normal text-[#71847f]">(none selected = all countries)</span></legend><div className="mt-2 flex flex-wrap gap-2">{Object.keys(REGION_COUNTRIES).map(c => { const on = (draft.allowedCountries ?? []).includes(c); return <label key={c} className={`cursor-pointer rounded-full border px-3 py-1 text-sm ${on ? "border-[#0f766e] bg-[#e6f4f1] font-semibold" : "border-[#dce8e5]"}`}><input type="checkbox" className="mr-1" checked={on} onChange={() => setDraft({ ...draft, allowedCountries: on ? draft.allowedCountries.filter(x => x !== c) : [...(draft.allowedCountries ?? []), c] })} />{c}</label>; })}</div></fieldset>
       <div className="flex flex-wrap items-center gap-3"><h4 className="font-semibold">Feature permissions</h4><span className="text-xs text-[#71847f]">{draft.permissions.length} selected</span><select aria-label="Apply permission template" disabled={saving||!can("accounts.permissions")} className="rounded-lg border px-3 py-2 text-sm" value="" onChange={e => setDraft({ ...draft, permissions: assignedPermissions(data.templates[e.target.value]).filter(grantable) })}><option value="" disabled>Apply a template…</option>{Object.keys(data.templates).map(name => <option key={name}>{name}</option>)}</select></div>
       <p className="text-xs text-[#71847f]">Read access does not allow changes. Select Create, Edit, Delete / Archive and Export separately where available. Editing does not include deleting. Viewing is required to open the feature. Message History is sensitive and separate from Users / Senders and Room Management. Database Management remains exclusive to admin@megachat.live. Events uses separate authentication.</p>
       {data.actor.role === "SUPER_ADMIN" && <p className="text-xs text-[#71847f]">Saving an existing account makes it directly managed by Platform Admin, so an earlier manager cannot restrict these grants. Super Admin promotion is not available here.</p>}

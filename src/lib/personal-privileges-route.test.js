@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 const m = vi.hoisted(() => ({ auth: vi.fn(), find: vi.fn(), save: vi.fn(), invalidate: vi.fn() }));
-vi.mock('./prisma.js', () => ({ prisma: { vipMembership: { findUnique: m.find } } }));
+vi.mock('./prisma.js', () => ({ prisma: { vipMembership: { findUnique: m.find }, user: { findUnique: async () => null } } }));
 vi.mock('./mobile-api.js', () => ({
   requireMobileUser: m.auth,
   mobileJson: async (body, status = 200) => Response.json(body, { status }),

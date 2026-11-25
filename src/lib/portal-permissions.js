@@ -19,7 +19,8 @@ export const permissionGroups = [
   ["rocket", "Room Rocket", [["view", "View Rocket seasons and rewards"], ["edit", "Enable Rocket and configure future seasons and rewards"]]],
   ["vip", "VIP Management", [["view", "View VIP tiers and memberships"], ["manage", "Create tiers and grant or revoke timed VIP memberships"]]],
   ["dashboard", "Dashboard", [["view", "View platform overview and statistics"]]],
-  ["users", "Users / Senders", [["view", "View user profiles and records"], ["edit", "Edit user profiles and application roles"], ["create", "Create application accounts"], ["verify", "Verify users / official status"], ["ban", "Ban or unban accounts"], ["devices", "Ban or unban devices"], ["logout", "Force user logout"], ["password", "Reset user passwords"], ["delete", "Delete user accounts"], ["specialIds", "Create, assign and revoke Standard / VIP / SVIP Special IDs"], ["props", "Grant or revoke user props"]]],
+  ["region", "Region Report", [["view", "View work totals for assigned countries"]]],
+  ["users", "Users / Senders", [["view", "View user profiles and records"], ["edit", "Edit user profiles and application roles"], ["create", "Create application accounts"], ["verify", "Verify users / official status"], ["ban", "Ban or unban accounts"], ["devices", "Ban or unban devices"], ["logout", "Force user logout"], ["password", "Reset user passwords"], ["delete", "Delete user accounts"], ["freeze", "Freeze or unfreeze user wallets"], ["specialIds", "Create, assign and revoke Standard / VIP / SVIP Special IDs"], ["props", "Grant or revoke user props"]]],
   ["hosts", "Host Management", [["view", "View hosts, earnings and records"], ["manage", "Edit hosts, approvals and agency membership"], ["salary", "Change host salary"]]],
   ["agencies", "Agency Management", [["view", "View agency records and applications"], ["manage", "Review applications and assign hosts"]]],
   ["finance", "Finance & Wallet", [["view", "View balances, ledger and reconciliation"], ["withdrawals", "Review withdrawals and record payouts"], ["adjust", "Adjust user wallet balances"], ["refunds", "Preview and execute recoverable gift refunds"]]],
@@ -61,6 +62,7 @@ export function validatePermissions(value, actor) {
 export const pagePermissions = {
   // Login selects the first accessible page; prefer Home over feature sections.
   "/home": "dashboard.view",
+  "/region-report": "region.view",
   "/help-center": "help_center.manage",
   "/room-rocket": "rocket.view",
   "/cp-levels": "cp.view",
@@ -87,4 +89,5 @@ export const permissionTemplates = {
   "Room moderator": ["rooms.view", "rooms.manage", "video.view", "video.manage"],
   "Content manager": ["uploads.view", "uploads.manage", "appearance.view", "appearance.manage", "notifications.view", "notifications.manage"],
   "Finance officer": ["finance.view", "finance.withdrawals"],
+  "Regional Manager": ["region.view", "users.view", "users.props", "users.ban", "users.devices", "users.freeze", "vip.view", "vip.grant"],
 };

@@ -1,4 +1,5 @@
 import { currentMobileRequestId, isServerProblem, serverProblemBody } from "./mobile-server-problem.js";
+import { isWalletFrozenError, WALLET_FROZEN_MESSAGE } from "./wallet-freeze.js";
 import { assertSessionDevice } from "./device-ban.js";
 import { prisma } from "./prisma";
 import { versionMediaPayload } from "./media-payload.js";
@@ -90,6 +91,7 @@ export async function requireMobileRole(request, allowedRoles) {
 }
 
 export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
+  if (isWalletFrozenError(error)) return mobileJson({ success: false, error: { code: "WALLET_FROZEN", message: WALLET_FROZEN_MESSAGE } }, 403);
   if (isAppUpdateRequired(error)) return appUpdateRequiredResponse(error, mobileCorsHeaders);
   if (error?.status && isServerProblem(error, error.status)) return mobileJson({ success: false, error }, error.status, error);
   if (["AGENCY_SELECTION_REQUIRED","AGENCY_NOT_FOUND"].includes(error?.code) && error.status) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);

@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { claimPrettyId, listPrettyIds } from "@/lib/pretty-id";
 import { emitToUser } from "@/lib/realtime";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +24,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(user.id); if (frozen) return frozen; }
     if (isRateLimited(`special-id-purchase:${user.id}`, { limit: 20, windowMs: 60000 }))
       return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Try again in a minute." } }, 429);
     let body;

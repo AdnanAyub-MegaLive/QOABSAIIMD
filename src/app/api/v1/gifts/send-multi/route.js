@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { prepareMultiGift } from '@/lib/multi-gift-settlement';
 import { giftOperation, priorGiftOperation, runGiftOperation, flushRealtimeOutbox } from '@/lib/gift-operation';
 import { mobileApiError, giftJson, mobileOptions, requireMobileUser } from '@/lib/mobile-api';
@@ -7,6 +8,7 @@ const invalid = message => Object.assign(new Error(message), { code: 'VALIDATION
 export async function POST(request) {
   try {
     const sender = await requireMobileUser(request), body = await request.json();
+    { const frozen = await walletFrozenResponse(sender.id); if (frozen) return frozen; }
     const roomId = body?.roomId, bagItemId = body?.bagItemId, backpack = bagItemId != null;
     // Inventory uses (userId, giftAssetId); its public bag ID is the gift public ID.
     const giftId = body?.giftId ?? bagItemId, quantity = body?.quantity ?? 1;

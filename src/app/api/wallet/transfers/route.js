@@ -1,3 +1,4 @@
+import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { prisma } from "@/lib/prisma";
 import { notifyPrettyMaintenance } from "@/lib/pretty-id-weekly";
 import { createHash } from "node:crypto";
@@ -13,6 +14,7 @@ export function OPTIONS() {
 export async function POST(request) {
   try {
     const sender = await requireMobileUser(request);
+    { const frozen = await walletFrozenResponse(sender.id); if (frozen) return frozen; }
     if (!sender.appRoles?.includes("RESELLER") || !walletEligibility(sender).transfer) throw new Error("RESELLER_REQUIRED");
     const body = await request.json();
     const recipientPublicId = String(body?.recipientPublicId ?? "").trim();
