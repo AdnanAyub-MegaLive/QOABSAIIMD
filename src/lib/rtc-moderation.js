@@ -4,6 +4,7 @@ import { prisma } from "./prisma.js";
 import { activeRoomBan } from "./audio-room-management.js";
 import { permissionTransitions } from "./rtc-permission-transitions.js";
 const transitions = permissionTransitions();
+export const isMissingTrtcRoom = error => String(error?.code ?? "").endsWith("RoomNotExist");
 import { removeLiveKitParticipant, updateLiveKitPublishPermission, deleteLiveKitRoom } from "./livekit-authorization.js";
 
 export async function dismissRtcRoom(roomId) {
@@ -13,7 +14,8 @@ export async function dismissRtcRoom(roomId) {
   const client = new trtc.v20190722.Client({ credential: { secretId, secretKey }, region: process.env.TRTC_REGION || "ap-singapore", profile: { httpProfile: { endpoint: "trtc.intl.tencentcloudapi.com", reqTimeout: 10 } } });
   try { await client.DismissRoomByStrRoomId({ SdkAppId: Number(process.env.TRTC_SDK_APP_ID), RoomId: String(roomId) }); }
   catch (error) {
-    if (error?.code === "ResourceNotFound.RoomNotExist") return;
+    // Tencent reports a missing room as FailedOperation.RoomNotExist (older docs: ResourceNotFound.RoomNotExist).
+    if (isMissingTrtcRoom(error)) return;
     console.error("TRTC room dismissal failed", { code: error?.code, requestId: error?.requestId });
     throw new Error("RTC_MODERATION_FAILED");
   }

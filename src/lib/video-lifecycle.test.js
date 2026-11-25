@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ dismiss: vi.fn(), remove: vi.fn(), emit: vi.fn() }));
 vi.mock("./prisma.js", () => ({ prisma: {} }));
 vi.mock("./rtc-moderation.js", () => ({ dismissRtcRoom: mocks.dismiss, removeRtcParticipant: mocks.remove }));
@@ -18,4 +18,14 @@ it("leaves provider cleanup pending when the RTC service fails", async () => {
   const update = vi.fn(); mocks.dismiss.mockRejectedValueOnce(new Error("unavailable"));
   await expect(closeVideoRtc({ id: "s", publicId: "LIVE-1" }, { videoLiveSession: { update } })).rejects.toThrow("unavailable");
   expect(update).not.toHaveBeenCalled();
+});
+
+describe("video RTC cleanup retries", () => {
+  it("only retries sessions that ended in the last day", async () => {
+    const { retryVideoRtcCleanup } = await import("./video-lifecycle.js");
+    let where;
+    await retryVideoRtcCleanup({ videoLiveSession: { findMany: async args => { where = args.where; return []; } } });
+    expect(where.rtcClosedAt).toBeNull();
+    expect(where.endedAt.gte.getTime()).toBeGreaterThan(Date.now() - 24 * 3600_000 - 5000);
+  });
 });

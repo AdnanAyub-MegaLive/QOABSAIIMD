@@ -26,7 +26,9 @@ export async function endVideoLive(live, admin = null, db = prisma) {
   return row;
 }
 export async function retryVideoRtcCleanup(db = prisma) {
-  const rows = await db.videoLiveSession.findMany({ where: { status: "ENDED", rtcClosedAt: null }, orderBy: { endedAt: "desc" }, take: 25 });
+  // Give up after a day: a room the provider never closed has long since expired on its side.
+  const since = new Date(Date.now() - 24 * 3600_000);
+  const rows = await db.videoLiveSession.findMany({ where: { status: "ENDED", rtcClosedAt: null, endedAt: { gte: since } }, orderBy: { endedAt: "desc" }, take: 25 });
   for (const row of rows) try { await closeVideoRtc(row, db); } catch { console.error("Video RTC cleanup will retry", { liveId: row.publicId }); }
 }
 export async function enforceVideoPrivacy(live, db = prisma) {
