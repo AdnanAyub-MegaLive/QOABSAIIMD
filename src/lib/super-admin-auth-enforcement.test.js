@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   config: null, allowed: false,
   admin: { id: "admin", role: "SUPER_ADMIN", active: true, sessionVersion: 1, passwordHash: "hash" },
   eventUser: { id: "events", role: "SUPER_ADMIN", active: true, tokenVersion: 1 },
-  create: vi.fn(), update: vi.fn(), adminUpdate: vi.fn(),
+  rateLimit: vi.fn(), create: vi.fn(), update: vi.fn(), adminUpdate: vi.fn(),
 }));
 vi.mock("next-auth", () => ({ default: config => { mocks.config = config; return {}; } }));
 vi.mock("next-auth/providers/credentials", () => ({ default: config => config }));
@@ -12,7 +12,7 @@ vi.mock("bcrypt", () => ({ default: { compare: async () => true } }));
 vi.mock("./super-admin-device-request.js", () => ({ canAccessFromDevice: async role => role !== "SUPER_ADMIN" || mocks.allowed }));
 vi.mock("./portal-staff-state.js", () => ({ effectiveAdmin: async () => mocks.admin, staffDto: x => x }));
 vi.mock("./portal-idle-session.js", () => ({ PORTAL_IDLE_SECONDS: 3600, updatePortalActivity: x => x }));
-vi.mock("./rate-limit.js", () => ({ isRateLimited: () => false }));
+vi.mock("./rate-limit.js", () => ({ isRateLimited: mocks.rateLimit }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => ({ value: "token" }) }) }));
 vi.mock("jsonwebtoken", () => ({ default: {
   sign: () => "signed",
@@ -36,10 +36,17 @@ import { createEventSession, rotateEventSession, requireEventUser } from "./even
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.allowed = false;
+  mocks.rateLimit.mockResolvedValue(false);
   mocks.admin.role = mocks.eventUser.role = "SUPER_ADMIN";
 });
 describe("both portal authentication boundaries", () => {
   it("denies Super Admin password login before recording a login", async () => {
+    expect(await mocks.config.providers[0].authorize({ email: "admin@test.com", password: "password" }, {})).toBeNull();
+    expect(mocks.adminUpdate).not.toHaveBeenCalled();
+  });
+  it("rejects a login when the shared rate limiter resolves true", async () => {
+    mocks.allowed = true;
+    mocks.rateLimit.mockResolvedValue(true);
     expect(await mocks.config.providers[0].authorize({ email: "admin@test.com", password: "password" }, {})).toBeNull();
     expect(mocks.adminUpdate).not.toHaveBeenCalled();
   });

@@ -43,7 +43,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const email = String(credentials?.email ?? "").trim().toLowerCase();
         const password = String(credentials?.password ?? "");
 
-        if (email.length > 254 || password.length > 72 || isRateLimited(`portal-login:${email}`, { limit: 10, windowMs: 60000 })) return null;
+        if (email.length > 254 || password.length > 72 || await isRateLimited(`portal-login:${email}`, { limit: 10, windowMs: 60000 })) return null;
         const row = await prisma.admin.findUnique({ where: { email } });
         if (!row?.active) return null;
         const legacy = row.passwordHash === "ENV_AUTH_PENDING_HASH_MIGRATION" && row.role === "SUPER_ADMIN" && email === process.env.ADMIN_EMAIL?.trim().toLowerCase();
