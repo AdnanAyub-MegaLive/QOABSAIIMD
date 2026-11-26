@@ -118,7 +118,8 @@ describe("items", () => {
     expect(db.uploadAsset.findMany.mock.calls[0][0].select).not.toHaveProperty("fileData");
     expect(body.data.items.map((i) => i.id)).toEqual(["AST-001", "AST-006", "AST-007"]);
     for (const item of body.data.items) {
-      expect(Object.keys(item).sort()).toEqual(["id", "media", "name"]);
+      expect(Object.keys(item).sort()).toEqual(["category", "id", "media", "name", "updatedAt"]);
+      expect(item.category).toEqual({ code: "FRAMES", label: "Frames" });
       expect(item.media.image).toMatch(/\/api\/partner\/v1\/media\/AST-\d+\/image\?/);
       expect(item.media.image).not.toMatch(/uploads|portal-media/);
     }
@@ -135,7 +136,7 @@ describe("items", () => {
     expect(second.status).toBe(304);
     expect(await second.text()).toBe("");
     const one = await handlers.getItem(req("/api/partner/v1/items/AST-001", { "x-partner-key": raw }), "AST-001");
-    expect(Object.keys((await one.json()).data).sort()).toEqual(["id", "media", "name"]);
+    expect(Object.keys((await one.json()).data).sort()).toEqual(["category", "id", "media", "name", "updatedAt"]);
     expect((await handlers.getItem(req("/api/partner/v1/items/AST-404", { "x-partner-key": raw }), "AST-404")).status).toBe(404);
   });
   it("encodes cursors opaquely", () => {

@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { PartnerApiError } from "./partner-auth.js";
 import { createPartnerMediaUrl, partnerMediaExpiry } from "./partner-media-sign.js";
 import { hasMotionSource } from "./partner-previews.js";
+import { uploadCategories } from "./upload-assets.js";
+
+const categoryLabels = Object.fromEntries(Object.entries(uploadCategories).map(([label, code]) => [code, label]));
 
 export const PARTNER_DEFAULT_LIMIT = 20;
 export const PARTNER_MAX_LIMIT = 50;
@@ -10,7 +13,7 @@ const globalState = globalThis;
 const cache = globalState.partnerCatalogCache ??= new Map();
 
 export const mallItemWhere = { active: true, archivedAt: null, storeVisible: true, category: { not: "BANNERS" } };
-const itemSelect = { id: true, publicId: true, name: true, mimeType: true, mediaVersion: true, posterMediaVersion: true, updatedAt: true };
+const itemSelect = { id: true, publicId: true, name: true, category: true, mimeType: true, mediaVersion: true, posterMediaVersion: true, updatedAt: true };
 
 export function clearPartnerCatalogCache() { cache.clear(); }
 
@@ -102,7 +105,7 @@ export async function loadItem(db, publicId) {
 export function partnerItem(row, base, key, exp) {
   const media = { image: createPartnerMediaUrl(base, row.publicId, "image", key.publicId, exp) };
   if (hasMotionSource(row)) media.motion = createPartnerMediaUrl(base, row.publicId, "motion", key.publicId, exp);
-  return { id: row.publicId, name: row.name, media };
+  return { id: row.publicId, name: row.name, category: { code: row.category, label: categoryLabels[row.category] ?? row.category }, updatedAt: row.updatedAt.toISOString(), media };
 }
 
 export function catalogEtag(rows, extra, key, exp) {
