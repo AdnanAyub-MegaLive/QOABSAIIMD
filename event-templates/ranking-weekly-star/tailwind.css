@@ -117,3 +117,22 @@ html body #ranking .podium-card .levels .level-tag{flex-shrink:1 !important;min-
 html body #ranking .podium-card .levels .vip-tag{overflow:hidden !important}
 html body #ranking .podium-card .levels .vip-value{flex-shrink:0 !important}
 html body #ranking .podium-card .entry-details{grid-template-columns:minmax(0,1fr) !important}
+html #ranking #tracks{margin-top:30px}
+html #ranking #back{top:4px;left:6px;width:32px;height:30px;line-height:28px}
+html #ranking #rules{top:4px;right:6px;padding:5px 10px}
+html #ranking #filters{margin-top:8px}
+html #ranking #weekly-banner{margin-bottom:0}
+html #ranking #rewards{position:relative;top:auto;right:auto;display:flex;align-items:center;gap:6px;margin:6px 4% 0 auto;padding:4px 10px;font-size:12px}
+html #ranking #rewards img{width:28px;height:24px;object-fit:contain}
+html #ranking #rewards:after{font-size:12px}
+.weekly-hall{width:64%;margin:0 auto}
+html #ranking .weekly-card .weekly-avatar{position:absolute;top:10%;left:50%;transform:translateX(-50%);width:44%;height:auto;aspect-ratio:1;z-index:2}
+html #ranking .weekly-card .weekly-avatar .portrait{width:76%;height:76%}
+.weekly-card:not(.weekly-place-1){justify-content:flex-start;padding:0 12%}
+.weekly-card:not(.weekly-place-1) .weekly-place{top:47%}
+.weekly-card:not(.weekly-place-1) .weekly-name{position:absolute;top:55%;left:12%;right:12%;max-width:none;text-align:center}
+html #ranking #hero .weekly-card:not(.weekly-place-1) .ranking-gap{position:absolute;top:63%;left:0;right:0;margin:0}
+html #ranking #board .row{padding-left:12%;padding-right:9%}
+.hall-empty{left:25%;width:50%;top:52%;font-size:12px;line-height:1.3}
+html #ranking .weekly-place-1 .weekly-portrait{top:19.3%;left:37%;width:26%;height:26.6%;border-radius:50%;object-fit:cover}
+html #ranking .weekly-hall .hall-portrait{left:26.5%;top:30.6%;width:47%;height:49.2%}
