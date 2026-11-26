@@ -178,6 +178,15 @@ try {
     const authSecret=randomUUID()+randomUUID();
     const {createHmac}=await import('node:crypto');
     function token(index){const body=Buffer.from(JSON.stringify({userId:'fixture-'+index,sessionVersion:0,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url');return body+'.'+createHmac('sha256',authSecret).update(body).digest('base64url');}
+    const bcrypt = (await import('bcrypt')).default;
+    const staffPassword = randomUUID();
+    await pool.query('INSERT INTO "Admin" (id,name,email,"passwordHash",role,active,"updatedAt") VALUES ($1,$2,$3,$4,$5,true,NOW())', ['lab-staff','Lab Staff','staff@scaling.test',await bcrypt.hash(staffPassword, 10),'ADMIN']);
+    const staffCookies = new Map();
+    async function staffRequest(base,path,options={}) {
+      const response=await fetch(base+path,{...options,redirect:'manual',headers:{Cookie:[...staffCookies].map(([k,v])=>k+'='+v).join('; '),...options.headers}});
+      for(const cookie of response.headers.getSetCookie()) { const pair=cookie.split(';')[0];const split=pair.indexOf('=');staffCookies.set(pair.slice(0,split),pair.slice(split+1)); }
+      return response;
+    }
     for(let i=0;i<2;i++){
       const portalPort=await port();
       const child=spawn(process.execPath,['server.js'],{env:{PATH:process.env.PATH,HOME:process.env.HOME,NODE_ENV:'production',HOSTNAME:'127.0.0.1',PORT:String(portalPort),DATABASE_URL:databaseUrl,AUTH_SECRET:authSecret,AUTH_TRUST_HOST:'true',NEXT_PUBLIC_BUSINESS_TIMEZONE_CUTOVER_AT:'2030-01-01T00:00:00.000Z',PORTAL_REDIS_URL:`redis://127.0.0.1:${redisPort}`,PORTAL_REDIS_NAMESPACE:namespace,PORTAL_METRICS:'true'},stdio:['ignore','pipe','pipe']});
@@ -185,11 +194,20 @@ try {
       child.stdout.on('data',data=>portal.output+=data);child.stderr.on('data',data=>portal.output+=data);
       await eventually(async()=>{if(child.exitCode!==null)throw Error('Portal exited: '+portal.output.slice(-3000));try{return(await fetch(`http://127.0.0.1:${portalPort}/internal/ready`)).ok;}catch{return false;}},60000);
       const response=await fetch(`http://127.0.0.1:${portalPort}/api/health`);assert.equal(response.status,200);assert.equal((await response.json()).data.status,'ready');
+      const base=`http://127.0.0.1:${portalPort}`;
+      if(i===0){
+        const csrf=await (await staffRequest(base,'/api/auth/csrf')).json();
+        const login=await staffRequest(base,'/api/auth/callback/credentials',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrfToken:csrf.csrfToken,email:'staff@scaling.test',password:staffPassword,callbackUrl:base+'/dashboard'})});
+        assert.ok(!String(login.headers.get('location')).includes('error='),'Staff credentials must not be rejected');
+      }
+      const staffSession=await (await staffRequest(base,'/api/auth/session')).json();
+      assert.equal(staffSession.user?.id,'lab-staff','Real credentials login must create a staff session valid on both workers');
       const profile=await fetch(`http://127.0.0.1:${portalPort}/api/v1/users/fixture-${i}/profile`,{headers:{Authorization:`Bearer ${token(i)}`}});
       assert.equal(profile.status,200,'Authenticated profile route uses initialized shared rate limiter');
       const socket=io(`http://127.0.0.1:${portalPort}`,{auth:{token:token(i)},transports:['websocket'],reconnection:false});sockets.push(socket);
       await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Actual portal session timeout: '+portal.output.slice(-3000))),15000);socket.once('session:status',()=>{clearTimeout(timer);resolve();});socket.once('connect_error',error=>{clearTimeout(timer);reject(error);});});
     }
+    results.push('Real admin credentials login through CSRF/callback creates a session accepted by both Redis-enabled workers');
     results.push('Two built portal servers pass readiness, authenticated HTTP with shared rate limits and authenticated Socket.IO initialization');
     const first=portals[0];first.child.kill('SIGTERM');
     await eventually(()=>first.child.exitCode!==null,60000);

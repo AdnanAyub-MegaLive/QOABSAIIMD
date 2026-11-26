@@ -1,13 +1,13 @@
 {
-  "checkedAtUtc": "2026-11-26T08:47:35.958416+00:00",
-  "candidateCommit": "aeb55f5",
-  "remoteMainCommit": "f7574c7",
+  "checkedAtUtc": "2026-11-26T09:40:24.245562+00:00",
+  "candidateCommit": "9b9051e",
+  "remoteMainCommit": "9b9051e",
   "production": {
-    "release": "aeb55f5-scaled-zknyTL",
+    "release": "9b9051e-scaled-BQNdEF",
     "processes": 2,
     "ports": [
-      3001,
-      3002
+      3000,
+      3003
     ],
     "status": "online",
     "maintenance": false,
@@ -15,7 +15,7 @@
   },
   "stage": "3 - gradual rollout",
   "activation": "two_process_observation",
-  "observationStartedAt": "2026-11-26T08:40:49.398162+00:00",
+  "observationStartedAt": "2026-11-26T09:40:24.245562+00:00",
   "minimumTwoProcessObservationHours": 24,
   "phases": [
     {
@@ -51,8 +51,8 @@
     }
   ],
   "remainingMigration": [],
-  "note": "One-process shared-state release validated first; nginx affinity and two-to-one rollback rehearsed. Public service restored. The 24-hour observation is not complete; four workers remain disabled.",
-  "earliestReviewAt": "2026-11-27T08:40:49.398162+00:00",
+  "note": "Admin credentials regression corrected with rolling release; observation restarted after hotfix. Four workers remain disabled.",
+  "earliestReviewAt": "2026-11-27T09:40:24.245562+00:00",
   "remainingValidation": [
     "24 continuous hours including peak traffic",
     "errors and cancellations",
@@ -65,5 +65,12 @@
     "failures": 0,
     "maxMs": 255,
     "pollingAffinitySessions": 24
+  },
+  "incident": {
+    "previousObservationStartedAt": "2026-11-26T08:40:49.398162+00:00",
+    "cause": "Root auth.js did not await Redis-backed isRateLimited; every credentials login was rejected.",
+    "fixCommit": "9b9051e",
+    "validation": "Regression reproduced before fix; 7 auth tests and isolated full HTTP credentials/session flow across two workers passed.",
+    "observationReset": true
   }
 }

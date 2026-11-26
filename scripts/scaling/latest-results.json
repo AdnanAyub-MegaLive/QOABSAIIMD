@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-26T08:18:16.317Z",
+  "at": "2026-11-26T09:38:01.373Z",
   "processes": 4,
   "database": "fresh local PostgreSQL",
   "productionAccess": false,
@@ -21,11 +21,12 @@
     "One dedicated database leader owns the background-job runner",
     "Process death releases the database job lock and permits takeover",
     "Background leader ownership transfers after the elected process dies",
-    "Two built portal servers pass readiness, database health and authenticated Socket.IO initialization",
+    "Real admin credentials login through CSRF/callback creates a session accepted by both Redis-enabled workers",
+    "Two built portal servers pass readiness, authenticated HTTP with shared rate limits and authenticated Socket.IO initialization",
     "Actual portal SIGTERM drains and exits cleanly while the second process remains ready"
   ],
   "limitations": [
-    "Actual shared-state modules with full current portal schema; not a full HTTP/phone test",
+    "Actual shared-state modules and built HTTP/Socket.IO servers tested; physical two-phone testing not performed",
     "Production peak-hour observation is still required"
   ]
 }
