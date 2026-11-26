@@ -185,10 +185,12 @@ try {
       child.stdout.on('data',data=>portal.output+=data);child.stderr.on('data',data=>portal.output+=data);
       await eventually(async()=>{if(child.exitCode!==null)throw Error('Portal exited: '+portal.output.slice(-3000));try{return(await fetch(`http://127.0.0.1:${portalPort}/internal/ready`)).ok;}catch{return false;}},60000);
       const response=await fetch(`http://127.0.0.1:${portalPort}/api/health`);assert.equal(response.status,200);assert.equal((await response.json()).data.status,'ready');
+      const profile=await fetch(`http://127.0.0.1:${portalPort}/api/v1/users/fixture-${i}/profile`,{headers:{Authorization:`Bearer ${token(i)}`}});
+      assert.equal(profile.status,200,'Authenticated profile route uses initialized shared rate limiter');
       const socket=io(`http://127.0.0.1:${portalPort}`,{auth:{token:token(i)},transports:['websocket'],reconnection:false});sockets.push(socket);
       await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Actual portal session timeout: '+portal.output.slice(-3000))),15000);socket.once('session:status',()=>{clearTimeout(timer);resolve();});socket.once('connect_error',error=>{clearTimeout(timer);reject(error);});});
     }
-    results.push('Two built portal servers pass readiness, database health and authenticated Socket.IO initialization');
+    results.push('Two built portal servers pass readiness, authenticated HTTP with shared rate limits and authenticated Socket.IO initialization');
     const first=portals[0];first.child.kill('SIGTERM');
     await eventually(()=>first.child.exitCode!==null,60000);
     assert.equal(first.child.exitCode,0);
@@ -196,7 +198,7 @@ try {
     results.push('Actual portal SIGTERM drains and exits cleanly while the second process remains ready');
     for(const portal of portals)await writeFile(join(root,`portal-${portal.port}.log`),portal.output);
   }
-  await writeFile(new URL('./latest-results.json', import.meta.url), JSON.stringify({ at: new Date().toISOString(), processes: 4, database: 'fresh local PostgreSQL', productionAccess: false, passed: results, limitations: ['Actual shared-state modules with full current portal schema; not a full HTTP/phone test', 'Production peak-hour observation is still required'] }, null, 2) + '\n');
+  await writeFile(new URL('./latest-results.json', import.meta.url), JSON.stringify({ at: new Date().toISOString(), processes: 4, database: 'fresh local PostgreSQL', productionAccess: false, passed: results, limitations: ['Actual shared-state modules and built HTTP/Socket.IO servers tested; physical two-phone testing not performed', 'Production peak-hour observation is still required'] }, null, 2) + '\n');
   console.log(JSON.stringify({ passed: results }, null, 2));
 } catch(error) { console.error('LAB FAILURE',error.message,error.stack); throw error; } finally {
   sockets.forEach(s => s.close());

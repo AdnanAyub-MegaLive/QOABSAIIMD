@@ -25,6 +25,13 @@ node scripts/check-auth-config.mjs
 node scripts/check-media-tools.mjs
 npx prisma generate
 export PORTAL_DEPLOYMENT_ID="$(basename "$release")"
+node - <<'NODE'
+const fs=require('node:fs');
+const file='release.ecosystem.json';
+const config=JSON.parse(fs.readFileSync(file,'utf8'));
+for(const app of config.apps)app.env.PORTAL_DEPLOYMENT_ID=process.env.PORTAL_DEPLOYMENT_ID;
+fs.writeFileSync(file,JSON.stringify(config),{mode:0o600});
+NODE
 npm run build -- --webpack
 test -s .next/BUILD_ID
 test -s .next/required-server-files.json
