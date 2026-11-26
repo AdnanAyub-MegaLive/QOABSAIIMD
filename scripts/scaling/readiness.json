@@ -1,8 +1,8 @@
 {
   "stage": "2 - measure and prepare safe scaling",
-  "status": "shared-state integration and isolated built-portal tests passed",
+  "status": "integration tested; deployed first with one worker, now observing two",
   "productionChanged": true,
-  "productionProcessCount": 0,
+  "productionProcessCount": 2,
   "implemented": [
     "Opt-in PORTAL_METRICS=true request histograms, cancellation tracking, slow-request database correlation and Node event-loop delay",
     "Aggregate nginx timing reader that removes URL parameters and dynamic identifiers, separates media and excludes Socket.IO from API latency",
@@ -27,22 +27,22 @@
   },
   "measurementLimits": [
     "Captured request sample: 2026-11-25 18:29:19 through 19:14:43 UTC; not established as a peak-hour window",
-    "Runtime metrics code has not been deployed; production Node event-loop and per-request database timing are not yet collected",
     "Pooled query duration includes pool waiting and database round trips; transaction.acquire measures transaction connection acquisition",
     "Database track_io_timing is off; cumulative deadlocks and temporary bytes have no known reset boundary",
     "499 means the connection closed before the response completed, not proof of a particular app timeout cause",
     "Outbox proof marks dispatch, not client acknowledgement; stable event IDs require consumer deduplication and snapshot recovery",
     "Production Redis uses AOF everysec and noeviction; no claim of exactly-once transport or client acknowledgement",
     "Initial rollout disables incremental route/data storage; image/static caching is unchanged",
-    "Leader loss terminates the worker; existing financial idempotency/row locks remain required"
+    "Leader loss terminates the worker; existing financial idempotency/row locks remain required",
+    "Runtime measurements now enabled on both workers; the first single-worker samples were taken under maintenance and are not peak-load evidence"
   ],
   "remainingBeforeProductionScaling": [
-    "Activate one process under maintenance and verify production health/logs",
-    "Rehearse nginx affinity, rolling replacement and rollback before opening two-process traffic",
-    "Observe at least 24 hours including peak traffic before considering four processes"
+    "Complete the 24-hour observation including peak traffic",
+    "Review errors, cancellations, database delays, event-loop delay, presence and financial invariants",
+    "Move to four only if measured capacity pressure justifies it"
   ],
   "deploymentGate": "Do not enable multiple portal workers from this branch. Foundation lab success is not full portal concurrency readiness.",
-  "maintenance": true,
+  "maintenance": false,
   "validatedAt": "2026-11-26T08:15:13.426316+00:00",
   "validation": {
     "androidUnitTests": 954,
@@ -58,6 +58,12 @@
       "preexistingAccountDeletionFailures": 5,
       "reason": "Unreviewed TulasiSession ownership model"
     },
-    "physicalTwoPhoneTest": false
+    "physicalTwoPhoneTest": false,
+    "rollingHealth": {
+      "requests": 2255,
+      "failures": 0,
+      "maxMs": 255,
+      "pollingAffinitySessions": 24
+    }
   }
 }

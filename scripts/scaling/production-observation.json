@@ -1,0 +1,26 @@
+{
+  "stage": "two-process observation",
+  "startedAt": "2026-11-26T08:40:49.398162+00:00",
+  "earliestReviewAt": "2026-11-27T08:40:49.398162+00:00",
+  "release": "aeb55f5-scaled-zknyTL",
+  "processes": 2,
+  "ports": [
+    3001,
+    3002
+  ],
+  "maintenance": false,
+  "fourProcessesEnabled": false,
+  "routingTest": {
+    "requests": 2255,
+    "failures": 0,
+    "maxMs": 255,
+    "pollingAffinitySessions": 24
+  },
+  "requiresReview": [
+    "24 continuous hours including peak traffic",
+    "errors and cancellations",
+    "database and event-loop delay",
+    "presence and financial duplicate checks",
+    "capacity pressure before considering four"
+  ]
+}
