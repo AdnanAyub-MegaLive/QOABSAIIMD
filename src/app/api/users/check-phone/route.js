@@ -23,7 +23,7 @@ function clientIp(request){
 
 export async function GET(request){
   const ip=clientIp(request);
-  if(isRateLimited(`check-phone:${ip}`,{limit:10,windowMs:60_000})){
+  if(await isRateLimited(`check-phone:${ip}`,{limit:10,windowMs:60_000})){
     return json({success:false,error:{code:"RATE_LIMITED",message:"Too many requests. Try again shortly."}},429);
   }
 

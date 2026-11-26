@@ -7,7 +7,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 export async function POST(request) {
   try {
     const admin = await requirePermission("help_center.manage"); sameOrigin(request);
-    if (isRateLimited(`help-icons:${admin.id}`, { limit: 20, windowMs: 60000 })) throw Object.assign(new Error("Please wait before uploading more icons."), { status: 429 });
+    if (await isRateLimited(`help-icons:${admin.id}`, { limit: 20, windowMs: 60000 })) throw Object.assign(new Error("Please wait before uploading more icons."), { status: 429 });
     const form = await readUploadForm(request, 3 * 1024 * 1024), file = form.get("file");
     if (!(file instanceof File) || !file.size || file.size > 2 * 1024 * 1024) throw Object.assign(new Error("Choose an image up to 2 MB."), { status: 422 });
     let data;

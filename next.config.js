@@ -2,6 +2,11 @@
 const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
 
 module.exports = (phase) => ({
+  deploymentId: process.env.PORTAL_DEPLOYMENT_ID,
+  ...(process.env.PORTAL_REDIS_URL ? {
+    cacheHandler: require.resolve('./src/lib/scaling/no-store-cache.cjs'),
+    cacheMaxMemorySize: 0,
+  } : {}),
   // A production build cleans its output directory. Keep the running custom
   // dev server's manifests outside that tree so builds cannot remove them.
   distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-development' : '.next',

@@ -43,7 +43,7 @@ export async function pruneExpiredMessages(db, now = new Date(), { batchSize = 1
   return totals;
 }
 
-export function startMessageRetention(db, logger = console) {
+export function startMessageRetention(db, logger = console, {run: gate = fn => fn()} = {}) {
   let running = false;
   const run = async () => {
     if (running) return;
@@ -61,9 +61,9 @@ export function startMessageRetention(db, logger = console) {
     finally { running = false; }
   };
   // Keep maintenance away from startup/authentication traffic.
-  const startup = setTimeout(run, 60000);
+  const startup = setTimeout(() => void gate(run), 60000);
   startup.unref?.();
-  const timer = setInterval(run, MESSAGE_RETENTION_INTERVAL_MS);
+  const timer = setInterval(() => void gate(run), MESSAGE_RETENTION_INTERVAL_MS);
   timer.unref?.();
   return () => { clearTimeout(startup); clearInterval(timer); };
 }

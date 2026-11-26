@@ -45,17 +45,27 @@ app.prepare().then(async()=>{
   const pendingGrace=new Map();
   const recoveryKey=(user,roomId)=>`${user.id}:${user.sessionVersion}:${roomId}`;
   const recoveryCleanup=setInterval(()=>{for(const[key,until]of recoveringRooms)if(until<Date.now())recoveringRooms.delete(key)},60000);recoveryCleanup.unref();
+  const {initializeSharedRuntime}=await import("./src/lib/scaling/shared-runtime.js");
+  const shared=await initializeSharedRuntime();
+  const {syncAudioPresence,syncVideoPresence,releaseSharedAudioRoom}=await import("./src/lib/scaling/room-presence.js");
   const {prisma}=await import("./src/lib/prisma.js");
+  const {createBackgroundCoordinator}=await import("./src/lib/scaling/background-coordinator.js");
+  const jobs=await createBackgroundCoordinator({connectionString:process.env.DATABASE_URL,enabled:Boolean(shared)});
+  let backgroundSequence=0;
+  const backgroundTimers=new Set();
+  const backgroundInterval=(fn,ms)=>{const name=`timer-${++backgroundSequence}`;const timer=setInterval(()=>void jobs.run(name,fn).catch(error=>console.error("Background task failed",name,error.code??error.name)),ms);backgroundTimers.add(timer);return timer;};
+  const backgroundImmediate=fn=>setImmediate(()=>void jobs.run(`immediate-${++backgroundSequence}`,fn).catch(error=>console.error("Background task failed",error.code??error.name)));
+
   if(process.env.ACCOUNT_DELETION_ENABLED==='true') {
     const {assertNoRestoredDeletedAccounts}=await import('./src/lib/account-deletion-journal.js');
     await assertNoRestoredDeletedAccounts(prisma);
     const {startAccountDeletionWorker}=await import('./src/lib/account-deletion.js');
-    startAccountDeletionWorker(prisma);
+    startAccountDeletionWorker(prisma,{run:fn=>jobs.run("account-deletion",fn)});
   }
 
   const {closeHostSalaryCycle}=await import("./src/lib/host-salary-close.js");
   let salaryClosing=false;
-  const salaryTimer=setInterval(async()=>{
+  const salaryTimer=backgroundInterval(async()=>{
     if(salaryClosing)return;
     salaryClosing=true;
     try { await closeHostSalaryCycle(prisma); }
@@ -72,20 +82,20 @@ app.prepare().then(async()=>{
     catch(error) { console.error("CP maintenance failed", error.code ?? error.name); }
     finally { reviewingCp=false; }
   }
-  setInterval(reviewCp,60000).unref();
-  setImmediate(reviewCp);
+  backgroundInterval(reviewCp,60000).unref();
+  backgroundImmediate(reviewCp);
   const {maintainRankingRewards}=await import("./src/lib/events/ranking-rewards.js");
-  const rankingRewardTimer=setInterval(()=>void maintainRankingRewards(prisma).catch(error=>console.error("Ranking rewards maintenance failed",error.code??error.name)),60000);
+  const rankingRewardTimer=backgroundInterval(()=>maintainRankingRewards(prisma).catch(error=>console.error("Ranking rewards maintenance failed",error.code??error.name)),60000);
   rankingRewardTimer.unref();
   const {maintainRoomRewards}=await import("./src/lib/room-rewards.js");
-  const roomRewardTimer=setInterval(()=>void maintainRoomRewards(prisma).catch(error=>console.error("Room rewards maintenance failed",error.code??error.name)),60000);
+  const roomRewardTimer=backgroundInterval(()=>maintainRoomRewards(prisma).catch(error=>console.error("Room rewards maintenance failed",error.code??error.name)),60000);
   roomRewardTimer.unref();
   const {maintainPrettyIds}=await import("./src/lib/pretty-id-weekly.js");
-  const prettyIdTimer=setInterval(()=>void maintainPrettyIds(prisma).catch(error=>console.error("Pretty ID weekly maintenance failed",error.code??error.name)),60000);
+  const prettyIdTimer=backgroundInterval(()=>maintainPrettyIds(prisma).catch(error=>console.error("Pretty ID weekly maintenance failed",error.code??error.name)),60000);
   prettyIdTimer.unref();
   const {createMediaCdnMaintenance}=await import("./src/lib/media-cdn-maintenance.js");
   const reconcileMediaCdn=createMediaCdnMaintenance(prisma);
-  const mediaCdnTimer=setInterval(()=>void reconcileMediaCdn().catch(error=>console.error("CDN reconciliation failed",error.name)),60000);
+  const mediaCdnTimer=backgroundInterval(()=>reconcileMediaCdn().catch(error=>console.error("CDN reconciliation failed",error.name)),60000);
   mediaCdnTimer.unref();
   const {reconcileExpiredAudioRoomRestrictions}=await import("./src/lib/audio-room-maintenance.js");
   const {createMessage,deleteMessage,editMessage,emitConversationEvent,ensureWorldConversation,markConversationRead,markMessageDelivered,messageSyncLimit,requireConversationParticipant,serializeMessage,syncMessagesForUser}=await import("./src/lib/messaging.js");
@@ -100,7 +110,7 @@ app.prepare().then(async()=>{
   const {audioRtcAccess,selfSeatRtcStatus}=await import("./src/lib/rtc-access.js");
   const {trtcConfiguration}=await import("./src/lib/trtc-authorization.js");
   const {expireVipMemberships}=await import("./src/lib/vip-membership.js");
-  const vipExpiryTimer=setInterval(()=>expireVipMemberships().catch(()=>console.error("VIP expiry reconciliation failed")),60000);
+  const vipExpiryTimer=backgroundInterval(()=>expireVipMemberships().catch(()=>console.error("VIP expiry reconciliation failed")),60000);
   vipExpiryTimer.unref();
   const { requireVideoAccess } = await import("./src/lib/video-access.js");
   const {removeRtcParticipant:removeLiveKitParticipant,updateRtcPublishPermission:updateLiveKitPublishPermission}=await import("./src/lib/rtc-moderation.js");
@@ -123,51 +133,85 @@ app.prepare().then(async()=>{
   const {resolveCatalogTrack}=await import("./src/lib/music-catalog.js");
   const {expireGuestRequests,finalizeExpiredPkSessions,reconcileAudioRoomPresence,reconcileExpiredAudioRoomControls,reconcileStaleVideoPresence}=await import("./src/lib/live-maintenance.js");
   const {advanceAudioRoomSeatRevision,ensureAudioRoomSeats,leaveAudioRoomSeat,moveAudioRoomMember,moveAudioRoomSeat,readAudioRoomSeatState,seatErrorPayload,takeAudioRoomSeat}=await import("./src/lib/audio-room-seats.js");
+  let draining = false;
+  const disconnectWork=new Set();
+  const trackDisconnect=promise=>{disconnectWork.add(promise);promise.finally(()=>disconnectWork.delete(promise)).catch(()=>{});return promise;};
+  let databaseHealthy = false;
+  let probing = false;
+  const ready = () => !draining && databaseHealthy && jobs.ready() && (!shared || shared.ready());
+  async function probeDatabase() {
+    if (probing) return;
+    probing = true;
+    try { await prisma.$queryRaw`SELECT 1`; databaseHealthy = true; }
+    catch { databaseHealthy = false; }
+    finally { probing = false; }
+  }
+  await probeDatabase();
+  const readinessTimer = setInterval(() => {
+    void probeDatabase();
+    if (shared && !shared.ready()) {
+      // A disconnected subscriber must not retain clients missing cluster events.
+      for (const socket of io.sockets.sockets.values()) socket.conn.close();
+    }
+  }, 1000);
+  readinessTimer.unref();
   const metrics=startMetrics();
-  const httpServer=createServer((request,response)=>metrics.request(request,response,()=>{setRequestClientIp(request);applyWebCacheHeaders(request,response);return handle(request,response)}));
+  const httpServer=createServer((request,response)=>metrics.request(request,response,()=>{
+    const path = request.url?.split("?")[0];
+    if (path === "/internal/ready") {
+      response.writeHead(ready() ? 200 : 503, {"Content-Type":"application/json", "Cache-Control":"no-store"});
+      return response.end(JSON.stringify({ready:ready(),draining}));
+    }
+    if (!ready()) {
+      response.writeHead(503, {"Content-Type":"application/json", "Cache-Control":"no-store", "Retry-After":"2"});
+      return response.end(JSON.stringify({success:false,error:{code:"PORTAL_UNAVAILABLE",message:"Please reconnect shortly."}}));
+    }
+    setRequestClientIp(request);applyWebCacheHeaders(request,response);return handle(request,response);
+  }));
   httpServer.once("close",()=>metrics.stop());
   const io=new Server(httpServer,{pingInterval:25000,pingTimeout:20000,cors:{origin:process.env.MOBILE_APP_ORIGIN||"*",methods:["GET","POST"]}});
   const audioRoomReactionGuard=createAudioRoomReactionGuard();
+  if(shared)shared.attach(io);
   globalThis.portalIo=io;
   const {attachGiftLeaveGraceTracking,startRedEnvelopeRefundSweeper,markAudioRoomRemoved}=await import("./src/lib/gift-leave-grace.js");
   const {expireRedEnvelopes}=await import("./src/lib/red-envelope-expiry.js");
   attachGiftLeaveGraceTracking(io);
-  startRedEnvelopeRefundSweeper(prisma,expireRedEnvelopes);
+  startRedEnvelopeRefundSweeper(prisma,expireRedEnvelopes,{gate:fn=>jobs.run("red-envelope-refunds",fn)});
   const {createTaskTimer}=await import("./src/lib/task-center-timer.js");
   const sampleTaskTime=createTaskTimer(prisma,io);
-  const taskTimer=setInterval(()=>void sampleTaskTime().catch(e=>console.error("Task timer failed",e.code??e.name)),15000);taskTimer.unref();
+  const taskTimer=backgroundInterval(()=>sampleTaskTime().catch(e=>console.error("Task timer failed",e.code??e.name)),15000);taskTimer.unref();
   const {settleSharedGames}=await import("./src/lib/game-control/shared-games.js");
   let sharedGamesRunning=false;
   const runSharedGames=async()=>{if(sharedGamesRunning)return;sharedGamesRunning=true;try{await settleSharedGames(prisma)}catch(e){console.error("Shared coin round settlement failed",e.code??e.name)}finally{sharedGamesRunning=false}};
-  const sharedGameTimer=setInterval(runSharedGames,2000);sharedGameTimer.unref();setImmediate(runSharedGames);
+  const sharedGameTimer=backgroundInterval(runSharedGames,2000);sharedGameTimer.unref();backgroundImmediate(runSharedGames);
   const {maintainRoomRockets,maintainRoomRocketRewards,rocketJoinSummary}=await import("./src/lib/room-rocket.js");
   let rocketsRunning=false;
   const runRockets=async()=>{if(rocketsRunning)return;rocketsRunning=true;try{await maintainRoomRockets(prisma)}catch(error){console.error("Room Rocket maintenance failed",error.code??error.name)}finally{rocketsRunning=false}};
-  const rocketTimer=setInterval(runRockets,500);rocketTimer.unref();
+  const rocketTimer=backgroundInterval(runRockets,500);rocketTimer.unref();
   let rocketRewardsRunning=false;
-  const rocketRewardsTimer=setInterval(async()=>{if(rocketRewardsRunning)return;rocketRewardsRunning=true;try{await maintainRoomRocketRewards(prisma)}catch(error){console.error("Room Rocket rewards deferred",error.code??error.name)}finally{rocketRewardsRunning=false}},500);
+  const rocketRewardsTimer=backgroundInterval(async()=>{if(rocketRewardsRunning)return;rocketRewardsRunning=true;try{await maintainRoomRocketRewards(prisma)}catch(error){console.error("Room Rocket rewards deferred",error.code??error.name)}finally{rocketRewardsRunning=false}},500);
   rocketRewardsTimer.unref();
   httpServer.once("close",()=>clearInterval(rocketRewardsTimer));
   httpServer.once("close",()=>clearInterval(rocketTimer));
   const {maintainRoomBanners,roomBannerSnapshot}=await import("./src/lib/room-banners.js");
   let bannersRunning=false;
   const runBanners=async()=>{if(bannersRunning)return;bannersRunning=true;try{await maintainRoomBanners(prisma)}catch(error){console.error("Room banner maintenance failed",error.code??error.name)}finally{bannersRunning=false}};
-  const bannerTimer=setInterval(runBanners,5000);bannerTimer.unref();setImmediate(runBanners);
+  const bannerTimer=backgroundInterval(runBanners,5000);bannerTimer.unref();backgroundImmediate(runBanners);
   const {startMessageRetention}=await import("./src/lib/message-retention.js");
-  startMessageRetention(prisma);
+  startMessageRetention(prisma,console,{run:fn=>jobs.run("message-retention",fn)});
   const {expireStories}=await import('./src/lib/stories.js');
   let pruningStories=false;
   const pruneStories=async()=>{if(pruningStories)return;pruningStories=true;try{await expireStories(prisma);}catch(e){console.error('Story cleanup failed',e.code??e.message);}finally{pruningStories=false;}};
-  const storyCleanupTimer=setInterval(pruneStories,30000);storyCleanupTimer.unref();pruneStories();
+  const storyCleanupTimer=backgroundInterval(pruneStories,30000);storyCleanupTimer.unref();backgroundImmediate(pruneStories);
   httpServer.once("close",()=>clearInterval(storyCleanupTimer));
   const {flushRealtimeOutbox}=await import("./src/lib/gift-operation.js");
   const {dispatchNotifications}=await import("./src/lib/action-notifications.js");
-  const notificationTimer=setInterval(()=>void dispatchNotifications(prisma,io).catch(error=>console.error("Notification delivery failed",error.message)),2000);
+  const notificationTimer=backgroundInterval(()=>dispatchNotifications(prisma,io).catch(error=>console.error("Notification delivery failed",error.message)),2000);
   notificationTimer.unref();
-  const outboxTimer=setInterval(()=>void flushRealtimeOutbox(io).catch(error=>console.error("Outbox delivery failed",error.message)),250);
+  const outboxTimer=backgroundInterval(()=>flushRealtimeOutbox(io).catch(error=>console.error("Outbox delivery failed",error.message)),250);
   outboxTimer.unref?.();
   const {runGlobalAnnouncements}=await import("./src/lib/global-announcements.js");
-  const announcementTimer=setInterval(()=>void runGlobalAnnouncements(prisma,io).catch(error=>console.error("Global announcement worker failed",error.code??error.name)),1000);
+  const announcementTimer=backgroundInterval(()=>runGlobalAnnouncements(prisma,io).catch(error=>console.error("Global announcement worker failed",error.code??error.name)),1000);
   announcementTimer.unref();
   const {flushConfirmedRealtime,foldRoomGiftTotals}=await import("./src/lib/confirmed-realtime.js");
   const {startConfirmedRealtimeListener}=await import("./src/lib/confirmed-realtime-listener.js");
@@ -176,18 +220,18 @@ app.prepare().then(async()=>{
     void foldRoomGiftTotals(prisma).catch(e=>console.error("Room total fold failed",e.code??e.name));
     return flushConfirmedRealtime(prisma,io,entry=>{if(process.env.REALTIME_TIMINGS==="true")console.info("Realtime timing",entry)},trigger);
   };
-  const confirmedTimer=setInterval(()=>void flushConfirmed().catch(e=>console.error("Confirmed realtime delivery failed",e.code??e.name)),250);
+  const confirmedTimer=backgroundInterval(()=>flushConfirmed().catch(e=>console.error("Confirmed realtime delivery failed",e.code??e.name)),250);
   confirmedTimer.unref();
   const {invalidateVipTags,vipTagListenerConnection}=await import("./src/lib/vip-tag-cache.js");
-  const stopConfirmedListener=startConfirmedRealtimeListener({connectionString:process.env.REALTIME_DATABASE_URL||process.env.DATABASE_URL,wallet:()=>flushConfirmed('post_commit'),announcements:()=>runGlobalAnnouncements(prisma,io),notifications:()=>dispatchNotifications(prisma,io),vipTags:invalidateVipTags,onConnection:vipTagListenerConnection});
+  const stopConfirmedListener=startConfirmedRealtimeListener({connectionString:process.env.REALTIME_DATABASE_URL||process.env.DATABASE_URL,wallet:()=>jobs.run('confirmed-wake',()=>flushConfirmed('post_commit')),announcements:()=>jobs.run('announcements-wake',()=>runGlobalAnnouncements(prisma,io)),notifications:()=>jobs.run('notifications-wake',()=>dispatchNotifications(prisma,io)),vipTags:invalidateVipTags,onConnection:vipTagListenerConnection});
   httpServer.once("close",()=>{clearInterval(confirmedTimer);void stopConfirmedListener()});
   const runRealtimeMaintenance=async()=>{try{const[, , , ,controls]=await Promise.all([finalizeExpiredPkSessions(),reconcileAudioRoomPresence(io),reconcileStaleVideoPresence(),expireGuestRequests(),reconcileExpiredAudioRoomControls()]);const changedRooms=new Map();for(const seat of controls.seats){await updateLiveKitPublishPermission(seat.audioRoom.roomId,seat.occupant.publicId,true);changedRooms.set(seat.audioRoom.roomId,seat.audioRoom);io.to(`user:${seat.occupant.publicId}`).emit("audio-room:seat-force-muted",{success:true,data:{roomId:seat.audioRoom.roomId,userId:seat.occupant.publicId,muted:false,expiresAt:null,expired:true}})}for(const member of controls.members)io.to(`user:${member.user.publicId}`).emit("audio-room:member-force-deafened",{success:true,data:{roomId:member.audioRoom.roomId,userId:member.user.publicId,deafened:false,expiresAt:null,expired:true}});for(const room of changedRooms.values())await broadcastAudioRoomSeatState(room,"",undefined,true)}catch(error){console.error("Realtime maintenance failed",error)}};
-  setImmediate(runRealtimeMaintenance);
-  const maintenanceTimer=setInterval(runRealtimeMaintenance,15000);
+  backgroundImmediate(runRealtimeMaintenance);
+  const maintenanceTimer=backgroundInterval(runRealtimeMaintenance,15000);
   const {expirePendingCustomBackgrounds}=await import("./src/lib/custom-background-maintenance.js");
-  const customBackgroundTimer=setInterval(()=>expirePendingCustomBackgrounds().catch(e=>console.error("Custom background maintenance failed",e.message)),60000);
+  const customBackgroundTimer=backgroundInterval(()=>expirePendingCustomBackgrounds().catch(e=>console.error("Custom background maintenance failed",e.message)),60000);
   const {expirePayouts}=await import("./src/lib/reseller-payouts.js");
-  const payoutTimer=setInterval(()=>expirePayouts(prisma).catch(()=>console.error("Reseller escrow maintenance failed")),60000);
+  const payoutTimer=backgroundInterval(()=>expirePayouts(prisma).catch(()=>console.error("Reseller escrow maintenance failed")),60000);
   payoutTimer.unref();
   customBackgroundTimer.unref();
   maintenanceTimer.unref?.();
@@ -204,20 +248,21 @@ app.prepare().then(async()=>{
     return {...rtcFields(ticket),seatState};
   });
   let sweepingSeatRequests=false;
-  const seatRequestTimer=setInterval(async()=>{if(sweepingSeatRequests)return;sweepingSeatRequests=true;try{await sweepSeatRequests(prisma);await flushSeatResolutions();}catch(error){console.error("Seat requests maintenance failed",error.code??error.name);}finally{sweepingSeatRequests=false;}},1000);
+  const seatRequestTimer=backgroundInterval(async()=>{if(sweepingSeatRequests)return;sweepingSeatRequests=true;try{await sweepSeatRequests(prisma);await flushSeatResolutions();}catch(error){console.error("Seat requests maintenance failed",error.code??error.name);}finally{sweepingSeatRequests=false;}},1000);
   seatRequestTimer.unref();
-  globalThis.portalRevokeOlderSessions=(publicId,version)=>{
-    for(const socket of io.sockets.sockets.values())if(socket.data.userId===publicId && socket.data.sessionVersion<version){
+  globalThis.portalRevokeOlderSessions=(publicId,version)=>void io.in(`user:${publicId}`).fetchSockets().then(sockets=>{
+    for(const socket of sockets)if(socket.data.sessionVersion<version){
       socket.emit("session:force-logout",{success:true,data:{sessionVersion:version,forcedLogoutAt:new Date().toISOString(),isBanned:false,banReason:null,banExpiresAt:null,reason:"Your account was signed in again."}});
       socket.emit("session:revoked",{success:false,error:{code:"SESSION_REVOKED",message:"Your account was signed in again."}});
       socket.disconnect(true);
     }
-  };
+  }).catch(error=>console.error('Session revocation deferred',error.code??error.name));
   globalThis.portalDisconnectUser=(publicId)=>setTimeout(()=>io.in(`user:${publicId}`).disconnectSockets(true),100);
   globalThis.portalRemoveFromAudioRoom=async(publicId,roomId,error={})=>{
     if(rtcProvider()==="TRTC")await removeLiveKitParticipant(roomId,publicId).catch(()=>console.error("TRTC audio removal requires retry",{roomId,publicId}));
+    if(shared){await shared.clearGrace(roomId,publicId);await markAudioRoomRemoved(publicId,roomId);}
     const sockets=await io.in(`user:${publicId}`).fetchSockets();
-    for(const target of sockets)if(target.rooms.has(`audio-room:${roomId}`)){markAudioRoomRemoved(target.data?.userId,roomId);target.emit("audio-room:removed",{success:false,error,data:{roomId,publicId,reason:error?.details?.reason??error?.message??null,expiresAt:error?.details?.expiresAt??null}});await target.leave(`audio-room:${roomId}`)}
+    for(const target of sockets)if(target.rooms.has(`audio-room:${roomId}`)){await markAudioRoomRemoved(target.data?.userId,roomId);target.emit("audio-room:removed",{success:false,error,data:{roomId,publicId,reason:error?.details?.reason??error?.message??null,expiresAt:error?.details?.expiresAt??null}});await target.leave(`audio-room:${roomId}`)}
   };
   globalThis.portalRemoveFromVideoLive=async(publicId,liveId,error)=>{
     await removeLiveKitParticipant(`video-${liveId}`,publicId).catch(()=>console.error("RTC video removal requires retry",{liveId,publicId}));
@@ -231,6 +276,7 @@ app.prepare().then(async()=>{
   const {emitVipRoomPresence}=await import("./src/lib/vip-room-presence.js");
   const emitRoomPresence=(room,user,event,data)=>emitVipRoomPresence(prisma,io,room,user,event,data);
   const registerRoomPresence=async(room,user,origin)=>{
+    if(shared){const state=await syncAudioPresence(prisma,io,room,shared);const newEntrance=!state.before.has(user.id);if(newEntrance){const snapshot=await serializeRoomMembers({...room,revision:state.revision},origin,{take:1,q:user.publicId,viewerId:room.ownerId});await emitRoomPresence(room,user,"audio-room:member-joined",{roomId:room.roomId,revision:state.revision,total:state.total,member:snapshot.members[0]??null});}return{total:state.total,revision:state.revision,newEntrance};}
     const previous=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}}});
     const sockets=await io.in(`user:${user.publicId}`).fetchSockets();
     const socketCount=sockets.filter(item=>item.rooms.has(`audio-room:${room.roomId}`)).length;
@@ -241,6 +287,7 @@ app.prepare().then(async()=>{
     return{total,revision:updated.revision,newEntrance:!previous||previous.socketCount===0};
   };
   const unregisterRoomPresence=async(room,user,origin)=>{
+    if(shared){const state=await syncAudioPresence(prisma,io,room,shared);const left=state.before.has(user.id)&&!state.desired.has(user.id);if(left)await emitRoomPresence(room,user,"audio-room:member-left",{roomId:room.roomId,revision:state.revision,total:state.total,userId:user.publicId});return{total:state.total,revision:state.revision,left};}
     const current=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}}});if(!current)return{total:await prisma.audioRoomMember.count({where:{audioRoomId:room.id,socketCount:{gt:0}}}),left:false};
     const next=Math.max(0,current.socketCount-1);await prisma.audioRoomMember.update({where:{audioRoomId_userId:{audioRoomId:room.id,userId:user.id}},data:{socketCount:next,lastSeenAt:new Date()}});const total=await prisma.audioRoomMember.count({where:{audioRoomId:room.id,socketCount:{gt:0}}});const updated=await prisma.audioRoom.update({where:{id:room.id},data:{participantCount:total,...(next===0?{revision:{increment:1}}:{})},select:{revision:true}});if(next===0)await emitRoomPresence(room,user,"audio-room:member-left",{roomId:room.roomId,revision:updated.revision,total,userId:user.publicId});return{total,left:next===0,revision:updated.revision};
   };
@@ -258,84 +305,22 @@ app.prepare().then(async()=>{
     else io.emit("notification:new",payload);
     return payload;
   };
-  const scheduleBanExpiry=(publicId,expiresAt)=>{
-    if(!expiresAt)return;
-    const remaining=new Date(expiresAt).getTime()-Date.now();
-    if(remaining>2147483647)return setTimeout(()=>scheduleBanExpiry(publicId,expiresAt),2147483647);
-    setTimeout(async()=>{
-      const user=await prisma.user.findUnique({where:{publicId}});
-      if(!user)return;
-      const now=new Date();
-      await prisma.ban.updateMany({where:{userId:user.id,target:"USER",revokedAt:null,expiresAt:{lte:now}},data:{revokedAt:now}});
-      const activeBan=await prisma.ban.findFirst({where:{userId:user.id,target:"USER",revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:now}}]},orderBy:{createdAt:"desc"}});
-      if(!activeBan){
-        await prisma.user.update({where:{id:user.id},data:{status:"ACTIVE"}});
-        io.to(`user:${publicId}`).emit("account:unbanned",{success:true,data:{sessionVersion:user.sessionVersion,forcedLogoutAt:user.forcedLogoutAt?.toISOString()??null,isBanned:false,banReason:null,banExpiresAt:null}});
-      }
-    },Math.max(remaining,0));
-  };
-  globalThis.portalScheduleBanExpiry=scheduleBanExpiry;
-  const timedBans=await prisma.ban.findMany({where:{target:"USER",userId:{not:null},revokedAt:null,expiresAt:{gt:new Date()}},include:{user:{select:{publicId:true}}}});
-  for(const ban of timedBans)scheduleBanExpiry(ban.user.publicId,ban.expiresAt);
-
-  const scheduleSpecialIdExpiry=(assignmentId,expiresAt)=>{
-    if(!expiresAt)return;
-    const remaining=new Date(expiresAt).getTime()-Date.now();
-    if(remaining>2147483647)return setTimeout(()=>scheduleSpecialIdExpiry(assignmentId,expiresAt),2147483647);
-    setTimeout(async()=>{
-      try{
-        const assignment=await prisma.specialIdAssignment.findUnique({where:{id:assignmentId},include:{user:{select:{publicId:true}}}});
-        if(!assignment||assignment.status!=="ACTIVE"||assignment.revokedAt)return;
-        const now=new Date();
-        if(assignment.expiresAt&&assignment.expiresAt>now)return scheduleSpecialIdExpiry(assignment.id,assignment.expiresAt);
-        const result=await reconcileUserSpecialIds(prisma,assignment.userId);
-        if(!result?.expired)return;
-        const identity=await getEffectiveUserId(assignment.userId,assignment.user.publicId);
-        await prisma.auditLog.create({data:{action:"SPECIAL_ID_EXPIRED",category:"USER_MANAGEMENT",entityType:"User",entityId:assignment.user.publicId,description:`Special ID ${assignment.specialId} expired; the next available identity was selected.`,metadata:{source:"SYSTEM_TIMER",specialId:assignment.specialId,effectiveId:identity.effectiveId,expiredAt:now.toISOString()}}});
-        io.to(`user:${assignment.user.publicId}`).emit("special-id:expired",{success:true,data:{...identity,expiredSpecialId:assignment.specialId,expiredAt:now.toISOString()}});
-      }catch(error){console.error("Special ID expiry failed",error);}
-    },Math.max(remaining,0));
-  };
-  globalThis.portalScheduleSpecialIdExpiry=scheduleSpecialIdExpiry;
-  const now=new Date();
-  await reconcileExpiredSpecialIds();
-  let reconcilingSpecialIds=false;
-  setInterval(async()=>{if(reconcilingSpecialIds)return;reconcilingSpecialIds=true;try{await reconcileExpiredSpecialIds();}catch(error){console.error("Special ID reconciliation failed",error);}finally{reconcilingSpecialIds=false;}},30000).unref();
-  const timedSpecialIds=await prisma.specialIdAssignment.findMany({where:{status:"ACTIVE",revokedAt:null,expiresAt:{gt:now}},select:{id:true,expiresAt:true}});
-  for(const assignment of timedSpecialIds)scheduleSpecialIdExpiry(assignment.id,assignment.expiresAt);
-
-  const scheduleAudioRoomRestriction=(roomId,action,expiresAt)=>{
-    if(!expiresAt)return;
-    const remaining=new Date(expiresAt).getTime()-Date.now();
-    if(remaining>2147483647)return setTimeout(()=>scheduleAudioRoomRestriction(roomId,action,expiresAt),2147483647);
-    setTimeout(async()=>{
-      try{
-        const result=await reconcileExpiredAudioRoomRestrictions(roomId);
-        const room=await prisma.audioRoom.findUnique({where:{roomId},include:{owner:{select:{publicId:true}}}});
-        if(!room)return;
-        const definitions={DISABLE_JOINING:[result.joiningEnabled,"audio-room:joining-enabled","ENABLE_JOINING"],BLOCK:[result.unblocked,"audio-room:unblocked","UNBLOCK"],TERMINATE:[result.restored,"audio-room:restored","RESTORE"]};
-        const [changed,event,resolvedAction]=definitions[action]??[];
-        if(!changed)return;
-        const payload={success:true,data:{roomId,action:resolvedAction,revision:room.revision,reason:"Scheduled restriction expired",expiredAt:new Date().toISOString()}};
-        io.to(`audio-room:${roomId}`).emit(event,payload);
-        io.to(`user:${room.owner.publicId}`).emit(event,payload);
-        await prisma.auditLog.create({data:{action:`AUDIO_ROOM_${resolvedAction}`,category:"USER_MANAGEMENT",entityType:"AudioRoom",entityId:roomId,description:`Timed ${action.toLowerCase().replaceAll("_"," ")} expired for audio room ${roomId}.`,metadata:{source:"SYSTEM_TIMER",ownerId:room.owner.publicId}}});
-      }catch(error){console.error("Audio room restriction expiry failed",error);}
-    },Math.max(remaining,0));
-  };
-  globalThis.portalScheduleAudioRoomRestriction=scheduleAudioRoomRestriction;
-  await reconcileExpiredAudioRoomRestrictions();
-  const restrictedRooms=await prisma.audioRoom.findMany({where:{OR:[{joiningDisabled:true,joiningDisabledUntil:{gt:new Date()}},{isBlocked:true,blockedUntil:{gt:new Date()}},{status:"TERMINATED",terminatedUntil:{gt:new Date()}}]},select:{roomId:true,joiningDisabledUntil:true,blockedUntil:true,terminatedUntil:true}});
-  for(const room of restrictedRooms){
-    if(room.joiningDisabledUntil)scheduleAudioRoomRestriction(room.roomId,"DISABLE_JOINING",room.joiningDisabledUntil);
-    if(room.blockedUntil)scheduleAudioRoomRestriction(room.roomId,"BLOCK",room.blockedUntil);
-    if(room.terminatedUntil)scheduleAudioRoomRestriction(room.roomId,"TERMINATE",room.terminatedUntil);
-  }
+  const {sweepExpiries}=await import("./src/lib/scaling/expiry-sweeper.js");
+  const runExpirySweep=()=>sweepExpiries(prisma,io);
+  // Persisted expiry timestamps are authoritative across restart and failover.
+  // Callers may wake the leader; the one-second sweep also covers other workers.
+  const wakeExpiry=()=>{}; // Persisted timestamps are picked up by the leader sweep.
+  globalThis.portalScheduleBanExpiry=wakeExpiry;
+  globalThis.portalScheduleSpecialIdExpiry=wakeExpiry;
+  globalThis.portalScheduleAudioRoomRestriction=wakeExpiry;
+  backgroundInterval(runExpirySweep,1000).unref();
+  backgroundImmediate(runExpirySweep);
 
   const pendingRoomReleases=new Map();
   const releaseEmptyAudioRoom=async(roomId)=>{
     const socketRoom=`audio-room:${roomId}`;
-    if((io.sockets.adapter.rooms.get(socketRoom)?.size??0)>0)return false;
+    if((await io.in(socketRoom).fetchSockets()).length>0)return false;
+    if(shared&&(await shared.graceUsers(roomId)).length)return false;
     const recoveringUntil=Math.max(0,...[...recoveringRooms].filter(([key])=>key.endsWith(`:${roomId}`)).map(([,until])=>until));
     if(recoveringUntil>Date.now()){
       if(!pendingRoomReleases.has(roomId))pendingRoomReleases.set(roomId,setTimeout(()=>{pendingRoomReleases.delete(roomId);void releaseEmptyAudioRoom(roomId).catch((error)=>console.error("Deferred audio room release failed",error));},recoveringUntil-Date.now()+1000).unref());
@@ -343,10 +328,11 @@ app.prepare().then(async()=>{
     }
     const room=await prisma.audioRoom.findUnique({where:{roomId},include:{owner:{select:{publicId:true}}}});
     if(!room||room.status!=="LIVE")return false;
-    if((io.sockets.adapter.rooms.get(socketRoom)?.size??0)>0)return false;
+    if(shared)return releaseSharedAudioRoom(prisma,io,room,shared);
+    if((await io.in(socketRoom).fetchSockets()).length>0)return false;
     const endedAt=new Date();
     await prisma.$transaction([prisma.audioRoomMember.updateMany({where:{audioRoomId:room.id},data:{socketCount:0,lastSeenAt:endedAt,isDeafened:false,deafenedUntil:null}}),prisma.audioRoom.update({where:{id:room.id},data:{status:"IDLE",participantCount:0,liveAudioUrl:null,endedAt}})]);
-    if((io.sockets.adapter.rooms.get(socketRoom)?.size??0)>0){
+    if((await io.in(socketRoom).fetchSockets()).length>0){
       const present=[...new Set((await io.in(socketRoom).fetchSockets()).map((item)=>item.data.userId).filter(Boolean))];
       for(const publicId of present){const count=(await io.in(`user:${publicId}`).fetchSockets()).filter((item)=>item.rooms.has(socketRoom)).length;await prisma.audioRoomMember.updateMany({where:{audioRoomId:room.id,user:{publicId}},data:{socketCount:count,lastSeenAt:new Date()}});}
       const total=await prisma.audioRoomMember.count({where:{audioRoomId:room.id,socketCount:{gt:0}}});
@@ -358,6 +344,7 @@ app.prepare().then(async()=>{
     io.to(`user:${room.owner.publicId}`).emit("audio-room:idle",{success:true,data:{roomId,status:"IDLE",endedAt:endedAt.toISOString(),roomIdRetained:true}});
     return true;
   };
+  backgroundInterval(async()=>{if(!shared)return;const rooms=await prisma.audioRoom.findMany({where:{status:'LIVE',participantCount:0},select:{roomId:true}});for(const room of rooms)await releaseEmptyAudioRoom(room.roomId);},5000).unref();
   const broadcastAudioRoomSeatState=async(room,origin,participantCount,mutated=false)=>{
     if(mutated)await advanceAudioRoomSeatRevision(room.id);
     const seatState=await versionMediaPayload(await readAudioRoomSeatState(room,origin));
@@ -378,6 +365,7 @@ app.prepare().then(async()=>{
   const {socketVersionGate}=await import("./src/lib/app-version.js");
   io.use(async(socket,nextSocket)=>{
     try{
+      if (!ready()) return nextSocket(new Error("PORTAL_UNAVAILABLE"));
       const payload=verifyMobileSessionToken(socket.handshake.auth?.token);
       const outdated=await socketVersionGate(socket.handshake,prisma);
       if(outdated)return nextSocket(outdated);
@@ -408,6 +396,12 @@ io.on("connection",async(socket)=>{
     const user=await prisma.user.findUnique({where:{publicId:userId}});
     if(!user || user.sessionVersion!==socket.data.sessionVersion){socket.disconnect(true);return;}
     socket.use(async(packet,nextPacket)=>{
+      if (!ready()) {
+        const ack = packet[packet.length - 1];
+        if (typeof ack === "function") ack({success:false,error:{code:"PORTAL_UNAVAILABLE",message:"Please reconnect shortly."}});
+        socket.conn.close();
+        return;
+      }
       try{
         const payload=verifyMobileSessionToken(socket.handshake.auth?.token);
         const current=await prisma.user.findUnique({where:{publicId:userId},select:{sessionVersion:true,status:true,deletedAt:true}});
@@ -432,10 +426,12 @@ io.on("connection",async(socket)=>{
     registerRoomGiftPreviews({db:prisma,socket,user,origin:connectionOrigin});
     (await import("./src/lib/cs-room-chat.js")).registerCsRoomChat({io,socket,user,origin:connectionOrigin,db:prisma});
     socket.data.audioRoomTaskTimers=new Map();
+    socket.data.audioRoomTaskStarts={};
     const recordAudioRoomTaskTime=async(roomId)=>{
       const timer=socket.data.audioRoomTaskTimers.get(roomId);
       if(!timer)return;
       socket.data.audioRoomTaskTimers.delete(roomId);
+      delete socket.data.audioRoomTaskStarts[roomId];
       const elapsedSeconds=Math.max(0,Math.floor((Date.now()-timer.startedAt)/1000));
       if(elapsedSeconds)await addDailyTaskProgress(user.id,timer.isOwner?"LIVE_GO_LIVE":"ROOM_WATCH",elapsedSeconds);
     };
@@ -599,7 +595,7 @@ io.on("connection",async(socket)=>{
         const participantCount=presence.total;
         await prisma.audioRoom.update({where:{id:room.id},data:{status:"LIVE",endedAt:null}});
         const isOwner=room.ownerId===user.id;
-        if(!socket.data.audioRoomTaskTimers.has(room.roomId))socket.data.audioRoomTaskTimers.set(room.roomId,{startedAt:Date.now(),isOwner});
+        if(!socket.data.audioRoomTaskTimers.has(room.roomId)){socket.data.audioRoomTaskTimers.set(room.roomId,{startedAt:Date.now(),isOwner});socket.data.audioRoomTaskStarts[room.roomId]=socket.data.audioRoomTaskTimers.get(room.roomId).startedAt;}
         const joinedUserPerks=await resolveUserPerks([room.owner,user],connectionOrigin,["FRAMES","BADGES","ENTRANCES","TAIL_LIGHTS","RIDES"]);
         const roomPerks=joinedUserPerks.get(room.owner.publicId);
         const joiningPerks=joinedUserPerks.get(user.publicId);
@@ -612,7 +608,8 @@ io.on("connection",async(socket)=>{
         joinSucceeded=true;
         ack({success:true,data:{rocketActivity:await rocketJoinSummary(room.roomId,prisma),roomBanners:await roomBannerSnapshot(room.roomId),roomId:room.roomId,title:room.title,showHeaderAndTrophy:room.showHeaderAndTrophy,settingsRevision:room.settingsRevision,...roomCoverDto(room,connectionOrigin),participantCount,revision:presence.revision??room.revision,seatLayout:seatState.seatLayout,giftInteractions:serializeGiftInteractions(room.giftInteractions),announcement:room.announcement??null,language:room.language??null,tags:room.tags??[],privacyMode:room.privacyMode??"PUBLIC",joiningDisabled:Boolean(room.joiningDisabled),joiningDisabledUntil:room.joiningDisabledUntil?.toISOString()??null,role:access.role,permissions:access.permissions,members:{total:members.total,items:members.members},chatHistory,entertainment:serializeEntertainment(room.entertainmentState),musicState,mixState:roomMixSnapshot(room.entertainmentState),ownerId:room.owner.publicId,isOwner,isLocked:Boolean(room.passwordHash),chatLocked:Boolean(room.chatLocked),seatState,...rtcFields(liveKit),roomBackground:serializeRoomBackground(room,connectionOrigin),seatStyle:serializeRoomSeatStyle(room,connectionOrigin),topGifters:giftLeaderboard.topGifters,topReceivers:giftLeaderboard.topReceivers,owner:{...perkMediaFields(roomPerks),publicId:room.owner.publicId,displayId:ownerIdentity.effectiveId,specialId:ownerIdentity.specialId,name:room.owner.name,profileImage:room.owner.profileImage,gender:room.owner.gender??null,dob:formatDateOnly(room.owner.dob),isVerified:Boolean(room.owner.isVerified),isOfficial:Boolean(room.owner.isOfficial),frameUrl:roomPerks?.frameUrl??null,badgeUrl:roomPerks?.badgeUrl??null}}});
         for(const invitation of pendingSeatInvitations)socket.emit("audio-room:seat-invited",{success:true,data:{invitationId:invitation.id,roomId:room.roomId,seatId:invitation.seatId,status:invitation.status,expiresAt:invitation.expiresAt.toISOString(),inviter:invitation.inviter,recovered:true}});
-        const recovered=(recoveringRooms.get(recoveryKey(user,room.roomId))??0)>Date.now();
+        const recovered=shared ? (await shared.graceUntil(room.roomId,user.publicId))>Date.now() : (recoveringRooms.get(recoveryKey(user,room.roomId))??0)>Date.now();
+        if(shared)await shared.clearGrace(room.roomId,user.publicId);
         recoveringRooms.delete(recoveryKey(user,room.roomId));
         if(!alreadyJoined&&presence.newEntrance&&!recovered&&!joiningPerks?.vipPrivileges.includes("INVISIBLE_ENTRY")){
           io.to(roomChannel).emit("audio-room:entrance",await versionMediaPayload({
@@ -647,6 +644,7 @@ io.on("connection",async(socket)=>{
         if(newlyJoinedRoom&&!joinSucceeded){
           await socket.leave(`audio-room:${newlyJoinedRoom.roomId}`);
           socket.data.audioRoomTaskTimers.delete(newlyJoinedRoom.roomId);
+          delete socket.data.audioRoomTaskStarts[newlyJoinedRoom.roomId];
           await unregisterRoomPresence(newlyJoinedRoom,user,connectionOrigin).catch(()=>console.error("Failed join presence reconciliation required"));
         }
         ack({success:false,error:{code:expectedCode??"ROOM_JOIN_FAILED",message:expectedCode?expectedJoinErrors[expectedCode]:"Unable to join this room."}});
@@ -704,9 +702,9 @@ io.on("connection",async(socket)=>{
     socket.on("audio-room:music-stop",(input,ack)=>changeRoomMusic("STOP",input,ack));
     socket.on("audio-room:music-skip",(input,ack)=>changeRoomMusic("SKIP",input,ack));
     socket.on("live-video:join",async({liveId}={},ack=()=>{})=>{
-      try{const id=String(liveId??"");const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},include:{host:{select:{publicId:true,name:true,profileImage:true}},guestRequests:{where:{status:"APPROVED"},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{slot:"asc"}}}});if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live video is unavailable."}});const ban=await prisma.videoLiveBan.findFirst({where:{sessionId:live.id,userId:user.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});if(ban)return ack({success:false,error:{code:"LIVE_BANNED",message:"You are banned from this live video.",details:{reason:ban.reason,expiresAt:ban.expiresAt?.toISOString()??null}}});await requireVideoAccess(prisma,live,user.id);const channel=`live-video:${id}`,alreadyJoined=socket.rooms.has(channel);socket.join(channel);if(!alreadyJoined)await prisma.videoLiveViewer.upsert({where:{sessionId_userId:{sessionId:live.id,userId:user.id}},create:{sessionId:live.id,userId:user.id,active:true,socketCount:1},update:{active:true,socketCount:{increment:1}}});const viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});const updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,peakViewers:{set:Math.max(live.peakViewers,viewerCount)},revision:alreadyJoined?undefined:{increment:1}},select:{revision:true}});ack({success:true,data:{liveId:id,revision:updated.revision,hostAway:live.hostAway,announcement:live.announcement,category:live.category,privacyMode:live.privacyMode,mode:live.mode,maxGuests:live.mode==="GROUP"?8:4,viewerCount,likeCount:live.likeCount,giftIncome:live.giftIncome.toString(),host:live.host,guests:live.guestRequests.map(g=>({requestId:g.id,slot:g.slot,user:g.user}))}});if(!alreadyJoined)io.to(channel).emit("live-video:viewer-joined",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,user:{publicId:user.publicId,name:user.name,profileImage:user.profileImage}}})}catch(error){console.error("Live video join failed",error);ack({success:false,error:{code:"LIVE_JOIN_FAILED",message:"Unable to join this live video."}})}
+      try{const id=String(liveId??"");const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},include:{host:{select:{publicId:true,name:true,profileImage:true}},guestRequests:{where:{status:"APPROVED"},include:{user:{select:{publicId:true,name:true,profileImage:true}}},orderBy:{slot:"asc"}}}});if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live video is unavailable."}});const ban=await prisma.videoLiveBan.findFirst({where:{sessionId:live.id,userId:user.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}});if(ban)return ack({success:false,error:{code:"LIVE_BANNED",message:"You are banned from this live video.",details:{reason:ban.reason,expiresAt:ban.expiresAt?.toISOString()??null}}});await requireVideoAccess(prisma,live,user.id);const channel=`live-video:${id}`,alreadyJoined=socket.rooms.has(channel);await socket.join(channel);let viewerCount,updated;if(shared){updated=await syncVideoPresence(prisma,io,live);viewerCount=updated.viewerCount;}else{if(!alreadyJoined)await prisma.videoLiveViewer.upsert({where:{sessionId_userId:{sessionId:live.id,userId:user.id}},create:{sessionId:live.id,userId:user.id,active:true,socketCount:1},update:{active:true,socketCount:{increment:1}}});viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,peakViewers:{set:Math.max(live.peakViewers,viewerCount)},revision:alreadyJoined?undefined:{increment:1}},select:{revision:true}});}ack({success:true,data:{liveId:id,revision:updated.revision,hostAway:live.hostAway,announcement:live.announcement,category:live.category,privacyMode:live.privacyMode,mode:live.mode,maxGuests:live.mode==="GROUP"?8:4,viewerCount,likeCount:live.likeCount,giftIncome:live.giftIncome.toString(),host:live.host,guests:live.guestRequests.map(g=>({requestId:g.id,slot:g.slot,user:g.user}))}});if(!alreadyJoined)io.to(channel).emit("live-video:viewer-joined",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,user:{publicId:user.publicId,name:user.name,profileImage:user.profileImage}}})}catch(error){console.error("Live video join failed",error);ack({success:false,error:{code:"LIVE_JOIN_FAILED",message:"Unable to join this live video."}})}
     });
-    socket.on("live-video:leave",async({liveId}={},ack=()=>{})=>{const id=String(liveId??""),live=await prisma.videoLiveSession.findUnique({where:{publicId:id}});if(live&&socket.rooms.has(`live-video:${id}`)){await socket.leave(`live-video:${id}`);const current=await prisma.videoLiveViewer.findUnique({where:{sessionId_userId:{sessionId:live.id,userId:user.id}}}),socketCount=Math.max(0,(current?.socketCount??1)-1);await prisma.videoLiveViewer.updateMany({where:{sessionId:live.id,userId:user.id},data:{socketCount,active:socketCount>0}});const viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});const updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,revision:{increment:1}},select:{revision:true}});io.to(`live-video:${id}`).emit("live-video:viewer-left",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,userId:user.publicId}})}ack({success:true,data:{liveId:id}})});
+    socket.on("live-video:leave",async({liveId}={},ack=()=>{})=>{const id=String(liveId??""),live=await prisma.videoLiveSession.findUnique({where:{publicId:id}});if(live&&socket.rooms.has(`live-video:${id}`)){await socket.leave(`live-video:${id}`);let viewerCount,updated;if(shared){updated=await syncVideoPresence(prisma,io,live);viewerCount=updated.viewerCount;}else{const current=await prisma.videoLiveViewer.findUnique({where:{sessionId_userId:{sessionId:live.id,userId:user.id}}}),socketCount=Math.max(0,(current?.socketCount??1)-1);await prisma.videoLiveViewer.updateMany({where:{sessionId:live.id,userId:user.id},data:{socketCount,active:socketCount>0}});viewerCount=await prisma.videoLiveViewer.count({where:{sessionId:live.id,active:true}});updated=await prisma.videoLiveSession.update({where:{id:live.id},data:{viewerCount,revision:{increment:1}},select:{revision:true}});}io.to(`live-video:${id}`).emit("live-video:viewer-left",{success:true,data:{liveId:id,viewerCount,revision:updated.revision,userId:user.publicId}})}ack({success:true,data:{liveId:id}})});
     socket.on("live-video:comment",async({liveId,body,requestId}={},ack=()=>{})=>{
       try{
         const id=String(liveId??"");
@@ -714,7 +712,7 @@ io.on("connection",async(socket)=>{
         const text=String(body??"").replace(/\s+/g," ").trim().slice(0,200);
         if(!text)return ack({success:false,error:{code:"VALIDATION_ERROR",message:"Write a message first."}});
         const now=Date.now(),rateKey=`${user.id}:${id}`;
-        if(now-(liveCommentRate.get(rateKey)??0)<800)return ack({success:false,error:{code:"RATE_LIMITED",message:"You're sending messages too fast."}});
+        if(shared ? await shared.isRateLimited(`live-comment:${rateKey}`,{limit:1,windowMs:800}) : now-(liveCommentRate.get(rateKey)??0)<800)return ack({success:false,error:{code:"RATE_LIMITED",message:"You're sending messages too fast."}});
         liveCommentRate.set(rateKey,now);if(liveCommentRate.size>5000)for(const [key,at] of liveCommentRate)if(now-at>=800)liveCommentRate.delete(key);
         const live=await prisma.videoLiveSession.findUnique({where:{publicId:id},select:{id:true,status:true,hostId:true,privacyMode:true}});
         if(!live||live.status!=="LIVE")return ack({success:false,error:{code:"LIVE_NOT_FOUND",message:"This live has ended."}});
@@ -1001,7 +999,6 @@ io.on("connection",async(socket)=>{
         const member=await prisma.audioRoomMember.findUnique({where:{audioRoomId_userId:{audioRoomId:room.id,userId:target.id}}});if(!member?.socketCount)return ack({success:false,error:{code:"VIEWER_NOT_IN_ROOM"}});
         await ensureAudioRoomSeats(room.id,room.seatLayout);const seat=await prisma.audioRoomSeat.findUnique({where:{audioRoomId_seatId:{audioRoomId:room.id,seatId:targetSeatId}}});if(!seat)return ack({success:false,error:{code:"SEAT_NOT_FOUND"}});if(seat.occupantUserId&&seat.occupantUserId!==target.id)return ack({success:false,error:{code:"SEAT_OCCUPIED"}});
         const invitationId=`SEATINV-${clientRequestId||randomUUID()}`;const existingInvitation=clientRequestId?await prisma.audioRoomSeatInvitation.findUnique({where:{id:invitationId}}):null;if(existingInvitation){if(existingInvitation.audioRoomId!==room.id||existingInvitation.inviterId!==user.id||existingInvitation.targetId!==target.id)return ack({success:false,error:{code:"REQUEST_ID_REUSED",message:"This requestId was already used for another invitation."}});const data={invitationId:existingInvitation.id,requestId:clientRequestId,roomId:id,seatId:existingInvitation.seatId,status:existingInvitation.status,expiresAt:existingInvitation.expiresAt.toISOString(),inviter:{publicId:user.publicId,name:user.name,profileImage:user.profileImage??null}};return ack({success:true,data})}await prisma.audioRoomSeatInvitation.updateMany({where:{audioRoomId:room.id,targetId:target.id,status:"PENDING"},data:{status:"CANCELLED",respondedAt:new Date()}});const expiresAt=new Date(Date.now()+60000);const invitation=await prisma.audioRoomSeatInvitation.create({data:{id:invitationId,audioRoomId:room.id,inviterId:user.id,targetId:target.id,seatId:targetSeatId,expiresAt}});
-        setTimeout(async()=>{try{const expired=await prisma.audioRoomSeatInvitation.updateMany({where:{id:invitation.id,status:"PENDING",expiresAt:{lte:new Date()}},data:{status:"EXPIRED",respondedAt:new Date()}});if(expired.count){const payload={success:false,error:{code:"SEAT_INVITATION_EXPIRED",message:"This seat invitation expired."},data:{invitationId:invitation.id,roomId:id,seatId:targetSeatId,status:"EXPIRED"}};io.to(`user:${target.publicId}`).emit("audio-room:seat-invite-result",payload);io.to(`user:${user.publicId}`).emit("audio-room:seat-invite-result",payload)}}catch(error){console.error("Seat invitation expiry failed",error)}},60050);
         const data={invitationId:invitation.id,requestId:clientRequestId||null,roomId:id,seatId:targetSeatId,status:"PENDING",expiresAt:expiresAt.toISOString(),inviter:{publicId:user.publicId,name:user.name,profileImage:user.profileImage??null}};io.to(`user:${target.publicId}`).emit("audio-room:seat-invited",{success:true,data});ack({success:true,data});
       }catch(error){console.error("Audio room seat invite failed",error);ack({success:false,error:{code:error?.code==="P2002"?"DUPLICATE_REQUEST":"SEAT_INVITE_FAILED",message:"Unable to invite this member."}})}
     });
@@ -1083,6 +1080,7 @@ io.on("connection",async(socket)=>{
       const id=String(roomId??"");
       (socket.data.leavingRooms??=new Set()).add(id);
       recoveringRooms.delete(recoveryKey(user,id));
+      if(shared)await shared.clearGrace(id,user.publicId);
       if(!socket.rooms.has(`audio-room:${id}`))return ack({success:true,data:{roomId:id,unchanged:true}});
       await recordAudioRoomTaskTime(id);
       const leavingRequestRoom=await prisma.audioRoom.findUnique({where:{roomId:id},select:{id:true}});
@@ -1104,13 +1102,27 @@ io.on("connection",async(socket)=>{
         io.to(`audio-room:${id}`).emit("audio-room:owner-left",{success:true,data:{roomId:id,reason:"OWNER_LEFT"}});
       }
       if(participantCount){
-        await prisma.audioRoom.updateMany({where:{roomId:id,status:"LIVE"},data:{participantCount}});
+        if(!shared)await prisma.audioRoom.updateMany({where:{roomId:id,status:"LIVE"},data:{participantCount}});
         if(room)await broadcastAudioRoomSeatState(room,connectionOrigin,participantCount,true);
       }
       else await releaseEmptyAudioRoom(id);
       ack({success:true,data:{roomId:id,participantCount,idRetained:true}});
     });
     socket.on("disconnecting",(reason)=>{
+      if(shared){
+        const rooms=[...socket.rooms].filter(name=>name.startsWith('audio-room:')).map(name=>name.slice(11));
+        const videos=[...socket.rooms].filter(name=>name.startsWith('live-video:')).map(name=>name.slice(11));
+        const transient=['transport close','transport error','ping timeout','client namespace disconnect'].includes(reason);
+        for(const roomId of rooms){void recordAudioRoomTaskTime(roomId).catch(error=>console.error('Task time deferred',error.code??error.name));const grace=transient&&!socket.data.leavingRooms?.has(roomId);void trackDisconnect((async()=>{
+          if(grace)await shared.setGrace(roomId,user.publicId,Date.now()+60000);
+          await new Promise(resolve=>setTimeout(resolve,0));
+          const room=await prisma.audioRoom.findUnique({where:{roomId},include:{owner:{select:{publicId:true}}}});
+          if(room)await unregisterRoomPresence(room,user,connectionOrigin);
+          if(!grace)await releaseEmptyAudioRoom(roomId);
+        })().catch(error=>console.error('Shared disconnect reconciliation deferred',error.code??error.name)));}
+        for(const liveId of videos)setTimeout(async()=>{try{const live=await prisma.videoLiveSession.findUnique({where:{publicId:liveId}});if(live){const state=await syncVideoPresence(prisma,io,live);io.to(`live-video:${liveId}`).emit('live-video:viewer-left',{success:true,data:{liveId,...state,userId:user.publicId}});}}catch(error){console.error('Video reconciliation deferred',error.code??error.name);}},0);
+        return;
+      }
       const roomIds=[...socket.rooms].filter((name)=>name.startsWith("audio-room:")).map((name)=>name.slice(11));
       if(["transport close","transport error","ping timeout","client namespace disconnect"].includes(reason))for(const roomId of roomIds.filter((id)=>!socket.data.leavingRooms?.has(id)))recoveringRooms.set(recoveryKey(user,roomId),Date.now()+60000);
       const videoIds=[...socket.rooms].filter((name)=>name.startsWith("live-video:")).map((name)=>name.slice(11));
@@ -1180,6 +1192,25 @@ io.on("connection",async(socket)=>{
     }
   });
 
+  let shutdownStarted = false;
+  async function shutdown() {
+    if (shutdownStarted) return;
+    shutdownStarted = true; draining = true;
+    for (const timer of backgroundTimers) clearInterval(timer);
+    clearInterval(readinessTimer); clearInterval(recoveryCleanup);
+    const deadline = setTimeout(() => process.exit(1), 55000); deadline.unref();
+    // Stop accepting connections; active HTTP requests finish before dependencies close.
+    const closed = new Promise(resolve => httpServer.close(resolve));
+    for (const socket of io.sockets.sockets.values()) socket.conn.close();
+    httpServer.closeIdleConnections();
+    await Promise.all([closed, jobs.stop()]);
+    await Promise.allSettled([...disconnectWork]);
+    await (await import("./src/lib/scaling/shared-runtime.js")).closeSharedRuntime();
+    await prisma.$disconnect();
+    clearTimeout(deadline); process.exit(0);
+  }
+  process.on("SIGTERM", () => void shutdown());
+  process.on("SIGINT", () => void shutdown());
   httpServer.listen(port,hostname,()=>console.log(`> Portal and Socket.IO ready on http://${hostname}:${port}`));
 }).catch((error)=>{
   if(error?.code==="P1000"){

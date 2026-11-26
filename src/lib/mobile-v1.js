@@ -124,7 +124,7 @@ export async function withV1Request(request, { path, methods, rateLimit }, handl
 
   if (
     rateLimit &&
-    isRateLimited(`${MOBILE_API_VERSION}:${path}:${clientIp(request)}`, rateLimit)
+    await isRateLimited(`${MOBILE_API_VERSION}:${path}:${clientIp(request)}`, rateLimit)
   ) {
     response = v1Json(
       request,

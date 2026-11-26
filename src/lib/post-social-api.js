@@ -13,7 +13,7 @@ export async function postSocialRequest(request, params, action) {
     else if (action === "list") data = await listPostComments(prisma, postId, user.id, new URL(request.url).searchParams.get("cursor")?.trim());
     else if (action === "delete") data = await deletePostComment(prisma, postId, user.id, commentId);
     else {
-      if (isRateLimited(`post-comment:${user.id}`, { limit: 10, windowMs: 60000 })) {
+      if (await isRateLimited(`post-comment:${user.id}`, { limit: 10, windowMs: 60000 })) {
         const response = await mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Please wait before posting more comments." } }, 429);
         response.headers.set("Retry-After", "60");
         return response;

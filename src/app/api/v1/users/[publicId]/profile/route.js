@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
   let stage = "authentication";
   try {
     const viewer = await requireMobileUser(request);
-    if (isRateLimited(`public-profile:${viewer.id}`, { limit: 120, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many profile requests." } }, 429);
+    if (await isRateLimited(`public-profile:${viewer.id}`, { limit: 120, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many profile requests." } }, 429);
     const { publicId } = await params;
     stage = "profile-access";
     const access = await profileAccess(viewer, publicId);

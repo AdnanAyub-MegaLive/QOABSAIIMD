@@ -14,7 +14,7 @@ export function OPTIONS() { return mobileOptions(); }
 export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
-    if (isRateLimited(`event-rankings:${user.id}`, { limit: 60, windowMs: 60000 })) return mobileJson({ success:false,error:{code:'RATE_LIMITED',message:'Please wait a moment before refreshing.'} },429);
+    if (await isRateLimited(`event-rankings:${user.id}`, { limit: 60, windowMs: 60000 })) return mobileJson({ success:false,error:{code:'RATE_LIMITED',message:'Please wait a moment before refreshing.'} },429);
     const params=new URL(request.url).searchParams;
     const input = rankingInput(params);
     const slug=params.get('event')||'rankings';

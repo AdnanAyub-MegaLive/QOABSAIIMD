@@ -17,7 +17,7 @@ export async function POST(request,{params}){
   const membership=await requireConversationParticipant(conversationId,user.id);
   await assertConversationMessagingAllowed(membership.conversation,user.id,prisma,true);
   if(!["DIRECT","GROUP"].includes(membership.conversation.kind))throw Object.assign(new Error("Voice messages are only allowed in private and group chats."),{code:"VALIDATION_ERROR"});
-  if(isRateLimited(`voice:${user.id}`,{limit:10,windowMs:60000}))throw Object.assign(new Error("Too many voice uploads."),{code:"RATE_LIMITED"});
+  if(await isRateLimited(`voice:${user.id}`,{limit:10,windowMs:60000}))throw Object.assign(new Error("Too many voice uploads."),{code:"RATE_LIMITED"});
   const reader=request.body?.getReader();if(!reader)throw Error("Missing body");let size=0;const chunks=[];
   try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1024*1024+65536){await reader.cancel();throw Object.assign(new Error("Audio exceeds 1 MB."),{code:"FILE_TOO_LARGE"});}chunks.push(value);}}finally{reader.releaseLock();}
   let form;try{form=await new Response(Buffer.concat(chunks),{headers:{"content-type":request.headers.get("content-type")??""}}).formData();}catch{throw Object.assign(new Error("Send a multipart audio upload."),{code:"VALIDATION_ERROR"});}

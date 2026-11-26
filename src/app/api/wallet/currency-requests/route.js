@@ -22,6 +22,6 @@ export async function GET(request){try{
 }catch(e){return mobileApiError(e,"CURRENCY_REQUEST_FAILED");}}
 export async function POST(request){try{
   const user=await requireMobileUser(request);
-  if(isRateLimited(`currency-request:${user.id}`,{limit:10,windowMs:60000}))return mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Try again in a minute."}},429);
+  if(await isRateLimited(`currency-request:${user.id}`,{limit:10,windowMs:60000}))return mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Try again in a minute."}},429);
   return mobileJson({success:true,data:await createCurrencyRequest(prisma,user.id,await request.json(),request.headers.get("Idempotency-Key"))},201);
 }catch(e){return mobileApiError(e,"CURRENCY_REQUEST_FAILED");}}

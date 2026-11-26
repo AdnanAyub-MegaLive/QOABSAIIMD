@@ -1,8 +1,17 @@
+import { sharedRuntime } from './scaling/shared-runtime.js';
+import { syncAudioPresence } from './scaling/room-presence.js';
 import { emitVipRoomPresence } from "./vip-room-presence.js";
 // Called only after the removed user's sockets have left the channel.
 // Do not emit member-banned: existing clients turn that into a public kick message.
 export async function syncAudioRoomRemoval(db, io, broadcastSeats, roomId, publicId, origin) {
-  const room = await db.$transaction(async tx => {
+  const shared=sharedRuntime();
+  let room;
+  if(shared){
+    await shared.clearGrace(roomId,publicId);
+    room=await db.audioRoom.findUnique({where:{roomId}});
+    const state=await syncAudioPresence(db,io,room,shared);
+    room={...room,participantCount:state.total,revision:state.revision};
+  } else room = await db.$transaction(async tx => {
     const locked = await tx.audioRoom.update({ where: { roomId }, data: { revision: { increment: 1 } } });
     const total = await tx.audioRoomMember.count({ where: { audioRoomId: locked.id, socketCount: { gt: 0 } } });
     return tx.audioRoom.update({ where: { id: locked.id }, data: { participantCount: total } });

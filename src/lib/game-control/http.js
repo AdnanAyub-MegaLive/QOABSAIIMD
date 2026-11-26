@@ -43,8 +43,8 @@ export async function jsonBody(request) {
   try { const body = JSON.parse(text); if (!body || Array.isArray(body) || typeof body !== "object") throw new Error(); return body; }
   catch { throw new GameError("Invalid JSON request."); }
 }
-export function limit(key, count = 60) {
-  if (isRateLimited(`games:${key}`, { limit: count, windowMs: 60000 })) throw new GameError("Too many requests. Please wait a moment.", 429);
+export async function limit(key, count = 60) {
+  if (await isRateLimited(`games:${key}`, { limit: count, windowMs: 60000 })) throw new GameError("Too many requests. Please wait a moment.", 429);
 }
 export async function launchPlayer(token, roomId) {
   let claims;

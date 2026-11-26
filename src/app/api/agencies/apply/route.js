@@ -69,7 +69,7 @@ export async function POST(request) {
       422,
       fields,
     );
-  if (isRateLimited(`agency-apply:${user.id}`, { limit: 5, windowMs: 3600000 }))
+  if (await isRateLimited(`agency-apply:${user.id}`, { limit: 5, windowMs: 3600000 }))
     return error("RATE_LIMITED", "Too many agency applications. Try again in an hour.", 429);
 
   try {

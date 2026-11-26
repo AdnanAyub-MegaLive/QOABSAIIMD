@@ -7,7 +7,7 @@ export function OPTIONS(){return mobileOptions();}
 export async function POST(request){
  try{
   const user=await requireMobileUser(request);
-  if(isRateLimited(`task-evidence:${user.id}`,{limit:10,windowMs:60000}))return mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Please wait before submitting more evidence."}},429);
+  if(await isRateLimited(`task-evidence:${user.id}`,{limit:10,windowMs:60000}))return mobileJson({success:false,error:{code:"RATE_LIMITED",message:"Please wait before submitting more evidence."}},429);
   const body=await request.json(),evidence=String(body.evidence??"").trim();
   if(!evidence||evidence.length>2000)return mobileJson({success:false,error:{code:"VALIDATION_ERROR",message:"Provide evidence between 1 and 2,000 characters."}},422);
   const result=await prisma.$transaction(async tx=>{

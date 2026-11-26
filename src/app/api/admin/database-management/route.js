@@ -13,7 +13,7 @@ function errorResponse(error){return json({success:false,error:{code:error.code&
 export async function GET(){try{await owner();return json({success:true,data:{tables:await databaseTables(prisma)}});}catch(e){return errorResponse(e);}}
 export async function POST(request){try{
  sameOrigin(request);const admin=await owner();
- if(isRateLimited(`database-management:${admin.id}`,{limit:10,windowMs:60000}))throw fail('Please wait before trying again.',429,'RATE_LIMITED');
+ if(await isRateLimited(`database-management:${admin.id}`,{limit:10,windowMs:60000}))throw fail('Please wait before trying again.',429,'RATE_LIMITED');
  const body=await jsonBody(request);
  if(body.action==='PREVIEW'){
    const plan=await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET LOCAL statement_timeout='15000ms'");return databaseDeletionPlan(tx,body);},{isolationLevel:'RepeatableRead',timeout:60000});

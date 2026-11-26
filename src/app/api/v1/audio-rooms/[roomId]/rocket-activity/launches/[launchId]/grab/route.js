@@ -8,7 +8,7 @@ export function OPTIONS() { return mobileOptions(); }
 export async function POST(request, { params }) {
   try {
     const user = await requireMobileUser(request, { syncVip: false });
-    if (isRateLimited(`rocket-grab:${user.id}`, { limit: 30, windowMs: 60000 })) return mobileJson({ success: false, error: { code: 'RATE_LIMITED', message: 'Wait before trying again.' } }, 429);
+    if (await isRateLimited(`rocket-grab:${user.id}`, { limit: 30, windowMs: 60000 })) return mobileJson({ success: false, error: { code: 'RATE_LIMITED', message: 'Wait before trying again.' } }, 429);
     const { roomId, launchId } = await params;
     const response = mobileJson({ success: true, data: await grabRocketLaunch(prisma, roomId, launchId, user, requestOrigin(request)) });
     response.headers.set('Cache-Control', 'private, no-store');

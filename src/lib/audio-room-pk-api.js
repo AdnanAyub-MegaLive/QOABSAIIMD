@@ -11,7 +11,7 @@ async function reply(body, status = 200) {
 export async function handlePk(request, context, queue = false) {
   try {
     const user = await requireMobileUser(request), { roomId } = await context.params, method = request.method;
-    if (isRateLimited(`pk:${user.id}`, { limit: 60, windowMs: 60000 })) pkError('RATE_LIMITED', 'Try again shortly.', 429);
+    if (await isRateLimited(`pk:${user.id}`, { limit: 60, windowMs: 60000 })) pkError('RATE_LIMITED', 'Try again shortly.', 429);
     let body = {};
     if (['POST', 'PATCH', 'DELETE'].includes(method)) { try { body = await request.json(); } catch { pkError('VALIDATION_ERROR', 'Send a valid JSON body.', 422); } }
     const origin = new URL(request.url).origin;

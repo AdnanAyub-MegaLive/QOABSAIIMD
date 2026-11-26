@@ -17,7 +17,7 @@ export async function POST(request) {
     const operation = comboBatchOperation(body, request.headers.get('Idempotency-Key'));
     const replay = await priorGiftOperation(sender.id, operation);
     if (replay) return giftJson({ success: true, data: replay }, 200);
-    if (isRateLimited(`gift-combo:${sender.id}`, { limit: 300, windowMs: 60_000 }))
+    if (await isRateLimited(`gift-combo:${sender.id}`, { limit: 300, windowMs: 60_000 }))
       return giftJson({ success: false, error: { code: 'RATE_LIMITED', message: 'Too many combo batches. Retry with the same IDs shortly.' } }, 429);
     const prepared = await prepareMultiGift(sender, body, request, { batch: true });
     operation.contentionKeys = prepared.contentionKeys;

@@ -1,3 +1,4 @@
+import { sharedRuntime } from './scaling/shared-runtime.js';
 import { normalizeSignupCountry as normalizeCountryCode } from "./geo-country.js";
 export const countryChatError = () => Object.assign(new Error("Set your country in your profile to use Country Chat."),{code:"COUNTRY_REQUIRED",validationMessage:"Set your country in your profile to use Country Chat."});
 export async function userChatCountry(db,userId,required=false){
@@ -15,7 +16,7 @@ export function assertNoCountryLinks(text){
 }
 export async function refreshCountryChatRooms(db,io){
   if(!io?.sockets?.sockets)return;
-  const sockets=[...io.sockets.sockets.values()];
+  const sockets=sharedRuntime()?await io.fetchSockets():[...io.sockets.sockets.values()];
   const people=await db.user.findMany({where:{publicId:{in:[...new Set(sockets.map(s=>s.data.userId).filter(Boolean))]},status:"ACTIVE",deletedAt:null},select:{publicId:true,country:true}});
   const countries=new Map(people.map(p=>[p.publicId,normalizeCountryCode(p.country)]));
   for(const socket of sockets){

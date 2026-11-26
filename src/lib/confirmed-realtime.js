@@ -1,3 +1,4 @@
+import { withClaimedEvents, emitDurable } from './scaling/outbox-claim.js';
 import { createHash } from 'node:crypto';
 // Numeric events have their own worker: never wait behind media or leaderboards.
 const states = new WeakMap();
@@ -16,9 +17,9 @@ export function flushConfirmedRealtime(db, io, telemetry = () => {}, trigger = '
   state.running = (async () => {
     do {
       state.again = false;
-      const rows = await db.confirmedRealtimeEvent.findMany({ where: { deliveredAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 100 });
+      await withClaimedEvents(db,'confirmedRealtimeEvent',null,async(rows,tx)=>{
       const ids = [...new Set(rows.flatMap(r => r.userId ? [r.userId] : Object.keys(r.payload.changedRecipients ?? {})))];
-      const users = ids.length ? await db.user.findMany({ where: { id: { in: ids }, status: 'ACTIVE', deletedAt: null }, select: { id: true, publicId: true } }) : [];
+      const users = ids.length ? await tx.user.findMany({ where: { id: { in: ids }, status: 'ACTIVE', deletedAt: null }, select: { id: true, publicId: true } }) : [];
       const byId = new Map(users.map(u => [u.id, u.publicId]));
       const delivered = [];
       for (const row of rows) {
@@ -38,14 +39,14 @@ export function flushConfirmedRealtime(db, io, telemetry = () => {}, trigger = '
               data.recipientScope = 'CHANGED'; data.scope = 'ALL_TIME_RECORDED_GIFT_COINS';
               channel = `audio-room:${row.roomId}`;
             } else throw new Error('Unsupported confirmed event');
-            io.to(channel).emit(row.event, { success: true, data });
+            await emitDurable(io,channel,row.event,{success:true,data});
             state.emitted.set(row.id, Date.now());
             telemetry({ stage: 'confirmed_emit', trigger, eventId: data.eventId, event: row.event, emittedAt: new Date().toISOString(), persistedToEmitMs: Date.now() - row.createdAt.getTime() });
           }
           delivered.push(row.id);
         } catch (error) { console.error('Confirmed realtime emit failed', { eventId: row.id, code: error.code ?? 'EMIT_FAILED' }); }
       }
-      if (delivered.length) await db.confirmedRealtimeEvent.updateMany({ where: { id: { in: delivered }, deliveredAt: null }, data: { deliveredAt: new Date(), attempts: { increment: 1 } } });
+      if (delivered.length) await tx.confirmedRealtimeEvent.updateMany({ where: { id: { in: delivered }, deliveredAt: null }, data: { deliveredAt: new Date(), attempts: { increment: 1 } } });
       const cutoff = Date.now() - 300000;
       if (!state.lastPrunedAt || Date.now() - state.lastPrunedAt >= 1000) {
         for (const [id, time] of state.emitted) if (time < cutoff) state.emitted.delete(id);
@@ -53,6 +54,7 @@ export function flushConfirmedRealtime(db, io, telemetry = () => {}, trigger = '
       }
       if (state.emitted.size > 20000) state.emitted.delete(state.emitted.keys().next().value);
       if (rows.length === 100 && delivered.length === rows.length) state.again = true;
+      });
     } while (state.again);
   })().finally(() => { state.running = null; });
   return state.running;

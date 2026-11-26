@@ -25,7 +25,7 @@ export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
     { const frozen = await walletFrozenResponse(user.id); if (frozen) return frozen; }
-    if (isRateLimited(`special-id-purchase:${user.id}`, { limit: 20, windowMs: 60000 }))
+    if (await isRateLimited(`special-id-purchase:${user.id}`, { limit: 20, windowMs: 60000 }))
       return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Try again in a minute." } }, 429);
     let body;
     try { body = await request.json(); } catch { return mobileJson({ success: false, error: { code: "VALIDATION_ERROR", message: "Provide valid JSON." } }, 422); }

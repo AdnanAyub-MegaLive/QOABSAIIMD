@@ -1,11 +1,16 @@
 {
-  "at": "2026-11-25T19:17:07.506Z",
+  "at": "2026-11-26T08:14:17.125Z",
   "processes": 4,
   "database": "fresh local PostgreSQL",
   "productionAccess": false,
   "passed": [
     "Independent Redis namespaces do not share temporary state",
     "Broadcast and presence queries reach clients on all four processes",
+    "Production presence transactions count all four processes and refuse to release an occupied room",
+    "Production background coordinator elects exactly one scheduler",
+    "Production gift presence and removal state are shared across workers",
+    "Production outbox SQL claims and acknowledged fanout deliver once normally and retain stable IDs on retry",
+    "Database expiry sweep restores expired bans, preserves overlapping bans and expires invitations and room restrictions idempotently",
     "Shared six-action limit, unique sequences and expiring state work across processes",
     "Duplicate joins/leaves and late join retries preserve atomic distinct-user counts",
     "Only one process owns a concurrent background job",
@@ -15,11 +20,12 @@
     "Cross-process queries and broadcasts recover after Redis restarts",
     "One dedicated database leader owns the background-job runner",
     "Process death releases the database job lock and permits takeover",
-    "Background leader ownership transfers after the elected process dies"
+    "Background leader ownership transfers after the elected process dies",
+    "Two built portal servers pass readiness, database health and authenticated Socket.IO initialization",
+    "Actual portal SIGTERM drains and exits cleanly while the second process remains ready"
   ],
   "limitations": [
-    "Foundation harness, not a full portal or phone test",
-    "Existing portal timers, expiry handling and memory-state callers still require migration",
-    "No production peak-hour event-loop/database telemetry collected yet"
+    "Actual shared-state modules with full current portal schema; not a full HTTP/phone test",
+    "Production peak-hour observation is still required"
   ]
 }

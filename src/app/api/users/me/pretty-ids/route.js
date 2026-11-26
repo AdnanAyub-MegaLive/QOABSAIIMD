@@ -18,14 +18,14 @@ function failure(error) {
 export async function GET(request) {
   try {
     const user = await requireMobileUser(request);
-    if (isRateLimited(`pretty-read:${user.id}`, { limit: 30, windowMs: 60000 })) return reply({ success: false, error: { code: 'RATE_LIMITED', message: 'Refresh again shortly.' } }, 429);
+    if (await isRateLimited(`pretty-read:${user.id}`, { limit: 30, windowMs: 60000 })) return reply({ success: false, error: { code: 'RATE_LIMITED', message: 'Refresh again shortly.' } }, 429);
     return reply({ success: true, data: { ...(await prettyWeeklyStatus(prisma, user.id)), grants: await listPrettyIds(prisma, user.id) } });
   } catch (error) { return failure(error); }
 }
 export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
-    if (isRateLimited(`pretty-write:${user.id}`, { limit: 20, windowMs: 60000 })) return reply({ success: false, error: { code: 'RATE_LIMITED', message: 'Try again shortly.' } }, 429);
+    if (await isRateLimited(`pretty-write:${user.id}`, { limit: 20, windowMs: 60000 })) return reply({ success: false, error: { code: 'RATE_LIMITED', message: 'Try again shortly.' } }, 429);
     let body; try { body = await request.json(); } catch { body = null; }
     if (!body || typeof body.grantId !== 'string' || !['CLAIM', 'ACTIVATE', 'MAINTAIN'].includes(body.action)) return reply({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Provide action and grantId.' } }, 422);
     const data = body.action === 'CLAIM' ? await claimPrettyId(prisma, user.id, body.grantId, body.code)

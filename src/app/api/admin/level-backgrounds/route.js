@@ -24,7 +24,7 @@ export async function GET(request){try{
 }catch(e){return error(e);}}
 export async function POST(request){try{
   const admin=await requirePermission('rules.levels');sameOrigin(request);
-  if(isRateLimited(`level-background:${admin.id}`,{limit:30,windowMs:60000}))throw fail('Please wait before uploading more backgrounds.',429);
+  if(await isRateLimited(`level-background:${admin.id}`,{limit:30,windowMs:60000}))throw fail('Please wait before uploading more backgrounds.',429);
   const form=await readUploadForm(request,9*1024*1024),track=String(form.get('track')),level=Number(form.get('level'));
   if(!(await levels()).some(l=>l.track===track&&l.level===level))throw fail('Save this level before adding its background.');
   const file=form.get('file');

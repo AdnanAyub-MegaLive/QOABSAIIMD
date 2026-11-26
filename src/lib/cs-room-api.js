@@ -15,7 +15,7 @@ export function csRoomRequest(request, path, methods, work) {
       const user = await requireMobileUser(request);
       const versionCode = Number.parseInt(request.headers.get("x-app-version-code") ?? "", 10);
       user.csLegacy = !Number.isInteger(versionCode) || versionCode <= CS_LEGACY_MAX_VERSION;
-      if (isRateLimited(`cs-room:${user.id}`, { limit: 90, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Please wait before trying again." } }, 429);
+      if (await isRateLimited(`cs-room:${user.id}`, { limit: 90, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Please wait before trying again." } }, 429);
       return mobileJson({ success: true, data: await work(user) });
     } catch (error) {
       if ((error.code?.startsWith("CS_") || error.code === "VALIDATION_ERROR") && error.status) return mobileJson({ success: false, error: { code: error.code, message: error.message, ...(error.until ? { until: error.until } : {}) } }, error.status);

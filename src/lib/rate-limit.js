@@ -1,9 +1,12 @@
+import { sharedRuntime } from './scaling/shared-runtime.js';
 const globalForRateLimit=globalThis;
 const buckets=globalForRateLimit.portalRateLimitBuckets??new Map();
 
 if(process.env.NODE_ENV!=="production")globalForRateLimit.portalRateLimitBuckets=buckets;
 
 export function isRateLimited(key,{limit,windowMs}){
+  const shared = sharedRuntime();
+  if (shared) return shared.isRateLimited(key, {limit, windowMs});
   const now=Date.now();
   const timestamps=(buckets.get(key)??[]).filter((timestamp)=>now-timestamp<windowMs);
   timestamps.push(now);

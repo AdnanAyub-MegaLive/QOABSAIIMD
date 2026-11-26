@@ -10,7 +10,7 @@ export function OPTIONS() { return mobileOptions(); }
 export async function GET(request, { params }) {
   try {
     const user = await requireMobileUser(request, { syncVip: false });
-    if (isRateLimited(`room-totals:${user.id}`, { limit: 60, windowMs: 60000 })) throw rankingError('RATE_LIMITED', 'Wait before refreshing room totals.', 429);
+    if (await isRateLimited(`room-totals:${user.id}`, { limit: 60, windowMs: 60000 })) throw rankingError('RATE_LIMITED', 'Wait before refreshing room totals.', 429);
     const { roomId } = await params;
     await requireRankingRoom(prisma, roomId, user);
     const data = await roomGiftTotalsSnapshot(prisma, roomId);

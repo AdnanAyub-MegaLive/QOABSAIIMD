@@ -11,9 +11,9 @@ export async function POST(request) {
   try {
     sameOrigin(request);
     const body = await jsonBody(request);
-    if (body.action === "launch") limit(`launch:${request.headers.get("x-forwarded-for") || "local"}`, 30);
+    if (body.action === "launch") await limit(`launch:${request.headers.get("x-forwarded-for") || "local"}`, 30);
     const identity = body.action === "launch" ? await launchPlayer(body.token, body.roomId) : await playerSession();
-    if(body.action==="shared-state")limit(`${identity.userId}:state`,180);else limit(identity.userId);
+    if(body.action==="shared-state")await limit(`${identity.userId}:state`,180);else await limit(identity.userId);
     if (body.action === "refill") throw new GameError("Application coins cannot be refilled by a game.",400);
     if (["launch", "profile"].includes(body.action)) {
       const user = await assertPlayer(prisma, identity);

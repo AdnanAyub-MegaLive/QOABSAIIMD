@@ -1,3 +1,4 @@
+import { sharedRuntime } from '@/lib/scaling/shared-runtime';
 import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
 import { liveTopGifter } from "@/lib/video-live";
@@ -398,13 +399,20 @@ export async function POST(request) {
     });
     void flushRealtimeOutbox().catch(error => console.error("Outbox flush failed", error.message));
     if (live) {
-      const seq = ++liveTopGifterCounter;
-      liveTopGifterSeq.set(live.id, seq);
-      void getLiveCommerceRule().then(rule => liveTopGifter(prisma, live.id, requestOrigin(request), rule.bossSeatMinCoins)).then(topGifter => {
-        if (liveTopGifterSeq.get(live.id) !== seq) return;
-        liveTopGifterSeq.delete(live.id);
-        emitLiveTopGifter(live.publicId, "live-video:top-gifter", { success: true, data: { liveId: live.publicId, topGifter: topGifter ?? null } });
-      }).catch(error => { if (liveTopGifterSeq.get(live.id) === seq) liveTopGifterSeq.delete(live.id); console.error("Live top gifter failed", error?.message); });
+      // Visual updates must never turn a committed gift into an HTTP failure.
+      void (async () => {
+        const shared = sharedRuntime();
+        const seq = shared ? await shared.nextSequence(`top-gifter:${live.id}`, 86400000) : ++liveTopGifterCounter;
+        liveTopGifterSeq.set(live.id, seq);
+        try {
+          const rule = await getLiveCommerceRule();
+          const topGifter = await liveTopGifter(prisma, live.id, requestOrigin(request), rule.bossSeatMinCoins);
+          if (shared ? (await shared.currentSequence(`top-gifter:${live.id}`)) !== seq : liveTopGifterSeq.get(live.id) !== seq) return;
+          emitLiveTopGifter(live.publicId, "live-video:top-gifter", { success: true, data: { liveId: live.publicId, sequence: seq, topGifter: topGifter ?? null } });
+        } finally {
+          if (liveTopGifterSeq.get(live.id) === seq) liveTopGifterSeq.delete(live.id);
+        }
+      })().catch(error => console.error("Live top gifter failed", error?.code ?? error?.name));
     }
     return mobileJson(response, 201);
   } catch (error) {

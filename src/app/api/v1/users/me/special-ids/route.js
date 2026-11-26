@@ -10,7 +10,7 @@ async function handle(request, write) {
   const response = await withV1Request(request, options, async () => {
     try {
       const user = await requireMobileUser(request);
-      if (isRateLimited(`special-id-${write ? "use" : "read"}:${user.id}`, { limit: write ? 20 : 30, windowMs: 60000 }))
+      if (await isRateLimited(`special-id-${write ? "use" : "read"}:${user.id}`, { limit: write ? 20 : 30, windowMs: 60000 }))
         return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Try again shortly." } }, 429);
       if (!write) return mobileJson({ success: true, data: { items: await listUserSpecialIds(prisma, user.id) } });
       const body = await request.json().catch(() => null);

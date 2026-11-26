@@ -75,7 +75,7 @@ export function registerCsRoomChat({ io, socket, user, origin, db }) {
       if (!socket.rooms.has(channel)) return ack(failure("JOIN_ROOM_FIRST", "Join the support room first."));
       const text = typeof body === "string" ? body.trim() : "";
       if (!text || text.length > CS_CHAT_MAX_LENGTH) return ack(failure("VALIDATION_ERROR", "Messages must be between 1 and 200 characters."));
-      if (isRateLimited(`cs-chat:${user.id}`, { limit: 20, windowMs: 60_000 })) return ack(failure("RATE_LIMITED", "You are sending messages too fast."));
+      if (await isRateLimited(`cs-chat:${user.id}`, { limit: 20, windowMs: 60_000 })) return ack(failure("RATE_LIMITED", "You are sending messages too fast."));
       const now = new Date();
       if (!(await presentIn(db, user.id, code, now))) return ack(failure("CS_ROOM_NOT_JOINED", "Join the support room first."));
       if (await db.csRoomBan.findFirst({ where: { userId: user.id, country: code, expiresAt: { gt: now } }, select: { id: true } })) return ack(failure("CS_ROOM_BANNED", "You are banned from this support room for now."));

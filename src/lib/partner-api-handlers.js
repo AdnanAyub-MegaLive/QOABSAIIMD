@@ -56,7 +56,7 @@ export function createPartnerHandlers(db) {
         key = await findPartnerKeyByPublicId(db, params.key);
         if (!key) throw new PartnerApiError("INVALID_SIGNATURE", "Media link is invalid or expired.", 403);
         if (!originAllowed(key.allowedOrigins, request)) throw new PartnerApiError("ORIGIN_NOT_ALLOWED", "This website is not allowed to load partner media.", 403);
-        rateLimitPartner(`partner-media:${key.id}`, 600);
+        await rateLimitPartner(`partner-media:${key.id}`, 600);
         const asset = await db.uploadAsset.findFirst({ where: { ...mallItemWhere, publicId: id }, select: { id: true, publicId: true, mimeType: true, mediaVersion: true, posterMediaVersion: true } });
         if (!asset) throw new PartnerApiError("NOT_FOUND", "Media not found.", 404);
         const previewKind = partnerMediaKinds[kind];

@@ -18,7 +18,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const identity = await requireMobileUser(request);
-    if (isRateLimited(`new-user-rewards:${identity.id}`, { limit: 30, windowMs: 60000 })) return giftJson({ success: false, error: { code: 'RATE_LIMITED', message: 'Please wait before trying again.' } }, 429);
+    if (await isRateLimited(`new-user-rewards:${identity.id}`, { limit: 30, windowMs: 60000 })) return giftJson({ success: false, error: { code: 'RATE_LIMITED', message: 'Please wait before trying again.' } }, 429);
     const body = await request.json().catch(() => null);
     // No media enrichment/database query after a committed claim.
     return giftJson({ success: true, data: await claimNewUserReward(prisma, identity, body?.day) });

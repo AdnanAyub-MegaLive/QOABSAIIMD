@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { user, roomId } = await context(request, params);
-    if (isRateLimited(`banner-upload:${user.id}`, { limit: 10, windowMs: 3600000 })) throw bannerError("RATE_LIMITED", "Wait before uploading another banner.", 429);
+    if (await isRateLimited(`banner-upload:${user.id}`, { limit: 10, windowMs: 3600000 })) throw bannerError("RATE_LIMITED", "Wait before uploading another banner.", 429);
     const form = await bannerForm(request), file = form.get("image");
     if (!(file instanceof File) || form.getAll("image").length !== 1) throw bannerError("INVALID_BANNER", "Provide one image.");
     const media = await decodeBanner(Buffer.from(await file.arrayBuffer()), file.type);

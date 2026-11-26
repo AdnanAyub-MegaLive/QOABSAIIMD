@@ -23,7 +23,7 @@ export async function POST(request, { params }) {
     const user = await requireMobileUser(request), { conversationId } = await params;
     const { conversation } = await requireConversationParticipant(conversationId, user.id);
     await assertChatMediaAccess(prisma, conversation, user.id, true);
-    if (isRateLimited(`chat-upload:${user.id}`, { limit: 10, windowMs: 60000 }) || processing >= 2) throw chatError("RATE_LIMITED", "Media processing is busy. Please retry shortly.");
+    if (await isRateLimited(`chat-upload:${user.id}`, { limit: 10, windowMs: 60000 }) || processing >= 2) throw chatError("RATE_LIMITED", "Media processing is busy. Please retry shortly.");
     processing++; reserved = true;
     const form = await readChatMultipart(request);
     const image = form.get("image"), video = form.get("video"), file = image ?? video;

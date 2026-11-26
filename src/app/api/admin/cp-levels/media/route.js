@@ -12,7 +12,7 @@ const fail = (message, status = 422) => Object.assign(new Error(message), { stat
 export async function POST(request) {
   try {
     const admin = await requirePermission('cp.edit'); sameOrigin(request);
-    if (isRateLimited(`cp-media:${admin.id}`, { limit: 20, windowMs: 60000 })) throw fail('Please wait before uploading more files.', 429);
+    if (await isRateLimited(`cp-media:${admin.id}`, { limit: 20, windowMs: 60000 })) throw fail('Please wait before uploading more files.', 429);
     const form = await readUploadForm(request, 16 * 1024 * 1024);
     const file = form.get('file'), purpose = form.get('purpose');
     if (!['image', 'animation'].includes(purpose) || !(file instanceof File)) throw fail('Choose a media file.');

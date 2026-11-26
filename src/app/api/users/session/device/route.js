@@ -24,7 +24,7 @@ export async function PUT(request) {
   try {
     const user = await prisma.user.findUnique({ where: { publicId: payload.userId } });
     assertMobileSession(user, payload);
-    if (isRateLimited(`device-sync:${user.id}`, { limit: 10, windowMs: 60000 })) {
+    if (await isRateLimited(`device-sync:${user.id}`, { limit: 10, windowMs: 60000 })) {
       return json({ success: false, error: { code: "RATE_LIMITED", message: "Too many device updates. Try again in a minute." } }, 429, { "Retry-After": "60" });
     }
     let body;

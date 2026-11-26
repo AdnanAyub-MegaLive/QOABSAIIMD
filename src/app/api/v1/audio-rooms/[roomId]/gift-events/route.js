@@ -9,7 +9,7 @@ export function OPTIONS() { return mobileOptions(); }
 export async function GET(request, { params }) {
   try {
     const user = await requireMobileUser(request), { roomId } = await params;
-    if (isRateLimited(`gift-events:${user.id}`, { limit: 60, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Please wait before checking again." } }, 429);
+    if (await isRateLimited(`gift-events:${user.id}`, { limit: 60, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Please wait before checking again." } }, 429);
     const room = await prisma.audioRoom.findUnique({ where: { roomId } });
     if (!room || room.status !== "LIVE" || room.isBlocked || await activeRoomBan(room.id, user.id) || !(await audioRoomParticipantIds(roomId)).has(user.publicId))
       return mobileJson({ success: false, error: { code: "JOIN_ROOM_FIRST", message: "Rejoin an accessible room before recovering its gift events." } }, 403);

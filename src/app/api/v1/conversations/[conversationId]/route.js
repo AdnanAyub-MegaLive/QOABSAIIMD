@@ -18,7 +18,7 @@ export async function GET(request,{params}){
 export async function PATCH(request,{params}){
   try{
     const user=await requireMobileUser(request),{conversationId}=await params;
-    if(isRateLimited(`group-edit:${user.id}`,{limit:30,windowMs:60000}))throw chatError("RATE_LIMITED","Please wait before editing again.");
+    if(await isRateLimited(`group-edit:${user.id}`,{limit:30,windowMs:60000}))throw chatError("RATE_LIMITED","Please wait before editing again.");
     const body=await request.json();
     if(!body||typeof body!=="object"||Array.isArray(body)||Object.keys(body).some(k=>!["name","description","ownerPublicId","requestId"].includes(k))||(!Object.hasOwn(body,"name")&&!Object.hasOwn(body,"description")&&!Object.hasOwn(body,"ownerPublicId")))throw chatError("VALIDATION_ERROR","Provide name, description or ownerPublicId.");
     if(Object.hasOwn(body,"ownerPublicId")&&(typeof body.ownerPublicId!=="string"||!body.ownerPublicId.trim()))throw chatError("VALIDATION_ERROR","Provide the new owner's public ID.");

@@ -9,7 +9,7 @@ export function OPTIONS() { return mobileOptions(); }
 export async function GET(request) {
   try {
     const user = await requireMobileUser(request, { syncVip: false });
-    if (isRateLimited(`hourly-gifts:${user.id}`, { limit: 60, windowMs: 60000 })) throw hourlyError("RATE_LIMITED", "Wait before refreshing hourly rankings.", 429);
+    if (await isRateLimited(`hourly-gifts:${user.id}`, { limit: 60, windowMs: 60000 })) throw hourlyError("RATE_LIMITED", "Wait before refreshing hourly rankings.", 429);
     if ([...new URL(request.url).searchParams.keys()].length) throw hourlyError("VALIDATION_ERROR", "This endpoint uses the server's current UTC+7 hour and accepts no query parameters.");
     return mobileJson({ success: true, data: await getHourlyGiftRankings({ user, origin: requestOrigin(request) }) });
   } catch (e) {

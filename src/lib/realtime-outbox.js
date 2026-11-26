@@ -1,3 +1,5 @@
+import { withClaimedEvents, emitDurable } from './scaling/outbox-claim.js';
+import { sharedRuntime } from './scaling/shared-runtime.js';
 import { refreshReactionDelivery } from "./message-reaction-delivery.js";
 import { signalCacheForEvent } from "./cache-signal.js";
 import { prisma } from "./prisma.js";
@@ -16,7 +18,10 @@ function stateFor(io) {
 }
 export async function deliverCommittedGiftEvents(rows, io = globalThis.portalIo, db = prisma) {
   if (!io || !rows.length) return;
-  await deliver(rows.filter(row => isGiftEvent(row.event)), io, db);
+  const gifts=rows.filter(row=>isGiftEvent(row.event));
+  if(sharedRuntime()) {
+    for(let i=0;i<gifts.length;i+=100)await withClaimedEvents(db,'realtimeOutbox',gifts.slice(i,i+100).map(row=>row.id),(claimed,tx)=>deliver(claimed,io,tx));
+  } else await deliver(gifts, io, db);
 }
 async function deliver(rows, io, db) {
   const state = stateFor(io);
@@ -59,7 +64,7 @@ async function deliver(rows, io, db) {
           if (row.event === "activity-progression:updated") payload = await refreshActivityEventMedia(payload, db);
           payload = await versionMediaPayload(payload, db);
         }
-        io.to(row.channel).emit(row.event, payload);
+        await emitDurable(io, row.channel, row.event, payload);
         signalCacheForEvent(io, row.channel, row.event, payload);
         if (isGiftEvent(row.event) && process.env.REALTIME_TIMINGS === "true") {
           try {
@@ -92,8 +97,7 @@ export function flushRealtimeOutbox(io = globalThis.portalIo, db = prisma) {
     try {
       do {
         state.again = false;
-        const rows = await db.realtimeOutbox.findMany({ where: { deliveredAt: null }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 100 });
-        const sent = await deliver(rows, io, db);
+        const {rows,sent}=await withClaimedEvents(db,'realtimeOutbox',null,async(rows,tx)=>({rows,sent:await deliver(rows,io,tx)}));
         // Drain successful full batches immediately; failed-only batches wait
         // for the timer instead of creating a tight retry loop.
         if (rows.length === 100 && sent) state.again = true;

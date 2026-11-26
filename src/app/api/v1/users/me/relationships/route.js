@@ -6,7 +6,7 @@ export const OPTIONS = mobileOptions;
 export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
-    if (isRateLimited(`profile-relationship:${user.id}`, { limit: 10, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many relationship changes." } }, 429);
+    if (await isRateLimited(`profile-relationship:${user.id}`, { limit: 10, windowMs: 60000 })) return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many relationship changes." } }, 429);
     const data = await changeProfileRelationship(prisma, user.id, await request.json());
     return mobileJson({ success: true, data });
   } catch (error) {

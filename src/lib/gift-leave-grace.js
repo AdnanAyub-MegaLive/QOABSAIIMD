@@ -1,3 +1,4 @@
+import { sharedRuntime } from './scaling/shared-runtime.js';
 export const GIFT_LEAVE_GRACE_MS = 120_000;
 export const GIFT_LEAVE_SLACK_MS = 5_000;
 const SETTINGS_TTL_MS = 5_000;
@@ -23,6 +24,7 @@ function prune(intervals, now) {
 export function recordAudioRoomJoin(userId, channel, now = Date.now()) {
   const roomId = roomIdOf(channel);
   if (!userId || !roomId) return;
+  const shared=sharedRuntime();if(shared)return shared.giftPresence(userId,roomId,'join',now);
   const { presence } = state();
   const key = `${userId}|${roomId}`;
   const intervals = prune(presence.get(key) ?? [], now);
@@ -33,6 +35,7 @@ export function recordAudioRoomJoin(userId, channel, now = Date.now()) {
 export function recordAudioRoomLeave(userId, channel, now = Date.now()) {
   const roomId = roomIdOf(channel);
   if (!userId || !roomId) return;
+  const shared=sharedRuntime();if(shared)return shared.giftPresence(userId,roomId,'leave',now);
   const { presence } = state();
   const key = `${userId}|${roomId}`;
   const intervals = presence.get(key) ?? [];
@@ -45,6 +48,7 @@ export function recordAudioRoomLeave(userId, channel, now = Date.now()) {
 
 export function markAudioRoomRemoved(userId, roomId) {
   if (!userId || !roomId) return;
+  const shared=sharedRuntime();if(shared)return shared.giftPresence(userId,roomId,'remove');
   for (const item of state().presence.get(`${userId}|${roomId}`) ?? []) item.removed = true;
 }
 
@@ -67,7 +71,11 @@ export function tappedWhilePresent(userId, roomId, tappedAtValue, now = Date.now
   const tappedAt = parseTappedAt(tappedAtValue);
   if (tappedAt === null || !userId || !roomId) return false;
   if (tappedAt > now + GIFT_LEAVE_SLACK_MS) return false;
+  const shared=sharedRuntime();if(shared)return shared.giftIntervals(userId,roomId).then(intervals=>validIntervals(intervals,tappedAt,now));
   const intervals = state().presence.get(`${userId}|${roomId}`) ?? [];
+  return validIntervals(intervals,tappedAt,now);
+}
+function validIntervals(intervals,tappedAt,now) {
   return intervals.some((item) => item.leftAt !== null
     && !item.removed
     && now - item.leftAt <= GIFT_LEAVE_GRACE_MS
@@ -103,14 +111,14 @@ export async function lateGiftSender(db, { senderId, roomId, tappedAt, participa
 export function attachGiftLeaveGraceTracking(io) {
   const adapter = io.of("/").adapter;
   const userOf = (socketId) => io.of("/").sockets.get(socketId)?.data?.userId ?? null;
-  adapter.on("join-room", (channel, socketId) => { if (roomIdOf(channel)) recordAudioRoomJoin(userOf(socketId), channel); });
-  adapter.on("leave-room", (channel, socketId) => { if (roomIdOf(channel)) recordAudioRoomLeave(userOf(socketId), channel); });
+  adapter.on("join-room", (channel, socketId) => { if (roomIdOf(channel)) Promise.resolve(recordAudioRoomJoin(userOf(socketId), channel)).catch(error=>console.error("Gift presence join deferred",error.code??error.name)); });
+  adapter.on("leave-room", (channel, socketId) => { if (roomIdOf(channel)) Promise.resolve(recordAudioRoomLeave(userOf(socketId), channel)).catch(error=>console.error("Gift presence leave deferred",error.code??error.name)); });
   const timer = setInterval(() => pruneGiftLeaveGrace(), 60_000);
   timer.unref?.();
   return timer;
 }
 
-export function startRedEnvelopeRefundSweeper(db, expire, { intervalMs = 60_000 } = {}) {
+export function startRedEnvelopeRefundSweeper(db, expire, { intervalMs = 60_000, gate = fn => fn() } = {}) {
   let running = false;
   const run = async () => {
     if (running) return false;
@@ -126,7 +134,7 @@ export function startRedEnvelopeRefundSweeper(db, expire, { intervalMs = 60_000 
       running = false;
     }
   };
-  const timer = setInterval(() => void run(), intervalMs);
+  const timer = setInterval(() => void gate(run), intervalMs);
   timer.unref?.();
   return { timer, run };
 }

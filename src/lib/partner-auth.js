@@ -48,8 +48,8 @@ export function logPartnerCall(key, request, status) {
   console.info(JSON.stringify({ event: "partner_api_call", key: key?.publicId ?? null, path: url.pathname, status, at: new Date().toISOString() }));
 }
 
-export function rateLimitPartner(bucket, limit) {
-  if (isRateLimited(bucket, { limit, windowMs: 60000 }))
+export async function rateLimitPartner(bucket, limit) {
+  if (await isRateLimited(bucket, { limit, windowMs: 60000 }))
     throw new PartnerApiError("RATE_LIMITED", "Too many requests. Try again in a minute.", 429, { "Retry-After": "60" });
 }
 
@@ -58,13 +58,13 @@ export function clientAddress(request) {
 }
 
 export async function authenticatePartner(db, request) {
-  rateLimitPartner(`partner-ip:${clientAddress(request)}`, 120);
+  await rateLimitPartner(`partner-ip:${clientAddress(request)}`, 120);
   const raw = request.headers.get("x-partner-key")?.trim();
   if (!raw) throw new PartnerApiError("UNAUTHORIZED", "X-Partner-Key header is required.", 401);
   if (raw.length > 200) throw new PartnerApiError("UNAUTHORIZED", "Partner key is invalid.", 401);
   const key = await findPartnerKeyByHash(db, hashPartnerKey(raw));
   if (!key || !key.active || key.revokedAt) throw new PartnerApiError("UNAUTHORIZED", "Partner key is invalid or revoked.", 401);
-  rateLimitPartner(`partner:${key.id}`, 60);
+  await rateLimitPartner(`partner:${key.id}`, 60);
   touchPartnerKey(db, key);
   return key;
 }

@@ -70,7 +70,7 @@ export function registerRoomTools({ db, io, socket, user, isRateLimited }) {
     socket.on(`audio-room:${event}`, async (input = {}, callback) => {
       const ack = typeof callback === "function" ? callback : () => {};
       try {
-        if (isRateLimited(`room-tools:${event}:${user.id}`, { limit, windowMs: 60000 })) fail("RATE_LIMITED", "Please wait before trying again.");
+        if (await isRateLimited(`room-tools:${event}:${user.id}`, { limit, windowMs: 60000 })) fail("RATE_LIMITED", "Please wait before trying again.");
         const data = await operation(db, socket, user, input);
         if (event === "mix-set" && data.changed) io.to(`audio-room:${data.roomId}`).emit("audio-room:mix-changed", { success: true, data });
         if (event === "room-invite" && !data.duplicate) io.to(`user:${data.userId}`).emit("audio-room:room-invited", { success: true, data });

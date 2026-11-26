@@ -8,7 +8,7 @@ import { payoutAccess,payoutDto,payoutSelect,payoutFail,escrowQuote,createEscrow
 
 async function actorFor(request,admin) {
  const user=admin?await requirePermission("finance.withdrawals"):await requireMobileUser(request);
- if(isRateLimited(`escrow:${admin?"admin":"user"}:${user.id}`,{limit:request.method==="GET"?120:20,windowMs:60000}))payoutFail("RATE_LIMITED","Try again in a minute.",429);
+ if(await isRateLimited(`escrow:${admin?"admin":"user"}:${user.id}`,{limit:request.method==="GET"?120:20,windowMs:60000}))payoutFail("RATE_LIMITED","Try again in a minute.",429);
  return {id:user.id,admin};
 }
 export function payoutError(e) {

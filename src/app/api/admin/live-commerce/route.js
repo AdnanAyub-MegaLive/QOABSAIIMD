@@ -31,7 +31,7 @@ export async function POST(request) {
     const admin = await requirePermission("video.view");
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
       await requirePermission("video.gifts");
-      if (isRateLimited(`live-gift-upload:${admin.id}`, { limit: 20, windowMs: 60000 })) throw Object.assign(new Error("Too many uploads. Please retry shortly."), { status: 429, code: "RATE_LIMITED" });
+      if (await isRateLimited(`live-gift-upload:${admin.id}`, { limit: 20, windowMs: 60000 })) throw Object.assign(new Error("Too many uploads. Please retry shortly."), { status: 429, code: "RATE_LIMITED" });
       const form = await readUploadForm(request, 14 * 1024 * 1024), file = form.get("file"), name = String(form.get("name") || "").trim();
       const svga = isSvgaFile(file);
       const fileName = String(file?.name ?? "").toLowerCase();

@@ -1,3 +1,5 @@
+import { sharedRuntime } from './scaling/shared-runtime.js';
+import { syncAudioPresence, syncVideoPresence } from './scaling/room-presence.js';
 import { retryVideoRtcCleanup } from "./video-lifecycle.js";
 import { prisma } from "./prisma.js";
 import { emitToAudioRoom, emitToVideoLive } from "./realtime.js";
@@ -25,6 +27,8 @@ export async function reconcileAudioRoomPresence(io, now = new Date()) {
   });
   let corrected = 0;
   for (const room of rooms) {
+    const shared=sharedRuntime();
+    if(shared){const state=await syncAudioPresence(prisma,io,room,shared,now);if(state.freedSeats)await globalThis.portalBroadcastAudioRoomSeats?.(room,"");if(state.changed){corrected++;emitToAudioRoom(room.roomId,'audio-room:presence-snapshot',{success:true,data:{roomId:room.roomId,participantCount:state.total,revision:state.revision,reconciledAt:now.toISOString()}});}continue;}
     const sockets = await io.in(`audio-room:${room.roomId}`).fetchSockets();
     const counts = socketUserCounts(sockets);
     const connectedPublicIds = [...counts.keys()];
@@ -86,6 +90,7 @@ export async function refreshConnectedVideoHosts(io = globalThis.portalIo, now =
 }
 
 export async function reconcileStaleVideoPresence(now = new Date(), staleMs = 180_000) {
+  if(sharedRuntime()&&globalThis.portalIo){const lives=await prisma.videoLiveSession.findMany({where:{status:'LIVE'}});for(const live of lives)await syncVideoPresence(prisma,globalThis.portalIo,live,now);}
   await refreshConnectedVideoHosts(globalThis.portalIo, now).catch((error) => { console.error("Live host refresh failed", error?.code ?? error?.name); return 0; });
   await endStaleVideoLives(now, staleMs);
   await retryVideoRtcCleanup();

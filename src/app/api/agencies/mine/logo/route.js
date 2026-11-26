@@ -11,7 +11,7 @@ export function OPTIONS() { return mobileOptions(); }
 export async function POST(request) {
   try {
     const user = await requireMobileUser(request);
-    if (isRateLimited(`agency-logo:${user.id}`, { limit: 10, windowMs: 60000 }))
+    if (await isRateLimited(`agency-logo:${user.id}`, { limit: 10, windowMs: 60000 }))
       return mobileJson({ success: false, error: { code: "RATE_LIMITED", message: "Too many uploads. Try again in a minute." } }, 429);
     const { file, form } = await readAvatarUpload(request);
     const values = form.getAll("agencyId");

@@ -276,7 +276,7 @@ export async function completeAccountDeletion(db, requestId, {verifiedBy, extern
   return db.accountDeletionRequest.update({where:{id:requestId},data:{status:'COMPLETED',completedAt:new Date(),lastError:null,verifiedBy,scope:Prisma.DbNull}});
 }
 
-export function startAccountDeletionWorker(db) {
+export function startAccountDeletionWorker(db, {run = fn => fn()} = {}) {
   let busy=false;
   const tick=async()=>{
     if(busy||process.env.ACCOUNT_DELETION_ENABLED!=='true')return;
@@ -286,5 +286,5 @@ export function startAccountDeletionWorker(db) {
       if(job)await runAccountDeletion(db,job.id);
     }catch(error){console.error('Account deletion deferred',error.code||'CLEANUP_RETRY_REQUIRED');}finally{busy=false;}
   };
-  const timer=setInterval(tick,30000);timer.unref();return()=>clearInterval(timer);
+  const timer=setInterval(()=>void run(tick),30000);timer.unref();return()=>clearInterval(timer);
 }

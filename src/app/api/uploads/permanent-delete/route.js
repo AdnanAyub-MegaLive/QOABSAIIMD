@@ -10,7 +10,7 @@ export async function POST(request) {
     sameOrigin(request);
     const admin = await requirePermission("uploads.delete");
     if (admin.role !== "SUPER_ADMIN") throw Object.assign(new Error("Only Platform Admin can permanently delete uploads."), { status: 403, code: "FORBIDDEN" });
-    if (isRateLimited(`unused-upload:${admin.id}`, { limit: 10, windowMs: 60000 })) throw Object.assign(new Error("Please wait before trying again."), { status: 429, code: "RATE_LIMITED" });
+    if (await isRateLimited(`unused-upload:${admin.id}`, { limit: 10, windowMs: 60000 })) throw Object.assign(new Error("Please wait before trying again."), { status: 429, code: "RATE_LIMITED" });
     const body = await jsonBody(request);
     if (body.action === "PREVIEW") {
       if (typeof body.assetId !== "string" || body.assetId.length > 200) throw Object.assign(new Error("Select an upload."), { status: 422, code: "VALIDATION_ERROR" });

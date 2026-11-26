@@ -1,3 +1,4 @@
+import { sharedRuntime } from './scaling/shared-runtime.js';
 import { addDailyTaskProgress } from "./daily-tasks.js";
 // Conservative 15-second samples. No time is invented across restarts or missed ticks.
 export function createTaskTimer(db,io){
@@ -8,10 +9,12 @@ export function createTaskTimer(db,io){
    if(!await db.dailyTaskDefinition.count({where:{active:true,deletedAt:null,metric:"ON_MIC",category:{active:true}}}))return;
    const end=new Date(Math.floor(now.getTime()/15000)*15000),start=new Date(end.getTime()-15000);
    const seats=await db.audioRoomSeat.findMany({where:{occupantUserId:{not:null},occupiedAt:{lte:start},audioRoom:{status:"LIVE",isBlocked:false}},select:{occupantUserId:true,audioRoom:{select:{roomId:true}}}});
+   const shared=sharedRuntime();
+   const sockets=shared?await io.fetchSockets():[...io.sockets.sockets.values()];
    const seen=new Set();
    for(const seat of seats){
     const userId=seat.occupantUserId;if(seen.has(userId))continue;
-    const connected=[...io.sockets.sockets.values()].some(s=>s.data?.internalUserId===userId&&s.rooms.has(`audio-room:${seat.audioRoom.roomId}`)&&s.data.audioRoomTaskTimers?.get(seat.audioRoom.roomId)?.startedAt<=start.getTime());
+    const connected=sockets.some(s=>s.data?.internalUserId===userId&&s.rooms.has(`audio-room:${seat.audioRoom.roomId}`)&&(shared?s.data.audioRoomTaskStarts?.[seat.audioRoom.roomId]:s.data.audioRoomTaskTimers?.get(seat.audioRoom.roomId)?.startedAt)<=start.getTime());
     if(!connected)continue;seen.add(userId);
     try{await db.$transaction(async tx=>{
      const user=await tx.user.findUnique({where:{id:userId},select:{status:true,deletedAt:true}});if(!user||user.status!=="ACTIVE"||user.deletedAt)return;

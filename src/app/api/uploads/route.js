@@ -234,7 +234,7 @@ export async function POST(request) {
       { status: 401 },
     );
   try {
-    if (isRateLimited(`asset-upload:${session.user.id ?? session.user.email}`, { limit: 20, windowMs: 60000 })) return Response.json({ success: false, error: { code: "RATE_LIMITED", message: "Too many uploads. Please wait a minute." } }, { status: 429, headers: { "Retry-After": "60" } });
+    if (await isRateLimited(`asset-upload:${session.user.id ?? session.user.email}`, { limit: 20, windowMs: 60000 })) return Response.json({ success: false, error: { code: "RATE_LIMITED", message: "Too many uploads. Please wait a minute." } }, { status: 429, headers: { "Retry-After": "60" } });
     const form = await readUploadForm(request, maxMusicFileSize + 6 * 1024 * 1024);
     const name = String(form.get("name") ?? "").trim();
     const details =

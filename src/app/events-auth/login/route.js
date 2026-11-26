@@ -13,7 +13,7 @@ import { isRateLimited } from "../../../lib/rate-limit.js";
 export async function POST(request) {
   const ip = requestIp(request);
   try {
-    if (isRateLimited(`events-login:${ip}`, { limit: 5, windowMs: 15 * 60_000 }))
+    if (await isRateLimited(`events-login:${ip}`, { limit: 5, windowMs: 15 * 60_000 }))
       throw new EventModuleError("RATE_LIMITED", "Too many login attempts. Try again later.", 429);
     const input = parseWith(loginSchema, await request.json());
     const user = await prisma.eventUser.findUnique({ where: { email: input.email } });

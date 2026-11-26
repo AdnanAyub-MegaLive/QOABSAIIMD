@@ -231,7 +231,7 @@ export async function createMessage(
     return prior;
   };
   if(clientMessageId){const prior=await replay();if(prior)return present(prior);}
-  if(conversation.kind==="WORLD"&&isRateLimited(`world-send:${sender.id}`,{limit:5,windowMs:10000}))throw Object.assign(new Error("Please wait before sending another World Chat message."),{code:"RATE_LIMITED"});
+  if(conversation.kind==="WORLD"&&await isRateLimited(`world-send:${sender.id}`,{limit:5,windowMs:10000}))throw Object.assign(new Error("Please wait before sending another World Chat message."),{code:"RATE_LIMITED"});
   if((options.voice||options.mediaId)&&!["DIRECT","GROUP"].includes(conversation.kind))throw Object.assign(new Error("Media messages are for private and group chats only."),{code:"VALIDATION_ERROR"});
   if (!body || body.length > 2000) {
     const error = new Error("Message body must contain between 1 and 2000 characters.");

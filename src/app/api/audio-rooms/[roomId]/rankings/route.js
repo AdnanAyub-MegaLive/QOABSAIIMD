@@ -9,7 +9,7 @@ export function OPTIONS() { return mobileOptions(); }
 export async function GET(request, { params }) {
   try {
     const user = await requireMobileUser(request, { syncVip: false });
-    if (isRateLimited(`room-ranking:${user.id}`, { limit: 120, windowMs: 60000 })) throw rankingError("RATE_LIMITED", "Wait before refreshing rankings.", 429);
+    if (await isRateLimited(`room-ranking:${user.id}`, { limit: 120, windowMs: 60000 })) throw rankingError("RATE_LIMITED", "Wait before refreshing rankings.", 429);
     const { roomId } = await params;
     const data = await getRoomRankings({ roomId, user, query: parseRoomRankingQuery(new URL(request.url).searchParams), origin: requestOrigin(request) });
     return mobileJson({ success: true, data });

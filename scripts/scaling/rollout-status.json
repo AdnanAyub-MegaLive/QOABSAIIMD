@@ -1,16 +1,16 @@
 {
-  "checkedAtUtc": "2026-11-26T06:32:56.798144+00:00",
+  "checkedAtUtc": "2026-11-26T08:15:13.427285+00:00",
   "candidateCommit": "f9d322b0105dd2735a36282b38fb2b9af445c6de",
   "remoteMainCommit": "3bdf00420c9749eb62333bee71124eae08311aa6",
   "production": {
     "release": "3bdf004-WEHjDm",
-    "processes": 1,
-    "status": "online",
+    "processes": 0,
+    "status": "maintenance",
     "restarts": 0,
-    "changedThisCheck": false
+    "changedThisCheck": true
   },
   "stage": "3 - gradual rollout",
-  "activation": "blocked_by_incomplete_stage_2",
+  "activation": "single_process_candidate_ready",
   "observationStartedAt": null,
   "minimumTwoProcessObservationHours": 24,
   "phases": [
@@ -47,16 +47,9 @@
     }
   ],
   "remainingMigration": [
-    "Deploy measurement-only change with production still at one process and collect an agreed peak window",
-    "Refactor existing salary, reward, refund, game, cleanup, expiry, notification and outbox jobs to accept the leader transaction or durable idempotent job ownership",
-    "Replace all synchronous memory rate-limit call sites and room-comment limits with awaited shared-state calls",
-    "Migrate gift-leave history, reconnect grace and top-gifter sequencing to shared state",
-    "Replace local adapter room-size and old-session-revocation checks with cross-worker queries",
-    "Integrate connection-identity presence accounting with actual audio/video room joins, disconnects and repair jobs",
-    "Integrate database claims into both actual realtime outboxes and validate Android deduplication for every retryable event",
-    "Replace ban, Special ID and room restriction memory expiry timers with database-driven jobs",
-    "Full portal schema/data fixture, nginx affinity and two-phone interaction tests including financial invariants",
-    "Readiness/draining, connection budgets, Redis outage policy and rolling-deployment rollback rehearsal"
+    "Production single-process smoke checks",
+    "Nginx sticky routing and rolling/rollback rehearsal",
+    "24-hour two-process observation including peak traffic"
   ],
-  "note": "No server configuration, traffic routing, process count, database schema or deployed code changed. No 24-hour observation period has begun."
+  "note": "Maintenance enabled by request. Android 2.0.5 build25 signed and delivered. No two-process production observation has begun."
 }

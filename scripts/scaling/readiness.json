@@ -1,8 +1,8 @@
 {
   "stage": "2 - measure and prepare safe scaling",
-  "status": "foundation implemented; portal migration incomplete",
-  "productionChanged": false,
-  "productionProcessCount": 1,
+  "status": "shared-state integration and isolated built-portal tests passed",
+  "productionChanged": true,
+  "productionProcessCount": 0,
   "implemented": [
     "Opt-in PORTAL_METRICS=true request histograms, cancellation tracking, slow-request database correlation and Node event-loop delay",
     "Aggregate nginx timing reader that removes URL parameters and dynamic identifiers, separates media and excludes Socket.IO from API latency",
@@ -10,7 +10,14 @@
     "Transaction-bound job leader and exclusive-job foundation; job database writes must use the provided connection",
     "Atomic presence proof using connection identity and tombstones to tolerate duplicate and delayed operations",
     "SKIP LOCKED outbox proof with stable event IDs and at-least-once retry semantics",
-    "Four real Node processes with fresh local PostgreSQL and Redis, failure injection and teardown"
+    "Four real Node processes with fresh local PostgreSQL and Redis, failure injection and teardown",
+    "Actual server timers and notification consumers gated by a dedicated database leader with fail-stop handling",
+    "All rate-limit callers await shared Redis state; gift grace, reconnect grace and top-gifter sequences shared",
+    "Both production outboxes use transactional SKIP LOCKED claims and acknowledged cross-worker fanout",
+    "Audio/video presence repairs serialized by per-room transaction locks and cross-worker socket queries",
+    "Persisted expiry sweep for bans, Special IDs, room restrictions and invitations",
+    "HTTP/Socket.IO readiness gates and graceful shutdown; separate rolling activation script limited to one or two workers",
+    "Next deployment identity, stable action encryption key and no retained worker-local incremental data cache during initial rollout"
   ],
   "commands": {
     "diagnostics": "PORTAL_METRICS=true npm start (apply only during a reviewed single-process release)",
@@ -24,20 +31,33 @@
     "Pooled query duration includes pool waiting and database round trips; transaction.acquire measures transaction connection acquisition",
     "Database track_io_timing is off; cumulative deadlocks and temporary bytes have no known reset boundary",
     "499 means the connection closed before the response completed, not proof of a particular app timeout cause",
-    "Redis restart test deliberately clears temporary state; production persistence and recovery policy still need configuration",
-    "Outbox proof marks dispatch, not client acknowledgement; stable event IDs require consumer deduplication and snapshot recovery"
+    "Outbox proof marks dispatch, not client acknowledgement; stable event IDs require consumer deduplication and snapshot recovery",
+    "Production Redis uses AOF everysec and noeviction; no claim of exactly-once transport or client acknowledgement",
+    "Initial rollout disables incremental route/data storage; image/static caching is unchanged",
+    "Leader loss terminates the worker; existing financial idempotency/row locks remain required"
   ],
   "remainingBeforeProductionScaling": [
-    "Deploy measurement-only change with production still at one process and collect an agreed peak window",
-    "Refactor existing salary, reward, refund, game, cleanup, expiry, notification and outbox jobs to accept the leader transaction or durable idempotent job ownership",
-    "Replace all synchronous memory rate-limit call sites and room-comment limits with awaited shared-state calls",
-    "Migrate gift-leave history, reconnect grace and top-gifter sequencing to shared state",
-    "Replace local adapter room-size and old-session-revocation checks with cross-worker queries",
-    "Integrate connection-identity presence accounting with actual audio/video room joins, disconnects and repair jobs",
-    "Integrate database claims into both actual realtime outboxes and validate Android deduplication for every retryable event",
-    "Replace ban, Special ID and room restriction memory expiry timers with database-driven jobs",
-    "Full portal schema/data fixture, nginx affinity and two-phone interaction tests including financial invariants",
-    "Readiness/draining, connection budgets, Redis outage policy and rolling-deployment rollback rehearsal"
+    "Activate one process under maintenance and verify production health/logs",
+    "Rehearse nginx affinity, rolling replacement and rollback before opening two-process traffic",
+    "Observe at least 24 hours including peak traffic before considering four processes"
   ],
-  "deploymentGate": "Do not enable multiple portal workers from this branch. Foundation lab success is not full portal concurrency readiness."
+  "deploymentGate": "Do not enable multiple portal workers from this branch. Foundation lab success is not full portal concurrency readiness.",
+  "maintenance": true,
+  "validatedAt": "2026-11-26T08:15:13.426316+00:00",
+  "validation": {
+    "androidUnitTests": 954,
+    "targetedPortalTests": 56,
+    "isolatedScenarios": 19,
+    "fullSuiteFirstRun": {
+      "passed": 2445,
+      "failedAssertions": 40,
+      "baselineReproduced": 40
+    },
+    "databaseRetest": {
+      "passed": 11,
+      "preexistingAccountDeletionFailures": 5,
+      "reason": "Unreviewed TulasiSession ownership model"
+    },
+    "physicalTwoPhoneTest": false
+  }
 }
