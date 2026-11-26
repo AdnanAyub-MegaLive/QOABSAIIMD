@@ -95,3 +95,14 @@ html body #ranking .podium-card .levels .level-tag{flex-shrink:1 !important;min-
 html body #ranking .podium-card .levels .vip-tag{overflow:hidden !important}
 html body #ranking .podium-card .levels .vip-value{flex-shrink:0 !important}
 html body #ranking .podium-card .entry-details{grid-template-columns:minmax(0,1fr) !important}
+html #ranking .podium-card .entry-name{max-width:78%;padding:0 .2em 0 .1em;box-sizing:border-box}
+html #ranking .podium-card.place-1 .entry-name{max-width:72%}
+html #ranking #rewards{background:none}
+html #ranking .podium-card:is(.place-2,.place-3){padding-bottom:calc(var(--plate-pad,0px) + 4%)}
+html #ranking .podium-card:is(.place-2,.place-3) .entry-name{font-size:clamp(10px,2.9vw,13px);line-height:1.15;max-width:60%}
+html #ranking .podium-card:is(.place-2,.place-3) .ranking-gap{font-size:clamp(10px,2.8vw,12px);gap:2px;margin:1px 0 0}
+html #ranking .podium-card:is(.place-2,.place-3) .gap-coin{width:16px;height:12px}
+html #ranking .podium-card:is(.place-2,.place-3) .gap-arrows{font-size:12px;line-height:5px;width:8px}
+html #ranking .podium-card:is(.place-2,.place-3) .entry-name{font-size:clamp(10px,2.7vw,12px);line-height:1.1;max-width:58%;transform:translateY(7px)}
+html #ranking .podium-card:is(.place-2,.place-3) .ranking-gap{font-size:clamp(10px,2.6vw,11px);line-height:1.1;transform:translateY(5px)}
+html #ranking .podium-card:is(.place-2,.place-3) .gap-coin{width:14px;height:11px}
