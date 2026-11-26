@@ -30,22 +30,22 @@ html #ranking #board #status { padding:6px 12px; margin:0; font-size:12px; }
 
 /* Figma Game Ranking, node 1917:4. */
 html body{margin:0;background:#111;color:white;font-family:Arial,sans-serif}
-html #ranking{max-width:440px;margin:auto;min-height:100dvh;background:#1c1c1c url(assets/game-46315.png) center top/122% auto no-repeat;padding-bottom:24px}
+html #ranking{max-width:440px;margin:auto;min-height:100dvh;background:#1c1c1c url(assets/game-46315.webp) center top/122% auto no-repeat;padding-bottom:24px}
 html #ranking header{padding-top:42px;position:relative}
-html #ranking #tracks{height:72px;padding:0;margin:0 12%;background:url(assets/game-9f4bf.png) center/contain no-repeat}
+html #ranking #tracks{height:72px;padding:0;margin:0 12%;background:url(assets/game-9f4bf.webp) center/contain no-repeat}
 html #ranking #tracks h1{font-size:0;margin:0}
-html #ranking #back{top:17px;left:16px;font-size:0;width:30px;height:30px;background:url(assets/game-6535a.png) center/contain no-repeat}
-html #ranking #rules{top:20px;right:18px;width:23px;height:23px;font-size:0;background:url(assets/game-54555.png) center/contain no-repeat}
+html #ranking #back{top:17px;left:16px;font-size:0;width:30px;height:30px;background:url(assets/game-6535a.webp) center/contain no-repeat}
+html #ranking #rules{top:20px;right:18px;width:23px;height:23px;font-size:0;background:url(assets/game-54555.webp) center/contain no-repeat}
 html #ranking #rewards{top:19px;right:54px}html #ranking #rewards img{width:25px;height:25px}
 html #ranking #periods{background:none;gap:8px;height:65px;padding:0}
-html #ranking #periods button{background:url(assets/game-2a953.png) center/100% 100% no-repeat;font-weight:700;font-size:14px;color:white;height:44px}
-html #ranking #periods button[aria-selected=true]{background-image:url(assets/game-c82f4.png);color:#080a00;text-shadow:none;height:56px}
+html #ranking #periods button{background:url(assets/game-2a953.webp) center/100% 100% no-repeat;font-weight:700;font-size:14px;color:white;height:44px}
+html #ranking #periods button[aria-selected=true]{background-image:url(assets/game-c82f4.webp);color:#080a00;text-shadow:none;height:56px}
 html #ranking .heading{font-size:10px;background:#161616;border-color:#d8f02d;margin:0 auto}
 html #ranking #hero{height:auto;aspect-ratio:440/265;margin:25px 0 20px}
 html #ranking .podium-card{padding:0;background:none;top:29%;width:31%;height:62%;display:flex;justify-content:flex-end;z-index:1}
-html #ranking .podium-card.place-1{left:27%;top:0;width:46%;height:100%;padding:0 0 6%;background:url(assets/game-0ecdf.png) center bottom/100% 42% no-repeat;z-index:2}
-html #ranking .podium-card.place-2{left:5%;background:url(assets/game-b95f7.png) center bottom/100% 42% no-repeat;padding-bottom:5%}
-html #ranking .podium-card.place-3{left:auto;right:5%;background:url(assets/game-b95f7.png) center bottom/100% 42% no-repeat;padding-bottom:5%}
+html #ranking .podium-card.place-1{left:27%;top:0;width:46%;height:100%;padding:0 0 6%;background:url(assets/game-0ecdf.webp) center bottom/100% 42% no-repeat;z-index:2}
+html #ranking .podium-card.place-2{left:5%;background:url(assets/game-b95f7.webp) center bottom/100% 42% no-repeat;padding-bottom:5%}
+html #ranking .podium-card.place-3{left:auto;right:5%;background:url(assets/game-b95f7.webp) center bottom/100% 42% no-repeat;padding-bottom:5%}
 html #ranking .podium-card .art{top:0;left:10%;width:80%;aspect-ratio:1}
 html #ranking .podium-card.place-1 .art{top:0;left:6%;width:88%;aspect-ratio:171/147}
 html #ranking .podium-card .art .portrait{top:15%;left:20%;width:60%;height:65%;border-radius:0;clip-path:polygon(15% 0,85% 0,100% 15%,100% 85%,85% 100%,15% 100%,0 85%,0 15%)}
@@ -56,7 +56,7 @@ html #ranking .podium-card .entry-name{font-style:italic;font-size:clamp(12px,4v
 html #ranking .podium-card.place-1 .entry-name{font-size:clamp(18px,5vw,28px)}
 html #ranking .podium-card .levels:empty,html #ranking .podium-card .owned-badges{display:none}
 html #ranking .ranking-gap{color:#d8f02d;font-size:14px}
-html #ranking .gap-coin{background:url(assets/game-8244a.png) center/contain no-repeat;width:25px;height:20px;border:0;box-shadow:none;font-size:0;border-radius:0}
+html #ranking .gap-coin{background:url(assets/game-8244a.webp) center/contain no-repeat;width:25px;height:20px;border:0;box-shadow:none;font-size:0;border-radius:0}
 html #ranking #board{background:none;border:0;border-radius:0;padding:0 7%;min-height:200px}
 html #ranking #board .row{background:transparent;border:1px solid #eee;border-radius:9px;padding:8px;gap:6px;min-height:57px;margin-bottom:16px}
 html #ranking #board .rank{border-right:2px solid #d8f02d;padding-right:5px;font-size:18px;width:24px}
@@ -73,5 +73,25 @@ dialog{color:white;background:#202219;border:1px solid #d8f02d;border-radius:18p
 html #ranking .podium-card.place-2,html #ranking .podium-card.place-3{padding-bottom:2%}
 html #ranking .podium-card.place-2 .art,html #ranking .podium-card.place-3 .art{left:15%;width:70%}
 
-html #ranking #tracks{position:relative}html #ranking #tracks:before,html #ranking #tracks:after{content:'';position:absolute;top:40%;width:16%;height:25%;background:url(assets/game-850be.png) center/contain no-repeat}html #ranking #tracks:before{left:-7%}html #ranking #tracks:after{right:-7%;transform:scaleX(-1)}
-html #ranking #board .row,html #ranking #board .row:nth-child(even){border:0;background:url(assets/game-a853c.png) center/100% 300% no-repeat}
+html #ranking #tracks{position:relative}html #ranking #tracks:before,html #ranking #tracks:after{content:'';position:absolute;top:40%;width:16%;height:25%;background:url(assets/game-850be.webp) center/contain no-repeat}html #ranking #tracks:before{left:-7%}html #ranking #tracks:after{right:-7%;transform:scaleX(-1)}
+html #ranking #board .row,html #ranking #board .row:nth-child(even){border:0;background:url(assets/game-a853c.webp) center/100% 300% no-repeat}
+html body #ranking #board .row .identity{flex:1 1 0 !important;min-width:0 !important;overflow:hidden !important}
+html body #ranking #board .row .entry-name{display:block !important;max-width:100% !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
+html body #ranking #board .row .levels,html body #ranking #board .row .owned-badges{flex-wrap:wrap !important;max-width:100% !important;min-width:0 !important}
+html body #ranking #board .row .owned-badges{overflow:hidden !important}
+html body #ranking .level-tag{flex-shrink:0 !important}
+html body #ranking .level-tag[data-artwork=true]{width:40px !important;height:20px !important;min-width:40px !important;flex-shrink:0 !important}
+html body #ranking .level-tag[data-artwork=true] .level-background{object-fit:fill !important}
+html body #ranking .level-tag[data-artwork=true] .level-value{position:absolute !important;top:0 !important;bottom:0 !important;left:42% !important;right:5% !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 !important;line-height:1 !important;white-space:nowrap !important}
+html body #ranking .podium-card .entry-details{min-width:0 !important;max-width:90% !important}
+html body #ranking .podium-card .levels{flex-wrap:nowrap !important;max-width:100% !important;min-width:0 !important}
+html body #ranking .podium-card .levels .vip-tag{min-width:0 !important;flex-shrink:1 !important}
+html body #ranking .podium-card .levels .vip-art{min-width:0 !important;flex-shrink:1 !important}
+html body #ranking .podium-card .owned-badges{flex-wrap:nowrap !important;max-width:100% !important;min-width:0 !important;overflow:hidden !important}
+html body #ranking .podium-card .owned-badge{flex:0 1 auto !important;min-width:0 !important;object-fit:contain !important}
+html body #ranking .podium-card .ranking-gap{max-width:100% !important;min-width:0 !important}
+html body #ranking .podium-card .gap-value{min-width:0 !important;overflow:visible !important}
+html body #ranking .podium-card .levels .level-tag{flex-shrink:1 !important;min-width:28px !important}
+html body #ranking .podium-card .levels .vip-tag{overflow:hidden !important}
+html body #ranking .podium-card .levels .vip-value{flex-shrink:0 !important}
+html body #ranking .podium-card .entry-details{grid-template-columns:minmax(0,1fr) !important}

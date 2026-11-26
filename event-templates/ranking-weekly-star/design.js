@@ -1,7 +1,7 @@
 /* Figma 1897:4. Artwork is local; names, portraits and chase gaps are live. */
 window.WeeklyStarDesign=(()=>{
 const $=id=>document.getElementById(id),n=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls;if(text!==undefined)e.textContent=text;return e;};
-const art=(file,cls)=>{const e=n('img',cls);e.src=`assets/${file}.png`;e.alt='';return e;};
+const art=(file,cls)=>{const e=n('img',cls);e.src=`assets/${file}.webp`;e.alt='';return e;};
 function render(entries,h){
 $('hero').replaceChildren();$('entries').replaceChildren();
 const hall=n('section','weekly-hall');hall.append(art('f5da2','hall-ring'),art('c781d','hall-banner'),art('d61c0','hall-title'));const first=entries.find(e=>e.rank===1);if(first){const face=h.image(first.person?.profileImage,'hall-portrait',true);hall.prepend(face);}else hall.append(n('span','hall-empty','Be the next Weekly Star'));

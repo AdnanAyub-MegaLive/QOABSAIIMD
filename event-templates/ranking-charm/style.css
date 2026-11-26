@@ -37,7 +37,7 @@ html #periods{height:48px}
 html #periods{align-items:center}
 html #periods{padding:0 6px}
 html #periods{
-    background: url(assets/period-bar.png);
+    background: url(assets/period-bar.webp);
     background-position: center;
     background-size: 100% 100%;
     background-repeat: no-repeat;}
@@ -46,13 +46,13 @@ html #periods button{width:33.333%}
 html #periods button{font-size:16px}
 html #periods button{background:0 0}
 html #periods button{border:0}
-html #periods button[aria-selected=true]{background:url(assets/period-active.png) 50%/100% 100% no-repeat}
+html #periods button[aria-selected=true]{background:url(assets/period-active.webp) 50%/100% 100% no-repeat}
 html #periods button[aria-selected=true]{text-shadow:0 1px 3px #0057b4}
 html #ranking{margin:auto}
 html #ranking{min-height:100dvh}
 html #ranking{max-width:520px}
 html #ranking{padding-bottom:env(safe-area-inset-bottom)}
-html #ranking{background:#062437 url(assets/palace.png) top/100% no-repeat}
+html #ranking{background:#062437 url(assets/palace.webp) top/100% no-repeat}
 html #retry{margin:12px auto}
 html #retry{display:block}
 html #retry{border-radius:20px}
@@ -215,13 +215,13 @@ html .podium-card.place-1{top:16px}
 html .podium-card.place-1{left:18%}
 html .podium-card.place-1{height:350px}
 html .podium-card.place-1{width:64%}
-html .podium-card.place-1{background: url(assets/card-1.png);background-position: top;background-size: 60% 90%;background-repeat: no-repeat;}
+html .podium-card.place-1{background: url(assets/card-1.webp);background-position: top;background-size: 60% 90%;background-repeat: no-repeat;}
 html .podium-card.place-1{}
 html .podium-card.place-2{top:375px}
 html .podium-card.place-2{left:5%}
 html .podium-card.place-2{height:275px}
 html .podium-card.place-2{width:38%}
-html .podium-card.place-2{background-image:url(assets/card-2-border.png),url(assets/card-2.png)}
+html .podium-card.place-2{background-image:url(assets/card-2-border.webp),url(assets/card-2.webp)}
 html .podium-card.place-2{padding-top:133px}
 html .podium-card.place-2{padding-bottom:12px}
 html .podium-card.place-2 .art{top:-34px}
@@ -237,7 +237,7 @@ html .podium-card.place-3{top:375px}
 html .podium-card.place-3{right:5%}
 html .podium-card.place-3{height:275px}
 html .podium-card.place-3{width:38%}
-html .podium-card.place-3{background-image:url(assets/card-3-border.png),url(assets/card-3.png)}
+html .podium-card.place-3{background-image:url(assets/card-3-border.webp),url(assets/card-3.webp)}
 html .podium-card.place-3{padding-top:133px}
 html .podium-card.place-3{padding-bottom:12px}
 html .podium-card.place-3 .art{top:-34px}
@@ -282,7 +282,7 @@ html .row{align-items:center}
 html .row{gap:6px}
 html .row{border-radius:0}
 html .row{padding:18px 20px}
-html .row{background:url(assets/ranking-row.png) 50%/100% 155% no-repeat}
+html .row{background:url(assets/ranking-row.webp) 50%/100% 155% no-repeat}
 html .row{border:0}
 html .row .entry-name{color:#ffda49}
 html .row .levels{margin:2px 0}
@@ -500,7 +500,7 @@ html #ranking #board .row::after {
   bottom: 0;
   height: auto;
   aspect-ratio: 1640 / 148;
-  background: url("assets/ranking-strip.png") center / 100% 100% no-repeat;
+  background: url("assets/ranking-strip.webp") center / 100% 100% no-repeat;
   pointer-events: none;
 }
 
@@ -532,3 +532,31 @@ html body #ranking #periods > button{background-size:100% 136% !important;backgr
 html body #ranking #periods > button{background-size:100% 128% !important;background-position:50% 26% !important}
 /* Calibrated from screenshot: highlight top stays, bottom pulled ~3.5px inside the bar. */
 html body #ranking #periods > button{background-size:100% 118.5% !important;background-position:50% 34% !important}
+html body #ranking #board .row .identity{flex:1 1 0 !important;min-width:0 !important;overflow:hidden !important}
+html body #ranking #board .row .entry-name{display:block !important;max-width:100% !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
+html body #ranking #board .row .levels,html body #ranking #board .row .owned-badges{flex-wrap:wrap !important;max-width:100% !important;min-width:0 !important}
+html body #ranking #board .row .owned-badges{overflow:hidden !important}
+html body #ranking .level-tag{flex-shrink:0 !important}
+html body #ranking .level-tag[data-artwork=true]{width:40px !important;height:20px !important;min-width:40px !important;flex-shrink:0 !important}
+html body #ranking .level-tag[data-artwork=true] .level-background{object-fit:fill !important}
+html body #ranking .level-tag[data-artwork=true] .level-value{position:absolute !important;top:0 !important;bottom:0 !important;left:42% !important;right:5% !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 !important;line-height:1 !important;white-space:nowrap !important}
+html body #ranking .podium-card .entry-details{min-width:0 !important;max-width:90% !important}
+html body #ranking .podium-card .levels{flex-wrap:nowrap !important;max-width:100% !important;min-width:0 !important}
+html body #ranking .podium-card .levels .vip-tag{min-width:0 !important;flex-shrink:1 !important}
+html body #ranking .podium-card .levels .vip-art{min-width:0 !important;flex-shrink:1 !important}
+html body #ranking .podium-card .owned-badges{flex-wrap:nowrap !important;max-width:100% !important;min-width:0 !important;overflow:hidden !important}
+html body #ranking .podium-card .owned-badge{flex:0 1 auto !important;min-width:0 !important;object-fit:contain !important}
+html body #ranking .podium-card .ranking-gap{max-width:100% !important;min-width:0 !important}
+html body #ranking .podium-card .gap-value{min-width:0 !important;overflow:visible !important}
+html body #ranking .podium-card .levels .level-tag{flex-shrink:1 !important;min-width:28px !important}
+html body #ranking .podium-card .levels .vip-tag{overflow:hidden !important}
+html body #ranking .podium-card .levels .vip-value{flex-shrink:0 !important}
+html body #ranking .podium-card .entry-details{grid-template-columns:minmax(0,1fr) !important}
+html body #ranking .podium-card.place-1 > .entry-name{left:25% !important;right:auto !important;width:50% !important;max-width:50% !important}
+html body #ranking .podium-card.place-1 > .entry-details{left:25% !important;width:50% !important;max-width:50% !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-name{left:12% !important;right:auto !important;width:76% !important;max-width:76% !important}
+html body #ranking .podium-card:is(.place-2,.place-3) > .entry-details{left:12% !important;width:76% !important;max-width:76% !important;gap:0 !important}
+html body #ranking .podium-card:is(.place-2,.place-3) .ranking-gap{margin:0 !important}
+html body #ranking .podium-card:is(.place-2,.place-3) .owned-badges{margin:0 !important;gap:2px !important}
+html body #ranking .podium-card:is(.place-2,.place-3){height:290px !important;background-size:100% auto !important;background-position:50% 90px !important}
+html,html body,html body #ranking{overflow-x:clip !important}
