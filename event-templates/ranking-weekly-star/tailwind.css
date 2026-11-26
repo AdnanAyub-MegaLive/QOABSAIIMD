@@ -41,21 +41,21 @@ html #ranking .podium-card.place-2 .owned-badges, html #ranking .podium-card.pla
 html #ranking #board { position:relative; height:auto; max-height:none; overflow:visible; }
 /* Weekly Star Figma artwork and responsive placement. */
 html body{margin:0;background:#080118;color:white;font-family:Arial,sans-serif}
-html #ranking{max-width:440px;margin:auto;background:#080118 url(assets/8f5bd.png) center top/297% auto repeat-y;min-height:100dvh;padding-bottom:24px}
+html #ranking{max-width:440px;margin:auto;background:#080118 url(assets/8f5bd.webp) center top/297% auto repeat-y;min-height:100dvh;padding-bottom:24px}
 html #ranking header{padding-top:10px;position:relative}
-html #ranking #tracks{margin:0;height:auto;aspect-ratio:440/145;padding:0;background:url(assets/40d91.png) center/74% auto no-repeat,url(assets/1e2ea.png) center/97% auto no-repeat}
+html #ranking #tracks{margin:0;height:auto;aspect-ratio:440/145;padding:0;background:url(assets/40d91.webp) center/74% auto no-repeat,url(assets/1e2ea.webp) center/97% auto no-repeat}
 html #ranking #tracks h1{font-size:0;margin:0}
 html #ranking #back{font-size:25px;top:3px;left:5px;z-index:3}
 html #ranking #rules{top:4px;right:5px;z-index:3}
 html #ranking #weekly-gifts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:10px 5%;min-height:75px;font-size:12px;text-align:center}
-html #ranking .weekly-gift{position:relative;width:21%;aspect-ratio:74/67;background:url(assets/26843.png) center/100% 100% no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center}
+html #ranking .weekly-gift{position:relative;width:21%;aspect-ratio:74/67;background:url(assets/26843.webp) center/100% 100% no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center}
 html #ranking .weekly-gift img{width:50%;height:45%;object-fit:contain}
 html #ranking .weekly-gift span{font-size:9px;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-html #ranking #weekly-banner{display:block;border:0;width:100%;aspect-ratio:440/90;background:url(assets/1f984.png) 55% center/67% auto no-repeat,url(assets/84ac5.png) 92% center/5% auto no-repeat,url(assets/37d69.png) 94% center/9% auto no-repeat,url(assets/bf30e.png) center/100% 178% no-repeat}
+html #ranking #weekly-banner{display:block;border:0;width:100%;aspect-ratio:440/90;background:url(assets/1f984.webp) 55% center/67% auto no-repeat,url(assets/84ac5.webp) 92% center/5% auto no-repeat,url(assets/37d69.webp) 94% center/9% auto no-repeat,url(assets/bf30e.webp) center/100% 178% no-repeat}
 html #ranking #filters{padding:0;margin-top:74px}
-html #ranking #periods{height:76px;background:url(assets/8d247.png) center/12% 100% no-repeat;gap:10%;padding:0 2%}
-html #ranking #periods button{width:45%;height:64px;font-size:0;background:url(assets/7a77b.png) center/80% auto no-repeat,url(assets/04323.png) center/100% 100% no-repeat;opacity:.55}
-html #ranking #periods button+button{background-image:url(assets/d3fe2.png),url(assets/04323.png)}
+html #ranking #periods{height:76px;background:url(assets/8d247.webp) center/12% 100% no-repeat;gap:10%;padding:0 2%}
+html #ranking #periods button{width:45%;height:64px;font-size:0;background:url(assets/7a77b.webp) center/80% auto no-repeat,url(assets/04323.webp) center/100% 100% no-repeat;opacity:.55}
+html #ranking #periods button+button{background-image:url(assets/d3fe2.webp),url(assets/04323.webp)}
 html #ranking #periods button[aria-selected=true]{opacity:1;filter:drop-shadow(0 0 4px #f7bcff)}
 html #ranking #rewards{top:310px;right:0;background:#b500ef;border-radius:8px;padding:5px}
 html #ranking #rewards img{width:55px;height:45px}
@@ -82,18 +82,57 @@ html #ranking #hero{height:auto}
 .weekly-name{z-index:2;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
 .weekly-place{position:absolute;top:52%;font-weight:bold;color:#ffe07a}
 .weekly-card .ranking-gap{position:relative;z-index:2;margin-top:8px}
-html #ranking #board{border:0;border-radius:0;background:url(assets/4d06b.png) center top/110% 100% no-repeat;padding:30px 3%}
-html #ranking #board .row{background:url(assets/2d232.png) center/100% 285% no-repeat;min-height:66px;padding:9px 6%;margin:0;border:0;gap:7px}
+html #ranking #board{border:0;border-radius:0;background:url(assets/4d06b.webp) center top/110% 100% no-repeat;padding:30px 3%}
+html #ranking #board .row{background:url(assets/2d232.webp) center/100% 285% no-repeat;min-height:66px;padding:9px 6%;margin:0;border:0;gap:7px}
 html #ranking #board .entry-name{flex:1;font-size:12px;min-width:0}
 html #ranking #board .ranking-gap{font-size:12px}
 html #ranking #board .ranking-avatar{width:38px;height:38px}
 html #ranking #board .ranking-avatar .portrait{width:30px;height:30px}
-html #ranking .gap-coin{background:url(assets/cc87d.png) center/contain no-repeat;border:0;box-shadow:none;font-size:0}
+html #ranking .gap-coin{background:url(assets/cc87d.webp) center/contain no-repeat;border:0;box-shadow:none;font-size:0}
 
 *{box-sizing:border-box}[hidden]{display:none!important}button{cursor:pointer;color:inherit;font:inherit}button:focus-visible{outline:2px solid #ffe57f;outline-offset:3px}
 #back,#rules,#rewards{position:absolute;border:0;background:#22052d99;border-radius:8px}#search{display:none}#periods{display:flex;align-items:center}#periods button{border:0}#tracks{text-align:center}#board .row{display:flex;align-items:center}#board .rank{width:18px;flex-shrink:0}#status{text-align:center;font-size:13px}#more,#retry{display:block;margin:15px auto;background:#430962;border:1px solid #e8b152;border-radius:18px;padding:9px 20px}
 dialog{color:white;background:#20082f;border:1px solid #dab343;border-radius:18px;max-width:min(92vw,440px);max-height:85dvh;padding:24px;overflow:auto}dialog::backdrop{background:#000b}dialog button{background:#4d125f;border:1px solid #c89c46;border-radius:14px;padding:8px 18px}.reward-card{border:1px solid #967638;border-radius:12px;margin:12px 0;padding:12px}.reward-items{display:flex;flex-wrap:wrap;gap:12px}.reward-item{display:flex;flex-direction:column;align-items:center;font-size:13px}.reward-art{width:64px;height:64px;object-fit:contain}
-html #ranking #board .row:nth-child(even){background:url(assets/2d232.png) center/100% 285% no-repeat}
-html #ranking{overflow:hidden;background-color:#0b011d;background-image:url(assets/ac01e.png);background-size:136% auto}
+html #ranking #board .row:nth-child(even){background:url(assets/2d232.webp) center/100% 285% no-repeat}
+html #ranking{overflow:hidden;background-color:#0b011d;background-image:url(assets/ac01e.webp);background-size:136% auto}
 
-html #ranking{background:#0a0119;background-image:radial-gradient(ellipse at 0 15%,#34085c88,transparent 35%),radial-gradient(ellipse at 100% 70%,#35046088,transparent 40%),url(assets/8f5bd.png);background-size:100% 100%,100% 100%,100% 100%;background-repeat:no-repeat}
+html #ranking{background:#0a0119;background-image:radial-gradient(ellipse at 0 15%,#34085c88,transparent 35%),radial-gradient(ellipse at 100% 70%,#35046088,transparent 40%),url(assets/8f5bd.webp);background-size:100% 100%,100% 100%,100% 100%;background-repeat:no-repeat}
+html body #ranking #board .row .identity{flex:1 1 0 !important;min-width:0 !important;overflow:hidden !important}
+html body #ranking #board .row .entry-name{display:block !important;max-width:100% !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
+html body #ranking #board .row .levels,html body #ranking #board .row .owned-badges{flex-wrap:wrap !important;max-width:100% !important;min-width:0 !important}
+html body #ranking #board .row .owned-badges{overflow:hidden !important}
+html body #ranking .level-tag{flex-shrink:0 !important}
+html body #ranking .level-tag[data-artwork=true]{width:40px !important;height:20px !important;min-width:40px !important;flex-shrink:0 !important}
+html body #ranking .level-tag[data-artwork=true] .level-background{object-fit:fill !important}
+html body #ranking .level-tag[data-artwork=true] .level-value{position:absolute !important;top:0 !important;bottom:0 !important;left:42% !important;right:5% !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 !important;line-height:1 !important;white-space:nowrap !important}
+html body #ranking .podium-card .entry-details{min-width:0 !important;max-width:90% !important}
+html body #ranking .podium-card .levels{flex-wrap:nowrap !important;max-width:100% !important;min-width:0 !important}
+html body #ranking .podium-card .levels .vip-tag{min-width:0 !important;flex-shrink:1 !important}
+html body #ranking .podium-card .levels .vip-art{min-width:0 !important;flex-shrink:1 !important}
+html body #ranking .podium-card .owned-badges{flex-wrap:nowrap !important;max-width:100% !important;min-width:0 !important;overflow:hidden !important}
+html body #ranking .podium-card .owned-badge{flex:0 1 auto !important;min-width:0 !important;object-fit:contain !important}
+html body #ranking .podium-card .ranking-gap{max-width:100% !important;min-width:0 !important}
+html body #ranking .podium-card .gap-value{min-width:0 !important;overflow:visible !important}
+html body #ranking .podium-card .levels .level-tag{flex-shrink:1 !important;min-width:28px !important}
+html body #ranking .podium-card .levels .vip-tag{overflow:hidden !important}
+html body #ranking .podium-card .levels .vip-value{flex-shrink:0 !important}
+html body #ranking .podium-card .entry-details{grid-template-columns:minmax(0,1fr) !important}
+html #ranking #tracks{margin-top:30px}
+html #ranking #back{top:4px;left:6px;width:32px;height:30px;line-height:28px}
+html #ranking #rules{top:4px;right:6px;padding:5px 10px}
+html #ranking #filters{margin-top:8px}
+html #ranking #weekly-banner{margin-bottom:0}
+html #ranking #rewards{position:relative;top:auto;right:auto;display:flex;align-items:center;gap:6px;margin:6px 4% 0 auto;padding:4px 10px;font-size:12px}
+html #ranking #rewards img{width:28px;height:24px;object-fit:contain}
+html #ranking #rewards:after{font-size:12px}
+.weekly-hall{width:64%;margin:0 auto}
+html #ranking .weekly-card .weekly-avatar{position:absolute;top:10%;left:50%;transform:translateX(-50%);width:44%;height:auto;aspect-ratio:1;z-index:2}
+html #ranking .weekly-card .weekly-avatar .portrait{width:76%;height:76%}
+.weekly-card:not(.weekly-place-1){justify-content:flex-start;padding:0 12%}
+.weekly-card:not(.weekly-place-1) .weekly-place{top:47%}
+.weekly-card:not(.weekly-place-1) .weekly-name{position:absolute;top:55%;left:12%;right:12%;max-width:none;text-align:center}
+html #ranking #hero .weekly-card:not(.weekly-place-1) .ranking-gap{position:absolute;top:63%;left:0;right:0;margin:0}
+html #ranking #board .row{padding-left:12%;padding-right:9%}
+.hall-empty{left:25%;width:50%;top:52%;font-size:12px;line-height:1.3}
+html #ranking .weekly-place-1 .weekly-portrait{top:19.3%;left:37%;width:26%;height:26.6%;border-radius:50%;object-fit:cover}
+html #ranking .weekly-hall .hall-portrait{left:26.5%;top:30.6%;width:47%;height:49.2%}

@@ -82,10 +82,10 @@ window.RankingDesign = (() => {
     n.append(levels);if(!['agency','game'].includes(type))n.append(badges(e.person));return n;
   }
   const themes={
-    agency:{background:'bg-[url(assets/agency-background.png)]',period:'bg-[url(assets/agency-period.png)]',active:'bg-[url(assets/agency-active.png)]',board:'bg-gradient-to-br from-amber-600 to-amber-950'},
-    cp:{background:'bg-[url(assets/sweet-background.png)]',period:'bg-[url(assets/cp-period.png)]',active:'bg-[url(assets/cp-active.png)]',board:'bg-rose-950/20'},
-    wealth:{background:'bg-[url(assets/wealth-palace.png)]',period:'bg-[url(assets/wealth-period-bar.png)]',active:'bg-[url(assets/wealth-period-active.png)]',board:'bg-gradient-to-b from-red-800 to-red-950'},
-    charm:{background:'bg-[url(assets/charm-palace.png)]',period:'bg-[url(assets/charm-period-bar.png)]',active:'bg-[url(assets/charm-period-active.png)]',board:'bg-slate-900/80'},
+    agency:{background:'bg-[url(assets/agency-background.webp)]',period:'bg-[url(assets/agency-period.webp)]',active:'bg-[url(assets/agency-active.webp)]',board:'bg-gradient-to-br from-amber-600 to-amber-950'},
+    cp:{background:'bg-[url(assets/sweet-background.webp)]',period:'bg-[url(assets/cp-period.webp)]',active:'bg-[url(assets/cp-active.webp)]',board:'bg-rose-950/20'},
+    wealth:{background:'bg-[url(assets/wealth-palace.webp)]',period:'bg-[url(assets/wealth-period-bar.webp)]',active:'bg-[url(assets/wealth-period-active.webp)]',board:'bg-gradient-to-b from-red-800 to-red-950'},
+    charm:{background:'bg-[url(assets/charm-palace.webp)]',period:'bg-[url(assets/charm-period-bar.webp)]',active:'bg-[url(assets/charm-period-active.webp)]',board:'bg-slate-900/80'},
   };
   function theme(type){
     const t=themes[type === 'game' ? 'wealth' : type];$('ranking').className=`relative mx-auto min-h-screen max-w-[440px] overflow-hidden bg-cover bg-top pb-8 ${t.background}`;
@@ -105,7 +105,7 @@ window.RankingDesign = (() => {
       : ['left-[12%] top-[15%] h-[65%] w-[35%]', 'left-[51%] top-[15%] h-[65%] w-[35%]'];
     pair.append(portrait(entry?.person, notify, `absolute ${positions[0]}`));
     pair.append(portrait(entry?.partner, notify, `absolute ${positions[1]}`));
-    pair.append(first ? animatedArt('sweet-first-frame.svga', 'sweet-first-frame.png') : art('sweet-pair-frame.png', 'pointer-events-none absolute inset-0 h-full w-full'));
+    pair.append(first ? animatedArt('sweet-first-frame.svga', 'sweet-first-frame.webp') : art('sweet-pair-frame.webp', 'pointer-events-none absolute inset-0 h-full w-full'));
     return pair;
   }
   function sweetCard(entry, rank, notify) {
@@ -113,34 +113,34 @@ window.RankingDesign = (() => {
     const card = node('article', first ? 'relative col-span-2 mx-auto w-full' : 'relative w-full');
     card.append(sweetPair(entry, notify, first));
     const pennant = node('div', first ? 'relative mx-auto -mt-12 aspect-[1166/1350] w-[36%]' : 'relative mx-auto -mt-4 aspect-[1166/1350] w-[76%]');
-    pennant.append(art(['sweet-first.png','sweet-second.png','sweet-third.png'][rank-1], 'absolute inset-0 h-full w-full'));
+    pennant.append(art(['sweet-first.webp','sweet-second.webp','sweet-third.webp'][rank-1], 'absolute inset-0 h-full w-full'));
     card.append(pennant);
     if(entry) card.append(node('p','relative z-10 mx-2 truncate text-center text-xs',`${entry.person?.name || 'Unavailable'} & ${entry.partner?.name || 'Unavailable'}`));
     return card;
   }
   function sweetRender(entries, helpers) {
     const banner = node('div','relative mx-auto aspect-[396/288] w-full');
-    banner.append(art('cp-header.gif','block h-full w-full object-contain'));
+    banner.append(art('cp-header.webp','block h-full w-full object-contain'));
     $('wheel').append(banner);
     const rules=node('button','ml-auto mr-3 my-2 block rounded-full border border-amber-300 bg-purple-950 px-5 py-1 text-sm font-bold','Rules');
     rules.type='button'; rules.onclick=()=>$('rules-dialog').showModal(); $('wheel').append(rules);
-    const heading = node('h2','mx-auto my-3 flex h-12 w-[74%] items-center justify-center bg-[url(assets/sweet-label.png)] bg-[length:100%_100%] text-base font-bold','Top 3 couples');
+    const heading = node('h2','mx-auto my-3 flex h-12 w-[74%] items-center justify-center bg-[url(assets/sweet-label.webp)] bg-[length:100%_100%] text-base font-bold','Top 3 couples');
     $('hero').append(heading);
     const podium = node('div','grid grid-cols-2 gap-3 px-3');
     for(const rank of [1,2,3]) podium.append(sweetCard(entries.find(e=>e.rank===rank),rank,helpers.notify));
     $('hero').append(podium);
-    const rewards = node('button','mx-auto my-5 block h-12 w-[52%] bg-[url(assets/sweet-button.png)] bg-[length:100%_100%] text-base font-bold','View rewards');
+    const rewards = node('button','mx-auto my-5 block h-12 w-[52%] bg-[url(assets/sweet-button.webp)] bg-[length:100%_100%] text-base font-bold','View rewards');
     rewards.type='button'; rewards.onclick=()=>$('rewards-dialog').showModal();
     const rewardPreview=node('section','mx-3 mt-4 rounded-2xl border border-amber-300/60 bg-rose-950/40 p-3');
     rewardPreview.id='cp-reward-preview';
     rewardPreview.append(node('h2','text-center font-bold','Rewards for this period'),node('p','py-3 text-center text-xs','Open this event from Mega Live to view rewards.'));
     $('hero').append(rewardPreview,rewards);
     for(const entry of entries){
-      const row=node('article','relative my-4 flex min-h-24 items-center gap-2 bg-[url(assets/sweet-row.png)] bg-[length:100%_100%] px-5 py-4');
+      const row=node('article','relative my-4 flex min-h-24 items-center gap-2 bg-[url(assets/sweet-row.webp)] bg-[length:100%_100%] px-5 py-4');
       const rankBadge=node('div','relative w-10 shrink-0 text-center text-xl font-bold');
-      if(entry.rank<=2)rankBadge.append(art(`sweet-badge-${entry.rank}.png`,'absolute inset-0 h-full w-full object-contain'));
+      if(entry.rank<=2)rankBadge.append(art(`sweet-badge-${entry.rank}.webp`,'absolute inset-0 h-full w-full object-contain'));
       rankBadge.append(node('span','relative block py-4',entry.rank)); row.append(rankBadge);
-      if(entry.rank===1)row.classList.add('bg-[url(assets/sweet-purple-row.png)]');
+      if(entry.rank===1)row.classList.add('bg-[url(assets/sweet-purple-row.webp)]');
       const pair=node('div','w-24 shrink-0'); if(entry.rank>3){pair.style.display='flex';pair.append(equippedPortrait(entry.person),equippedPortrait(entry.partner));}else pair.append(sweetPair(entry,helpers.notify)); row.append(pair);
       const names=node('div','min-w-0 flex-1 text-xs');
       names.append(node('p','truncate font-semibold',entry.person?.name || 'Unavailable'),node('p','truncate',entry.partner?.name || 'Unavailable'));
@@ -158,14 +158,14 @@ window.RankingDesign = (() => {
       const artbox=node('div',first?'relative z-20 aspect-square w-full':'relative z-20 aspect-square w-full');
       const p=portrait(e.person,helpers.notify,first?'absolute left-[29%] top-[37%] h-[40%] w-[42%]':'absolute left-[23%] top-[22%] h-[52%] w-[54%]',type==='agency');
       if(type==='agency'){p.setAttribute('aria-label',`Open ${e.name} agency details`);p.disabled=!e.id;p.onclick=()=>helpers.notify({type:'ranking:open-agency',agencyPublicId:e.id});}
-      artbox.append(p,art(`frame-${e.rank}.gif`,'pointer-events-none absolute inset-0 h-full w-full object-contain'));c.append(artbox);
+      artbox.append(p,art(`frame-${e.rank}.webp`,'pointer-events-none absolute inset-0 h-full w-full object-contain'));c.append(artbox);
       let card;
-      if(type==='agency')card=node('div',first?'relative -mt-[23%] flex aspect-[774/554] flex-col justify-center bg-[url(assets/agency-first.png)] bg-[length:100%_100%] px-4 pt-5':'relative -mt-[23%] flex aspect-[638/438] flex-col justify-center bg-[url(assets/agency-pedestal.png)] bg-[length:100%_100%] px-2 pt-2');
-      else {const backgrounds={wealth:['bg-[url(assets/wealth-card-1.png)]','bg-[url(assets/wealth-card-2.png)]','bg-[url(assets/wealth-card-3.png)]'],charm:['bg-[url(assets/charm-card-1.png)]','bg-[url(assets/charm-card-2.png)]','bg-[url(assets/charm-card-3.png)]']};card=node('div',`relative -mt-[28%] flex min-h-28 flex-col justify-end bg-[length:100%_100%] px-2 pb-6 pt-8 ${backgrounds[type === 'game' ? 'wealth' : type][e.rank-1]}`);if(type==='charm'&&e.rank>1)card.append(art(`charm-card-${e.rank}-border.png`,'pointer-events-none absolute inset-0 h-full w-full'));}
+      if(type==='agency')card=node('div',first?'relative -mt-[23%] flex aspect-[774/554] flex-col justify-center bg-[url(assets/agency-first.webp)] bg-[length:100%_100%] px-4 pt-5':'relative -mt-[23%] flex aspect-[638/438] flex-col justify-center bg-[url(assets/agency-pedestal.webp)] bg-[length:100%_100%] px-2 pt-2');
+      else {const backgrounds={wealth:['bg-[url(assets/wealth-card-1.webp)]','bg-[url(assets/wealth-card-2.webp)]','bg-[url(assets/wealth-card-3.webp)]'],charm:['bg-[url(assets/charm-card-1.webp)]','bg-[url(assets/charm-card-2.webp)]','bg-[url(assets/charm-card-3.webp)]']};card=node('div',`relative -mt-[28%] flex min-h-28 flex-col justify-end bg-[length:100%_100%] px-2 pb-6 pt-8 ${backgrounds[type === 'game' ? 'wealth' : type][e.rank-1]}`);if(type==='charm'&&e.rank>1)card.append(art(`charm-card-${e.rank}-border.webp`,'pointer-events-none absolute inset-0 h-full w-full'));}
       const info=details(e,type,helpers);if(['agency','game'].includes(type))info.append(helpers.gap(e));else {const badges=info.lastElementChild;info.append(helpers.gap(e),badges);}card.append(info);c.append(card);podium.append(c);
     }
     for(const e of entries.filter(e=>e.rank>3)){
-      const bg=type==='charm'?'bg-[url(assets/charm-ranking-row.png)]':type==='agency'?'border-b border-amber-300/70':'rounded-2xl border border-amber-300 bg-red-950/60';
+      const bg=type==='charm'?'bg-[url(assets/charm-ranking-row.webp)]':type==='agency'?'border-b border-amber-300/70':'rounded-2xl border border-amber-300 bg-red-950/60';
       const row=node('article',`row my-2 flex min-h-24 items-center gap-2 bg-[length:100%_100%] px-4 py-3 ${bg}`);const identity=details(e,type,helpers);
       identity.className='min-w-0 flex-1 text-xs [&>button]:block [&>button]:max-w-full [&>button]:truncate';
       const total=node('div','ml-auto flex shrink-0 flex-col items-end gap-1');

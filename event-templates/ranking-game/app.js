@@ -149,7 +149,7 @@
       if(e.rank<=3){
         const card=el('article',`podium-card place-${e.rank}`),art=el('div','art');
         art.append(image(e.person?.profileImage,'portrait',true));
-        const frame=el('img','frame');frame.src=`assets/game-${e.rank===1?'03b7d':'65200'}.png`;frame.alt=`Rank ${e.rank}`;art.append(frame);const medal=el('img','game-medal');medal.src=`assets/game-${e.rank===1?'cc84f':e.rank===2?'9bd86':'6efe3'}.png`;medal.alt=`Rank ${e.rank}`;art.append(medal);if(e.rank===1){const crown=el('img','game-crown');crown.src='assets/game-4dbf2.png';crown.alt='';art.append(crown);}
+        const frame=el('img','frame');frame.src=`assets/game-${e.rank===1?'03b7d':'65200'}.webp`;frame.alt=`Rank ${e.rank}`;art.append(frame);const medal=el('img','game-medal');medal.src=`assets/game-${e.rank===1?'cc84f':e.rank===2?'9bd86':'6efe3'}.webp`;medal.alt=`Rank ${e.rank}`;art.append(medal);if(e.rank===1){const crown=el('img','game-crown');crown.src='assets/game-4dbf2.webp';crown.alt='';art.append(crown);}
         card.append(art,entryName(e),gap(e));podium.append(card);
       }else{
         const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e));

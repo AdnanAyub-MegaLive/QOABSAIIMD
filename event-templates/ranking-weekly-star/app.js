@@ -69,7 +69,7 @@
   if(typeof MutationObserver!=='undefined')new MutationObserver(()=>{if($('rewards-dialog').open)loadRewards();}).observe($('rewards-dialog'),{attributes:true,attributeFilter:['open']});
   const notify = data => window.ReactNativeWebView?.postMessage(JSON.stringify(data));
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
-  const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { n.hidden = true; }, { once: true }); return n; };
+  const image = (url, cls, fallback = false) => { const n = el('img', cls); n.alt = ''; n.loading = 'lazy'; const safe = typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/')); n.src = safe ? url : 'assets/dceee.svg'; if (!safe && !fallback) n.hidden = true; n.addEventListener('error', () => { if (fallback) n.src = 'assets/dceee.svg'; else n.hidden = true; }, { once: true }); return n; };
 
   let ownTotal=null;
   function gap(entry) {
@@ -162,7 +162,7 @@
       if(e.rank<=3){
         const card=el('article',`podium-card place-${e.rank}`),art=el('div','art');
         art.append(image(e.person?.profileImage,'portrait',true));
-        const frame=el('img','frame');frame.src=`assets/game-${e.rank===1?'03b7d':'65200'}.png`;frame.alt=`Rank ${e.rank}`;art.append(frame);const medal=el('img','game-medal');medal.src=`assets/game-${e.rank===1?'cc84f':e.rank===2?'9bd86':'6efe3'}.png`;medal.alt=`Rank ${e.rank}`;art.append(medal);if(e.rank===1){const crown=el('img','game-crown');crown.src='assets/game-4dbf2.png';crown.alt='';art.append(crown);}
+        const frame=el('img','frame');frame.src=`assets/game-${e.rank===1?'03b7d':'65200'}.webp`;frame.alt=`Rank ${e.rank}`;art.append(frame);const medal=el('img','game-medal');medal.src=`assets/game-${e.rank===1?'cc84f':e.rank===2?'9bd86':'6efe3'}.webp`;medal.alt=`Rank ${e.rank}`;art.append(medal);if(e.rank===1){const crown=el('img','game-crown');crown.src='assets/game-4dbf2.webp';crown.alt='';art.append(crown);}
         card.append(art,entryName(e),levels(e.person,e),gap(e),badges(e.person));podium.append(card);
       }else{
         const row=entryContainer(e,'row'),details=el('div','identity');details.append(entryName(e),levels(e.person,e),badges(e.person));
