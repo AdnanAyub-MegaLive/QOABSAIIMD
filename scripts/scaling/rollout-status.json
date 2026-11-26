@@ -15,7 +15,7 @@
   },
   "stage": "3 - gradual rollout",
   "activation": "two_process_observation",
-  "observationStartedAt": "2026-11-26T09:40:24.245562+00:00",
+  "observationStartedAt": "2026-11-26T09:53:39.901580+00:00",
   "minimumTwoProcessObservationHours": 24,
   "phases": [
     {
@@ -52,7 +52,7 @@
   ],
   "remainingMigration": [],
   "note": "Admin credentials regression corrected with rolling release; observation restarted after hotfix. Four workers remain disabled.",
-  "earliestReviewAt": "2026-11-27T09:40:24.245562+00:00",
+  "earliestReviewAt": "2026-11-27T09:53:39.901580+00:00",
   "remainingValidation": [
     "24 continuous hours including peak traffic",
     "errors and cancellations",
@@ -72,5 +72,10 @@
     "fixCommit": "9b9051e",
     "validation": "Regression reproduced before fix; 7 auth tests and isolated full HTTP credentials/session flow across two workers passed.",
     "observationReset": true
+  },
+  "assetIncident": {
+    "cause": "path.join normalized the trailing /. before cp, nesting static assets one directory below nginx alias",
+    "resolvedAt": "2026-11-26T09:53:39.901580+00:00",
+    "verification": "15 public login assets HTTP 200; authenticated dashboard observed in connected browser"
   }
 }

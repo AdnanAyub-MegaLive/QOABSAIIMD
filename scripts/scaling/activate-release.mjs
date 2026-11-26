@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -42,12 +42,23 @@ const started=[];
 try {
   // Hashed assets remain available across old/new HTML during the transition.
   mkdirSync('/var/lib/megalive/next-static',{recursive:true});
-  run('cp',['-a',path.join(release,'.next/static/.'),'/var/lib/megalive/next-static/']);
+  run('cp',['-a',path.join(release,'.next/static')+'/.','/var/lib/megalive/next-static/']);
   for(const processInfo of current) {
-    const source=path.join(processInfo.pm2_env.pm_cwd,'.next/static/.');
+    const source=path.join(processInfo.pm2_env.pm_cwd,'.next/static')+'/.';
     if(existsSync(source))run('cp',['-an',source,'/var/lib/megalive/next-static/']);
   }
   run('chmod',['-R','a+rX','/var/lib/megalive/next-static']);
+  // Refuse to switch traffic if assets were nested or omitted by the copy.
+  function verifyAssets(source, destination) {
+    for (const entry of readdirSync(source, { withFileTypes: true })) {
+      const from = path.join(source, entry.name), to = path.join(destination, entry.name);
+      if (entry.isDirectory()) verifyAssets(from, to);
+      else if (!existsSync(to) || !readFileSync(from).equals(readFileSync(to))) {
+        throw Error(`Missing or mismatched published asset: ${entry.name}`);
+      }
+    }
+  }
+  verifyAssets(path.join(release, '.next/static'), '/var/lib/megalive/next-static');
   for(const port of available) {
     const name=`megalive-portal-${port}`;
     if(list().some(p=>p.name===name))run('pm2',['delete',name]);
