@@ -44,7 +44,7 @@ export async function syncProgressionProps(userId, client = prisma) {
       OR: [
         {
           distribution: "VIP",
-          minimumVipLevel: { not: null, lte: user.vipLevel },
+          minimumVipLevel: user.vipLevel > 0 ? user.vipLevel : -1,
         },
         {
           distribution: "SVIP",
@@ -60,7 +60,7 @@ export async function syncProgressionProps(userId, client = prisma) {
   });
   // Revoke only level-derived rewards, never independent purchases or grants.
   await client.uploadAssetAssignment.deleteMany({
-    where: { userId: user.id, source: "VIP", asset: { distribution: "VIP", minimumVipLevel: { gt: user.vipLevel } } },
+    where: { userId: user.id, source: "VIP", asset: { distribution: "VIP", minimumVipLevel: { not: user.vipLevel } } },
   });
   if (!eligible.length) return;
   const now = new Date();
