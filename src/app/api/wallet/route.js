@@ -1,3 +1,4 @@
+import { agencyTransferSettings } from "@/lib/agency-wallet-transfer";
 import {hostWithdrawalPolicy} from "@/lib/host-salary";
 import { withdrawalAvailability, payoutConfiguration } from "@/lib/withdrawal-contract";
 import { walletEligibility } from "@/lib/wallet-eligibility";
@@ -27,6 +28,7 @@ export async function GET(request) {
         walletRevision: true,
         resellerCoinBalance: true,
         diamondExchangeEnabled: true,
+        walletFrozen: true,
         appRoles: true,
         role: true,
         agencyId: true,
@@ -38,6 +40,7 @@ export async function GET(request) {
       },
     });
     let policy=await currencyPolicy(prisma);
+    const agencyPolicy=policy;
     let hostReason=null;
     try { policy=await hostWithdrawalPolicy(prisma,user,policy); }
     catch(error){ if(error.code!=="HOST_SALARY_LEVEL_REQUIRED")throw error;hostReason={code:error.code,message:error.message}; }
@@ -77,6 +80,7 @@ export async function GET(request) {
         },
         diamondExchange: diamondRules(policy, user, "EXCHANGE"),
         diamondTransfer: transferRules,
+        agencyTransfer: await agencyTransferSettings(prisma, user, agencyPolicy),
         resellerPayout: {enabled:transferRules.enabled&&escrowConfigured&&policy.rules.usdtEnabled===true,reason:!transferRules.enabled?transferRules.reason:!escrowConfigured?"Payout rates or private storage configuration is incomplete.":!policy.rules.usdtEnabled?"Payouts are disabled.":null,availableDiamonds:String(user.hostSalaryCoinBalance),rules:transferRules,withdrawalMinDiamonds:policy.rules.withdrawalMinDiamonds,withdrawalMaxDiamonds:policy.rules.withdrawalMaxDiamonds,paymentDayChoices:[1,3,5],defaultPaymentDays:3,verificationHours:24,endpoint:"/api/v1/wallet/reseller-payouts"},
         canTransferCoins: user.appRoles.includes("RESELLER") && walletEligibility(user).transfer,
         diamonds: user.hostSalaryCoinBalance.toString(),
