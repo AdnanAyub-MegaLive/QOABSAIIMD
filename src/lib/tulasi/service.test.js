@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../prisma.js", () => ({ prisma: {} }));
 vi.mock("../mobile-session-state.js", () => ({ assertMobileSession: () => {} }));
+const awardActivityXp = vi.fn(async () => {});
+vi.mock("../activity-levels.js", () => ({ awardActivityXp }));
 
 const { buildGameUrl, handleCallback, tulasiUid, updateBalance, userInformation, updateGameList } = await import("./service.js");
 const { decryptBigData, encryptBigData } = await import("./crypto.js");
@@ -36,7 +38,7 @@ const bet = (extra = {}) => ({ token: TOKEN, uid: tulasiUid("USR-100123"), trans
 
 describe("tulasi service", () => {
   let db;
-  beforeEach(() => { db = fakeDb(); });
+  beforeEach(() => { db = fakeDb(); awardActivityXp.mockClear(); });
 
   it("maps public ids to collision-free numeric uids", () => {
     expect(tulasiUid("USR-100123")).toBe(1_000_000_100_123);
@@ -54,6 +56,14 @@ describe("tulasi service", () => {
     expect(db.state.ledger).toHaveLength(1);
     expect(db.state.ledger[0].metadata.gameEndTimestamp).toBe(now + 5000);
     expect(db.state.ledger[0]).toMatchObject({ type: "GAME_WAGER", direction: "DEBIT", referenceId: "tulasi:1255759810054324225" });
+  });
+
+  it("awards game level XP for bets only, once per transaction", async () => {
+    await updateBalance(bet(), db, now);
+    await updateBalance(bet(), db, now);
+    await updateBalance(bet({ type: 1, coin: 250, transactionId: "2" }), db, now);
+    expect(awardActivityXp).toHaveBeenCalledTimes(1);
+    expect(awardActivityXp).toHaveBeenCalledWith(db, "GAME", "u1", "tulasi:1255759810054324225", 100n);
   });
 
   it("credits winnings", async () => {

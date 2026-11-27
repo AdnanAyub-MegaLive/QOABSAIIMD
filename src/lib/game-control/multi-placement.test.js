@@ -1,6 +1,8 @@
 import {it,expect,vi,afterEach} from "vitest";
 vi.mock("../prisma.js",()=>({prisma:{}}));
 vi.mock("../mobile-session-state.js",()=>({assertMobileSession:vi.fn()}));
+const {awardActivityXp}=vi.hoisted(()=>({awardActivityXp:vi.fn(async()=>{})}));
+vi.mock("../activity-levels.js",()=>({awardActivityXp}));
 import {enterSharedRound,settleSharedGames,accepted} from "./shared-games.js";
 import {previewRound} from "./shared-preview.js";
 const now=Date.parse("2026-10-18T00:00:05Z");
@@ -97,4 +99,13 @@ it("allows funded stakes above the former per-bet and cumulative caps, but rejec
  expect(f.entries.size).toBe(2);
  await settleSharedGames(f.db,new Date(now+30000));
  expect(f.coins()).toBe(2000000000n);
+});
+
+it("awards game level XP for each accepted coin bet",async()=>{
+ awardActivityXp.mockClear();
+ const {db,input}=fixture();vi.spyOn(Date,"now").mockReturnValue(now);
+ await enterSharedRound(identity,input(1),db);
+ await expect(enterSharedRound(identity,{...input(2),amount:5000},db)).rejects.toThrow();
+ expect(awardActivityXp).toHaveBeenCalledTimes(1);
+ expect(awardActivityXp.mock.calls[0].slice(1)).toEqual(["GAME","u",`shared:${input(1).id}`,100n]);
 });

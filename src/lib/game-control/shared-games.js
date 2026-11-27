@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { rocketCrashAt, publicRocketState, rocketCashoutResult } from "./rocket.mjs";
 import { roundTiming } from "./round-timing.mjs";
 import { ledgerData } from "../wallet.js";
+import { awardActivityXp } from "../activity-levels.js";
 import { instantGames, resolveInstant } from "./instant-games.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../prisma.js";
@@ -106,6 +107,7 @@ export async function enterSharedRound(identity,input,db=prisma){
    }
    const debit=await tx.user.updateMany({where:{id:identity.userId,coinBalance:{gte:BigInt(parsed.amount)}},data:{coinBalance:{decrement:BigInt(parsed.amount)}}});
    if(debit.count!==1)throw new GameError("Not enough coins in your application wallet.",409);
+   await awardActivityXp(tx,"GAME",identity.userId,`shared:${input.id}`,BigInt(parsed.amount));
    await tx.walletTransaction.create({data:ledgerData({userId:identity.userId,type:"GAME_WAGER",direction:"DEBIT",title:`${day.settings.name} wager`,coins:BigInt(parsed.amount),referenceId:input.id,metadata:{gameId:input.gameId,roomId:identity.roomId,dayId:day.id,slot:clock.slot}})});
    return receipt(await tx.sharedGameEntry.create({data:{id:input.id,dayId:day.id,roomId:identity.roomId,slot:clock.slot,userId:identity.userId,amount:BigInt(parsed.amount),input:{...parsed,currency:"COINS"},requestHash:fingerprint,resolveAt:new Date(day.settings.engine==="rocket"?rocketCrashAt(day,clock.slot,sharedOutcome(day,identity.roomId,clock.slot).crashCents):clock.revealsAt)}}));
  });
