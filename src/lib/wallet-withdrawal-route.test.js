@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks=vi.hoisted(()=>({user:vi.fn(),policy:vi.fn(),auth:vi.fn()}));
-vi.mock("@/lib/prisma",()=>({prisma:{reportingCyclePolicy:{findMany:async()=>[]},hostSalarySchedule:{findFirst:async()=>({tiers:[{target:450000}]})},giftSettlement:{findMany:async()=>[{recipientDiamonds:450000n}]},user:{findUniqueOrThrow:mocks.user},currencyPolicy:{findUnique:mocks.policy}}}));
+vi.mock("@/lib/prisma",()=>({prisma:{agency:{findUnique:async()=>null},reportingCyclePolicy:{findMany:async()=>[]},hostSalarySchedule:{findFirst:async()=>({tiers:[{target:450000}]})},giftSettlement:{findMany:async()=>[{recipientDiamonds:450000n}]},user:{findUniqueOrThrow:mocks.user},currencyPolicy:{findUnique:mocks.policy}}}));
 vi.mock("@/lib/diamond-exchange",()=>({exchangeSettings:async()=>({enabled:true,diamondsPerCoin:2n,minDiamonds:10000n})}));
 vi.mock("@/lib/currency-policy",async()=>await import("./currency-policy.js"));
 vi.mock("@/lib/withdrawal-contract",async()=>await import("./withdrawal-contract.js"));
@@ -19,6 +19,8 @@ it("returns currency policy and reason even without a policy record",async()=>{
   const {data}=await response.json();
   expect(data.currencyPolicy.configured).toBe(false);
   expect(data.canWithdraw).toBe(false);
+  expect(data.agencyTransfer.enabled).toBe(false);
+  expect(data.agencyTransfer.recipient).toBeNull();
   expect(data.withdrawal.reason.code).toBe("PAYOUT_CONFIGURATION_INCOMPLETE");
   expect(data.diamonds).toBe("90000");
   expect(data.walletRevision).toBe("9007199254740993");
