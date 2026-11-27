@@ -12,54 +12,55 @@ import { prisma } from "../../lib/prisma";
 import { reconcileExpiredBans } from "../../lib/ban-maintenance";
 import { reconcileExpiredSpecialIds } from "../../lib/special-id";
 import { reconcileExpiredAudioRoomRestrictions } from "../../lib/audio-room-maintenance";
+import { readPaging, splitPage } from "@/lib/portal-paging";
 
-export default async function UsersPage() {
+export default async function UsersPage({ searchParams }) {
   const admin = await requirePagePermission("users.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   await reconcileExpiredBans();
   await reconcileExpiredSpecialIds();
   await reconcileExpiredAudioRoomRestrictions();
-  const [users, devices, audioRooms, specialIdDefinitions] = await Promise.all([
-    prisma.user.findMany({
-      where: { deletedAt: null, ...scopedUserWhere(admin) },
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: { select: { sentGifts: true } },
-        albumItems: { orderBy: { createdAt: "desc" } },
-        specialIds: {
-          include: { definition: true },
-          orderBy: { createdAt: "desc" },
-        },
-        gameLogs: { orderBy: { createdAt: "desc" } },
-      },
-    }),
-    prisma.device.findMany({
-      where: { userId: { not: null }, user: { deletedAt: null, ...scopedUserWhere(admin) } },
-      include: { user: true },
-      orderBy: { lastLoginAt: "desc" },
-    }),
-    prisma.audioRoom.findMany({
-      where: { owner: scopedUserWhere(admin) },
-      include: { owner: true },
-      orderBy: { startedAt: "desc" },
-      take: 250,
-    }),
+  const paging = readPaging(await searchParams);
+  const scope = scopedUserWhere(admin);
+  const baseWhere = { deletedAt: null, ...scope };
+  const q = paging.q;
+  const search = q ? { OR: [
+    { publicId: { contains: q, mode: "insensitive" } },
+    { name: { contains: q, mode: "insensitive" } },
+    { phone: { contains: q } },
+    { email: { contains: q, mode: "insensitive" } },
+  ] } : {};
+  const userWhere = { ...baseWhere, ...search };
+  const userInclude = {
+    _count: { select: { sentGifts: true } },
+    specialIds: { include: { definition: true }, orderBy: { createdAt: "desc" }, take: 5 },
+  };
+  // One page of users (plus one row to detect a next page). Other tabs load their
+  // own bounded, newest-first slices instead of every row for every user.
+  const [pageRows, totalUsers, activeUsers, vipUsers, deviceTotal, bannedUsers, deviceRows, audioRooms, albumItems, specialIdRows, topSpenders, gameLogs, specialIdDefinitions] = await Promise.all([
+    prisma.user.findMany({ where: userWhere, orderBy: [{ createdAt: "desc" }, { id: "desc" }], include: userInclude, skip: paging.skip, take: paging.take + 1 }),
+    prisma.user.count({ where: userWhere }),
+    prisma.user.count({ where: { ...userWhere, status: "ACTIVE" } }),
+    prisma.user.count({ where: { ...userWhere, vipLevel: { gt: 0 } } }),
+    prisma.device.count({ where: { userId: { not: null }, user: baseWhere } }),
+    prisma.user.findMany({ where: { ...baseWhere, status: "BANNED" }, orderBy: { updatedAt: "desc" }, include: userInclude, take: 200 }),
+    prisma.device.findMany({ where: { userId: { not: null }, user: userWhere }, include: { user: true }, orderBy: { lastLoginAt: "desc" }, take: 200 }),
+    prisma.audioRoom.findMany({ where: { owner: scope }, include: { owner: true }, orderBy: { startedAt: "desc" }, take: 250 }),
+    prisma.userAlbumItem.findMany({ where: { user: userWhere }, include: { user: { select: { publicId: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 200 }),
+    prisma.specialIdAssignment.findMany({ where: { user: userWhere }, include: { definition: true, user: { select: { publicId: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 200 }),
+    prisma.user.findMany({ where: baseWhere, orderBy: { totalSpent: "desc" }, include: { _count: { select: { sentGifts: true } } }, take: 100 }),
+    prisma.gameLog.findMany({ where: { user: userWhere }, include: { user: { select: { publicId: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 200 }),
     prisma.specialIdDefinition.findMany({
       where: { active: true },
-      include: {
-        assignments: {
-          where: {
-            status: "ACTIVE",
-            revokedAt: null,
-            expiresAt: { gt: new Date() },
-          },
-          include: { user: true },
-        },
-      },
+      include: { assignments: { where: { status: "ACTIVE", revokedAt: null, expiresAt: { gt: new Date() } }, include: { user: true } } },
       orderBy: [{ category: "desc" }, { code: "asc" }],
     }),
   ]);
+  const { items: pageUsers, hasNext } = splitPage(pageRows, paging.take);
+  // Banned users stay listed in the ban tab even when they are not on this page.
+  const users = [...pageUsers, ...bannedUsers.filter(b => !pageUsers.some(u => u.id === b.id))];
+  const devices = deviceRows;
   const userData = users.map((user) => {
     const activeSpecialId = user.specialIds.find(
       (item) =>
@@ -130,58 +131,27 @@ export default async function UsersPage() {
     blockedUntil: room.blockedUntil?.toISOString() ?? null,
     terminatedUntil: room.terminatedUntil?.toISOString() ?? null,
   }));
+  const when = (date) => date.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' });
   const userModules = {
-    albums: users.flatMap((user) =>
-      user.albumItems.map((item) => ({
-        id: item.id,
-        userId: user.publicId,
-        user: user.name,
-        type: item.mediaType,
-        caption: item.caption ?? "—",
-        status: item.status,
-        uploaded: item.createdAt.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),
-      })),
-    ),
-    specialIds: users.flatMap((user) =>
-      user.specialIds.map((item) => ({
-        id: item.id,
-        userId: user.publicId,
-        user: user.name,
-        specialId: item.specialId,
-        category: item.definition?.category ?? "LEGACY",
-        source: item.source,
-        status: item.status,
-        durationMinutes: item.expiresAt
-          ? Math.max(1, Math.round((item.expiresAt - item.startsAt) / 60000))
-          : null,
-        starts: item.startsAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
-        expires: item.expiresAt?.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }) ?? "Legacy",
-      })),
-    ),
-    topHistory: [...users]
-      .sort((a, b) => Number(b.totalSpent - a.totalSpent))
-      .map((user, index) => ({
-        id: user.publicId,
-        rank: index + 1,
-        user: user.name,
-        userId: user.publicId,
-        totalSpent: Number(user.totalSpent).toLocaleString(),
-        gifts: user._count.sentGifts,
-        vip: `VIP ${user.vipLevel}`,
-      })),
-    gameLogs: users.flatMap((user) =>
-      user.gameLogs.map((item) => ({
-        id: item.id,
-        reference: item.referenceId,
-        userId: user.publicId,
-        user: user.name,
-        game: item.gameName,
-        wager: Number(item.wager).toLocaleString(),
-        payout: Number(item.payout).toLocaleString(),
-        result: item.result,
-        played: item.createdAt.toLocaleString("en-US", { timeZone: 'Asia/Bangkok' }),
-      })),
-    ),
+    albums: albumItems.map((item) => ({
+      id: item.id, userId: item.user.publicId, user: item.user.name, type: item.mediaType,
+      caption: item.caption ?? "—", status: item.status,
+      uploaded: item.createdAt.toLocaleDateString("en-US", { timeZone: 'Asia/Bangkok' }),
+    })),
+    specialIds: specialIdRows.map((item) => ({
+      id: item.id, userId: item.user.publicId, user: item.user.name, specialId: item.specialId,
+      category: item.definition?.category ?? "LEGACY", source: item.source, status: item.status,
+      durationMinutes: item.expiresAt ? Math.max(1, Math.round((item.expiresAt - item.startsAt) / 60000)) : null,
+      starts: when(item.startsAt), expires: item.expiresAt ? when(item.expiresAt) : "Legacy",
+    })),
+    topHistory: topSpenders.map((user, index) => ({
+      id: user.publicId, rank: index + 1, user: user.name, userId: user.publicId,
+      totalSpent: Number(user.totalSpent).toLocaleString(), gifts: user._count.sentGifts, vip: `VIP ${user.vipLevel}`,
+    })),
+    gameLogs: gameLogs.map((item) => ({
+      id: item.id, reference: item.referenceId, userId: item.user.publicId, user: item.user.name, game: item.gameName,
+      wager: Number(item.wager).toLocaleString(), payout: Number(item.payout).toLocaleString(), result: item.result, played: when(item.createdAt),
+    })),
   };
   const specialIdCatalog = specialIdDefinitions.map((item) => ({
     id: item.id,
@@ -239,6 +209,7 @@ export default async function UsersPage() {
             canAdjustCoins={hasPermission(admin, "finance.adjust")}
             users={userData}
             devices={deviceData}
+            paging={{ page: paging.page, hasNext, totalUsers, activeUsers, vipUsers, deviceTotal, pageUserIds: pageUsers.map(u => u.publicId) }}
             modules={userModules}
             audioRooms={audioRoomData}
             specialIdCatalog={specialIdCatalog}

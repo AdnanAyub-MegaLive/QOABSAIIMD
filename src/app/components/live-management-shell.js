@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "./intent-link";
 import { hasPermission } from "@/lib/portal-permissions";
 import PortalSidebar from "./portal-sidebar";
 import FeatureSearch from "./feature-search";

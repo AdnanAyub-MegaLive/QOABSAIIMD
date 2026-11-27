@@ -10,6 +10,7 @@ const eventIcons = { "/events-management": LayoutDashboard, "/events-management/
 function NavigationIcon({ href }) { const Icon = eventIcons[href] || navigationIcons[portalNavigation.findIndex(([,route]) => route === href)] || LayoutDashboard; return <Icon size={17} strokeWidth={1.7} aria-hidden="true" className="shrink-0" />; }
 
 import { usePathname } from "next/navigation";
+import IntentLink from "./intent-link";
 
 import { allowedNavigation, usePortalAccess } from "./portal-access";
 
@@ -79,7 +80,7 @@ export function SidebarView({ pathname, navigation, workspace = "Administration"
           <span className="flex items-center gap-3"><NextImage src="/mega-portal-logo.png" alt="Mega Live" width={34} height={34} className="rounded-lg" /><span>Mega Live · {workspace}</span></span><span className="text-[#62e0d0]">Menu <span aria-hidden="true">☰</span></span>
         </summary>
         <nav aria-label="Mobile portal navigation" className="grid max-h-[65vh] gap-1 overflow-y-auto pb-2 pt-3 sm:grid-cols-2">
-          {navigation.map(([label, href]) => <Link key={href} href={href} aria-current={isActiveRoute(pathname, href) ? "page" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm ${isActiveRoute(pathname, href) ? "bg-[#d9f6ed] font-semibold text-[#0b5148]" : "text-[#a9c5c1] hover:bg-white/5 hover:text-white"}`}><NavigationIcon href={href}/>{label}</Link>)}
+          {navigation.map(([label, href]) => <IntentLink key={href} href={href} aria-current={isActiveRoute(pathname, href) ? "page" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm ${isActiveRoute(pathname, href) ? "bg-[#d9f6ed] font-semibold text-[#0b5148]" : "text-[#a9c5c1] hover:bg-white/5 hover:text-white"}`}><NavigationIcon href={href}/>{label}</IntentLink>)}
         </nav>
         {footer && <div className="border-t border-white/10 py-3">{footer}</div>}
       </details>
@@ -90,7 +91,7 @@ export function SidebarView({ pathname, navigation, workspace = "Administration"
         {navigation.map(([label, href]) => {
           const active = isActiveRoute(pathname, href);
           return (
-            <Link
+            <IntentLink
               key={href}
               title={label}
               href={href}
@@ -102,7 +103,7 @@ export function SidebarView({ pathname, navigation, workspace = "Administration"
               }`}
             >
               <NavigationIcon href={href}/><span className="ops-nav-label flex-1">{label}</span>{active && <ChevronRight size={14} aria-hidden="true"/>}
-            </Link>
+            </IntentLink>
           );
         })}
       </nav>

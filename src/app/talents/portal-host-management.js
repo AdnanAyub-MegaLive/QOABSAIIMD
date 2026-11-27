@@ -8,7 +8,7 @@ import { managePortalHost } from "../database-actions";
 const inputClass =
   "h-10 w-full rounded-lg border border-[#dce6e4] bg-white px-3 text-xs text-[#29423d] outline-none focus:border-[#2ca89c] focus:ring-3 focus:ring-[#2ca89c]/10";
 
-export default function PortalHostManagement({ hosts, candidates, agencies }) {
+export default function PortalHostManagement({ hosts, candidates, agencies, stats }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [agencyFilter, setAgencyFilter] = useState("ALL");
@@ -30,9 +30,9 @@ export default function PortalHostManagement({ hosts, candidates, agencies }) {
         (statusFilter === "ALL" || host.status === statusFilter),
     );
   }, [hosts, query, agencyFilter, statusFilter]);
-  const liveRooms = hosts.filter((host) => host.room?.status === "LIVE").length;
-  const verifiedHosts = hosts.filter((host) => host.isVerified).length;
-  const openPayouts = hosts.filter((host) => host.openWithdrawal).length;
+  const liveRooms = stats?.liveRooms ?? hosts.filter((host) => host.room?.status === "LIVE").length;
+  const verifiedHosts = stats?.verifiedHosts ?? hosts.filter((host) => host.isVerified).length;
+  const openPayouts = stats?.openPayouts ?? hosts.filter((host) => host.openWithdrawal).length;
 
   async function save(payload) {
     await managePortalHost(payload.id, payload.changes);
@@ -71,7 +71,7 @@ export default function PortalHostManagement({ hosts, candidates, agencies }) {
         </p>
       )}
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Portal hosts" value={hosts.length} note="Android host accounts" />
+        <Metric label="Portal hosts" value={stats?.totalHosts ?? hosts.length} note="Android host accounts" />
         <Metric label="Live audio rooms" value={liveRooms} note="Currently live" />
         <Metric label="KYC verified" value={verifiedHosts} note="Required for live video only" />
         <Metric label="Open payouts" value={openPayouts} note="Pending or approved" />
@@ -113,7 +113,7 @@ export default function PortalHostManagement({ hosts, candidates, agencies }) {
           </table>
           {!filteredHosts.length && <div className="py-16 text-center text-sm text-[#788b87]">No portal hosts match the selected filters.</div>}
         </div>
-        <div className="border-t border-[#e8efed] px-5 py-4 text-[10px] text-[#849691]">Showing {filteredHosts.length} of {hosts.length} portal hosts</div>
+        <div className="border-t border-[#e8efed] px-5 py-4 text-[10px] text-[#849691]">Showing {filteredHosts.length} of {hosts.length} portal hosts on this page</div>
       </div>
       {promoting && <HostModal mode="promote" candidates={candidates} agencies={agencies} onClose={() => setPromoting(false)} onSave={save} />}
       {editing && <HostModal mode="edit" host={editing} agencies={agencies} onClose={() => setEditing(null)} onSave={save} />}
