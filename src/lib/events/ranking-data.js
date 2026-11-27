@@ -1,3 +1,4 @@
+import { tulasiWagersSql } from "../tulasi/activity.js";
 import { calendarWindow } from '../business-time.js';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma.js';
@@ -9,7 +10,7 @@ import { activitySnapshot } from '../activity-levels.js';
 import { levelTagBackgrounds, tagBackground } from '../level-tag-backgrounds.js';
 import { decorationMedia } from '../decoration-media.js';
 
-// Gift rankings use gift face value; Game uses settled Coin wagers, never payouts, wallet balances or XP.
+// Gift rankings use face value; Games use settled internal wagers and committed provider debits, never payouts or balances.
 // Historical agency attribution comes from the committed settlement, not today's membership.
 export async function eventRankings({ type, period, offset = 0, q = '', viewerId = null, origin, window, raw = false }, db = prisma) {
   const now = new Date(), selectedWindow = window ?? await configuredRankingWindow(db, type, period, now);
@@ -42,9 +43,12 @@ export async function eventRankings({ type, period, offset = 0, q = '', viewerId
     AND (r."expiresAt" IS NULL OR r."expiresAt">${now}) GROUP BY r.id,l.name,rr.name`;
   else if (type === 'game') scores = Prisma.sql`
     SELECT u.id,u."publicId",u.name,0::int AS level,u.country,u.id AS "personId",NULL::text AS "partnerId",0::int AS "memberCount",SUM(e.amount) AS score
-    FROM "SharedGameEntry" e JOIN people u ON u.id=e."userId"
-    WHERE e.status='SETTLED' AND e.input->>'currency'='COINS' AND e.amount>0
-      AND e."settledAt">=${start} AND e."settledAt"<${end}
+    FROM (
+      SELECT "userId", amount FROM "SharedGameEntry"
+      WHERE status='SETTLED' AND input->>'currency'='COINS' AND amount>0
+        AND "settledAt">=${start} AND "settledAt"<${end}
+      UNION ALL SELECT "userId", amount FROM (${tulasiWagersSql(start, end)}) provider
+    ) e JOIN people u ON u.id=e."userId"
     GROUP BY u.id,u."publicId",u.name,u.country`;
   else scores = Prisma.sql`
     SELECT u.id,u."publicId",u.name,0::int AS level,u.country,u.id AS "personId",NULL::text AS "partnerId",0::int AS "memberCount",SUM(g."coinValue") AS score

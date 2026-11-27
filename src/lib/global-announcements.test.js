@@ -230,3 +230,16 @@ it('preserves round reward details without querying lifetime winnings',async()=>
  const ignored=fixture();ignored.db.$queryRaw.mockReset().mockResolvedValueOnce([{locked:true}]).mockResolvedValueOnce([{...candidate,amount:'1'}]);
  await collectAnnouncements(ignored.db,ignored.now);expect(ignored.db.$queryRaw).toHaveBeenCalledTimes(2);
 });
+
+it.each([false,true])('dispatches Tulasi wins through existing privacy checks and suppresses reversals (%s)',async reversed=>{
+ const f=fixture(); f.row.id=`tulasi-dispatch-${reversed}`; f.row.type='GAME_WIN';
+ f.row.sourceIds=['w','p']; f.row.payload={policyRevision:1,type:'GAME_WIN',amount:'300',unit:'COINS',details:{provider:'TULASI',gameId:'tulasi:3343',roundStart:'1795800000000',gameName:'Greedy Lion'}};
+ f.db.$queryRaw.mockReset().mockResolvedValue([
+  {id:'w',type:'GAME_WAGER',direction:'DEBIT',status:reversed?'REVERSED':'COMPLETED',coins:'100',metadata:{roomId:'ROOM-1'}},
+  {id:'p',type:'GAME_PAYOUT',direction:'CREDIT',status:'COMPLETED',coins:'400',metadata:{roomId:'ROOM-1'}}
+ ]);
+ await dispatchAnnouncements(f.db,f.io,f.now);
+ expect(f.sockets[2].emit).toHaveBeenCalledTimes(reversed?0:1);
+ for(const i of [3,4,5]) expect(f.sockets[i].emit).not.toHaveBeenCalled();
+ expect(f.db.sharedGameEntry.count).not.toHaveBeenCalled();
+});

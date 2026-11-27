@@ -68,7 +68,7 @@ describe("snapshots and room access", () => {
   it("returns explicit empty/unranked and partial game coverage", async () => {
     const f = fixture(); const r = await getRoomRankings({ ...f.input, query: { ...f.input.query, category: "GAMES" } }, f.db, f.now);
     expect(r).toMatchObject({ total: "0", entries: [], totalParticipants: 0, hasMore: false, status: "PARTIAL", viewer: { ranked: false, rank: null } });
-    expect(r.coverage.externalProviders).toBe("UNAVAILABLE");
+    expect(r.coverage.externalProviders).toBe("TULASI");
   });
   it.each(["outsider", "banned", "blocked", "unavailable"])("rejects %s", async kind => {
     const f = fixture();
@@ -78,4 +78,12 @@ describe("snapshots and room access", () => {
     if (kind === "unavailable") f.db.audioRoom.findUnique = async () => null;
     await expect(requireRankingRoom(f.db, "ROOM-test", f.input.user)).rejects.toHaveProperty("status");
   });
+});
+
+it('returns Tulasi catalog names and artwork in the room game breakdown',async()=>{
+ const f=fixture();
+ f.db.$queryRaw.mockImplementation(async q=>q.text?.includes('contributions')?[{category:'GAMES',userId:'u0',gameId:'tulasi:3343',score:'500'}]:[]);
+ f.db.tulasiGame={findMany:vi.fn().mockResolvedValue([{tulasiId:3343,name:'Greedy Lion',image:'https://games.example/lion.png'}])};
+ const result=await getRoomRankings({...f.input,query:{...f.input.query,category:'GAMES'}},f.db,f.now);
+ expect(result.entries[0].games[0]).toMatchObject({gameId:'tulasi:3343',name:'Greedy Lion',score:'500',artwork:{url:'https://games.example/lion.png'}});
 });

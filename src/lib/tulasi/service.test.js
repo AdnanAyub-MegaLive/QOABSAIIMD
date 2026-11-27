@@ -52,6 +52,7 @@ describe("tulasi service", () => {
     expect(await updateBalance(bet(), db, now)).toMatchObject({ coin: 900 });
     expect(await updateBalance(bet(), db, now)).toMatchObject({ coin: 900 });
     expect(db.state.ledger).toHaveLength(1);
+    expect(db.state.ledger[0].metadata.gameEndTimestamp).toBe(now + 5000);
     expect(db.state.ledger[0]).toMatchObject({ type: "GAME_WAGER", direction: "DEBIT", referenceId: "tulasi:1255759810054324225" });
   });
 

@@ -1,3 +1,4 @@
+import { tulasiWagersSql } from "./tulasi/activity.js";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { usersVip, vipPriority } from "./vip-capabilities.js";
@@ -43,6 +44,8 @@ async function sourceRevision(db, roomId) {
   return { revision: `${roomRevision}:${byId.get("__visibility__")?.revision ?? 0n}`, gamesSince: byId.get("__coverage__").createdAt.toISOString() };
 }
 
+const snapshotIdentity = (roomId, bounds, visibilityHash) => rankingHash(["tulasi-v1", roomId, bounds, visibilityHash]);
+
 export function roomScoreSql(roomId, bounds, hidden) {
   const excluded = hidden.length ? Prisma.sql`AND u.id NOT IN (${Prisma.join(hidden)})` : Prisma.empty;
   return Prisma.sql`
@@ -64,6 +67,8 @@ export function roomScoreSql(roomId, bounds, hidden) {
       FROM "SharedGameEntry" e JOIN "SharedGameDay" d ON d.id = e."dayId"
       WHERE e."roomId" = ${roomId} AND e.status = 'SETTLED' AND e.input->>'currency' = 'COINS'
         AND e."settledAt" >= ${bounds.start}::timestamp AND e."settledAt" < ${bounds.end}::timestamp
+      UNION ALL SELECT 'GAMES', "userId", "gameId", amount
+      FROM (${tulasiWagersSql(bounds.start, bounds.end, roomId)}) provider
     )
     SELECT c.category, c."userId", c."gameId", SUM(c.score)::text AS score
     FROM contributions c JOIN "User" u ON u.id = c."userId"
@@ -79,7 +84,7 @@ async function loadSnapshot(db, roomId, viewerId, query, now) {
     await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
     const context = await visibility(tx, viewerId, now);
     const source = await sourceRevision(tx, roomId);
-    const identity = rankingHash([roomId, bounds, context.hash]);
+    const identity = snapshotIdentity(roomId, bounds, context.hash);
     const cacheKey = rankingHash([identity, source.revision]);
     if (query.snapshotId) {
       const saved = await tx.roomRankingSnapshot.findUnique({ where: { id: query.snapshotId } });
@@ -97,7 +102,7 @@ async function loadSnapshot(db, roomId, viewerId, query, now) {
       categories[category] = { unit: units[category], entries, total: entries.reduce((n, e) => n + BigInt(e.score), 0n).toString() };
     }
     const data = { roomId, ...bounds, generatedAt: now.toISOString(), revision: rankingHash([identity, categories]), categories,
-      coverage: { gamesSince: source.gamesSince, gameSources: ["SHARED_GAME_ENTRY"], externalProviders: "UNAVAILABLE", legacyGames: "EXCLUDED_MISSING_SETTLEMENT_TIME", partialGiftRefunds: "NOT_SUPPORTED_BY_CURRENT_REFUND_SERVICE", giftSource: "COMMITTED_GIFT_TRANSACTION_WITH_SETTLEMENT", wealthExcludesInventoryGifts: true } };
+      coverage: { gamesSince: source.gamesSince, gameSources: ["SHARED_GAME_ENTRY", "TULASI_COMMITTED_WAGER"], externalProviders: "TULASI", legacyGames: "EXCLUDED_MISSING_SETTLEMENT_TIME", partialGiftRefunds: "NOT_SUPPORTED_BY_CURRENT_REFUND_SERVICE", giftSource: "COMMITTED_GIFT_TRANSACTION_WITH_SETTLEMENT", wealthExcludesInventoryGifts: true } };
     // Only disposable cache data is pruned; financial/source records are untouched.
     await tx.$executeRaw`DELETE FROM "RoomRankingSnapshot" WHERE id IN (SELECT id FROM "RoomRankingSnapshot" WHERE "expiresAt" <= ${now.toISOString()}::timestamp LIMIT 100 FOR UPDATE SKIP LOCKED)`;
     return tx.roomRankingSnapshot.upsert({ where: { cacheKey }, create: { id: randomUUID(), cacheKey, data, expiresAt: new Date(Math.min(now.getTime() + snapshotLifetimeMs, Date.parse(bounds.end))) }, update: { id: randomUUID(), data, createdAt: now, expiresAt: new Date(Math.min(now.getTime() + snapshotLifetimeMs, Date.parse(bounds.end))) } });
@@ -109,11 +114,20 @@ async function gameMetadata(db, ids, origin) {
   const assetIds = rows.map(r => r.settings.iconAssetId).filter(Boolean);
   const assets = assetIds.length ? await db.uploadAsset.findMany({ where: { publicId: { in: assetIds } }, omit: { fileData: true, posterFileData: true } }) : [];
   const byId = new Map(assets.map(a => [a.publicId, a]));
-  return new Map(rows.map(row => {
+  const result = new Map(rows.map(row => {
     const asset = byId.get(row.settings.iconAssetId);
     const bundled = gameIconArtwork[row.settings.engine];
     return [row.id, { gameId: row.id, name: row.settings.name, artwork: asset ? decorationMedia(asset, origin) : bundled ? { url: new URL(bundled, origin).href, mimeType: "image/webp", mediaVersion: bundled.split("/").at(-1) } : null }];
   }));
+  const providerIds = ids.filter(id => /^tulasi:[0-9]+$/.test(id)).map(id => Number(id.slice(7))).filter(Number.isSafeInteger);
+  if (providerIds.length) {
+    const games = await db.tulasiGame.findMany({ where: { tulasiId: { in: providerIds } }, select: { tulasiId: true, name: true, image: true } });
+    for (const game of games) {
+      const gameId = `tulasi:${game.tulasiId}`;
+      result.set(gameId, { gameId, name: game.name, artwork: game.image?.startsWith("https://") ? { url: game.image } : null });
+    }
+  }
+  return result;
 }
 
 export async function getRoomRankings({ roomId, user, query, origin }, db = prisma, now = new Date()) {
@@ -153,7 +167,7 @@ export async function getRoomRankings({ roomId, user, query, origin }, db = pris
   // A block, ban or deletion during rendering must not leak the old snapshot.
   const latest = await sourceRevision(db, roomId);
   const currentVisibility = await visibility(db, user.id, new Date());
-  if (snapshot.cacheKey !== rankingHash([rankingHash([roomId, roomRankingPeriod(query.period, new Date()), currentVisibility.hash]), latest.revision])) throw rankingError("SNAPSHOT_EXPIRED", "Ranking changed. Reload page 1.", 409);
+  if (snapshot.cacheKey !== rankingHash([snapshotIdentity(roomId, roomRankingPeriod(query.period, new Date()), currentVisibility.hash), latest.revision])) throw rankingError("SNAPSHOT_EXPIRED", "Ranking changed. Reload page 1.", 409);
   await requireRankingRoom(db, roomId, user);
   const gamesPartial = Date.parse(data.start) < Date.parse(data.coverage.gamesSince);
   const counters = Object.fromEntries(Object.entries(data.categories).map(([key, value]) => [key, { category: key, period: data.period, total: value.total, unit: value.unit, status: key === "GAMES" && gamesPartial ? "PARTIAL" : "AVAILABLE", totalParticipants: value.entries.length }]));

@@ -1,3 +1,4 @@
+import { tulasiActivitySchema } from "../tulasi/activity-fixture.js";
 import { expect, it, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 vi.mock('../prisma.js',()=>({prisma:{}}));
@@ -7,6 +8,7 @@ it('ranks settled Coin wagers across games and rooms, preserves privacy and free
  const pg=new PGlite();
  try {
  await pg.exec(`
+${tulasiActivitySchema}
  CREATE TABLE "User" (id text PRIMARY KEY,"publicId" text,name text,country text,status text,"deletedAt" timestamp);
  CREATE TABLE "Ban" ("userId" text,target text,"revokedAt" timestamp,"expiresAt" timestamp);
  CREATE TABLE "UserBlock" ("blockerId" text,"blockedId" text);
@@ -43,5 +45,9 @@ it('ranks settled Coin wagers across games and rooms, preserves privacy and free
  // A tie stays deterministic without affecting the global rank or awarding anyone twice.
  await pg.exec(`UPDATE "SharedGameEntry" SET amount=1250 WHERE "userId"='b';`);
  expect((await eventRankings({...input,raw:true},db)).map(e=>e.id)).toEqual(['USR-A','USR-B']);
+ await pg.exec(`INSERT INTO "WalletTransaction" VALUES
+ ('t1','b','GAME_WAGER','DEBIT','COMPLETED',2000,'tulasi:t1','{"provider":"TULASI","gameId":"3343","roomId":"room1"}','2026-11-05 03:00:00'),
+ ('t2','b','GAME_PAYOUT','CREDIT','COMPLETED',900000,'tulasi:t2','{"provider":"TULASI","gameId":"3343","roomId":"room1"}','2026-11-05 03:00:01');`);
+ expect(await eventRankings({...input,raw:true},db)).toEqual([{id:'USR-B',rank:1,score:'3250',recipients:['b']},{id:'USR-A',rank:2,score:'1250',recipients:['a']}]);
  } finally { await pg.close(); }
 },30000);

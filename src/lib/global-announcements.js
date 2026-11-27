@@ -1,3 +1,4 @@
+import { tulasiWinCandidatesSql, tulasiWinStillValid } from "./tulasi/activity.js";
 import { equippedProfileAssets } from "./profile-display-assets.js";
 import { avatarDisplayUrl } from "./avatar-history.js";
 import { Prisma } from "@prisma/client";
@@ -32,7 +33,7 @@ export function announcementCandidatesSql(since, now) {
       WHERE e.input->>'currency' = 'COINS'
       GROUP BY e."dayId", e."roomId", e.slot, e."userId"
       HAVING bool_and(e.status = 'SETTLED') AND MAX(e."resolveAt") <= ${now}
-    ), candidates AS (
+    ), tulasi_wins AS (${tulasiWinCandidatesSql(since, now)}), candidates AS (
       SELECT 'BIG_GIFT:' || id AS id, 'BIG_GIFT' AS type, "senderId" AS "actorId", "roomId",
         "coinValue"::text AS amount, confirmed, ARRAY[id] AS "sourceIds",
         jsonb_build_object('giftName', "giftName", 'quantity', quantity, 'spentCoins', "coinValue"::text) AS details
@@ -48,6 +49,7 @@ export function announcementCandidatesSql(since, now) {
         jsonb_build_object('gameId', d."gameId", 'gameName', d.settings->>'name', 'wagerCoins', r.wager::text,
           'payoutCoins', r.payout::text, 'netProfitCoins', r.profit::text)
       FROM rounds r JOIN "SharedGameDay" d ON d.id = r."dayId" WHERE r.profit > 0
+      UNION ALL SELECT * FROM tulasi_wins
     ) SELECT * FROM candidates c WHERE NOT EXISTS (SELECT 1 FROM "GlobalAnnouncement" a WHERE a.id = c.id)
       ORDER BY confirmed, id LIMIT 100`;
 }
@@ -136,8 +138,12 @@ async function announcementAudience(db, row, io, now, getSockets) {
       !policy?.rules[row.type]?.enabled || policy.revision !== row.payload.policyRevision) return null;
   // Recheck reversal/cancellation immediately before publication.
   if (row.type === "GAME_WIN") {
-    const count = await db.sharedGameEntry.count({ where: { id: { in: row.sourceIds }, status: "SETTLED", input: { path: ["currency"], equals: "COINS" } } });
-    if (count !== row.sourceIds.length) return null;
+    if (row.payload.details?.provider === "TULASI") {
+      if (!await tulasiWinStillValid(db, row)) return null;
+    } else {
+      const count = await db.sharedGameEntry.count({ where: { id: { in: row.sourceIds }, status: "SETTLED", input: { path: ["currency"], equals: "COINS" } } });
+      if (count !== row.sourceIds.length) return null;
+    }
   } else if (row.type === "ROCKET_LAUNCH") {
     const launch = await db.roomRocketLaunch.findUnique({ where: { id: row.sourceIds[0] }, select: { roomId: true, level: true } });
     if (launch?.roomId !== row.roomId || launch.level !== row.payload.details.level) return null;

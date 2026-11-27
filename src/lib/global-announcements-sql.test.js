@@ -1,3 +1,4 @@
+import { tulasiActivitySchema } from "./tulasi/activity-fixture.js";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { it, expect } from "vitest";
@@ -7,6 +8,7 @@ it("isolated PostgreSQL: complete-round net profit, paid gifts, reversals, expir
   const db = new PGlite(); // In memory only. Never opens the configured database.
   try {
     await db.exec(`
+${tulasiActivitySchema}
       CREATE TABLE "GiftTransaction" (id text PRIMARY KEY, "senderId" text, "roomId" text, "coinValue" bigint, "giftName" text, quantity int, "reversedAt" timestamp);
       CREATE TABLE "GiftRecoverySnapshot" ("giftId" text PRIMARY KEY, data jsonb, "createdAt" timestamp);
       CREATE TABLE "GiftSettlement" ("giftTransactionId" text);
@@ -54,5 +56,13 @@ it("isolated PostgreSQL: complete-round net profit, paid gifts, reversals, expir
       ('earlycashout','day','ROOM-1',7,'player','{"currency":"COINS"}','{"payout":"999999"}',100,'SETTLED','2026-10-28','2026-10-30');`);
     const future = announcementCandidatesSql(now, new Date(now.getTime() + 1000));
     expect((await db.query(future.text, future.values)).rows).toHaveLength(0);
+    await db.exec(`INSERT INTO "TulasiGame" VALUES (3343,'Greedy Lion');
+      INSERT INTO "WalletTransaction" VALUES
+      ('tw','provider-player','GAME_WAGER','DEBIT','COMPLETED',100,'tulasi:tw','{"provider":"TULASI","gameId":"3343","gameStartTimestamp":1793275100000,"roomId":"ROOM-1"}','2026-10-29 11:59:50'),
+      ('tp','provider-player','GAME_PAYOUT','CREDIT','COMPLETED',400,'tulasi:tp','{"provider":"TULASI","gameId":"3343","gameStartTimestamp":1793275100000,"roomId":"ROOM-1"}','2026-10-29 11:59:55');`);
+    const providerWin = (await db.query(query.text,query.values)).rows.find(r => r.details.provider === 'TULASI');
+    expect(providerWin.amount).toBe('300');
+    await db.query(`INSERT INTO "GlobalAnnouncement" (id,"actorId",type,"roomId","sourceIds","expiresAt") VALUES ($1,'provider-player','GAME_WIN','ROOM-1',ARRAY['tw','tp'],$2)`,[providerWin.id,now]);
+    expect((await db.query(query.text,query.values)).rows.some(r => r.details.provider === 'TULASI')).toBe(false);
   } finally { await db.close(); }
 }, 30000);

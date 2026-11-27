@@ -127,7 +127,7 @@ export async function updateBalance(input, db = prisma, now = Date.now()) {
       description: String(input.gameType ?? "").slice(0, 100) || null,
       coins,
       referenceId,
-      metadata: { provider: "TULASI", gameId: String(input.gameId ?? ""), gameType: input.gameType ?? null, roomId: session.roomId, gameStartTimestamp: input.gameStartTimestamp ?? null, remark: input.remark ?? null },
+      metadata: { provider: "TULASI", gameId: String(input.gameId ?? ""), gameType: input.gameType ?? null, roomId: session.roomId, gameStartTimestamp: input.gameStartTimestamp ?? null, gameEndTimestamp: input.gameEndTimestamp ?? null, remark: input.remark ?? null },
     }) });
     return { id: tulasiUid(user.publicId), coin: Number(await balance()) };
   });

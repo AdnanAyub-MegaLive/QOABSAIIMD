@@ -1,3 +1,4 @@
+import { tulasiActivitySchema } from "./tulasi/activity-fixture.js";
 // Opt-in LOCAL PostgreSQL tests. All fixtures/DDL live in a random schema within
 // one rolled-back transaction; never reads or writes application tables.
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -24,6 +25,7 @@ describe.skipIf(process.env.RUN_ROOM_RANKING_DB_TESTS !== "1")("isolated Postgre
     await client.query(`CREATE SCHEMA "${schema}"`);
     await client.query(`SET LOCAL search_path TO "${schema}"`);
     await client.query(`
+${tulasiActivitySchema}
       CREATE TABLE "User" (id text PRIMARY KEY, status text DEFAULT 'ACTIVE', "deletedAt" timestamp);
       CREATE TABLE "UserBlock" ("blockerId" text, "blockedId" text);
       CREATE TABLE "Ban" (id text);

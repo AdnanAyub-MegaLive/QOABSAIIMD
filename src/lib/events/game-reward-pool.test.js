@@ -1,3 +1,4 @@
+import { tulasiActivitySchema } from "../tulasi/activity-fixture.js";
 import {it,expect} from 'vitest';
 import {PGlite} from '@electric-sql/pglite';
 import {Prisma} from '@prisma/client';
@@ -15,7 +16,8 @@ it('restricts percentage policies to weekly games and prevents ambiguous fixed a
 });
 it('sums all settled coin stakes in a half-open week, excluding practice, cancelled and pending',async()=>{
  const pg=new PGlite();try{
- await pg.exec(`CREATE TABLE "SharedGameEntry"(amount bigint,status text,input jsonb,"settledAt" timestamp);
+ await pg.exec(`${tulasiActivitySchema}
+CREATE TABLE "SharedGameEntry"(amount bigint,status text,input jsonb,"settledAt" timestamp);
  INSERT INTO "SharedGameEntry" VALUES
  (100000,'SETTLED','{"currency":"COINS"}','2026-11-09'),
  (200000,'SETTLED','{"currency":"COINS"}','2026-11-15'),
