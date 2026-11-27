@@ -141,7 +141,7 @@ async function mediaResponse(asset, request) {
   // get a shared immutable cache policy, even with a guessed version.
   if(version&&request.headers.get("if-none-match")?.split(",").some(tag=>["*",`"${version}"`,`W/"${version}"`].includes(tag.trim())))return new Response(null,{status:304,headers});
   const cdn = publicCdnUrl(asset, wantsPoster);
-  if (cdn) return new Response(null, { status: 307, headers: { Location: cdn, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
+  if (cdn) return new Response(null, { status: 307, headers: { Location: cdn, "Cache-Control": requested && version ? "private, max-age=3600" : "private, no-store", "Referrer-Policy": "no-referrer" } });
   const posterBytes = Boolean(wantsPoster && asset.posterMimeType);
   const bytes = await mediaByteCache.get(asset.publicId, posterBytes, wantsPoster && !posterBytes ? null : version, () =>
     prisma.uploadAsset.findUnique({ where: { publicId: asset.publicId }, select: { ...(posterBytes ? { posterFileData: true } : { fileData: true }), mediaVersion: true, posterMediaVersion: true } }));

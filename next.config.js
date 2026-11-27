@@ -19,6 +19,9 @@ module.exports = (phase) => ({
     ];
   },
   experimental: {
+    // Keep visited portal pages in the browser so tab switches and back/forward
+    // render immediately. Auto-refresh and mutations refresh the data afterwards.
+    staleTimes: { dynamic: 60, static: 180 },
     serverActions: {
       // Allow 50 MiB media + a 5 MiB poster and multipart overhead.
       // Individual upload validation remains authoritative. APKs use the
