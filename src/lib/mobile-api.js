@@ -98,6 +98,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   if (error?.status >= 400 && error.status < 500 && /^(KYC_|LIVE_FOLLOW_REQUIRED|LIVE_INVITE_REQUIRED)/.test(error.code || "")) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
+  if (error?.status >= 400 && error.status < 500 && /^(COHOST_|PK_COUNTRY_MISMATCH$|ROUTE_NOT_FOUND$|NOT_FOUND$)/.test(error.code || "")) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   if (["STORY_ERROR", "STORY_UNAVAILABLE"].includes(error?.code) && error.status >= 400 && error.status < 500) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   const known = {
     HOST_SALARY_LEVEL_REQUIRED:[403,"HOST_SALARY_LEVEL_REQUIRED","Reach Host Salary Level 1 this cycle before withdrawing or transferring diamonds."],
@@ -169,7 +170,8 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     LIVE_NOT_FOUND: [404, "LIVE_NOT_FOUND", "This live video is unavailable."],
     LIVE_HOST_REQUIRED: [403, "LIVE_HOST_REQUIRED", "Only the live host can perform this action."],
     LIVE_BANNED: [403, "LIVE_BANNED", "You are banned from this live video."],
-    LIVE_MODERATION_FORBIDDEN: [403, "LIVE_MODERATION_FORBIDDEN", "Only the live host can manage bans and reports."],
+    LIVE_MODERATION_FORBIDDEN: [403, "LIVE_MODERATION_FORBIDDEN", "You are not allowed to do this in this live."],
+    LIVE_SEATS_LOCKED: [409, "LIVE_SEATS_LOCKED", "Guest seats are locked right now."],
     LIVE_GIFT_FORBIDDEN: [403, "LIVE_GIFT_FORBIDDEN", "Join this live video before sending a gift to its host."],
     GUEST_REQUEST_UNAVAILABLE: [409, "GUEST_REQUEST_UNAVAILABLE", "This guest request is no longer available."],
     GUEST_SLOTS_FULL: [409, "GUEST_SLOTS_FULL", "All four guest publisher slots are occupied."],

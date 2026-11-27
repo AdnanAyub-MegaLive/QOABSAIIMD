@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   user:{findUnique:async()=>({country:"PK"})},
+  vipMembership:{findUnique:vi.fn(async()=>({startsAt:new Date(0),expiresAt:new Date(Date.now()+864e5),revokedAt:null,disabledPrivileges:[],tier:{active:true,level:3,privileges:["COUNTRY_CHAT"]}}))},
   chatWordPolicy: { findUnique: vi.fn() },
   conversationParticipant: { findFirst: vi.fn() },
   message: { findFirst: vi.fn(), update: vi.fn() },

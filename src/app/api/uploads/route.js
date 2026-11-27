@@ -4,6 +4,7 @@ import { giftCategory as normalizeGiftCategory } from "@/lib/gift-categories";
 import { SVGA_MIME, SVGA_MAX_BYTES, SVGA_CATEGORIES, uploadMimeType } from "@/lib/svga-policy";
 import { validateSvga, decodeUploadPoster } from "@/lib/svga-upload";
 import { readUploadForm } from "@/lib/upload-form";
+import { isMovFile, convertMovToMp4, mp4FileName } from "@/lib/mov-convert";
 import { isRateLimited } from "@/lib/rate-limit";
 import { ROLE_DISTRIBUTIONS } from "@/lib/role-artwork";
 import { mirrorAssetBestEffort } from "@/lib/media-cdn";
@@ -363,7 +364,8 @@ export async function POST(request) {
         },
         { status: 422 },
       );
-    const mimeType = uploadMimeType(file);
+    const isMov = isMovFile(file);
+    let mimeType = isMov ? "video/mp4" : uploadMimeType(file);
     if (!allowedTypes.has(mimeType))
       return Response.json(
         {
@@ -401,11 +403,16 @@ export async function POST(request) {
       return Response.json({ success: false, error: { code: "POSTER_TOO_LARGE", message: "Poster images cannot exceed 5 MB." } }, { status: 413 });
     if (hasPoster && !SVGA_CATEGORIES.has(category) && !["USER_TAGS", "PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS", "FRAMES", "BADGES", "AGENCY_ARTWORK", "GIFTS"].includes(category))
       return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Poster images are not supported for this asset category." } }, { status: 422 });
-    if (["PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS"].includes(category) && file.type === "video/mp4" && !hasPoster)
+    if (["PROFILE_BG", "BUSINESS_CARD", "PROFILE_DRESS"].includes(category) && mimeType === "video/mp4" && !hasPoster)
       return Response.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Video Business Cards require a poster image." } }, { status: 422 });
     const users = await resolveUsers(prisma, selectedIds);
     const publicId = `AST-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-    const bytes = Buffer.from(await file.arrayBuffer());
+    let bytes = Buffer.from(await file.arrayBuffer());
+    const storedName = isMov ? mp4FileName(file.name) : file.name;
+    if (isMov) {
+      bytes = await convertMovToMp4(bytes);
+      if (bytes.length > fileSizeLimit) return Response.json({ success: false, error: { code: "FILE_TOO_LARGE", message: "Converted MP4 cannot exceed 15 MB." } }, { status: 413 });
+    }
     const svga = mimeType === SVGA_MIME ? await validateSvga(bytes) : null;
     const poster = hasPoster ? await decodeUploadPoster(posterFile) : null;
     const asset = await prisma.$transaction(async (tx) => {
@@ -417,9 +424,9 @@ export async function POST(request) {
           details,
           tags,
           category,
-          fileName: file.name.slice(0, 255),
+          fileName: storedName.slice(0, 255),
           mimeType,
-          fileSize: file.size,
+          fileSize: bytes.length,
           fileData: bytes,
           ...poster,
           actionUrl,
@@ -458,10 +465,11 @@ export async function POST(request) {
           entityId: publicId,
           description: `${session.user.name ?? "Administrator"} uploaded ${name} to ${category} and assigned it to ${users.length} user(s).`,
           metadata: {
-            fileName: file.name,
+            fileName: storedName,
             mimeType,
             svga,
-            fileSize: file.size,
+            fileSize: bytes.length,
+            convertedFrom: isMov ? "video/quicktime" : undefined,
             assignedUserIds: selectedIds,
             assignmentPermanent,
             distribution: distribution.distribution,
@@ -503,6 +511,7 @@ export async function POST(request) {
     if (error?.code === "DUPLICATE_ARTWORK") return Response.json({ success: false, error: { code: error.code, message: error.message, assetId: error.assetId } }, { status: 409 });
     if (error?.code === "UPLOAD_BUSY") return Response.json({ success: false, error: { code: error.code, message: error.message } }, { status: 429, headers: { "Retry-After": "5" } });
     if (error?.status === 413) return Response.json({ success: false, error: { code: "FILE_TOO_LARGE", message: error.message } }, { status: 413 });
+    if (error?.code === "FFMPEG_UNAVAILABLE" || (error?.code === "UNSUPPORTED_MEDIA_TYPE" && error?.status === 415)) return Response.json({ success: false, error: { code: error.code, message: error.message } }, { status: error.status });
     if (error?.code === "VALIDATION_ERROR")
       return Response.json(
         { success: false, error: { code: error.code, message: error.message } },

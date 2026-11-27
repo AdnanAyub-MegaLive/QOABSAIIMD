@@ -10,7 +10,8 @@ it.each(['roulette','flip','highlow','wheel','dragon','slots','dice','rps','pena
 it('uses configured payouts and reaction time rather than outdated fixed values',()=>{
  expect(playerRules({engine:'dice',pointReturnMultiplier:4}).join(' ')).toContain('4×');
  expect(playerRules({engine:'reaction',reactionWindowMs:250}).join(' ')).toContain('250 ms');
- expect(playerRules({engine:'teenpatti'}).join(' ')).toContain('Hand 1, 2 or 3');
+ expect(playerRules({engine:'teenpatti'}).join(' ')).toContain('Choose up to two different hands per round');
+ expect(playerRules({engine:'teenpatti',pointReturnMultiplier:5}).join(' ')).toContain('Each winning selection returns 5×');
 });
 it.each([['flip','heads'],['rocket','board'],['dice','1'],['rps','rock'],['penalty','left'],['teenpatti','1'],['pizza','tomato'],['trivia',null],['reaction',null],['highlow','low'],['wheel','spin'],['dragon','dragon'],['slots','spin']])('%s accepts a whole-coin stake above its old cap', (engine,choice)=>{
  expect(accepted({engine,minBet:10,maxBet:1000},{amount:100000001,choice}).amount).toBe(100000001);

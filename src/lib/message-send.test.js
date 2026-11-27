@@ -7,7 +7,7 @@ import {createMessage,emitConversationEvent,syncMessagesForUser} from "./messagi
 beforeEach(()=>{
  let row;
  db.user={findUnique:vi.fn(async()=>({country:"PK"})),findMany:vi.fn(async()=>[])};
- Object.assign(db,{message:{findUnique:vi.fn(async()=>row),create:vi.fn(async({data})=>(row={id:"db-id",...data,sender:{publicId:"USR-test",name:"Test"}}))},conversation:{update:vi.fn()},conversationParticipant:{update:vi.fn(),findMany:vi.fn(async()=>[])},messageReceipt:{createMany:vi.fn()}});
+ Object.assign(db,{message:{findUnique:vi.fn(async()=>row),create:vi.fn(async({data})=>(row={id:"db-id",...data,sender:{publicId:"USR-test",name:"Test"}}))},conversation:{update:vi.fn()},conversationParticipant:{update:vi.fn(),findMany:vi.fn(async()=>[])},messageReceipt:{createMany:vi.fn()},vipMembership:{findUnique:vi.fn(async()=>({startsAt:new Date(0),expiresAt:new Date(Date.now()+864e5),revokedAt:null,disabledPrivileges:[],tier:{active:true,level:3,privileges:["COUNTRY_CHAT"]}}))}});
  db.$transaction=fn=>fn(db);
 });
 it("replays same message ID without creating another row and rejects conflicting content",async()=>{
@@ -30,6 +30,13 @@ it("blocks missing country and links without writing a message",async()=>{
  await expect(createMessage({id:"world",kind:"WORLD"},{id:"u"},"Hello")).rejects.toMatchObject({code:"COUNTRY_REQUIRED"});
  db.user.findUnique.mockResolvedValue({country:"DE"});
  await expect(createMessage({id:"world",kind:"WORLD"},{id:"u"},"example.pk")).rejects.toMatchObject({code:"LINK_NOT_ALLOWED"});
+ expect(db.message.create).not.toHaveBeenCalled();
+});
+it("refuses WORLD sends from users without the Country Chat VIP privilege",async()=>{
+ db.vipMembership.findUnique.mockResolvedValue(null);
+ await expect(createMessage({id:"world",kind:"WORLD"},{id:"u"},"Hello")).rejects.toMatchObject({code:"COUNTRY_CHAT_VIP_REQUIRED"});
+ db.vipMembership.findUnique.mockResolvedValue({startsAt:new Date(0),expiresAt:new Date(Date.now()+864e5),revokedAt:null,disabledPrivileges:[],tier:{active:true,level:2,privileges:["COUNTRY_CHAT"]}});
+ await expect(createMessage({id:"world",kind:"WORLD"},{id:"u"},"Hello")).rejects.toMatchObject({code:"COUNTRY_CHAT_VIP_REQUIRED"});
  expect(db.message.create).not.toHaveBeenCalled();
 });
 it("applies country visibility to both reconnect cursor lookup and every sync page",async()=>{

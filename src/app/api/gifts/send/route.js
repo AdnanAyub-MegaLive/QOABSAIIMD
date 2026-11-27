@@ -2,8 +2,21 @@ import { sharedRuntime } from '@/lib/scaling/shared-runtime';
 import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
 import { liveTopGifter } from "@/lib/video-live";
+import { pkSideSupporters } from "@/lib/video-pk";
+import { scoreCoHostSafely, emitCoHost, loadCoHost } from "@/lib/video-cohost";
 import { emitToVideoLive as emitLiveTopGifter } from "@/lib/realtime";
 const liveTopGifterSeq = new Map();
+async function emitGiftScores({ pk, coHostId } = {}, origin, db = prisma) {
+  if (pk) {
+    const data = { ...pk.data, sides: await pkSideSupporters(db, pk.pk, origin).catch(() => undefined) };
+    await emitLiveTopGifter(pk.pk.leftSession.publicId, "live-video:pk-score", { success: true, data });
+    await emitLiveTopGifter(pk.pk.rightSession.publicId, "live-video:pk-score", { success: true, data });
+  }
+  if (coHostId) {
+    const s = await loadCoHost(db, coHostId).catch(() => null);
+    if (s) await emitCoHost(db, s, "cohost-score", origin);
+  }
+}
 let liveTopGifterCounter = 0;
 import { isHostUser } from "@/lib/user-roles";
 import { assertCpGiftEligible } from "@/lib/cp-gift-eligibility";
@@ -153,7 +166,9 @@ export async function POST(request) {
 
     const senderArtwork = await resolveGiftSender(sessionUser, requestOrigin(request));
     operation.contentionKeys = giftContentionKeys([recipientUser], { lucky: giftAsset.giftTier === "LUCKY" });
+    let afterCommit = {};
     const response = await runGiftOperation(sessionUser.id, operation, async (tx) => {
+      afterCommit = {};
       let recoveryPk;
       const ledgerRows = [];
       await assertCpGiftEligible(tx, giftAsset, sessionUser.id, [recipientUser.id]);
@@ -305,9 +320,9 @@ export async function POST(request) {
       if (pk) {
         const field = pk.leftSessionId === live.id ? "leftScore" : "rightScore";
         const scored = await tx.videoLivePkSession.update({ where: { id: pk.id }, data: { [field]: { increment: grossCoins }, revision: { increment: 1 } } });
-        const data = { id: scored.id, leftLiveId: pk.leftSession.publicId, rightLiveId: pk.rightSession.publicId, leftScore: scored.leftScore.toString(), rightScore: scored.rightScore.toString(), revision: scored.revision };
-        await emitToVideoLive(pk.leftSession.publicId, "live-video:pk-score", { success: true, data }); await emitToVideoLive(pk.rightSession.publicId, "live-video:pk-score", { success: true, data });
+        afterCommit.pk = { pk, data: { id: scored.id, leftLiveId: pk.leftSession.publicId, rightLiveId: pk.rightSession.publicId, leftScore: scored.leftScore.toString(), rightScore: scored.rightScore.toString(), revision: scored.revision } };
       }
+      afterCommit.coHostId = await scoreCoHostSafely(tx, live, recipientUser.id, grossCoins);
     }
 
     if (!live) await addDailyTaskProgress(sessionUser.id, "SEND_GIFTS", quantity, new Date(), tx);
@@ -398,6 +413,7 @@ export async function POST(request) {
     );
     });
     void flushRealtimeOutbox().catch(error => console.error("Outbox flush failed", error.message));
+    if (live) void emitGiftScores(afterCommit, requestOrigin(request)).catch(error => console.error("Live score emit failed", error?.code ?? error?.name));
     if (live) {
       // Visual updates must never turn a committed gift into an HTTP failure.
       void (async () => {

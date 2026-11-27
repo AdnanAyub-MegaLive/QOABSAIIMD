@@ -1,6 +1,7 @@
 import { requireVideoAccess } from "./video-access.js";
 import { randomUUID } from "node:crypto";
 import { prisma } from "./prisma.js";
+import { canActOn, liveRole } from "./video-moderation.js";
 const fail = code => { throw new Error(code); };
 export async function liveGuestAccess(tx, liveId, userId) {
   const live = await tx.videoLiveSession.findUnique({ where: { publicId: liveId }, include: { host: { select: { publicId: true, name: true, profileImage: true } } } });
@@ -20,9 +21,11 @@ export async function freeGuestSlot(tx, sessionId, now = new Date()) {
 export async function inviteVideoGuest(liveId, hostId, publicId, db = prisma) {
   return db.$transaction(async tx => {
     const live = await liveGuestAccess(tx, liveId, hostId);
-    if (live.hostId !== hostId) fail("LIVE_HOST_REQUIRED");
+    const role = await liveRole(tx, live, hostId);
+    if (role === "VIEWER") fail("LIVE_MODERATION_FORBIDDEN");
     const user = await tx.user.findUnique({ where: { publicId } });
-    if (!user || user.status !== "ACTIVE" || user.deletedAt || user.id === hostId) fail("GUEST_REQUEST_UNAVAILABLE");
+    if (!user || user.status !== "ACTIVE" || user.deletedAt || user.id === hostId || user.id === live.hostId) fail("GUEST_REQUEST_UNAVAILABLE");
+    if (!canActOn(role, await liveRole(tx, live, user.id))) fail("LIVE_MODERATION_FORBIDDEN");
     await tx.videoLiveInvite.upsert({where:{sessionId_userId:{sessionId:live.id,userId:user.id}},create:{sessionId:live.id,userId:user.id},update:{}});
     await liveGuestAccess(tx, liveId, user.id);
     const now = new Date();
@@ -49,7 +52,7 @@ export async function reviewVideoGuest(liveId, hostId, requestId, approved, db =
   if (typeof approved !== "boolean") throw Object.assign(new Error("approved must be a boolean."), { code: "VALIDATION_ERROR" });
   return db.$transaction(async tx => {
     const live = await liveGuestAccess(tx, liveId, hostId);
-    if (live.hostId !== hostId) fail("LIVE_HOST_REQUIRED");
+    if (await liveRole(tx, live, hostId) === "VIEWER") fail("LIVE_MODERATION_FORBIDDEN");
     const row = await tx.videoLiveGuestRequest.findFirst({ where: { id: requestId, sessionId: live.id, status: "PENDING", expiresAt: { gt: new Date() } }, include: { user: { select: { publicId: true, name: true, profileImage: true } } } });
     if (!row) fail("GUEST_REQUEST_UNAVAILABLE");
     await liveGuestAccess(tx, liveId, row.userId);

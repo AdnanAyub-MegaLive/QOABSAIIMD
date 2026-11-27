@@ -46,7 +46,7 @@ describe("PK random matching", () => {
   it("reserves future modes without silently treating teams as 1V1", () => { expect(videoPkMode()).toBe("1V1"); expect(() => videoPkMode("2V2")).toThrow("Only 1V1"); });
   it("matches two consenting hosts atomically and clears both queue entries", async () => {
     const other = { ...live, id: "other", publicId: "LIVE-2", hostId: "other-host" };
-    const tx = { ...accessDb(), $queryRaw: vi.fn(), videoLiveSession: { findUnique: vi.fn().mockResolvedValue(live) }, videoLivePkQueue: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([{ sessionId: other.id, session: other }]) }, videoLivePkSession: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn().mockImplementation(async ({ data }) => ({ ...data, leftScore: 0n, rightScore: 0n, revision: 0, leftSession: other, rightSession: live })) } };
+    const tx = { ...accessDb(), $queryRaw: vi.fn(), videoLiveSession: { findUnique: vi.fn().mockResolvedValue(live) }, videoCoHostMember: { findFirst: vi.fn().mockResolvedValue(null) }, videoLivePkQueue: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([{ sessionId: other.id, session: other }]) }, videoLivePkSession: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn().mockImplementation(async ({ data }) => ({ ...data, leftScore: 0n, rightScore: 0n, revision: 0, leftSession: other, rightSession: live })) } };
     const result = await videoPkQueue({ $transaction: fn => fn(tx) }, { id: "host" }, live.publicId, { action: "JOIN" });
     expect(result.status).toBe("MATCHED"); expect(result.pk.status).toBe("LIVE");
     expect(tx.$queryRaw).toHaveBeenCalled();

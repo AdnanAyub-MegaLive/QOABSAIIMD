@@ -8,7 +8,7 @@ afterEach(() => { vi.clearAllMocks(); });
 it.each([false, true])("ends and broadcasts even when provider cleanup fails (%s)", async (cleanupFails) => {
   if (cleanupFails) mocks.dismiss.mockRejectedValueOnce(new Error("RTC_MODERATION_FAILED"));
   const row = { id: "s", publicId: "LIVE-1", status: "ENDED", endedAt: new Date(), revision: 2 };
-  const tx = { $queryRaw: vi.fn(), videoLiveSession: { updateMany: vi.fn(), findUnique: vi.fn().mockResolvedValue(row) }, videoLiveViewer: { updateMany: vi.fn() }, videoLiveGuestRequest: { updateMany: vi.fn() }, videoLivePkQueue: { deleteMany: vi.fn() }, videoLivePkSession: { updateMany: vi.fn() }, auditLog: { create: vi.fn() } };
+  const tx = { $queryRaw: vi.fn(), videoLiveSession: { updateMany: vi.fn(), findUnique: vi.fn().mockResolvedValue(row) }, videoLiveViewer: { updateMany: vi.fn() }, videoLiveGuestRequest: { updateMany: vi.fn() }, videoLivePkQueue: { deleteMany: vi.fn() }, videoLiveAdmin: { deleteMany: vi.fn() }, videoLivePkSession: { updateMany: vi.fn() }, videoCoHostMember: { findMany: vi.fn().mockResolvedValue([]) }, auditLog: { create: vi.fn() } };
   const update = vi.fn(), db = { $transaction: fn => fn(tx), videoLiveSession: { update } };
   const result = await endVideoLive({ id: "s" }, { id: "admin" }, db);
   expect(result.status).toBe("ENDED");

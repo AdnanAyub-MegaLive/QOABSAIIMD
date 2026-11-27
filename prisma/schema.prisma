@@ -452,6 +452,7 @@ model User {
   followers                  UserFollow[]                  @relation("UserFollowers")
   videoLiveBans              VideoLiveBan[]                @relation("VideoLiveBanUser")
   createdVideoLiveBans       VideoLiveBan[]                @relation("VideoLiveBanActor")
+  videoLiveAdmins            VideoLiveAdmin[]              @relation("VideoLiveAdminUser")
   videoLiveReports           VideoLiveReport[]             @relation("VideoLiveReporter")
   legacyIdMappings           LegacyIdMapping[]
   totalTopUp                 BigInt                        @default(0)
@@ -876,8 +877,13 @@ model VideoLiveSession {
   gifts         GiftTransaction[]
   pkAsLeft      VideoLivePkSession[]    @relation("VideoPkLeft")
   pkAsRight     VideoLivePkSession[]    @relation("VideoPkRight")
+  coHostsOwned  VideoCoHostSession[]    @relation("VideoCoHostOwner")
+  coHostMembers VideoCoHostMember[]     @relation("VideoCoHostMembers")
   bans          VideoLiveBan[]
   reports       VideoLiveReport[]
+  admins        VideoLiveAdmin[]
+  chatLocked    Boolean                 @default(false)
+  seatsLocked   Boolean                 @default(false)
 
   @@index([status, startedAt])
   @@index([hostId, startedAt])
@@ -901,6 +907,46 @@ model VideoLivePkSession {
 
   @@index([leftSessionId, status])
   @@index([rightSessionId, status])
+}
+
+model VideoCoHostSession {
+  id              String              @id
+  ownerLiveId     String
+  status          String              @default("LOBBY")
+  mode            String              @default("SOLO")
+  durationSeconds Int                 @default(300)
+  revision        Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  startedAt       DateTime?
+  endsAt          DateTime?
+  endedAt         DateTime?
+  winnerTeam      String?
+  winnerLiveId    String?
+  ownerLive       VideoLiveSession    @relation("VideoCoHostOwner", fields: [ownerLiveId], references: [id], onDelete: Cascade)
+  members         VideoCoHostMember[]
+
+  @@index([ownerLiveId, status])
+  @@index([status, endsAt])
+}
+
+model VideoCoHostMember {
+  coHostId        String
+  liveId          String
+  role            String             @default("COHOST")
+  status          String             @default("INVITED")
+  team            String?
+  score           BigInt             @default(0)
+  invitedByLiveId String?
+  inviteExpiresAt DateTime?
+  joinedAt        DateTime?
+  leftAt          DateTime?
+  createdAt       DateTime           @default(now())
+  coHost          VideoCoHostSession @relation(fields: [coHostId], references: [id], onDelete: Cascade)
+  live            VideoLiveSession   @relation("VideoCoHostMembers", fields: [liveId], references: [id], onDelete: Cascade)
+
+  @@id([coHostId, liveId])
+  @@index([liveId, status])
+  @@index([status, inviteExpiresAt])
 }
 
 model VideoLiveViewer {
@@ -927,6 +973,17 @@ model UserFollow {
   @@id([followerId, followedId])
   @@index([followedId, createdAt])
   @@index([followerId, createdAt])
+}
+
+model VideoLiveAdmin {
+  sessionId String
+  userId    String
+  createdAt DateTime         @default(now())
+  session   VideoLiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User             @relation("VideoLiveAdminUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, userId])
+  @@index([userId])
 }
 
 model VideoLiveBan {

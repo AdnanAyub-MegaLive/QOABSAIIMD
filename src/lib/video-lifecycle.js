@@ -2,6 +2,7 @@ import { prisma } from "./prisma.js";
 import { dismissRtcRoom, removeRtcParticipant } from "./rtc-moderation.js";
 import { requireVideoAccess } from "./video-access.js";
 import { emitToVideoLive } from "./realtime.js";
+import { leaveCoHostsOnEnd, emitCoHostChanges } from "./video-cohost.js";
 export async function closeVideoRtc(live, db = prisma) {
   if (live.rtcClosedAt) return;
   await dismissRtcRoom(`video-${live.publicId}`);
@@ -9,6 +10,7 @@ export async function closeVideoRtc(live, db = prisma) {
   await db.videoLiveSession.update({ where: { id: live.id }, data: { rtcClosedAt: new Date() } });
 }
 export async function endVideoLive(live, admin = null, db = prisma) {
+  let coHostChanges = [];
   const row = await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('video-pk-matching'))::text AS locked`;
     await tx.$queryRaw`SELECT id FROM "VideoLiveSession" WHERE id = ${live.id} FOR UPDATE`;
@@ -16,11 +18,14 @@ export async function endVideoLive(live, admin = null, db = prisma) {
     await tx.videoLiveViewer.updateMany({ where: { sessionId: live.id }, data: { active: false, socketCount: 0 } });
     await tx.videoLiveGuestRequest.updateMany({ where: { sessionId: live.id, status: { in: ["PENDING", "INVITED", "APPROVED"] } }, data: { status: "EXPIRED", respondedAt: new Date() } });
     await tx.videoLivePkQueue.deleteMany({ where: { sessionId: live.id } });
+    await tx.videoLiveAdmin.deleteMany({ where: { sessionId: live.id } });
     await tx.videoLivePkSession.updateMany({ where: { status: { in: ["PENDING", "LIVE"] }, OR: [{ leftSessionId: live.id }, { rightSessionId: live.id }] }, data: { status: "ENDED", endedAt: new Date(), revision: { increment: 1 } } });
+    coHostChanges = await leaveCoHostsOnEnd(tx, live.id);
     if (admin) await tx.auditLog.create({ data: { adminId: admin.id, action: "VIDEO_LIVE_ENDED", category: "CONTENT_MANAGEMENT", entityType: "VideoLiveSession", entityId: live.publicId, description: "Administrator ended video live." } });
     return tx.videoLiveSession.findUnique({ where: { id: live.id }, include: { host: true } });
   });
   await emitToVideoLive(row.publicId, "live-video:ended", { success: true, data: { liveId: row.publicId, status: "ENDED", endedAt: row.endedAt.toISOString(), revision: row.revision } });
+  if (coHostChanges.length) await emitCoHostChanges(db, coHostChanges).catch(() => console.error("Co-host end emit deferred", { liveId: row.publicId }));
   // Ending is already committed and broadcast. Provider cleanup is retryable;
   // do not report the completed operation as failed or mark cleanup complete.
   try { await closeVideoRtc(row, db); }

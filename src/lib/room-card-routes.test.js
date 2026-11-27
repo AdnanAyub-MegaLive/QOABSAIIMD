@@ -24,7 +24,10 @@ import { GET as recent } from '../app/api/audio-rooms/recent/route';
 beforeEach(() => {
   vi.clearAllMocks();
   const rooms = ['one', 'two'].map(roomId => ({ roomId, title: roomId, owner: { publicId: 'owner', agency: roomId === 'one' ? { publicId: 'AGN-123' } : null } }));
-  prisma.audioRoom.findMany.mockResolvedValue(rooms);
+  prisma.audioRoom.findMany.mockImplementation(async query => {
+    const scopes = query?.where?.AND?.[1]?.pinScope?.in;
+    return !scopes || scopes.includes('NONE') ? rooms : [];
+  });
   prisma.audioRoomVisit.findMany.mockResolvedValue(rooms.map(audioRoom => ({ audioRoom, lastVisitedAt: new Date() })));
   prisma.$queryRaw.mockResolvedValue([
     { roomId: 'one', giftTotalCoins: '1500000', activeRedEnvelopeCount: 2 },
