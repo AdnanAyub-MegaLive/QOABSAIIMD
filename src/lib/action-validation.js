@@ -1,5 +1,7 @@
 const messages = {
   HOST_AGENCY_REQUIRED: 'Join an agency before assigning the Host role.',
+  RESELLER_CANNOT_HOST: 'Resellers cannot become hosts or own an agency. Remove the Reseller role first.',
+  HOST_CANNOT_BE_RESELLER: 'Active hosts and agency owners cannot become resellers.',
   REFERENCE_COUNTRY_REQUIRED: 'Set a country before giving this user a BD, Admin, Country Head or Manager role.',
   USER_NOT_FOUND: 'User not found. Refresh the page and use the current USR/TLN public ID.',
   SPECIAL_ID_NOT_FOUND: 'This Special ID no longer exists. Refresh the list.',

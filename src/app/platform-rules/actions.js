@@ -1,5 +1,6 @@
 "use server";
 
+import { assertNotReseller } from "@/lib/reseller-exclusivity";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/portal-admin";
 import { prisma } from "../../lib/prisma";
@@ -63,11 +64,13 @@ export async function assignHostToAgency({ subject, agencyId, reason }) {
       where: { publicId },
       data: { agencyId: agency.id },
     });
-  else
+  else {
+    assertNotReseller(await prisma.user.findUnique({ where: { publicId }, select: { role: true, appRoles: true } }));
     await prisma.user.update({
       where: { publicId },
       data: { agencyId: agency.id },
     });
+  }
   await prisma.auditLog.create({
     data: {
       adminId: admin.id,

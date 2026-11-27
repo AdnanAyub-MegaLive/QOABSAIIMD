@@ -1,3 +1,4 @@
+import { assertGiftableUser } from "@/lib/reseller-exclusivity";
 import { sharedRuntime } from '@/lib/scaling/shared-runtime';
 import { walletFrozenResponse } from "@/lib/wallet-freeze";
 import { pkDto, audioPkInclude } from "@/lib/audio-room-pk";
@@ -129,6 +130,7 @@ export async function POST(request) {
       throw error;
     }
     if (!recipientUser) throw Object.assign(new Error("The recipient needs an active linked user account."), {code:"USER_NOT_FOUND"});
+    assertGiftableUser(recipientUser);
     if (roomId && !room) {
       const error = new Error("The selected audio room is not live.");
       error.code = "ROOM_NOT_LIVE";
@@ -442,6 +444,8 @@ export async function POST(request) {
         { success: false, error: { code: error.code, message: error.message } },
         409,
       );
+    if (error?.code === "RESELLER_CANNOT_RECEIVE_GIFTS")
+      return mobileJson({ success: false, error: { code: error.code, message: error.message } }, 403);
     if (error?.code === "ROOM_PARTICIPANT_REQUIRED")
       return mobileJson(
         { success: false, error: { code: error.code, message: error.message } },

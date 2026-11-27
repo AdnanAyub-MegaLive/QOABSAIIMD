@@ -1,9 +1,11 @@
+import { assertGiftableUser } from "./reseller-exclusivity.js";
 import { isHostUser } from "./user-roles.js";
 import { coinsForShare } from "./profit-rules.js";
 
 export async function assertGiftRecipient(tx, recipient) {
   const current = recipient && await tx.user.findFirst({where:{id:recipient.id,deletedAt:null,status:"ACTIVE"}});
   if (!current) throw Object.assign(new Error("The recipient account is unavailable."), {code:"USER_NOT_FOUND"});
+  assertGiftableUser(current);
   if (current.agencyId !== recipient.agencyId || isHostUser(current) !== isHostUser(recipient))
     throw Object.assign(new Error("Recipient membership changed. Please retry."), {code:"GIFT_RECIPIENT_CHANGED"});
   if (isHostUser(current) && !current.agencyId)

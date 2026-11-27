@@ -1,4 +1,5 @@
 "use server";
+import { assertNotReseller } from "@/lib/reseller-exclusivity";
 import { requireUserInScope, capGrant } from "../lib/staff-scope.js";
 import { calendarWindow } from "@/lib/business-time.js";
 import { occupiedSpecialId, promoteSpecialId, publishSpecialIdentity } from "@/lib/special-id-ownership";
@@ -119,6 +120,13 @@ export async function updateUserAccount(publicId, changes) {
   }
   if (referenceRoleNeedsCountry(currentUser.appRoles, nextRoles, data.country !== undefined ? data.country : currentUser.country, data.country !== undefined))
     return validationResult("REFERENCE_COUNTRY_REQUIRED");
+  // A reseller can't be a host or agency owner, and hosts/agency owners can't be resellers.
+  if (nextRoles.includes("RESELLER")) {
+    const hosting = nextRoles.includes("HOST") || (data.role ?? currentUser.role) === "HOST";
+    if (hosting) return validationResult(currentUser.appRoles.includes("RESELLER") ? "RESELLER_CANNOT_HOST" : "HOST_CANNOT_BE_RESELLER");
+    if (!currentUser.appRoles.includes("RESELLER") && await prisma.agency.findFirst({ where: { ownerUserId: currentUser.id, status: "ACTIVE" }, select: { id: true } }))
+      return validationResult("HOST_CANNOT_BE_RESELLER");
+  }
   const nextStatus = data.status ?? currentUser.status;
   const isHost = Boolean(currentUser.agencyId) && (
     nextRoles.includes("HOST") ||
@@ -323,6 +331,7 @@ export async function managePortalHost(publicId, changes) {
   const agencyPublicId = String(changes.agencyPublicId ?? "").trim();
   let agencyId = null;
   if (hostEnabled) {
+    assertNotReseller(user);
     if (!agencyPublicId) throw new Error("HOST_AGENCY_REQUIRED");
     const agency = await prisma.agency.findFirst({
       where: { publicId: agencyPublicId, status: "ACTIVE" },

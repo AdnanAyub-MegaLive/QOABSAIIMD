@@ -1,3 +1,4 @@
+import { assertCanBecomeReseller, assertRoleSet } from "./reseller-exclusivity.js";
 import { resolveRoleTags } from "./role-tags.js";
 import { prisma } from "./prisma.js";
 import { MANAGEMENT_ROLE_ORDER, managementRole, displayApplicationRole, managementIdentity, normalizeApplicationRoles, primaryLegacyRole } from "./user-roles.js";
@@ -85,6 +86,8 @@ function roleName(role) { return role ? displayApplicationRole(role) : "Member";
 function withArticle(label) { return `${/^[AEIOU]/i.test(label) ? "an" : "a"} ${label}`; }
 async function applyRoles(tx, user, roles, extra = {}) {
   const appRoles = normalizeApplicationRoles(roles);
+  assertRoleSet(appRoles);
+  if (appRoles.includes("RESELLER") && !user.appRoles?.includes("RESELLER")) await assertCanBecomeReseller(tx, await tx.user.findUnique({ where: { id: user.id }, select: { id: true, role: true, appRoles: true, agencyId: true } }));
   const updated = await tx.user.update({ where: { id: user.id }, data: { appRoles: { set: appRoles }, role: primaryLegacyRole(appRoles, user.role ?? "LISTENER"), isOfficial: appRoles.includes("OFFICIAL"), ...extra } });
   await syncResellerProps(user.id, tx);
   const fresh = { ...user, ...updated, appRoles };

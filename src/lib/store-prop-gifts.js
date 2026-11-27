@@ -1,3 +1,4 @@
+import { isReseller } from "./reseller-exclusivity.js";
 import {randomUUID} from 'node:crypto';
 import {entitlementExpiry,equippablePropCategories} from './props-store.js';
 import {ledgerData} from './wallet.js';
@@ -23,6 +24,7 @@ export async function giftStoreProp(db,sessionUser,assetId,body){
    const recipient=await tx.user.findUnique({where:{publicId:input.recipientPublicId}});
    if(!recipient||recipient.deletedAt||recipient.status!=='ACTIVE'||recipient.companyBdCountry)fail('RECIPIENT_NOT_FOUND','Recipient was not found.',404);
    if(recipient.id===sender.id)fail('CANNOT_GIFT_SELF','You cannot give a store prop to yourself.');
+   if(isReseller(recipient))fail('RESELLER_CANNOT_RECEIVE_GIFTS','Resellers cannot receive gifts.',403);
    const block=await tx.userBlock.findFirst({where:{OR:[{blockerId:sender.id,blockedId:recipient.id},{blockerId:recipient.id,blockedId:sender.id}]}});
    if(block)fail('RECIPIENT_UNAVAILABLE','This recipient is unavailable.',403);
    const asset=await tx.uploadAsset.findFirst({where:{publicId:assetId,active:true,archivedAt:null,storeVisible:true,distribution:'STORE',category:{in:[...equippablePropCategories]}}});
