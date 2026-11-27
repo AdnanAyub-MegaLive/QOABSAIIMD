@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../prisma.js";
 import { assertMobileSession } from "../mobile-session-state.js";
 import { ledgerData } from "../wallet.js";
+import { awardActivityXp } from "../activity-levels.js";
 import { decryptBigData, encryptBigData } from "./crypto.js";
 import { TULASI_LANGS, TULASI_ROOM_ID, tulasiConfig } from "./config.js";
 
@@ -114,6 +115,7 @@ export async function updateBalance(input, db = prisma, now = Date.now()) {
       if (coins > 0n) {
         const debit = await tx.user.updateMany({ where: { id: user.id, coinBalance: { gte: coins } }, data: { coinBalance: { decrement: coins } } });
         if (!debit.count) throw new TulasiError("Insufficient balance.");
+        await awardActivityXp(tx, "GAME", user.id, referenceId, coins);
       }
     } else if (coins > 0n) {
       await tx.user.update({ where: { id: user.id }, data: { coinBalance: { increment: coins } } });
