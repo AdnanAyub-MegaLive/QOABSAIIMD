@@ -96,6 +96,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
   if (error?.status && isServerProblem(error, error.status)) return mobileJson({ success: false, error }, error.status, error);
   if (["AGENCY_SELECTION_REQUIRED","AGENCY_NOT_FOUND"].includes(error?.code) && error.status) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   if (error?.status && /^(TRANSFER_|EXCHANGE_|RESELLER_INELIGIBLE)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
+  if (error?.status && /^(RESELLER_CANNOT_|HOST_CANNOT_BE_RESELLER$)/.test(error.code || "")) return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status);
   if (error?.code === "BD_REFERENCE_INVALID") return mobileJson({ success: false, error: { code: error.code, message: error.message } }, error.status === 404 ? 404 : 422);
   if (error?.status >= 400 && error.status < 500 && /^(KYC_|LIVE_FOLLOW_REQUIRED|LIVE_INVITE_REQUIRED)/.test(error.code || "")) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
   if (error?.status >= 400 && error.status < 500 && /^(COHOST_|PK_COUNTRY_MISMATCH$|ROUTE_NOT_FOUND$|NOT_FOUND$)/.test(error.code || "")) return mobileJson({success:false,error:{code:error.code,message:error.message}},error.status);
@@ -127,6 +128,7 @@ export function mobileApiError(error, fallbackCode = "REQUEST_FAILED") {
     AGENCY_INPUT_INVALID: [422, "AGENCY_INPUT_INVALID", "Agency name and owner user ID are required (maximum 120 and 50 characters)."],
     AGENCY_OWNER_UNAVAILABLE: [409, "AGENCY_OWNER_UNAVAILABLE", "The owner must be an active user."],
     ALREADY_HAS_AGENCY: [409, "ALREADY_HAS_AGENCY", "This user already owns or belongs to an agency."],
+    RESELLER_CANNOT_HOST: [409, "RESELLER_CANNOT_HOST", "Resellers cannot become hosts or own an agency."],
     ALREADY_APPLIED: [409, "ALREADY_APPLIED", "This user already has a pending or approved agency application."],
     APPLICATION_NOT_FOUND: [404, "APPLICATION_NOT_FOUND", "Agency application not found."],
     ALREADY_REVIEWED: [409, "ALREADY_REVIEWED", "This application has already been reviewed."],

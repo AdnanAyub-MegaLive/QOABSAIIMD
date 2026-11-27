@@ -1,3 +1,4 @@
+import { isReseller } from "./reseller-exclusivity.js";
 import { randomUUID } from "node:crypto";
 import { generateNumericPublicId } from "./public-id.js";
 import { findAgencyReference, validateAgencyReference } from "./agency-reference.js";
@@ -46,6 +47,7 @@ export async function findBD(client, code, country) {
 async function eligibleOwner(client, publicId, applicationId) {
   const user = await client.user.findUnique({ where: { publicId }, include: { ownedAgencies: {select:{id:true}} } });
   if (!user || user.deletedAt || user.status !== "ACTIVE") agencyError("AGENCY_OWNER_UNAVAILABLE");
+  if (isReseller(user)) agencyError("RESELLER_CANNOT_HOST");
   if (user.companyBdCountry || (!canOwnMultipleAgencies(user) && (user.ownedAgencies.length || user.agencyId))) agencyError("ALREADY_HAS_AGENCY");
   const pending = await client.agencyApplication.findFirst({
     where: { userId: user.id, status: { in: canOwnMultipleAgencies(user) ? ["PENDING"] : ["PENDING", "APPROVED"] }, ...(applicationId ? { id: { not: applicationId } } : {}) },

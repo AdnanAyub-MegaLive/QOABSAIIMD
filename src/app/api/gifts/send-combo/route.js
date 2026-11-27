@@ -25,6 +25,8 @@ export async function POST(request) {
     const result = await runGiftOperation(sender.id, operation, (tx, tap) => prepared.settle(tx, tap));
     return giftJson({ success: true, data: result }, 201);
   } catch (error) {
+    if (error.code === 'RESELLER_CANNOT_RECEIVE_GIFTS')
+      return giftJson({ success: false, error: { code: error.code, message: error.message } }, 403);
     if (error.code === 'ROOM_NOT_LIVE' || error.code === 'GIFT_RECIPIENT_CHANGED')
       return giftJson({ success: false, error: { code: error.code, message: error.message } }, 409);
     if (error.message === 'INSUFFICIENT_COINS') return giftJson({ success: false, error: {
