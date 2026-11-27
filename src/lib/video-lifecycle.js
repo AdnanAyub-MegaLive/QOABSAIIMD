@@ -21,8 +21,10 @@ export async function endVideoLive(live, admin = null, db = prisma) {
     return tx.videoLiveSession.findUnique({ where: { id: live.id }, include: { host: true } });
   });
   await emitToVideoLive(row.publicId, "live-video:ended", { success: true, data: { liveId: row.publicId, status: "ENDED", endedAt: row.endedAt.toISOString(), revision: row.revision } });
-  // Keep rtcClosedAt null on failure so maintenance retries provider cleanup.
-  await closeVideoRtc(row, db);
+  // Ending is already committed and broadcast. Provider cleanup is retryable;
+  // do not report the completed operation as failed or mark cleanup complete.
+  try { await closeVideoRtc(row, db); }
+  catch { console.error("Video RTC cleanup deferred after session ended", { liveId: row.publicId }); }
   return row;
 }
 export async function retryVideoRtcCleanup(db = prisma) {

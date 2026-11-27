@@ -32,3 +32,12 @@ it("treats Tencent's missing-room codes as already closed", async () => {
   expect(isMissingTrtcRoom({ code: "ResourceNotFound.RoomNotExist" })).toBe(true);
   expect(isMissingTrtcRoom({ code: "InternalError" })).toBe(false);
 });
+
+it("accepts an already absent provider room without failing cleanup", async () => {
+  mocks.dismiss.mockRejectedValueOnce({code:"FailedOperation.RoomNotExist"});
+  await expect(dismissRtcRoom("video-LIVE-1")).resolves.toBeUndefined();
+});
+it("does not mistake an invalid room parameter for successful cleanup", async () => {
+  mocks.dismiss.mockRejectedValueOnce({code:"InvalidParameter.RoomId"});
+  await expect(dismissRtcRoom("video-LIVE-1")).rejects.toThrow("RTC_MODERATION_FAILED");
+});
