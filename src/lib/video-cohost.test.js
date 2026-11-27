@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const { emits } = vi.hoisted(() => ({ emits: [] }));
-vi.mock("./realtime.js", () => ({ emitToVideoLive: vi.fn(async (liveId, event, payload) => { emits.push({ liveId, event, payload }); }), emitToUser: vi.fn() }));
+vi.mock("./realtime.js", () => ({ emitToVideoLive: vi.fn(async (liveId, event, payload) => { emits.push({ liveId, event, payload }); }), emitToUser: vi.fn(), emitToSockets: vi.fn() }));
 vi.mock("./user-perks.js", async (load) => ({ ...(await load()), resolveUserPerks: async (users) => new Map(users.map(u => [u.publicId, { frameUrl: `https://cdn.test/${u.publicId}.svga`, frameMimeType: "application/svga" }])) }));
-import { coHostAction, coHostRead, scoreCoHostGift, scoreCoHostSafely, maintainCoHosts, requireNoCoHost, coHostDto, leaveCoHostsOnEnd } from "./video-cohost.js";
+import { coHostAction, coHostRead, scoreCoHostGift, scoreCoHostSafely, maintainCoHosts, requireNoCoHost, coHostDto, leaveCoHostsOnEnd, emitCoHost, coHostSocketVisibility } from "./video-cohost.js";
 import { videoPkQueue } from "./video-pk.js";
 
 let lives, sessions, members, pks, seq, admins;
@@ -266,4 +266,54 @@ it("ending a live leaves its co-host, and the owner ending in LOBBY closes it", 
   expect(members.get(key(id, "C")).status).toBe("LEFT");
   expect(await leaveCoHostsOnEnd(db, "A")).toEqual([{ id, event: "cohost-ended" }]);
   expect(sessions.get(id).status).toBe("ENDED");
+});
+
+it("rejects duplicate host IDs that disguise unequal teams", async () => {
+  const id = await lobby(["A", "B", "C", "D"]);
+  expect(await err(act("A", "teams", { sessionId: id,
+    blue: ["LIVE-A", "LIVE-A", "LIVE-A"], red: ["LIVE-B", "LIVE-C", "LIVE-D"]
+  }))).toBe("COHOST_TEAM_INVALID");
+});
+
+it("rechecks session state after obtaining the scoring lock", async () => {
+  const id = await lobby(["A", "B"]);
+  await act("A", "start", { sessionId: id, mode: "SOLO" });
+  // A finisher that acquired the same lock first commits before scoring resumes.
+  db.$queryRaw = vi.fn(async () => { sessions.get(id).status = "ENDED"; return []; });
+  expect(await scoreCoHostGift(db, lives.get("B"), "UB", 99n)).toBeNull();
+  expect(db.$queryRaw).toHaveBeenCalled();
+  expect(members.get(key(id, "B")).score).toBe(0n);
+});
+
+it("masks private, blocked and banned co-hosts in socket events too", async () => {
+  const id = await lobby(["A", "B", "C", "D"]);
+  lives.get("B").privacyMode = "PRIVATE";
+  lives.get("C").privacyMode = "FOLLOWERS";
+  const viewers = [{ id: "UV", publicId: "USR-V" }, { id: "UB", publicId: "USR-B" }];
+  const socket = { id: "socket-v", data: { userId: "USR-V" }, rooms: new Set(["live-video:LIVE-A"]) };
+  const query = rows => ({ findMany: vi.fn(async () => rows) });
+  const access = { ...db, user: query(viewers), userBlock: query([{ blockerId: "UD", blockedId: "UV" }]),
+    videoLiveBan: query([]), userFollow: query([]), videoLiveInvite: query([]) };
+  const visibility = await coHostSocketVisibility(access, full(id), [socket]);
+  expect([...visibility.get("USR-V")].sort()).toEqual(["LIVE-B", "LIVE-C", "LIVE-D"]);
+  expect(visibility.get("USR-B").has("LIVE-B")).toBe(false);
+  const { emitToSockets } = await import("./realtime.js");
+  globalThis.portalIo = { in: () => ({ fetchSockets: async () => [socket] }) };
+  try {
+    await emitCoHost(access, full(id), "cohost-score", "https://portal.test");
+    const payload = emitToSockets.mock.calls.at(-1)[2];
+    expect(JSON.stringify(payload)).not.toContain("LIVE-B");
+    expect(JSON.stringify(payload)).not.toContain("USR-D");
+    expect(payload.data.session.members.find(m => m.liveId === "LIVE-A").name).toBe("Host A");
+    expect(access.userBlock.findMany).toHaveBeenCalledTimes(2);
+  } finally { delete globalThis.portalIo; }
+  access.userBlock = query([]);
+  access.userFollow = query([{ followerId: "UV", followedId: "UC" }]);
+  access.videoLiveInvite = query([{ sessionId: "B", userId: "UV" }]);
+  access.videoLiveBan = query([{ sessionId: "D", userId: "UV" }]);
+  expect([...(await coHostSocketVisibility(access, full(id), [socket])).get("USR-V")]).toEqual(["LIVE-D"]);
+});
+it("does not expose a session through a non-member leave action", async () => {
+  const id = await lobby(["A", "B"]);
+  expect(await err(act("C", "leave", { sessionId: id }))).toBe("COHOST_MEMBER_REQUIRED");
 });

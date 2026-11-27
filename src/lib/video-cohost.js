@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { videoError, requireVideoAccess } from "./video-access.js";
-import { emitToVideoLive } from "./realtime.js";
+import { emitToVideoLive, emitToSockets } from "./realtime.js";
 import { requireSamePkCountry } from "./video-live.js";
 import { resolveUserPerks } from "./user-perks.js";
 import { requireLiveOwner } from "./video-moderation.js";
@@ -96,7 +96,7 @@ async function leaveMember(tx, s, liveId, now) {
 function parseTeams(s, body) {
   if ((body.blue != null && !Array.isArray(body.blue)) || (body.red != null && !Array.isArray(body.red))) throw videoError("VALIDATION_ERROR", "Teams must be lists of live IDs.", 422);
   const ids = activeMembers(s).map(m => m.live.publicId), blue = (body.blue ?? []).map(String), red = (body.red ?? []).map(String), all = new Set([...blue, ...red]);
-  if (!teamAllowed(ids.length) || blue.length !== red.length || all.size !== ids.length || ids.some(id => !all.has(id))) throw videoError("COHOST_TEAM_INVALID", "Both teams need the same number of hosts (4, 6 or 8 in total).", 422);
+  if (!teamAllowed(ids.length) || blue.length !== red.length || blue.length + red.length !== ids.length || all.size !== ids.length || ids.some(id => !all.has(id))) throw videoError("COHOST_TEAM_INVALID", "Both teams need the same number of hosts (4, 6 or 8 in total).", 422);
   const byPublic = new Map(s.members.map(m => [m.live.publicId, m.liveId]));
   return { blue: blue.map(id => byPublic.get(id)), red: red.map(id => byPublic.get(id)) };
 }
@@ -159,7 +159,8 @@ const actions = {
   },
   async leave(tx, { live, body, now }) {
     const s = await session(tx, body), m = mine(s, live);
-    if (!m || !activeMembers(s).includes(m)) return { id: s.id };
+    if (!m) throw videoError("COHOST_MEMBER_REQUIRED", "You are not in this Co-host.", 403);
+    if (!activeMembers(s).includes(m)) return { id: s.id };
     return { id: s.id, event: await leaveMember(tx, s, live.id, now) };
   },
   async end(tx, { live, body, now }) {
@@ -212,8 +213,57 @@ export const COHOST_ACTIONS = Object.keys(actions);
 export async function emitCoHost(db, s, event, origin, extra = []) {
   const now = new Date(), dto = await coHostView(s, origin, now), serverNow = now.toISOString();
   const lives = [...new Set([...s.members.map(m => m.live.publicId), ...extra])];
-  for (const liveId of lives) await emitToVideoLive(liveId, `live-video:${event}`, { success: true, data: { liveId, session: dto, serverNow } });
+  const io = globalThis.portalIo;
+  if (!io) {
+    for (const liveId of lives) await emitToVideoLive(liveId, `live-video:${event}`, { success: true, data: { liveId, session: dto, serverNow } });
+    return dto;
+  }
+  const sockets = await io.in(lives.map(id => `live-video:${id}`)).fetchSockets();
+  const visibility = await coHostSocketVisibility(db, s, sockets, now);
+  // Use socket IDs, not user channels: other devices may be outside this live.
+  const deliveries = new Map();
+  for (const socket of sockets) {
+    const hidden = visibility.get(socket.data?.userId);
+    if (!hidden) continue;
+    for (const liveId of lives) if (socket.rooms.has(`live-video:${liveId}`)) {
+      const key = JSON.stringify([liveId, [...hidden]]);
+      if (!deliveries.has(key)) deliveries.set(key, { ids: [], liveId, session: maskHidden(dto, hidden) });
+      deliveries.get(key).ids.push(socket.id);
+    }
+  }
+  for (const { ids, liveId, session } of deliveries.values()) {
+    await emitToSockets(ids, `live-video:${event}`, { success: true, data: { liveId, session, serverNow } });
+  }
   return dto;
+}
+
+// Batch access records once per event instead of running access queries per viewer.
+export async function coHostSocketVisibility(db, s, sockets, now = new Date()) {
+  const publicIds = [...new Set(sockets.map(socket => socket.data?.userId).filter(Boolean))];
+  if (!publicIds.length) return new Map();
+  const users = await db.user.findMany({ where: { publicId: { in: publicIds } }, select: { id: true, publicId: true } });
+  const userIds = users.map(user => user.id), members = visibleMembers(s, now);
+  const hostIds = [...new Set(members.map(m => m.live.hostId))], liveIds = members.map(m => m.liveId);
+  const [blocks, bans, follows, invites] = await Promise.all([
+    db.userBlock.findMany({ where: { OR: [{ blockerId: { in: userIds }, blockedId: { in: hostIds } }, { blockerId: { in: hostIds }, blockedId: { in: userIds } }] }, select: { blockerId: true, blockedId: true } }),
+    db.videoLiveBan.findMany({ where: { sessionId: { in: liveIds }, userId: { in: userIds }, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, select: { sessionId: true, userId: true } }),
+    db.userFollow.findMany({ where: { followerId: { in: userIds }, followedId: { in: hostIds } }, select: { followerId: true, followedId: true } }),
+    db.videoLiveInvite.findMany({ where: { sessionId: { in: liveIds }, userId: { in: userIds } }, select: { sessionId: true, userId: true } }),
+  ]);
+  const pair = (a, b) => JSON.stringify([a, b]);
+  const blocked = new Set(blocks.flatMap(b => [pair(b.blockerId, b.blockedId), pair(b.blockedId, b.blockerId)]));
+  const banned = new Set(bans.map(b => pair(b.sessionId, b.userId)));
+  const following = new Set(follows.map(f => pair(f.followerId, f.followedId)));
+  const invited = new Set(invites.map(i => pair(i.sessionId, i.userId)));
+  return new Map(users.map(user => {
+    const hidden = members.filter(({ live }) => {
+      if (live.hostId === user.id) return false;
+      return blocked.has(pair(user.id, live.hostId)) || banned.has(pair(live.id, user.id)) ||
+        (live.privacyMode === "FOLLOWERS" && !following.has(pair(user.id, live.hostId))) ||
+        (live.privacyMode === "PRIVATE" && !invited.has(pair(live.id, user.id)));
+    });
+    return [user.publicId, new Set(hidden.map(m => m.live.publicId))];
+  }));
 }
 
 export async function coHostAction(db, user, liveId, action, body, origin) {
@@ -235,7 +285,7 @@ export async function coHostAction(db, user, liveId, action, body, origin) {
   if (result.event) dto = await emitCoHost(db, s, result.event, origin);
   else dto = await coHostView(s, origin);
   if (result.invite) await emitToVideoLive(result.invite.liveId, "live-video:cohost-invited", { success: true, data: { liveId: result.invite.liveId, invite: result.invite.invite, ...result.invite.invite, serverNow: new Date().toISOString() } });
-  return { session: dto, serverNow: dto.serverNow };
+  return { session: maskHidden(dto, await hiddenLives(db, s, user.id, new Date())), serverNow: dto.serverNow };
 }
 
 export async function coHostRead(db, user, live, origin) {
@@ -274,6 +324,9 @@ export async function scoreCoHostGift(tx, live, recipientUserId, coins, now = ne
   if (!live || recipientUserId !== live.hostId || !(BigInt(coins) > 0n)) return null;
   const member = await tx.videoCoHostMember.findFirst({ where: { liveId: live.id, status: { in: ACTIVE }, coHost: { status: "LIVE", startedAt: { lte: now }, endsAt: { gt: now } } } });
   if (!member) return null;
+  // Serialize scoring with finish/start/leave so a winner cannot be computed
+  // from a snapshot that predates a concurrently committed gift.
+  await lockSession(tx, member.coHostId);
   const scored = await tx.videoCoHostMember.updateMany({ where: { coHostId: member.coHostId, liveId: live.id, status: { in: ACTIVE }, coHost: { status: "LIVE", endsAt: { gt: now } } }, data: { score: { increment: BigInt(coins) } } });
   if (!scored.count) return null;
   await tx.videoCoHostSession.updateMany({ where: { id: member.coHostId, status: "LIVE" }, data: { revision: { increment: 1 } } });

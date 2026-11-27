@@ -22,3 +22,7 @@ export async function audioRoomParticipantIds(roomId) {
   const sockets = await io.in(`audio-room:${roomId}`).fetchSockets();
   return new Set(sockets.map((socket) => socket.data.userId).filter(Boolean));
 }
+
+export async function emitToSockets(socketIds, event, payload) {
+  if (globalThis.portalIo && socketIds.length) await emitVersioned(globalThis.portalIo.to(socketIds), event, payload);
+}
