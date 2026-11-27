@@ -15,6 +15,7 @@ export const VIP_PRIVILEGES = [
   ["GIF_ROOM_COVER", "GIF room cover"],
   ["LEVEL_BOOST", "Level boost"],
   ["VIEW_VISITORS", "View visitor details (VIP 3+)"],
+  ["COUNTRY_CHAT", "Send Country Chat messages (VIP 3+)"],
   ["GROUP_CHAT", "Create group chats"],
   ["VIP_LOGO", "VIP logo", "BADGES", true], ["VIP_ENTRANCE", "VIP entrance", "ENTRANCES", true],
   ["EXCLUSIVE_SEAT_STYLE", "Exclusive seat style", "SEAT_STYLES", true], ["GIFT_AVATAR", "Gift avatar", "FRAMES", true],
@@ -30,6 +31,7 @@ export function validateVipTier(body) {
   if(!Array.isArray(body.privileges)||body.privileges.some(key=>!VIP_PRIVILEGES.some(p=>p.key===key)))fail("Select supported privileges only.");
   const privileges=[...new Set(body.privileges)];
   if (privileges.includes("VIEW_VISITORS") && level < 3) fail("Visitor details require VIP level 3 or higher.");
+  if (privileges.includes("COUNTRY_CHAT") && level < 3) fail("Country Chat messaging requires VIP level 3 or higher.");
   const xpMultiplierBps = body.xpMultiplierBps == null ? 10000 : Number(body.xpMultiplierBps);
   if (!Number.isSafeInteger(xpMultiplierBps) || xpMultiplierBps < 10000 || xpMultiplierBps > 100000) fail("XP multiplier must be between 1 and 10, in steps of 0.0001.");
   const nameColor = body.nameColor == null || body.nameColor === "" ? null : String(body.nameColor);

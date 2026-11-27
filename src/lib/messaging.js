@@ -1,3 +1,4 @@
+import { requireCountryChatSend } from "./country-chat-access.js";
 import { claimSocialCard } from "./chat-social-cards.js";
 import { summarizeReactions } from "./message-reaction-summary.js";
 import { claimChatPost, hydratePostMessages } from "./chat-posts.js";
@@ -211,6 +212,7 @@ export async function createMessage(
   options = {},
 ) {
   await assertConversationMessagingAllowed(conversation, sender.id, prisma, true);
+  if (conversation.kind === "WORLD") await requireCountryChatSend(prisma, sender.id);
   const senderCountry = conversation.kind==="WORLD" ? await userChatCountry(prisma,sender.id,true) : null;
   const clientMessageId = options.clientMessageId ?? null;
   if(clientMessageId!==null&&(typeof clientMessageId!=="string"||!clientMessageId.trim()||clientMessageId.length>128))throw Object.assign(new Error("Invalid client message ID."),{code:"VALIDATION_ERROR"});
@@ -244,6 +246,7 @@ export async function createMessage(
   let message;
   try { message = await prisma.$transaction(async (tx) => {
     await assertConversationMessagingAllowed(conversation,sender.id,tx,true);
+    if (conversation.kind === "WORLD") await requireCountryChatSend(tx, sender.id);
     const currentCountry=conversation.kind==="WORLD"?await userChatCountry(tx,sender.id,true):null;
     if(currentCountry!==senderCountry)throw countryChatErrorForReplay();
     const social = isSocial ? await claimSocialCard(tx,conversation,sender.id,options) : null;
@@ -362,6 +365,7 @@ export async function editMessage(conversationPublicId, messagePublicId, userId,
   }
   const body = validatedMessageBody(rawBody);
   if(membership.conversation.kind==="WORLD"){
+    await requireCountryChatSend(prisma, userId);
     assertNoCountryLinks(body);
     const country=await userChatCountry(prisma,userId,true);
     const visible=await prisma.message.findFirst({where:{id:message.id,...countryMessageFilter(country)},select:{id:true}});

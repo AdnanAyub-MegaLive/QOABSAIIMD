@@ -1,3 +1,4 @@
+import { countryChatAccess } from "@/lib/country-chat-access";
 import { prisma } from "../../../lib/prisma";
 import {
   mobileApiError,
@@ -43,6 +44,7 @@ async function conversationPayload(conversation, user, perks) {
   return {
     id: conversation.publicId,
     type: conversation.kind,
+    ...(conversation.kind === "WORLD" ? await countryChatAccess(prisma, user.id) : {}),
     ...(conversation.kind === "GROUP" ? groupDetails(conversation) : {}),
     name:
       conversation.kind === "WORLD"

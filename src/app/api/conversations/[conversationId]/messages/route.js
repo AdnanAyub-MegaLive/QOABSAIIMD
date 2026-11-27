@@ -1,3 +1,4 @@
+import { countryChatAccess } from "@/lib/country-chat-access";
 import { hydratePostMessages } from "@/lib/chat-posts";
 import { prisma } from "../../../../../lib/prisma";
 import { realtimeTiming } from '@/lib/realtime-timing';
@@ -84,6 +85,7 @@ export async function GET(request, { params }) {
               user.id,
             ),
           ),
+        ...(membership.conversation.kind === "WORLD" ? await countryChatAccess(prisma, user.id) : {}),
         nextCursor,
         hasMore,
       },

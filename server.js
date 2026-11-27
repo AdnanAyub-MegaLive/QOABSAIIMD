@@ -458,7 +458,7 @@ io.on("connection",async(socket)=>{
         ack({success:true,data:eventPayload});
       }catch(error){
         const code=error?.code??error?.message;
-        if(["COUNTRY_REQUIRED","LINK_NOT_ALLOWED"].includes(code))return ack({success:false,error:{code,message:error.message}});
+        if(["COUNTRY_REQUIRED","LINK_NOT_ALLOWED","COUNTRY_CHAT_VIP_REQUIRED"].includes(code))return ack({success:false,error:{code,message:error.message}});
         ack({success:false,error:{
           code:["CONVERSATION_NOT_FOUND","VALIDATION_ERROR","INAPPROPRIATE_WORD","MUTUAL_FOLLOW_REQUIRED","USER_BLOCKED","USER_NOT_FOUND","CHAT_MEDIA_UNAVAILABLE","POST_NOT_FOUND","RATE_LIMITED","IDEMPOTENCY_CONFLICT"].includes(code)?code:"MESSAGE_SEND_FAILED",
           message:error?.validationMessage??(code==="CONVERSATION_NOT_FOUND"?"Conversation not found.":"Unable to send this message."),

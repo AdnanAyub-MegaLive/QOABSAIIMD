@@ -1,5 +1,5 @@
 import { VIP_PRIVILEGES, vipIsActive } from './vip-contract.js';
-export const switchablePrivileges = new Set(['ANTI_KICK','ANTI_MIC_BAN','ROOM_ANTI_LOCK','INVISIBLE_ENTRY','FORBIDDEN_FOLLOW','RANKING_PRIORITY','LEVEL_BOOST','GIF_ROOM_COVER','CUSTOMER_SERVICE','HIGHLIGHT_NAME','VIEW_VISITORS']);
+export const switchablePrivileges = new Set(['ANTI_KICK','ANTI_MIC_BAN','ROOM_ANTI_LOCK','INVISIBLE_ENTRY','FORBIDDEN_FOLLOW','RANKING_PRIORITY','LEVEL_BOOST','GIF_ROOM_COVER','CUSTOMER_SERVICE','HIGHLIGHT_NAME','VIEW_VISITORS','COUNTRY_CHAT']);
 /** Staff-granted privileges, listed even without VIP; the user can switch them off. */
 function grantedItems(user, skip = []) {
   return VIP_PRIVILEGES.filter(p => (user?.grantedPrivileges ?? []).includes(p.key) && !skip.includes(p.key)).map(p => ({
