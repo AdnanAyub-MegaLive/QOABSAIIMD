@@ -2,6 +2,7 @@
 import { useEffect,useState } from "react";
 import { SpecialIdManager } from "../users/special-id-management";
 import VipArtworkUpload from "./vip-artwork-upload";
+import ServerPager from "../components/server-pager";
 import { VIP_PRIVILEGES } from "@/lib/vip-contract";
 const field="mt-1 w-full rounded-xl border border-[#dce8e5] bg-white p-3 text-sm";
 const button="rounded-xl bg-[#16877d] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
@@ -15,8 +16,8 @@ export default function VipManager({canCreate,canGrant,canRevoke,canDelete,canMa
   async function save(body){setBusy(true);setMessage("");try{await api("/api/admin/vip",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});await load();setMessage("Saved successfully.");setDraft(null)}catch(e){setMessage(e.message)}finally{setBusy(false)}}
   function toggle(key){setDraft(d=>({...d,privileges:d.privileges.includes(key)?d.privileges.filter(k=>k!==key):[...d.privileges,key],assets:d.assets.filter(a=>a.privilege!==key)}))}
   return <><header className="mb-7"><p className="text-xs font-bold uppercase tracking-widest text-[#16877d]">Memberships & benefits</p><h1 className="mt-2 text-3xl font-bold">VIP Management</h1><p className="mt-2 text-sm text-[#71847f]">Create your own tiers, choose privileges and artwork, and grant time-limited memberships.</p></header>
-    <nav className="mb-6 flex gap-2 border-b border-[#dce8e5]" aria-label="VIP sections">{["Tiers","Artwork","Members",...(idData?["Special ID"]:[])].map(t=><button key={t} onClick={()=>{setTab(t);setDraft(null)}} className={`px-5 py-3 text-sm font-semibold ${tab===t?"border-b-2 border-[#16877d] text-[#16877d]":"text-[#71847f]"}`}>{t}</button>)}</nav>
-    {tab==="Special ID"&&idData&&<SpecialIdManager idData={idData} canManage={canManageIds}/>}
+    <nav className="mb-6 flex gap-2 border-b border-[#dce8e5]" aria-label="VIP sections">{["Tiers","Artwork","Members",...(idData?["Special ID"]:[])].map(t=><button key={t} onClick={()=>{setTab(t);setDraft(null);const p=new URLSearchParams(window.location.search);p.set("tab",t);if(t!=="Special ID"){p.delete("page");p.delete("q");}window.history.replaceState(null,"",`?${p}`);}} className={`px-5 py-3 text-sm font-semibold ${tab===t?"border-b-2 border-[#16877d] text-[#16877d]":"text-[#71847f]"}`}>{t}</button>)}</nav>
+    {tab==="Special ID"&&idData&&<>{idData.paging&&<ServerPager page={idData.paging.page} hasNext={idData.paging.hasNext} total={idData.paging.total} label="special ID assignments" placeholder="Search user ID, name or special ID" search/>}<SpecialIdManager idData={idData} canManage={canManageIds}/></>}
     {message&&<p role="status" className="mb-5 rounded-xl border border-[#dce8e5] bg-white p-4 text-sm">{message}</p>}
     {!data?<p>Loading VIP management…</p>:<>
     {tab==="Tiers"&&<><div className="mb-5 flex items-center justify-between"><p className="text-sm text-[#71847f]">{data.total} tiers · no fixed tier count</p><button className={button} disabled={!canCreate||busy} onClick={()=>setDraft({...blank})}>+ Create VIP</button></div>

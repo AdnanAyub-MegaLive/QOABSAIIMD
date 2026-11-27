@@ -2,9 +2,10 @@
 import PortalDialog from "../components/portal-dialog";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import Link from "../components/intent-link";
+import { useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import ServerPager from "../components/server-pager";
 import RecordTable from "../components/record-table";
 import WorkPanel from "./work-panel";
 import SalaryPanel from "./salary-panel";
@@ -18,12 +19,24 @@ const tabs = [
   "Agency Apply",
   "Join Requests",
 ];
-export default function AgencyTabs({ applications = [], joinRequests = [], overview, modules, canManage = false }) {
-  const searchParams = useSearchParams();
-  const requested = searchParams.get("tab");
-  const [active, setActive] = useState(
-    tabs.includes(requested) ? requested : tabs[0],
-  );
+// Each tab is server-rendered from ?tab= (one page of its rows); switching resets paging.
+function useTabHref() {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  return (changes) => {
+    const p = new URLSearchParams(params.toString());
+    for (const [key, value] of Object.entries(changes)) { if (value == null || value === "") p.delete(key); else p.set(key, value); }
+    const s = p.toString();
+    return s ? `${pathname}?${s}` : pathname;
+  };
+}
+export default function AgencyTabs({ active = tabs[0], applications = [], joinRequests = [], overview, modules, paging = null, canManage = false }) {
+  const router = useRouter();
+  const tabHref = useTabHref();
+  const [pending, startTransition] = useTransition();
+  const [target, setTarget] = useState(active);
+  const open = (tab) => { setTarget(tab); startTransition(() => router.push(tabHref({ tab: tab === tabs[0] ? null : tab, page: null, q: null, status: null, kind: null }))); };
+  const shown = pending ? target : active;
   return (
     <>
       <div
@@ -36,21 +49,21 @@ export default function AgencyTabs({ applications = [], joinRequests = [], overv
             <button
               key={tab}
               type="button"
-              onClick={() => setActive(tab)}
-              className={`relative px-4 py-3 text-xs font-semibold transition ${active === tab ? "text-[#087f74] after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[#087f74]" : "text-[#71847f] hover:text-[#294a45]"}`}
+              onClick={() => open(tab)}
+              className={`relative px-4 py-3 text-xs font-semibold transition ${shown === tab ? "text-[#087f74] after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[#087f74]" : "text-[#71847f] hover:text-[#294a45]"}`}
               role="tab"
-              aria-selected={active === tab}
+              aria-selected={shown === tab}
             >
               {tab}
             </button>
           ))}
         </div>
       </div>
-      <section role="tabpanel">
+      <section role="tabpanel" aria-busy={pending} className={pending ? "opacity-60 transition-opacity" : undefined}>
         {active === "Work & Targets" ? <WorkPanel canManage={canManage}/> : active === "Agency Home" ? (
           <AgencyHome overview={overview} />
         ) : (
-          <Module tab={active} applications={applications} joinRequests={joinRequests} modules={modules} />
+          <Module tab={active} applications={applications} joinRequests={joinRequests} modules={modules} paging={paging} />
         )}
       </section>
     </>
@@ -170,17 +183,23 @@ function TalentTable({ hosts }) {
   );
 }
 
-function Module({ tab, applications, joinRequests, modules }) {
+function Module({ tab, applications, joinRequests, modules, paging }) {
+  const tabHref = useTabHref();
+  // Client tables keep state from their first props; remount them for each server page.
+  const key = paging ? `${tab}:${paging.kind ?? ""}:${paging.status ?? ""}:${paging.page}` : tab;
+  const pager = paging ? <ServerPager page={paging.page} hasNext={paging.hasNext} total={paging.total} label={paging.label} placeholder={paging.placeholder} search /> : null;
   if (tab === "Agency Apply")
-    return <AgencyApplications applications={applications} />;
+    return <AgencyApplications key={key} applications={applications} paging={paging} pager={pager} />;
   if (tab === "Join Requests")
-    return <AgencyJoinRequests initialRequests={joinRequests} />;
+    return <>{pager}<AgencyJoinRequests key={key} initialRequests={joinRequests} /></>;
   if (tab === "Agency Tasks")
-    return <RecordTable title="Agency Targets" description="Live progress against owner-configured monthly targets." rows={modules.tasks} columns={[{key:"agencyId",label:"Agency ID",mono:true},{key:"agency",label:"Agency"},{key:"target",label:"Target coins"},{key:"achieved",label:"Gift coins"},{key:"progress",label:"Progress"},{key:"status",label:"Status",badge:true}]}/>;
+    return <>{pager}<RecordTable key={key} title="Agency Targets" description="Live progress against owner-configured monthly targets." rows={modules.tasks} columns={[{key:"agencyId",label:"Agency ID",mono:true},{key:"agency",label:"Agency"},{key:"target",label:"Target coins"},{key:"achieved",label:"Gift coins"},{key:"progress",label:"Progress"},{key:"status",label:"Status",badge:true}]}/></>;
   if (tab === "Monthly Salary")
-    return <SalaryPanel agencies={modules.monthlySalaries}/>;
+    return <>{pager}<SalaryPanel key={key} agencies={modules.monthlySalaries}/></>;
   if (tab === "Host Salaries")
-    return <RecordTable title="Host Salaries" description="Current salary balances for every database-linked agency host." rows={modules.hostSalaries} columns={[{key:"hostId",label:"Host ID",mono:true},{key:"host",label:"Host"},{key:"agency",label:"Agency"},{key:"type",label:"Host type"},{key:"salaryBalance",label:"Salary balance"}]}/>;
+    return <>
+      <div className="flex gap-2">{[["user","User hosts"],["talent","Talent hosts"]].map(([kind,label])=><Link key={kind} href={tabHref({ kind: kind === "user" ? null : kind, page: null, q: null })} className={`rounded-lg border px-3 py-2 text-xs font-bold ${paging?.kind === kind ? "border-[#087f74] bg-[#e9f7f1] text-[#087f74]" : "border-[#dce8e5] text-[#526b67]"}`}>{label}</Link>)}</div>
+      {pager}<RecordTable key={key} title="Host Salaries" description="Current salary balances for database-linked agency hosts, highest first." rows={modules.hostSalaries} columns={[{key:"hostId",label:"Host ID",mono:true},{key:"host",label:"Host"},{key:"agency",label:"Agency"},{key:"type",label:"Host type"},{key:"salaryBalance",label:"Salary balance"}]}/></>;
   return null;
 }
 
@@ -211,19 +230,17 @@ function AgencyJoinRequests({ initialRequests }) {
   );
 }
 
-function AgencyApplications({ applications }) {
+function AgencyApplications({ applications, paging, pager }) {
+  // Search and status filtering run on the server; this holds one page of results.
   const [records, setRecords] = useState(applications);
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("ALL");
   const [selected, setSelected] = useState(null);
-  const normalized = query.trim().toLowerCase();
-  const filtered = records.filter((application) => {
-    const matchesStatus = status === "ALL" || application.status === status;
-    const haystack =
-      `${application.id} ${application.agencyName} ${application.email ?? ""} ${application.whatsapp} ${application.bdCode} ${application.country ?? ""} ${application.applicant.id} ${application.applicant.name} ${application.applicant.phone}`.toLowerCase();
-    return matchesStatus && (!normalized || haystack.includes(normalized));
-  });
-  const pending = records.filter(
+  const router = useRouter();
+  const tabHref = useTabHref();
+  const status = paging?.status ?? "ALL";
+  const setStatus = (value) => router.push(tabHref({ status: value === "ALL" ? null : value, page: null }));
+  const filtered = records;
+  const allCount = paging?.allCount ?? records.length;
+  const pending = paging?.pendingCount ?? records.filter(
     (application) => application.status === "PENDING",
   ).length;
   function reviewed(result) {
@@ -248,9 +265,9 @@ function AgencyApplications({ applications }) {
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-3">
         {[
-          ["Total applications", records.length],
+          ["Total applications", allCount],
           ["Pending review", pending],
-          ["Processed", records.length - pending],
+          ["Processed", allCount - pending],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -275,13 +292,6 @@ function AgencyApplications({ applications }) {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search agency, applicant, ID, phone…"
-              className="h-10 min-w-72 rounded-lg border border-[#d7e4e1] px-3 text-xs outline-none focus:border-[#2ca89c]"
-            />
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value)}
@@ -294,6 +304,7 @@ function AgencyApplications({ applications }) {
             </select>
           </div>
         </div>
+        <div className="px-5">{pager}</div>
         {filtered.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1300px] text-left text-xs">
@@ -389,7 +400,7 @@ function AgencyApplications({ applications }) {
         ) : (
           <div className="px-6 py-16 text-center">
             <p className="text-sm font-bold text-[#526b67]">
-              {records.length
+              {allCount
                 ? "No applications match the current filters."
                 : "No agency applications submitted yet."}
             </p>

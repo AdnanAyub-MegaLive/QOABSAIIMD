@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "./intent-link";
 import { usePortalAccess } from "./portal-access";
 import { canAccessPage } from "@/lib/portal-permissions";
 import { usePathname } from "next/navigation";

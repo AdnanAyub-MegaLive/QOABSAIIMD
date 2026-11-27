@@ -9,66 +9,124 @@ import FeatureSearch from "../components/feature-search";
 import AgencyTabs from "./agency-tabs";
 import PortalSidebar from "../components/portal-sidebar";
 import { prisma } from "../../lib/prisma";
+import { readPaging, splitPage } from "@/lib/portal-paging";
 
-export default async function AgenciesPage() {
+const TABS=["Agency Home","Work & Targets","Agency Tasks","Monthly Salary","Host Salaries","Agency Apply","Join Requests"];
+const STATUSES=["PENDING","APPROVED","REJECTED"];
+const ci=(q)=>({contains:q,mode:"insensitive"});
+const desc=(a,b)=>(b>a?1:b<a?-1:0);
+const userCard={select:{publicId:true,name:true,phone:true,profileImage:true}};
+
+function mapApplication(application){return{
+  id:application.publicId,agencyName:application.agencyName,email:application.email,whatsapp:application.whatsapp,bdCode:application.bdCode,country:application.country,status:application.status,
+  submittedAt:application.createdAt.toISOString(),updatedAt:application.updatedAt.toISOString(),reviewedAt:application.reviewedAt?.toISOString()??null,reviewNote:application.reviewNote,rejectionReason:application.rejectionReason,
+  reviewedBy:application.reviewedBy?{name:application.reviewedBy.name,email:application.reviewedBy.email}:application.reviewedByUser?{name:application.reviewedByUser.name,email:`BD · ${application.reviewedByUser.publicId}`}:null,
+  applicant:{id:application.user.publicId,name:application.user.name,phone:application.user.phone,profileImage:application.user.profileImage},
+  cnicFrontUrl:application.cnicFrontMime?`/api/agencies/applications/${application.publicId}/cnic/front`:null,
+  cnicBackUrl:application.cnicBackMime?`/api/agencies/applications/${application.publicId}/cnic/back`:null,
+};}
+
+/** Per-agency monthly settlement sums and host counts, for the given agency ids only. */
+async function agencyStats(ids,monthStart){
+  if(!ids.length) return {settlements:new Map(),hosts:new Map()};
+  const [settlements,userHosts,talentHosts]=await Promise.all([
+    prisma.giftSettlement.groupBy({by:["agencyId"],where:{agencyId:{in:ids},createdAt:{gte:monthStart}},_sum:{grossCoins:true,hostSalaryCoins:true,agencyCoins:true}}),
+    prisma.user.groupBy({by:["agencyId"],where:{agencyId:{in:ids},deletedAt:null},_count:{_all:true}}),
+    prisma.talent.groupBy({by:["agencyId"],where:{agencyId:{in:ids}},_count:{_all:true}}),
+  ]);
+  const hosts=new Map();
+  for(const row of [...userHosts,...talentHosts]) hosts.set(row.agencyId,(hosts.get(row.agencyId)??0)+row._count._all);
+  return {settlements:new Map(settlements.map((item)=>[item.agencyId,item._sum])),hosts};
+}
+function rankingRow(agency,stats){const gifts=stats.settlements.get(agency.id)?.grossCoins??0n;const target=agency.monthlyTargetCoins;const progress=target>0n?Number((gifts*10000n)/target)/100:0;return{id:agency.publicId,name:agency.name,status:agency.status,hosts:stats.hosts.get(agency.id)??0,gifts:gifts.toString(),target:target.toString(),progress};}
+const agencySelect={id:true,publicId:true,name:true,status:true,monthlyTargetCoins:true};
+
+async function loadOverview(monthStart){
+  const userHostWhere={agencyId:{not:null},deletedAt:null};
+  // Rankings: top 50 agencies by this month's gift coins (padded with newest agencies).
+  const [topSettlements,totalAgencies,activeAgencies,userHostCount,talentHostCount,recharge,monthly,pendingApplications,pendingJoinRequests,topTalents,topUserGifts]=await Promise.all([
+    prisma.giftSettlement.groupBy({by:["agencyId"],where:{agencyId:{not:null},createdAt:{gte:monthStart}},_sum:{grossCoins:true},orderBy:{_sum:{grossCoins:"desc"}},take:50}),
+    prisma.agency.count(),
+    prisma.agency.count({where:{status:"ACTIVE"}}),
+    prisma.user.count({where:userHostWhere}),
+    prisma.talent.count(),
+    prisma.user.aggregate({where:userHostWhere,_sum:{totalTopUp:true}}),
+    prisma.giftSettlement.aggregate({where:{agencyId:{not:null},createdAt:{gte:monthStart}},_sum:{grossCoins:true}}),
+    prisma.agencyApplication.count({where:{status:"PENDING"}}),
+    prisma.agencyJoinRequest.count({where:{status:"PENDING"}}),
+    prisma.talent.findMany({select:{publicId:true,displayName:true,hostSalaryCoinBalance:true,totalGiftsValue:true,agency:{select:{name:true,publicId:true}}},orderBy:[{totalGiftsValue:"desc"},{id:"asc"}],take:10}),
+    prisma.giftTransaction.groupBy({by:["recipientUserId"],where:{recipientUserId:{not:null},recipientUser:userHostWhere},_sum:{coinValue:true},orderBy:{_sum:{coinValue:"desc"}},take:10}),
+  ]);
+  const rankedIds=topSettlements.map((row)=>row.agencyId);
+  const [rankedAgencies,padding,giftUsers]=await Promise.all([
+    prisma.agency.findMany({where:{id:{in:rankedIds}},select:agencySelect}),
+    rankedIds.length<50?prisma.agency.findMany({where:{id:{notIn:rankedIds}},select:agencySelect,orderBy:[{createdAt:"desc"},{id:"desc"}],take:50-rankedIds.length}):[],
+    prisma.user.findMany({where:{...userHostWhere,id:{in:topUserGifts.map((row)=>row.recipientUserId)}},select:{id:true,publicId:true,name:true,hostSalaryCoinBalance:true,agency:{select:{name:true,publicId:true}}}}),
+  ]);
+  // Pad top hosts with highest-salary user hosts when few hosts have received gifts.
+  const fillers=giftUsers.length<10?await prisma.user.findMany({where:{...userHostWhere,id:{notIn:giftUsers.map((user)=>user.id)}},select:{id:true,publicId:true,name:true,hostSalaryCoinBalance:true,agency:{select:{name:true,publicId:true}}},orderBy:[{hostSalaryCoinBalance:"desc"},{id:"asc"}],take:10-giftUsers.length}):[];
+  const agencies=[...rankedAgencies,...padding];
+  const stats=await agencyStats(agencies.map((agency)=>agency.id),monthStart);
+  const rankings=agencies.map((agency)=>rankingRow(agency,stats)).sort((left,right)=>desc(BigInt(left.gifts),BigInt(right.gifts))).map((agency,index)=>({...agency,rank:index+1}));
+  const giftsByUser=new Map(topUserGifts.map((item)=>[item.recipientUserId,item._sum.coinValue??0n]));
+  const topHosts=[...[...giftUsers,...fillers].map((host)=>({id:host.publicId,name:host.name,agency:host.agency.name,agencyId:host.agency.publicId,salary:host.hostSalaryCoinBalance.toString(),gifts:(giftsByUser.get(host.id)??0n).toString(),kind:"User Host"})),...topTalents.map((host)=>({id:host.publicId,name:host.displayName,agency:host.agency.name,agencyId:host.agency.publicId,salary:host.hostSalaryCoinBalance.toString(),gifts:host.totalGiftsValue.toString(),kind:"Talent Host"}))].sort((left,right)=>desc(BigInt(left.gifts),BigInt(right.gifts))).slice(0,10).map((host,index)=>({...host,rank:index+1}));
+  return {rankings,topHosts,totalAgencies,activeAgencies,totalHosts:userHostCount+talentHostCount,totalRecharge:(recharge._sum.totalTopUp??0n).toString(),monthlyGifts:(monthly._sum.grossCoins??0n).toString(),pendingApplications,pendingJoinRequests};
+}
+
+export default async function AgenciesPage({ searchParams }) {
   const admin = await requirePagePermission("agencies.view");
   const session = await auth();
   if (!session?.user) redirect("/");
+  const params = (await searchParams) ?? {};
+  const paging = readPaging(params);
+  const tab = TABS.includes(params.tab) ? params.tab : TABS[0];
+  const { q, skip, take } = paging;
   const monthStart=calendarWindow('month').start;
-  const [records, joinRecords, agencyRecords, settlementTotals, rechargeTotals, userHosts, talentHosts, userGiftTotals]=await Promise.all([prisma.agencyApplication.findMany({
-    select:{
-      publicId:true,
-      agencyName:true,
-      email:true,
-      whatsapp:true,
-      bdCode:true,
-      country:true,
-      status:true,
-      createdAt:true,
-      updatedAt:true,
-      reviewedAt:true,
-      cnicFrontMime:true,
-      cnicBackMime:true,
-      reviewNote:true,
-      rejectionReason:true,
-      reviewedBy:{select:{name:true,email:true}},
-      reviewedByUser:{select:{name:true,publicId:true}},
-      user:{select:{publicId:true,name:true,phone:true,profileImage:true}},
-    },
-    orderBy:{createdAt:"desc"},
-    take:500,
-  }),prisma.agencyJoinRequest.findMany({select:{publicId:true,status:true,createdAt:true,updatedAt:true,reviewedAt:true,reviewNote:true,reviewedBy:{select:{name:true,email:true}},user:{select:{publicId:true,name:true,phone:true,profileImage:true}},agency:{select:{publicId:true,name:true,status:true}}},orderBy:{createdAt:"desc"},take:500}),prisma.agency.findMany({select:{id:true,publicId:true,name:true,status:true,monthlyTargetCoins:true,commissionCoinBalance:true,createdAt:true,_count:{select:{userHosts:true,talents:true}}},orderBy:{createdAt:"desc"}}),prisma.giftSettlement.groupBy({by:["agencyId"],where:{agencyId:{not:null},createdAt:{gte:monthStart}},_sum:{grossCoins:true,hostSalaryCoins:true,agencyCoins:true}}),prisma.user.groupBy({by:["agencyId"],where:{agencyId:{not:null},deletedAt:null},_sum:{totalTopUp:true}}),prisma.user.findMany({where:{agencyId:{not:null},deletedAt:null},select:{id:true,publicId:true,name:true,agencyId:true,hostSalaryCoinBalance:true,totalTopUp:true,agency:{select:{name:true,publicId:true}}},orderBy:{hostSalaryCoinBalance:"desc"}}),prisma.talent.findMany({select:{publicId:true,displayName:true,agencyId:true,hostSalaryCoinBalance:true,totalGiftsValue:true,agency:{select:{name:true,publicId:true}}},orderBy:{hostSalaryCoinBalance:"desc"}}),prisma.giftTransaction.groupBy({by:["recipientUserId"],where:{recipientUserId:{not:null}},_sum:{coinValue:true}})]);
-  const applications=records.map((application)=>({
-    id:application.publicId,
-    agencyName:application.agencyName,
-    email:application.email,
-    whatsapp:application.whatsapp,
-    bdCode:application.bdCode,
-    country:application.country,
-    status:application.status,
-    submittedAt:application.createdAt.toISOString(),
-    updatedAt:application.updatedAt.toISOString(),
-    reviewedAt:application.reviewedAt?.toISOString()??null,
-    reviewNote:application.reviewNote,
-    rejectionReason:application.rejectionReason,
-    reviewedBy:application.reviewedBy?{name:application.reviewedBy.name,email:application.reviewedBy.email}:application.reviewedByUser?{name:application.reviewedByUser.name,email:`BD · ${application.reviewedByUser.publicId}`}:null,
-    applicant:{
-      id:application.user.publicId,
-      name:application.user.name,
-      phone:application.user.phone,
-      profileImage:application.user.profileImage,
-    },
-    cnicFrontUrl:application.cnicFrontMime?`/api/agencies/applications/${application.publicId}/cnic/front`:null,
-    cnicBackUrl:application.cnicBackMime?`/api/agencies/applications/${application.publicId}/cnic/back`:null,
-  }));
-  const joinRequests=joinRecords.map((request)=>({id:request.publicId,status:request.status,submittedAt:request.createdAt.toISOString(),updatedAt:request.updatedAt.toISOString(),reviewedAt:request.reviewedAt?.toISOString()??null,reviewNote:request.reviewNote,reviewedBy:request.reviewedBy,applicant:{id:request.user.publicId,name:request.user.name,phone:request.user.phone,profileImage:request.user.profileImage},agency:{id:request.agency.publicId,name:request.agency.name,status:request.agency.status}}));
-  const settlementsByAgency=new Map(settlementTotals.map((item)=>[item.agencyId,item._sum]));
-  const rechargeByAgency=new Map(rechargeTotals.map((item)=>[item.agencyId,item._sum.totalTopUp??0n]));
-  const rankings=agencyRecords.map((agency)=>{const gifts=settlementsByAgency.get(agency.id)?.grossCoins??0n;const target=agency.monthlyTargetCoins;const progress=target>0n?Number((gifts*10000n)/target)/100:0;return{id:agency.publicId,name:agency.name,status:agency.status,hosts:new Set([...userHosts,...talentHosts].filter(host=>host.agencyId===agency.id).map(host=>host.publicId)).size,gifts:gifts.toString(),target:target.toString(),progress};}).sort((left,right)=>BigInt(right.gifts)>BigInt(left.gifts)?1:BigInt(right.gifts)<BigInt(left.gifts)?-1:0).map((agency,index)=>({...agency,rank:index+1}));
-  const giftsByUser=new Map(userGiftTotals.map((item)=>[item.recipientUserId,item._sum.coinValue??0n]));
-  const topHosts=[...userHosts.map((host)=>({id:host.publicId,name:host.name,agency:host.agency.name,agencyId:host.agency.publicId,salary:host.hostSalaryCoinBalance.toString(),gifts:(giftsByUser.get(host.id)??0n).toString(),kind:"User Host"})),...talentHosts.map((host)=>({id:host.publicId,name:host.displayName,agency:host.agency.name,agencyId:host.agency.publicId,salary:host.hostSalaryCoinBalance.toString(),gifts:host.totalGiftsValue.toString(),kind:"Talent Host"}))].sort((left,right)=>BigInt(right.gifts)>BigInt(left.gifts)?1:BigInt(right.gifts)<BigInt(left.gifts)?-1:0).slice(0,10).map((host,index)=>({...host,rank:index+1}));
-  const agencyModules={tasks:rankings.map((agency)=>({agencyId:agency.id,agency:agency.name,target:agency.target,achieved:agency.gifts,progress:`${agency.progress.toFixed(1)}%`,status:agency.target==="0"?"Not set":agency.progress>=100?"Achieved":"In progress"})),monthlySalaries:agencyRecords.map((agency)=>({agencyId:agency.publicId,agency:agency.name,hostSalary:(settlementsByAgency.get(agency.id)?.hostSalaryCoins??0n).toString(),agencyCommission:(settlementsByAgency.get(agency.id)?.agencyCoins??0n).toString(),status:agency.status})),hostSalaries:[...userHosts.map((host)=>({hostId:host.publicId,host:host.name,agency:host.agency.name,type:"User Host",salaryBalance:host.hostSalaryCoinBalance.toString()})),...talentHosts.map((host)=>({hostId:host.publicId,host:host.displayName,agency:host.agency.name,type:"Talent Host",salaryBalance:host.hostSalaryCoinBalance.toString()}))]};
-  const overview={rankings,topHosts,totalAgencies:agencyRecords.length,activeAgencies:agencyRecords.filter((agency)=>agency.status==="ACTIVE").length,totalHosts:new Set([...userHosts,...talentHosts].map(host=>host.publicId)).size,totalRecharge:[...rechargeByAgency.values()].reduce((sum,value)=>sum+value,0n).toString(),monthlyGifts:settlementTotals.reduce((sum,item)=>sum+(item._sum.grossCoins??0n),0n).toString(),pendingApplications:applications.filter((item)=>item.status==="PENDING").length,pendingJoinRequests:joinRequests.filter((item)=>item.status==="PENDING").length};
+  let overview=null, applications=[], joinRequests=[], modules={tasks:[],monthlySalaries:[],hostSalaries:[]}, pageInfo=null;
+  if(tab==="Agency Home"){
+    overview=await loadOverview(monthStart);
+  }else if(tab==="Agency Tasks"||tab==="Monthly Salary"){
+    const where=q?{OR:[{publicId:ci(q)},{name:ci(q)}]}:{};
+    const [rows,total]=await Promise.all([prisma.agency.findMany({where,select:agencySelect,orderBy:[{createdAt:"desc"},{id:"desc"}],skip,take:take+1}),prisma.agency.count({where})]);
+    const {items,hasNext}=splitPage(rows,take);
+    const stats=await agencyStats(items.map((agency)=>agency.id),monthStart);
+    modules.tasks=items.map((agency)=>{const row=rankingRow(agency,stats);return{agencyId:row.id,agency:row.name,target:row.target,achieved:row.gifts,progress:`${row.progress.toFixed(1)}%`,status:row.target==="0"?"Not set":row.progress>=100?"Achieved":"In progress"};});
+    modules.monthlySalaries=items.map((agency)=>({agencyId:agency.publicId,agency:agency.name,hostSalary:(stats.settlements.get(agency.id)?.hostSalaryCoins??0n).toString(),agencyCommission:(stats.settlements.get(agency.id)?.agencyCoins??0n).toString(),status:agency.status}));
+    pageInfo={page:paging.page,hasNext,total,label:"agencies",placeholder:"Search agency ID or name"};
+  }else if(tab==="Host Salaries"){
+    const kind=params.kind==="talent"?"talent":"user";
+    if(kind==="talent"){
+      const where=q?{OR:[{publicId:ci(q)},{displayName:ci(q)},{agency:{name:ci(q)}}]}:{};
+      const [rows,total]=await Promise.all([prisma.talent.findMany({where,select:{publicId:true,displayName:true,hostSalaryCoinBalance:true,agency:{select:{name:true}}},orderBy:[{hostSalaryCoinBalance:"desc"},{id:"asc"}],skip,take:take+1}),prisma.talent.count({where})]);
+      const {items,hasNext}=splitPage(rows,take);
+      modules.hostSalaries=items.map((host)=>({hostId:host.publicId,host:host.displayName,agency:host.agency.name,type:"Talent Host",salaryBalance:host.hostSalaryCoinBalance.toString()}));
+      pageInfo={page:paging.page,hasNext,total,label:"talent hosts",placeholder:"Search host ID, name or agency",kind};
+    }else{
+      const where={agencyId:{not:null},deletedAt:null,...(q?{OR:[{publicId:ci(q)},{name:ci(q)},{agency:{name:ci(q)}}]}:{})};
+      const [rows,total]=await Promise.all([prisma.user.findMany({where,select:{publicId:true,name:true,hostSalaryCoinBalance:true,agency:{select:{name:true}}},orderBy:[{hostSalaryCoinBalance:"desc"},{id:"asc"}],skip,take:take+1}),prisma.user.count({where})]);
+      const {items,hasNext}=splitPage(rows,take);
+      modules.hostSalaries=items.map((host)=>({hostId:host.publicId,host:host.name,agency:host.agency.name,type:"User Host",salaryBalance:host.hostSalaryCoinBalance.toString()}));
+      pageInfo={page:paging.page,hasNext,total,label:"user hosts",placeholder:"Search host ID, name or agency",kind};
+    }
+  }else if(tab==="Agency Apply"){
+    const status=STATUSES.includes(params.status)?params.status:"ALL";
+    const search=q?{OR:[{publicId:ci(q)},{agencyName:ci(q)},{email:ci(q)},{whatsapp:{contains:q}},{bdCode:ci(q)},{country:ci(q)},{user:{OR:[{publicId:ci(q)},{name:ci(q)},{phone:{contains:q}}]}}]}:{};
+    const where={...search,...(status==="ALL"?{}:{status})};
+    const [rows,total,allCount,pendingCount]=await Promise.all([prisma.agencyApplication.findMany({
+      where,
+      select:{publicId:true,agencyName:true,email:true,whatsapp:true,bdCode:true,country:true,status:true,createdAt:true,updatedAt:true,reviewedAt:true,cnicFrontMime:true,cnicBackMime:true,reviewNote:true,rejectionReason:true,reviewedBy:{select:{name:true,email:true}},reviewedByUser:{select:{name:true,publicId:true}},user:userCard},
+      orderBy:[{createdAt:"desc"},{id:"desc"}],skip,take:take+1,
+    }),prisma.agencyApplication.count({where}),prisma.agencyApplication.count(),prisma.agencyApplication.count({where:{status:"PENDING"}})]);
+    const {items,hasNext}=splitPage(rows,take);
+    applications=items.map(mapApplication);
+    pageInfo={page:paging.page,hasNext,total,label:"applications",placeholder:"Search agency, applicant, ID, phone…",status,allCount,pendingCount};
+  }else if(tab==="Join Requests"){
+    const where=q?{OR:[{publicId:ci(q)},{user:{OR:[{publicId:ci(q)},{name:ci(q)},{phone:{contains:q}}]}},{agency:{OR:[{publicId:ci(q)},{name:ci(q)}]}}]}:{};
+    const [rows,total]=await Promise.all([prisma.agencyJoinRequest.findMany({where,select:{publicId:true,status:true,createdAt:true,updatedAt:true,reviewedAt:true,reviewNote:true,reviewedBy:{select:{name:true,email:true}},user:userCard,agency:{select:{publicId:true,name:true,status:true}}},orderBy:[{createdAt:"desc"},{id:"desc"}],skip,take:take+1}),prisma.agencyJoinRequest.count({where})]);
+    const {items,hasNext}=splitPage(rows,take);
+    joinRequests=items.map((request)=>({id:request.publicId,status:request.status,submittedAt:request.createdAt.toISOString(),updatedAt:request.updatedAt.toISOString(),reviewedAt:request.reviewedAt?.toISOString()??null,reviewNote:request.reviewNote,reviewedBy:request.reviewedBy,applicant:{id:request.user.publicId,name:request.user.name,phone:request.user.phone,profileImage:request.user.profileImage},agency:{id:request.agency.publicId,name:request.agency.name,status:request.agency.status}}));
+    pageInfo={page:paging.page,hasNext,total,label:"join requests",placeholder:"Search applicant, agency or request ID"};
+  }
 
   return (
     <main className="portal-ui min-h-screen bg-[#f4f8f7] text-[#142c2a]">
@@ -108,7 +166,7 @@ export default async function AgenciesPage() {
             </p>
           </div>
           {hasPermission(admin, "agencies.create") && <CreateAgency />}
-          <AgencyTabs canManage={hasPermission(admin,"agencies.edit")} applications={applications} joinRequests={joinRequests} overview={overview} modules={agencyModules}/>
+          <AgencyTabs active={tab} canManage={hasPermission(admin,"agencies.edit")} applications={applications} joinRequests={joinRequests} overview={overview} modules={modules} paging={pageInfo}/>
         </div>
       </section>
     </main>

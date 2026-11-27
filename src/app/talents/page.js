@@ -9,31 +9,52 @@ import FeatureSearch from "../components/feature-search";
 import PortalSidebar from "../components/portal-sidebar";
 import { prisma } from "../../lib/prisma";
 import { reconcileExpiredBans } from "../../lib/ban-maintenance";
+import { readPaging, splitPage } from "@/lib/portal-paging";
+import ServerPager from "../components/server-pager";
 
-export default async function TalentsPage() {
+export default async function TalentsPage({ searchParams }) {
   const admin = await requirePagePermission("hosts.view");
   const session = await auth();
   if (!session?.user) redirect("/");
   await reconcileExpiredBans();
-  const [talents, devices, agencies, portalHosts, hostCandidates] = await Promise.all([
+  const paging = readPaging(await searchParams);
+  const q = paging.q;
+  const hostBaseWhere = { deletedAt: null, appRoles: { has: "HOST" } };
+  const hostWhere = q ? { ...hostBaseWhere, OR: [
+    { publicId: { contains: q, mode: "insensitive" } },
+    { name: { contains: q, mode: "insensitive" } },
+    { phone: { contains: q } },
+    { email: { contains: q, mode: "insensitive" } },
+  ] } : hostBaseWhere;
+  const talentWhere = q ? { OR: [
+    { publicId: { contains: q, mode: "insensitive" } },
+    { displayName: { contains: q, mode: "insensitive" } },
+  ] } : {};
+  // Legacy Talent records: one page, with bounded newest-first histories.
+  const [talents, devices, agencies, portalHostRows, hostCandidates, totalHosts, liveRooms, verifiedHosts, openPayouts] = await Promise.all([
     prisma.talent.findMany({
-      orderBy: { createdAt: "desc" },
+      where: talentWhere,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: paging.skip,
+      take: paging.take,
       include: {
-        verifications: { orderBy: { submittedAt: "desc" } },
+        verifications: { orderBy: { submittedAt: "desc" }, take: 20 },
         receivedGifts: {
-          include: { sender: true },
+          include: { sender: { select: { publicId: true, name: true } } },
           orderBy: { createdAt: "desc" },
+          take: 20,
         },
-        salaryHistory: { orderBy: { periodStart: "desc" } },
-        liveSessions: { orderBy: { startedAt: "desc" } },
-        performance: { orderBy: { period: "desc" } },
-        violations: { orderBy: { createdAt: "desc" } },
+        salaryHistory: { orderBy: { periodStart: "desc" }, take: 20 },
+        liveSessions: { orderBy: { startedAt: "desc" }, take: 20 },
+        performance: { orderBy: { period: "desc" }, take: 20 },
+        violations: { orderBy: { createdAt: "desc" }, take: 20 },
       },
     }),
     prisma.device.findMany({
-      where: { talentId: { not: null } },
-      include: { talent: true },
-      orderBy: { lastLoginAt: "desc" },
+      where: { talentId: { not: null }, talent: talentWhere },
+      include: { talent: { select: { publicId: true, displayName: true, status: true } } },
+      orderBy: [{ lastLoginAt: "desc" }, { id: "desc" }],
+      take: 200,
     }),
     prisma.agency.findMany({
       where: { status: "ACTIVE" },
@@ -41,8 +62,10 @@ export default async function TalentsPage() {
       orderBy: { name: "asc" },
     }),
     prisma.user.findMany({
-      where: { deletedAt: null, appRoles: { has: "HOST" } },
-      orderBy: { updatedAt: "desc" },
+      where: hostWhere,
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      skip: paging.skip,
+      take: paging.take + 1,
       select: {
         id: true,
         publicId: true,
@@ -54,11 +77,13 @@ export default async function TalentsPage() {
         status: true,
         isVerified: true,
         hostSalaryCoinBalance: true,
-        devices: { orderBy: { lastLoginAt: "desc" } },
-        receivedGifts: { include: { sender: true }, orderBy: { createdAt: "desc" }, take: 100 },
-        currencyRequests: { orderBy: { createdAt: "desc" }, take: 100 },
+        devices: { orderBy: { lastLoginAt: "desc" }, take: 20 },
+        receivedGifts: { include: { sender: { select: { publicId: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 20 },
+        currencyRequests: { orderBy: { createdAt: "desc" }, take: 20 },
         agency: { select: { publicId: true, name: true } },
         audioRooms: {
+          orderBy: { startedAt: "desc" },
+          take: 1,
           select: {
             roomId: true,
             title: true,
@@ -96,7 +121,12 @@ export default async function TalentsPage() {
         appRoles: true,
       },
     }),
+    prisma.user.count({ where: hostWhere }),
+    prisma.audioRoom.count({ where: { status: "LIVE", owner: hostWhere } }),
+    prisma.user.count({ where: { ...hostWhere, isVerified: true } }),
+    prisma.user.count({ where: { ...hostWhere, walletWithdrawals: { some: { status: { in: ["PENDING", "APPROVED"] } } } } }),
   ]);
+  const { items: portalHosts, hasNext } = splitPage(portalHostRows, paging.take);
   const portalGiftTotals = portalHosts.length
     ? await prisma.giftTransaction.groupBy({
         by: ["recipientUserId"],
@@ -308,7 +338,10 @@ export default async function TalentsPage() {
               </p>
             </div>
           </div>
+          <ServerPager page={paging.page} hasNext={hasNext} total={totalHosts} label="hosts" search placeholder="Search host ID, name, phone or email" />
           <PortalHostManagement
+            key={`${paging.page}:${q}`}
+            stats={{ totalHosts, liveRooms, verifiedHosts, openPayouts }}
             hosts={operationalHosts}
             candidates={promotableUsers}
             agencies={agencies.map((agency) => ({
@@ -320,10 +353,11 @@ export default async function TalentsPage() {
             <div className="mb-6">
               <h3 className="text-lg font-bold">Linked host records</h3>
               <p className="mt-1 text-sm text-[#71847f]">
-                Current host account records and retained historical Talent records. Gifts and currency requests show the latest 100 per account.
+                Current host account records and retained historical Talent records. Shows the hosts on this page; devices, gifts and currency requests show the latest 20 per account.
               </p>
             </div>
             <TalentTabs
+              key={`${paging.page}:${q}`}
               initialTalents={linkedTalentData}
               devices={linkedDevices}
               modules={talentModules}

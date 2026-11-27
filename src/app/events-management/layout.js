@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "../components/intent-link";
 import { redirect } from "next/navigation";
 import { requireEventUser } from "../../lib/events/auth.js";
 import EventsNavigation from "./_components/events-navigation.js";

@@ -8,6 +8,7 @@ import GiftHistoryTable from "./gift-history-table";
 import BlockedUsersTable from "./blocked-users-table";
 import RecordTable from "../components/record-table";
 import AudioRoomTable from "./audio-room-table";
+import ServerPager from "../components/server-pager";
 
 const tabs = [
   "User List",
@@ -26,28 +27,28 @@ export default function ManagementTabs({
   audioRooms,
   specialIdCatalog,
   canAdjustCoins = false,
+  paging = null,
 }) {
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(
     tabs.includes(requestedTab) ? requestedTab : tabs[0],
   );
-  const activeUsers = users.filter((user) => user.status === "Active").length;
-  const vipUsers = users.filter((user) => user.vipLevel > 0).length;
+  // `users` holds this page plus banned accounts (for the ban tab); lists show the page.
+  const pageIds = paging ? new Set(paging.pageUserIds) : null;
+  const pageUsers = pageIds ? users.filter((user) => pageIds.has(user.id)) : users;
+  const totalUsers = paging?.totalUsers ?? users.length;
+  const activeUsers = paging?.activeUsers ?? users.filter((user) => user.status === "Active").length;
+  const vipUsers = paging?.vipUsers ?? users.filter((user) => user.vipLevel > 0).length;
   const stats = [
-    ["Total users", users.length, "Stored accounts"],
-    [
-      "Active users",
-      activeUsers,
-      `${users.length ? Math.round((activeUsers / users.length) * 100) : 0}% of users`,
-    ],
-    ["Device records", devices.length, "Application login devices"],
-    [
-      "VIP users",
-      vipUsers,
-      `${users.length ? Math.round((vipUsers / users.length) * 100) : 0}% of users`,
-    ],
+    ["Total users", totalUsers.toLocaleString(), "Stored accounts"],
+    ["Active users", activeUsers.toLocaleString(), `${totalUsers ? Math.round((activeUsers / totalUsers) * 100) : 0}% of users`],
+    ["Device records", (paging?.deviceTotal ?? devices.length).toLocaleString(), "Application login devices"],
+    ["VIP users", vipUsers.toLocaleString(), `${totalUsers ? Math.round((vipUsers / totalUsers) * 100) : 0}% of users`],
   ];
+  // Tables keep local state from their first data; remount them for each page.
+  const pageKey = paging ? `${paging.page}:${paging.pageUserIds.join(",")}` : "all";
+  const pager = paging ? <ServerPager page={paging.page} hasNext={paging.hasNext} total={paging.totalUsers} label="users" search /> : null;
   return (
     <>
       <div
@@ -86,14 +87,16 @@ export default function ManagementTabs({
                 </div>
               ))}
             </div>
+            {pager}
             <UsersTable
+              key={pageKey}
               canAdjustCoins={canAdjustCoins}
-              initialData={users}
+              initialData={pageUsers}
               specialIdCatalog={specialIdCatalog}
             />
           </>
         ) : activeTab === "Gift Sending History" ? (
-          <GiftHistoryTable initialData={users} />
+          <>{pager}<GiftHistoryTable key={pageKey} initialData={pageUsers} /></>
         ) : activeTab === "Audio Room Records" ? (
           <AudioRoomTable initialRooms={audioRooms} />
         ) : activeTab === "Device Information" ? (

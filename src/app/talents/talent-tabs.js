@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "../components/intent-link";
 import { useSearchParams } from "next/navigation";
 import DeviceInformationTable from "../components/device-information-table";
 import RecordTable from "../components/record-table";

@@ -6,7 +6,7 @@ import { assignHostToAgency, updateProfitSplit } from "./actions";
 
 const input = "h-11 w-full rounded-lg border border-[#cededb] bg-white px-3 text-sm outline-none focus:border-[#16877d]";
 
-export default function RulesManager({ rule, agencies, hosts }) {
+export default function RulesManager({ rule, agencies, hosts, query = "", limit = 100 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
@@ -70,7 +70,12 @@ export default function RulesManager({ rule, agencies, hosts }) {
         <p className="text-[10px] font-bold tracking-widest text-[#16877d] uppercase">Host eligibility</p>
         <h3 className="mt-1 text-lg font-bold">Agency membership</h3>
         <p className="mt-2 text-xs leading-5 text-[#71847f]">Assign or move a host. A single agency relation guarantees that one host cannot belong to multiple agencies.</p>
-        <label className="mt-6 block text-xs font-bold">User or host
+        <div className="mt-6 flex gap-2" role="search">
+          <input form="membership-search" name="q" type="search" defaultValue={query} maxLength={100} aria-label="Search accounts and agencies" placeholder="Search account or agency by ID or name" className={input}/>
+          <button form="membership-search" className="portal-button">Search</button>
+        </div>
+        <p className="mt-1 text-[10px] text-[#71847f]">Lists show up to {limit} matches each{query ? ` for “${query}”` : ""}; search to narrow them.</p>
+        <label className="mt-4 block text-xs font-bold">User or host
           <select name="subject" required defaultValue="" className={`${input} mt-2`}><option value="" disabled>Select an account</option>{hosts.map((host)=><option key={`${host.kind}:${host.id}`} value={`${host.kind}:${host.id}`}>{host.name} · {host.id} · {host.agencyName ?? "No agency"}</option>)}</select>
         </label>
         <label className="mt-4 block text-xs font-bold">Agency
@@ -81,6 +86,7 @@ export default function RulesManager({ rule, agencies, hosts }) {
         </label>
         <button disabled={pending || !agencies.length} className="mt-5 w-full rounded-lg bg-[#087f74] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">Assign to agency</button>
       </form>
+      <form id="membership-search" method="get" action="/platform-rules" hidden><input type="hidden" name="tab" value="settlement"/></form>
       {(message || error) && <p className={`xl:col-span-2 rounded-xl px-4 py-3 text-xs font-semibold ${error ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>{error || message}</p>}
     </div>
   );

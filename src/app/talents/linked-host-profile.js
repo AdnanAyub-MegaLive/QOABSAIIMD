@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma";
 import PortalSidebar from "../components/portal-sidebar";
 export default async function LinkedHostProfile({ user, canViewFinance, searchParams }) {
   const [gifts, devices, payouts, rooms] = await Promise.all([
-    prisma.giftTransaction.findMany({where:{recipientUserId:user.id},include:{sender:{select:{publicId:true,name:true}}},orderBy:{createdAt:"desc"},take:100}),
-    prisma.device.findMany({where:{userId:user.id},orderBy:{lastLoginAt:"desc"}}),
+    prisma.giftTransaction.findMany({where:{recipientUserId:user.id},include:{sender:{select:{publicId:true,name:true}}},orderBy:[{createdAt:"desc"},{id:"desc"}],take:100}),
+    prisma.device.findMany({where:{userId:user.id},orderBy:[{lastLoginAt:"desc"},{id:"desc"}],take:100}),
     prisma.currencyRequest.findMany({where:{userId:user.id},orderBy:{createdAt:"desc"},take:100}),
-    prisma.audioRoom.findMany({where:{ownerId:user.id},select:{roomId:true,title:true,status:true,participantCount:true}}),
+    prisma.audioRoom.findMany({where:{ownerId:user.id},orderBy:[{startedAt:"desc"},{roomId:"desc"}],take:100,select:{roomId:true,title:true,status:true,participantCount:true}}),
   ]);
   const groups = [
     ["Gifts received",gifts.map(g=>[g.id,`${g.giftName} × ${g.quantity}`,`${g.sender.name} · ${g.sender.publicId}`,`${g.coinValue.toLocaleString()} Coins · ${g.createdAt.toLocaleString(undefined, { timeZone: 'Asia/Bangkok' })}`])],

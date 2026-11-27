@@ -3,9 +3,13 @@ import { hasPermission } from "@/lib/portal-permissions";
 import PortalSidebar from "../components/portal-sidebar";
 import VipManager from "./vip-manager";
 import { loadVipIdData } from "./id-data";
+import { readPaging } from "@/lib/portal-paging";
 export default async function Page({searchParams}){
   const admin=await requirePagePermission("vip.view");
-  const {tab}=await searchParams;
-  const idData=hasPermission(admin,"users.view")?await loadVipIdData():null;
+  const params=(await searchParams)??{};
+  const {tab}=params;
+  const paging=readPaging(params);
+  const loaded=hasPermission(admin,"users.view")?await loadVipIdData(paging):null;
+  const idData=loaded?{...loaded,paging:{...loaded.paging,page:paging.page}}:null;
   return <main className="portal-ui min-h-screen bg-[#f4f8f7] text-[#142c2a]"><PortalSidebar/><section id="portal-content" tabIndex={-1} className="lg:pl-64"><div className="mx-auto max-w-7xl p-6 md:p-10"><VipManager canDelete={hasPermission(admin,"vip.delete")} canCreate={hasPermission(admin,"vip.create")} canGrant={hasPermission(admin,"vip.grant")} canRevoke={hasPermission(admin,"vip.revoke")} initialTab={tab} idData={idData} canManageIds={hasPermission(admin,"users.specialIds")} canManage={hasPermission(admin,"vip.edit")} canUpload={hasPermission(admin,"uploads.create")}/></div></section></main>;
 }
